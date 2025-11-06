@@ -1,0 +1,512 @@
+[language_features=NONE{{|,+PIPES}}{{|,+STATEMENT_WITH_PIPE_OPERATORS}}]
+{{commit|show tables}}
+|> WHERE true
+--
+ALTERNATION GROUPS:
+    commit
+    ,+STATEMENT_WITH_PIPE_OPERATORS,commit
+    ,+PIPES,,commit
+    ,+PIPES,,+STATEMENT_WITH_PIPE_OPERATORS,commit
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> WHERE true
+^
+--
+ALTERNATION GROUPS:
+    show tables
+    ,+PIPES,,show tables
+--
+ERROR: Pipe operators are not supported on this statement [at 2:1]
+|> WHERE true
+^
+--
+ALTERNATION GROUPS:
+    ,+STATEMENT_WITH_PIPE_OPERATORS,show tables
+    ,+PIPES,,+STATEMENT_WITH_PIPE_OPERATORS,show tables
+--
+StatementWithPipeOperators [0-25] [show tables |> WHERE true]
+  ShowStatement [0-11] [show tables]
+    Identifier(tables) [5-11] [tables]
+  SubpipelineStatement [12-25] [|> WHERE true]
+    Subpipeline [12-25] [|> WHERE true]
+      PipeWhere [12-25] [|> WHERE true]
+        WhereClause [15-25] [WHERE true]
+          BooleanLiteral(true) [21-25] [true]
+--
+SHOW tables
+|> WHERE
+     true
+==
+
+[default language_features=NONE,+PIPES,+RUN_STATEMENT,+STATEMENT_WITH_PIPE_OPERATORS]
+
+show tables
+|> WHERE true
+|> LIMIT 10
+--
+StatementWithPipeOperators [0-37] [show tables...> LIMIT 10]
+  ShowStatement [0-11] [show tables]
+    Identifier(tables) [5-11] [tables]
+  SubpipelineStatement [12-37] [|> WHERE true |> LIMIT 10]
+    Subpipeline [12-37] [|> WHERE true |> LIMIT 10]
+      PipeWhere [12-25] [|> WHERE true]
+        WhereClause [15-25] [WHERE true]
+          BooleanLiteral(true) [21-25] [true]
+      PipeLimitOffset [26-37] [|> LIMIT 10]
+        LimitOffset [29-37] [LIMIT 10]
+          Limit [29-37] [LIMIT 10]
+            IntLiteral(10) [35-37] [10]
+--
+SHOW tables
+|> WHERE
+     true
+|> LIMIT 10
+==
+
+describe abc
+|> AGGREGATE COUNT(*)
+|> WHERE true
+--
+StatementWithPipeOperators [0-48] [describe abc...WHERE true]
+  DescribeStatement [0-12] [describe abc]
+    PathExpression [9-12] [abc]
+      Identifier(abc) [9-12] [abc]
+  SubpipelineStatement [13-48] [|> AGGREGATE...WHERE true]
+    Subpipeline [13-48] [|> AGGREGATE...WHERE true]
+      PipeAggregate [13-34] [|> AGGREGATE COUNT(*)]
+        Select [16-34] [AGGREGATE COUNT(*)]
+          SelectList [26-34] [COUNT(*)]
+            SelectColumn [26-34] [COUNT(*)]
+              FunctionCall [26-34] [COUNT(*)]
+                PathExpression [26-31] [COUNT]
+                  Identifier(COUNT) [26-31] [COUNT]
+                Star(*) [32-33] [*]
+      PipeWhere [35-48] [|> WHERE true]
+        WhereClause [38-48] [WHERE true]
+          BooleanLiteral(true) [44-48] [true]
+--
+DESCRIBE abc
+|> AGGREGATE
+     COUNT(*)
+|> WHERE
+     true
+==
+
+# RUN might produce a table.
+RUN "abc.sql"
+|> SELECT x
+--
+StatementWithPipeOperators [0-25] [RUN "abc.sql" |> SELECT x]
+  RunStatement [0-13] [RUN "abc.sql"]
+    StringLiteral [4-13] ["abc.sql"]
+      StringLiteralComponent("abc.sql") [4-13] ["abc.sql"]
+  SubpipelineStatement [14-25] [|> SELECT x]
+    Subpipeline [14-25] [|> SELECT x]
+      PipeSelect [14-25] [|> SELECT x]
+        Select [17-25] [SELECT x]
+          SelectList [24-25] [x]
+            SelectColumn [24-25] [x]
+              PathExpression [24-25] [x]
+                Identifier(x) [24-25] [x]
+--
+RUN "abc.sql"()
+|> SELECT
+     x
+==
+
+# CALL might produce a table.
+CALL proc(123)
+|> SELECT x
+--
+StatementWithPipeOperators [0-26] [CALL proc(123) |> SELECT x]
+  CallStatement [0-14] [CALL proc(123)]
+    PathExpression [5-9] [proc]
+      Identifier(proc) [5-9] [proc]
+    TVFArgument [10-13] [123]
+      IntLiteral(123) [10-13] [123]
+  SubpipelineStatement [15-26] [|> SELECT x]
+    Subpipeline [15-26] [|> SELECT x]
+      PipeSelect [15-26] [|> SELECT x]
+        Select [18-26] [SELECT x]
+          SelectList [25-26] [x]
+            SelectColumn [25-26] [x]
+              PathExpression [25-26] [x]
+                Identifier(x) [25-26] [x]
+--
+CALL proc(123)
+|> SELECT
+     x
+==
+
+EXECUTE IMMEDIATE "select 1"
+|> WHERE true
+--
+StatementWithPipeOperators [0-42] [EXECUTE IMMEDIATE...WHERE true]
+  ExecuteImmediateStatement [0-28] [EXECUTE IMMEDIATE "select 1"]
+    StringLiteral [18-28] ["select 1"]
+      StringLiteralComponent("select 1") [18-28] ["select 1"]
+  SubpipelineStatement [29-42] [|> WHERE true]
+    Subpipeline [29-42] [|> WHERE true]
+      PipeWhere [29-42] [|> WHERE true]
+        WhereClause [32-42] [WHERE true]
+          BooleanLiteral(true) [38-42] [true]
+--
+EXECUTE IMMEDIATE "select 1"
+|> WHERE
+     true
+==
+
+# Statements can't be parenthesized by default.
+(
+DESCRIBE abc
+)
+|> WHERE true
+--
+ERROR: Syntax error: Unexpected keyword DESCRIBE [at 2:1]
+DESCRIBE abc
+^
+==
+
+# HintedStatement composes outside StatementWithPipeOperators.
+@{hint=1}
+DESCRIBE abc
+|> WHERE true
+--
+HintedStatement [0-36] [@{hint=1}...WHERE true]
+  Hint [0-9] [@{hint=1}]
+    HintEntry [2-8] [hint=1]
+      Identifier(hint) [2-6] [hint]
+      IntLiteral(1) [7-8] [1]
+  StatementWithPipeOperators [10-36] [DESCRIBE abc |> WHERE true]
+    DescribeStatement [10-22] [DESCRIBE abc]
+      PathExpression [19-22] [abc]
+        Identifier(abc) [19-22] [abc]
+    SubpipelineStatement [23-36] [|> WHERE true]
+      Subpipeline [23-36] [|> WHERE true]
+        PipeWhere [23-36] [|> WHERE true]
+          WhereClause [26-36] [WHERE true]
+            BooleanLiteral(true) [32-36] [true]
+--
+@{ hint = 1 } DESCRIBE abc
+|> WHERE
+     true
+==
+
+# Hints before the subpipeline suffix aren't allowed.
+DESCRIBE abc
+@{ hint = 1 }
+|> WHERE true
+--
+ERROR: Syntax error: Expected end of input but got "@" [at 2:1]
+@{ hint = 1 }
+^
+==
+
+# EXPLAIN around a statement with pipe operators.
+# Pipe suffixes attach to the inner statement.
+# We can't get the output of EXPLAIN into the pipe.
+EXPLAIN
+DESCRIBE abc
+|> WHERE true
+--
+ExplainStatement [0-34] [EXPLAIN DESCRIBE...WHERE true]
+  StatementWithPipeOperators [8-34] [DESCRIBE abc |> WHERE true]
+    DescribeStatement [8-20] [DESCRIBE abc]
+      PathExpression [17-20] [abc]
+        Identifier(abc) [17-20] [abc]
+    SubpipelineStatement [21-34] [|> WHERE true]
+      Subpipeline [21-34] [|> WHERE true]
+        PipeWhere [21-34] [|> WHERE true]
+          WhereClause [24-34] [WHERE true]
+            BooleanLiteral(true) [30-34] [true]
+--
+EXPLAIN DESCRIBE abc
+|> WHERE
+     true
+==
+
+# This might make sense to pipe EXPLAIN output, but it isn't supported.
+EXPLAIN
+(
+  DESCRIBE abc
+  |> WHERE true
+)
+|> WHERE false
+--
+ERROR: Syntax error: Unexpected keyword DESCRIBE [at 3:3]
+  DESCRIBE abc
+  ^
+==
+
+# Hints with EXPLAIN with pipes.
+@{outer_hint=1}
+EXPLAIN
+@{inner_hint=1}
+DESCRIBE abc
+|> WHERE true
+--
+HintedStatement [0-66] [@{outer_hint...WHERE true]
+  Hint [0-15] [@{outer_hint=1}]
+    HintEntry [2-14] [outer_hint=1]
+      Identifier(outer_hint) [2-12] [outer_hint]
+      IntLiteral(1) [13-14] [1]
+  ExplainStatement [16-66] [EXPLAIN @{...WHERE true]
+    HintedStatement [24-66] [@{inner_hint...WHERE true]
+      Hint [24-39] [@{inner_hint=1}]
+        HintEntry [26-38] [inner_hint=1]
+          Identifier(inner_hint) [26-36] [inner_hint]
+          IntLiteral(1) [37-38] [1]
+      StatementWithPipeOperators [40-66] [DESCRIBE abc |> WHERE true]
+        DescribeStatement [40-52] [DESCRIBE abc]
+          PathExpression [49-52] [abc]
+            Identifier(abc) [49-52] [abc]
+        SubpipelineStatement [53-66] [|> WHERE true]
+          Subpipeline [53-66] [|> WHERE true]
+            PipeWhere [53-66] [|> WHERE true]
+              WhereClause [56-66] [WHERE true]
+                BooleanLiteral(true) [62-66] [true]
+--
+@{ outer_hint = 1 } EXPLAIN @{ inner_hint = 1 } DESCRIBE abc
+|> WHERE
+     true
+==
+
+DESCRIBE abc
+|>
+--
+ERROR: Syntax error: Expected keyword JOIN but got end of statement [at 2:3]
+|>
+  ^
+==
+
+DESCRIBE abc
+|> bad_pipe_operator
+--
+ERROR: Syntax error: Expected keyword JOIN but got identifier "bad_pipe_operator" [at 2:4]
+|> bad_pipe_operator
+   ^
+==
+
+DESCRIBE abc
+|> SELECT x y z
+--
+ERROR: Syntax error: Expected end of input but got identifier "z" [at 2:15]
+|> SELECT x y z
+              ^
+==
+
+# DML statements are excluded.
+DELETE FROM t
+|> SELECT x
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> SELECT x
+^
+==
+
+# DML statements with THEN RETURN should allow processing the output table
+# with pipes, but that needs to be handled in the DML statement parsing.
+DELETE FROM t
+THEN RETURN WITH ACTION
+|> SELECT x
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:1]
+|> SELECT x
+^
+==
+
+INSERT INTO t VALUES (1)
+|> SELECT x
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> SELECT x
+^
+==
+
+INSERT INTO t VALUES (1)
+THEN RETURN WITH ACTION
+|> SELECT x
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:1]
+|> SELECT x
+^
+==
+
+UPDATE t SET x=1
+|> SELECT x
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> SELECT x
+^
+==
+
+UPDATE t SET x=1
+THEN RETURN WITH ACTION
+|> SELECT x
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:1]
+|> SELECT x
+^
+==
+
+# After a query, chains of |> INSERT parse as pipe operators.
+FROM t
+|> INSERT INTO t
+   THEN RETURN WITH ACTION x
+|> INSERT INTO t2
+   THEN RETURN WITH ACTION x
+|> SELECT x
+--
+QueryStatement [0-111] [FROM t |>...> SELECT x]
+  Query [0-111] [FROM t |>...> SELECT x]
+    FromQuery [0-6] [FROM t]
+      FromClause [0-6] [FROM t]
+        TablePathExpression [5-6] [t]
+          PathExpression [5-6] [t]
+            Identifier(t) [5-6] [t]
+    PipeInsert [7-52] [|> INSERT...WITH ACTION x]
+      InsertStatement [10-52] [INSERT INTO...WITH ACTION x]
+        PathExpression [22-23] [t]
+          Identifier(t) [22-23] [t]
+        ReturningClause [27-52] [THEN RETURN WITH ACTION x]
+          SelectList [51-52] [x]
+            SelectColumn [51-52] [x]
+              PathExpression [51-52] [x]
+                Identifier(x) [51-52] [x]
+          Alias [27-52] [THEN RETURN WITH ACTION x]
+            Identifier(ACTION) [44-50] [ACTION]
+    PipeInsert [53-99] [|> INSERT...WITH ACTION x]
+      InsertStatement [56-99] [INSERT INTO...WITH ACTION x]
+        PathExpression [68-70] [t2]
+          Identifier(t2) [68-70] [t2]
+        ReturningClause [74-99] [THEN RETURN WITH ACTION x]
+          SelectList [98-99] [x]
+            SelectColumn [98-99] [x]
+              PathExpression [98-99] [x]
+                Identifier(x) [98-99] [x]
+          Alias [74-99] [THEN RETURN WITH ACTION x]
+            Identifier(ACTION) [91-97] [ACTION]
+    PipeSelect [100-111] [|> SELECT x]
+      Select [103-111] [SELECT x]
+        SelectList [110-111] [x]
+          SelectColumn [110-111] [x]
+            PathExpression [110-111] [x]
+              Identifier(x) [110-111] [x]
+--
+FROM
+  t
+|> INSERT INTO t
+   THEN RETURN WITH ACTION AS ACTION
+     x
+|> INSERT INTO t2
+   THEN RETURN WITH ACTION AS ACTION
+     x
+|> SELECT
+     x
+==
+
+# After an INSERT, |> INSERT doesn't work yet.
+INSERT INTO t1 VALUES (1)
+THEN RETURN WITH ACTION
+|> INSERT INTO t2
+   THEN RETURN WITH ACTION x
+|> SELECT x
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:1]
+|> INSERT INTO t2
+^
+==
+
+# The first |> parses as part of the query on the INSERT.
+# The second |> is a statement suffix and isn't supported on DML yet.
+INSERT INTO t1
+SELECT * FROM t2
+|> WHERE true
+THEN RETURN x
+|> WHERE false
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 5:1]
+|> WHERE false
+^
+==
+
+# BEGIN is an excluded statement.
+BEGIN
+|> WHERE true
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> WHERE true
+^
+==
+
+# Even when the inner statement doesn't parse the pipe operators,
+# EXPLAIN won't parse them either.
+EXPLAIN
+BEGIN
+|> WHERE TRUE
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 3:1]
+|> WHERE TRUE
+^
+==
+
+MODULE abc
+|> WHERE true
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> WHERE true
+^
+==
+
+IMPORT MODULE abc
+|> WHERE true
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 2:1]
+|> WHERE true
+^
+==
+
+# Pipe operators after a GQL query.
+# This should be possible but is currently excluded.
+GRAPH aml
+MATCH (n:Person)
+RETURN n
+|> WHERE true
+|> EXTEND n+1
+--
+ERROR: Syntax error: Expected end of input but got "|>" [at 4:1]
+|> WHERE true
+^
+==
+
+# DML statements should support pipe suffixes since they return a table
+# when THEN RETURN is used.
+# The parser currently does not support these.
+INSERT INTO KeyValue VALUES (1, 'x')
+THEN RETURN WITH ACTION
+|> LIMIT 1
+--
+ERROR: Syntax error: Unexpected "|>" [at 3:1]
+|> LIMIT 1
+^
+==
+
+DELETE FROM KeyValue
+WHERE true
+THEN RETURN WITH ACTION
+|> LIMIT 1
+--
+ERROR: Syntax error: Unexpected "|>" [at 4:1]
+|> LIMIT 1
+^
+==
+
+UPDATE KeyValue
+SET key=key+1
+WHERE true
+THEN RETURN WITH ACTION
+|> LIMIT 1
+--
+ERROR: Syntax error: Unexpected "|>" [at 5:1]
+|> LIMIT 1
+^

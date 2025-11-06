@@ -29,6 +29,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -684,6 +685,10 @@ struct SkipNextStatementTestCase {
   std::string test_case;
   std::vector<std::string> stmts;
   bool expect_to_fail = false;
+  bool expect_at_eoi = true;
+  // Expected byte position after SkipNextStatement. If -1, defaults to
+  // sql.size() if expect_at_eoi is true, or stmts[0].size() otherwise.
+  int expected_byte_position = -1;
 };
 
 class SkipNextStatementTest
@@ -700,12 +705,14 @@ TEST_P(SkipNextStatementTest, SingleValidStatement) {
                 StatusIs(absl::StatusCode::kInvalidArgument));
   } else {
     ZETASQL_ASSERT_OK(SkipNextStatement(&resume, &at_eoi));
-
-    const bool expected_at_eoi = GetParam().stmts.size() == 1;
-    EXPECT_EQ(at_eoi, expected_at_eoi) << GetParam().test_case;
-    EXPECT_EQ(resume.byte_position(),
-              expected_at_eoi ? sql.size() : GetParam().stmts[0].size())
-        << GetParam().test_case;
+    EXPECT_EQ(at_eoi, GetParam().expect_at_eoi) << GetParam().test_case;
+    int expected_pos = GetParam().expected_byte_position;
+    if (expected_pos == -1) {
+      expected_pos = GetParam().expect_at_eoi
+                         ? static_cast<int>(sql.size())
+                         : static_cast<int>(GetParam().stmts[0].size());
+    }
+    EXPECT_EQ(resume.byte_position(), expected_pos) << GetParam().test_case;
   }
 }
 
@@ -723,10 +730,14 @@ INSTANTIATE_TEST_SUITE_P(
         SkipNextStatementTestCase{"single_statement_with_pound_comment",
                                   {"SELECT 1 # ####"}},
         SkipNextStatementTestCase{"multiple_valid_statements",
-                                  {"SELECT 1, 2, 34;", " /*hello*/ SELECT 2;"}},
+                                  {"SELECT 1, 2, 34;", " /*hello*/ SELECT 2;"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{
             "multiple_valid_statements_with_inner_comment",
-            {"SELECT /* ? */1;", " SET @a = 2;"}},
+            {"SELECT /* ? */1;", " SET @a = 2;"},
+            /*expect_to_fail=*/false,
+            /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{
             "single_invalid_tokenizable_statement_with_semicolon",
             {"SELECT FROM ??;"}},
@@ -735,19 +746,33 @@ INSTANTIATE_TEST_SUITE_P(
             {"alkdjlas1!!!asf"}},
         SkipNextStatementTestCase{
             "single_invalid_tokenizable_statement_with_comment_at_end",
-            {"123456789012; #"}},
+            {"123456789012; #"},
+            /*expect_to_fail=*/false,
+            /*expect_at_eoi=*/true},
         SkipNextStatementTestCase{"first_statement_invalid",
-                                  {"129381092380198;", " SHOW TABLES"}},
+                                  {"129381092380198;", " SHOW TABLES"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"second_statement_invalid",
-                                  {"SELECT 1, 2, 34;", " 371983792173912831;"}},
+                                  {"SELECT 1, 2, 34;", " 371983792173912831;"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"first_statement_has_macro_call",
-                                  {"SELECT $FOO(12);", " HELLO WORLD"}},
+                                  {"SELECT $FOO(12);", " HELLO WORLD"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"valid_with_internal_semicolons",
-                                  {"SELECT ';' /*;*/;", " SELECT 1, 2, 3;"}},
+                                  {"SELECT ';' /*;*/;", " SELECT 1, 2, 3;"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"invalid_with_internal_semicolons",
-                                  {"HELLO OUT THERE!;", ";"}},
+                                  {"HELLO OUT THERE!;", ";"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"semicolons_inside_comment",
-                                  {"/*;;;;;;;;;;;;*/;", " ?"}},
+                                  {"/*;;;;;;;;;;;;*/;", " ?"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false},
         SkipNextStatementTestCase{"unclosed_quote",
                                   {"SELECT '"},
                                   /*expect_to_fail=*/true},
@@ -756,7 +781,12 @@ INSTANTIATE_TEST_SUITE_P(
                                   /*expect_to_fail=*/true},
         SkipNextStatementTestCase{"invalid_character",
                                   {"SELECT 🍝"},
-                                  /*expect_to_fail=*/true}));
+                                  /*expect_to_fail=*/true},
+        SkipNextStatementTestCase{"procedural_statement_with_semicolon_inside",
+                                  {"BEGIN SELECT 1; END;"},
+                                  /*expect_to_fail=*/false,
+                                  /*expect_at_eoi=*/false,
+                                  /*expected_byte_position=*/15}));
 
 static void RunFileBasedTest(
     absl::string_view test_case_input,
@@ -786,10 +816,36 @@ static void RunFileBasedTest(
 TEST(ListSelectColumnExpressionsFromFinalSelectClauseFileBased, FileBasedTest) {
   const std::string filename = zetasql_base::JoinPath(
       ::testing::SrcDir(),
-      "com_google_zetasql/zetasql/public/list_select_expressions.test");
+      "_main/zetasql/public/list_select_expressions.test");
 
   EXPECT_TRUE(file_based_test_driver::RunTestCasesFromFiles(filename,
                                                             &RunFileBasedTest));
+}
+
+TEST(ParseHelpersTest, ListReferencedFunctions) {
+  const absl::string_view sql =
+      "SELECT "
+      "  foo(t.a), "
+      "  bar.baz(1, t.b), "
+      "  FN.QUX(2, t.c), "
+      "  FLATTEN(x), "
+      "  Z.FLATTEN(x), "
+      "  FILTER_FIELDS(y, z), "
+      "  ('a').CHAINED_FOO().(CHAINED_BAR.CHAINED_BAZ)() "
+      "FROM t";
+  LanguageOptions language_options;
+  absl::StatusOr<absl::flat_hash_set<std::vector<std::string>>>
+      referenced_functions =
+          ListReferencedFunctionsInStatement(sql, language_options);
+  ZETASQL_ASSERT_OK(referenced_functions);
+  EXPECT_THAT(*referenced_functions,
+              testing::UnorderedElementsAre(
+                  std::vector<std::string>{"foo"},
+                  std::vector<std::string>{"bar", "baz"},
+                  std::vector<std::string>{"fn", "qux"},
+                  std::vector<std::string>{"z", "flatten"},
+                  std::vector<std::string>{"chained_foo"},
+                  std::vector<std::string>{"chained_bar", "chained_baz"}));
 }
 }  // namespace
 }  // namespace zetasql

@@ -46,12 +46,26 @@ The main components and APIs are in these directories under `zetasql/`:
 
 Multiplatform support is planned for the following platforms:
 
- - Linux (Ubuntu 20.04 is our reference platform, but others may work).
-   - gcc-9+ is required, recent versions of clang may work.
+ - Linux (Ubuntu 22.04 is our reference platform, but others may work).
  - MacOS (Experimental)
 
 We do not provide any guarantees of API stability and *cannot accept
 contributions*.
+
+### Announcement
+
+We are announcing a significant step towards unifying our open-source efforts:
+the **ZetaSQL** project will soon be officially renamed to **GoogleSQL**. This
+change is expected to be complete by the end of the year 2025 and primarily
+reflects our commitment to aligning the project more clearly with the
+standardized SQL dialect used across Google.
+
+Functionally, nothing about the language, semantics, or the reference
+implementation will change; however, users and engine implementers must prepare
+for mandatory code changes: you will need to update the namespace from zetasql
+to zetasql, and update all dependency file paths that currently include
+"zetasql" in their name. We will provide a detailed migration guide to help you
+navigate these updates smoothly.
 
 ## Running Queries with `execute_query`
 
@@ -117,7 +131,7 @@ You can then run `execute_query` using:
 sudo docker run --init -it -h=$(hostname) -p 8080:8080 zetasql execute_query --web
 ```
 
-If you are using MacOS with an Apple M1/M2 chip, add the additional argument
+If you are using MacOS with Apple's M series chip, add the additional argument
 `--platform=linux/amd64`:
 
 ```bash
@@ -157,7 +171,6 @@ the `.bazelversion` file.
 
 Besides Bazel, the following dependencies are also needed:
 
-* GCC-9+ or equivalent Clang
 * tzdata
 
 `tzdata` provides the support for time zone information. It is generally

@@ -599,7 +599,7 @@ absl::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
     std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys,
     std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
     ResolvedFunctionCallBase::ErrorMode error_mode,
-    std::unique_ptr<ValueExpr> filter,
+    std::unique_ptr<ValueExpr> filter, std::unique_ptr<ValueExpr> having_filter,
     const std::vector<ResolvedCollation>& collation_list,
     const VariableId& side_effects_variable) {
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AggregateFunctionCallExpr> aggregate_expr,
@@ -610,7 +610,7 @@ absl::StatusOr<std::unique_ptr<AggregateArg>> AggregateArg::Create(
       having_modifier_kind, std::move(order_by_keys), std::move(limit),
       std::move(group_rows_subquery), std::move(inner_grouping_keys),
       std::move(inner_aggregators), error_mode, std::move(filter),
-      collation_list, side_effects_variable));
+      std::move(having_filter), collation_list, side_effects_variable));
 }
 
 absl::Status AggregateArg::SetSchemasForEvaluation(
@@ -667,6 +667,11 @@ absl::Status AggregateArg::SetSchemasForEvaluation(
       having_expr() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(mutable_having_expr()->SetSchemasForEvaluation(
         params_and_group_schemas));
+  }
+
+  if (having_filter_ != nullptr) {
+    ZETASQL_RETURN_IF_ERROR(
+        having_filter_->SetSchemasForEvaluation(params_and_group_schemas));
   }
 
   for (int i = 0; i < input_field_list_size(); ++i) {
@@ -749,7 +754,14 @@ class AggregateAccumulatorAdaptor : public IntermediateAggregateAccumulator {
   AggregateAccumulatorAdaptor& operator=(const AggregateAccumulatorAdaptor&) =
       delete;
 
-  absl::Status Reset() override { return accumulator_->Reset(); }
+  absl::Status Reset() override {
+    // We call Reset() when we find a new extreme value. If there was previously
+    // a safe-convertible error while accumulating for a less extreme value, we
+    // don't need that anymore. Set `safe_result_` to invalid to ensure it does
+    // not interfere with GetFinalResult.
+    safe_result_ = Value();
+    return accumulator_->Reset();
+  }
 
   bool Accumulate(const TupleData& input_row, const Value& input_value,
                   bool* stop_accumulation, absl::Status* status) override {
@@ -1236,6 +1248,12 @@ class HavingExtremalValueAccumulator : public IntermediateAggregateAccumulator {
         return false;
       }
       // Discard any error that may have accumulated from prior extremal values.
+      // An engine that encountered this error may have failed the statement
+      // eagerly when the error was encountered, so we signal non-determinism
+      // in this case.
+      if (!status_.ok()) {
+        context_->SetNonDeterministicOutput();
+      }
       status_ = absl::OkStatus();
     }
 
@@ -1882,6 +1900,14 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     input_fields.clear();
   }
 
+  // HAVING filter support.
+  if (having_filter_ != nullptr) {
+    ZETASQL_RET_CHECK(!inner_grouping_keys_.empty());
+    accumulator = std::make_unique<FilteredArgAccumulator>(
+        params, std::move(accumulator), having_filter_.get(), context);
+  }
+
+  // GROUP BY support (Multi-level aggregation).
   if (!inner_grouping_keys_.empty()) {
     std::vector<const KeyArg*> inner_grouping_keys_ptrs =
         RawPtrVector(inner_grouping_keys_);
@@ -1899,7 +1925,7 @@ AggregateArg::CreateAccumulator(absl::Span<const TupleData* const> params,
     input_fields.clear();
   }
 
-  // Filter support
+  // WHERE filter support.
   if (filter() != nullptr) {
     accumulator = std::make_unique<FilteredArgAccumulator>(
         params, std::move(accumulator), filter(), context);
@@ -2016,7 +2042,7 @@ AggregateArg::AggregateArg(
     std::vector<std::unique_ptr<KeyArg>> inner_grouping_keys,
     std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
     ResolvedFunctionCallBase::ErrorMode error_mode,
-    std::unique_ptr<ValueExpr> filter,
+    std::unique_ptr<ValueExpr> filter, std::unique_ptr<ValueExpr> having_filter,
     const std::vector<ResolvedCollation>& collation_list,
     const VariableId& side_effects_variable)
     : ExprArg(variable, std::move(function)),
@@ -2030,6 +2056,7 @@ AggregateArg::AggregateArg(
       inner_aggregators_(std::move(inner_aggregators)),
       error_mode_(error_mode),
       filter_(std::move(filter)),
+      having_filter_(std::move(having_filter)),
       collation_list_(collation_list),
       side_effects_variable_(side_effects_variable) {}
 

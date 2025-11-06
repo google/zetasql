@@ -115,8 +115,10 @@ ParserOutput::ParserOutput(
     std::shared_ptr<IdStringPool> id_string_pool,
     std::shared_ptr<zetasql_base::UnsafeArena> arena,
     std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
-    NodeVariantType node, WarningSink warnings,
-    std::unique_ptr<ParserRuntimeInfo> runtime_info)
+    std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
+                 std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+        node,
+    WarningSink warnings, std::unique_ptr<ParserRuntimeInfo> runtime_info)
     : id_string_pool_(std::move(id_string_pool)),
       arena_(std::move(arena)),
       other_allocated_ast_nodes_(std::move(other_allocated_ast_nodes)),
@@ -299,8 +301,33 @@ absl::Status ParseType(absl::string_view type_string,
 absl::Status ParseExpression(absl::string_view expression_string,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output) {
-  return ParseExpression(ParseResumeLocation::FromStringView(expression_string),
-                         parser_options_in, output);
+  ParserOptions parser_options = parser_options_in;
+  parser_options.CreateDefaultArenasIfNotSet();
+
+  std::unique_ptr<ASTNode> ast_node;
+  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
+  WarningSink warning_sink(/*consider_location=*/true);
+  std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
+  absl::Status status = ParseInternal(
+      ParserMode::kExpression, /* filename = */ absl::string_view(),
+      expression_string, 0 /* offset */, parser_options.id_string_pool().get(),
+      parser_options.arena().get(), parser_options.language_options(),
+      parser_options.macro_expansion_mode(), parser_options.macro_catalog(),
+      &ast_node, *runtime_info, warning_sink, &other_allocated_ast_nodes,
+      /*ast_statement_properties=*/nullptr,
+      /*statement_end_byte_offset=*/nullptr);
+  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
+      parser_options.error_message_options(), expression_string, status));
+  ZETASQL_RET_CHECK(ast_node != nullptr);
+  ZETASQL_RET_CHECK(ast_node->IsExpression());
+  std::unique_ptr<ASTExpression> expression(
+      ast_node.release()->GetAsOrDie<ASTExpression>());
+
+  *output = std::make_unique<ParserOutput>(
+      parser_options.id_string_pool(), parser_options.arena(),
+      std::move(other_allocated_ast_nodes), std::move(expression),
+      std::move(warning_sink), std::move(runtime_info));
+  return absl::OkStatus();
 }
 
 absl::Status ParseExpression(const ParseResumeLocation& resume_location,
@@ -325,64 +352,12 @@ absl::Status ParseExpression(const ParseResumeLocation& resume_location,
   ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
       parser_options.error_message_options(), resume_location.input(), status));
   ZETASQL_RET_CHECK(ast_node != nullptr);
-  ZETASQL_RET_CHECK(ast_node->IsExpression());
   std::unique_ptr<ASTExpression> expression(
       ast_node.release()->GetAsOrDie<ASTExpression>());
 
   *output = std::make_unique<ParserOutput>(
       parser_options.id_string_pool(), parser_options.arena(),
       std::move(other_allocated_ast_nodes), std::move(expression),
-      std::move(warning_sink), std::move(runtime_info));
-  return absl::OkStatus();
-}
-
-absl::Status ParseSubpipeline(absl::string_view subpipeline_string,
-                              const ParserOptions& parser_options_in,
-                              std::unique_ptr<ParserOutput>* output) {
-  return ParseSubpipeline(
-      ParseResumeLocation::FromStringView(subpipeline_string),
-      parser_options_in, output);
-}
-
-absl::Status ParseSubpipeline(const ParseResumeLocation& resume_location,
-                              const ParserOptions& parser_options_in,
-                              std::unique_ptr<ParserOutput>* output) {
-  ParserOptions parser_options = parser_options_in;
-  parser_options.CreateDefaultArenasIfNotSet();
-
-  if (!parser_options.language_options().LanguageFeatureEnabled(
-          FEATURE_PIPES)) {
-    absl::Status error =
-        MakeSqlErrorAtPoint(ParseLocationPoint::FromByteOffset(
-            resume_location.filename(), resume_location.byte_position()))
-        << "ParseSubpipeline requires FEATURE_PIPES is enabled";
-    return ConvertInternalErrorLocationAndAdjustErrorString(
-        parser_options.error_message_options(), resume_location.input(), error);
-  }
-
-  std::unique_ptr<ASTNode> ast_node;
-  auto runtime_info = std::make_unique<ParserRuntimeInfo>();
-  WarningSink warning_sink(/*consider_location=*/true);
-  std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes;
-  absl::Status status = ParseInternal(
-      ParserMode::kSubpipeline, resume_location.filename(),
-      resume_location.input(), resume_location.byte_position(),
-      parser_options.id_string_pool().get(), parser_options.arena().get(),
-      parser_options.language_options(), parser_options.macro_expansion_mode(),
-      parser_options.macro_catalog(), &ast_node, *runtime_info, warning_sink,
-      &other_allocated_ast_nodes,
-      /*ast_statement_properties=*/nullptr,
-      /*statement_end_byte_offset=*/nullptr);
-  ZETASQL_RETURN_IF_ERROR(ConvertInternalErrorLocationAndAdjustErrorString(
-      parser_options.error_message_options(), resume_location.input(), status));
-  ZETASQL_RET_CHECK(ast_node != nullptr);
-  ZETASQL_RET_CHECK_EQ(ast_node->node_kind(), AST_SUBPIPELINE);
-  std::unique_ptr<ASTSubpipeline> subpipeline(
-      ast_node.release()->GetAsOrDie<ASTSubpipeline>());
-
-  *output = std::make_unique<ParserOutput>(
-      parser_options.id_string_pool(), parser_options.arena(),
-      std::move(other_allocated_ast_nodes), std::move(subpipeline),
       std::move(warning_sink), std::move(runtime_info));
   return absl::OkStatus();
 }

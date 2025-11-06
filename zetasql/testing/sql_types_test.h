@@ -54,7 +54,7 @@ using types::Uint64Type;
 // populates lists of literal, non-literal, and NULL argument types.
 class ZetaSQLTypesTest : public ::testing::Test {
  public:
-  ZetaSQLTypesTest() {}
+  ZetaSQLTypesTest() = default;
   ZetaSQLTypesTest(const ZetaSQLTypesTest&) = delete;
   ZetaSQLTypesTest& operator=(const ZetaSQLTypesTest&) = delete;
   ~ZetaSQLTypesTest() override {}

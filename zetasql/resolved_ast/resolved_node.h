@@ -177,6 +177,9 @@ class ResolvedNode {
     //   {*} - the field has been accessed
     //   { } - the field has not been accessed
     bool print_accessed = false;
+    // If set to true, columns will be printed with {c} in the nodes where the
+    // column is created.
+    bool print_created_columns = false;
   };
 
   // Returns a string representation of this tree and all descendants, for
@@ -186,10 +189,7 @@ class ResolvedNode {
   // certain individual nodes in the tree.
 
   std::string DebugString(const DebugStringConfig& config) const;
-  std::string DebugString() const {
-    return DebugString(
-        DebugStringConfig{.annotations = {}, .print_accessed = false});
-  }
+  std::string DebugString() const { return DebugString(DebugStringConfig{}); }
 
   // Check if any semantically meaningful fields have not been accessed in
   // this node or its children. If so, return a descriptive error indicating
@@ -310,10 +310,24 @@ class ResolvedNode {
     return parse_location_range_.get();
   }
 
+  // Records the parse location range.
+  void SetOperatorKeywordLocationRange(const ParseLocationRange& range);
+
+  // Get the keyword location range. The value is only filled for some nodes and
+  // only if AnalyzerOption::record_parse_locations() is set. For example, this
+  // function returns the location of the keyword in "INSERT" for
+  // ResolvedInsertStmt.
+  const ParseLocationRange* GetOperatorKeywordLocationRangeOrNULL() const {
+    return operator_keyword_parse_location_range_.get();
+  }
+
+  // Clears the operator keyword location range.
+  void ClearOperatorKeywordLocationRange();
+
   // Returns the depth of the Resolved AST tree rooted at the current node.
   // Considers all descendants of the current node, and returns the maximum
   // depth. Returns 1 if the current node is a leaf.
-  const int GetTreeDepth() const;
+  int GetTreeDepth() const;
 
  protected:
   // Struct used to collect all fields that should be printed in DebugString.
@@ -341,7 +355,10 @@ class ResolvedNode {
     std::vector<const ResolvedNode*>
         nodes;  // Print DebugString for these nodes.
 
+    // Indicates that the field has been accessed.
     bool accessed;
+    // Indicates that the field is a column that created in this node.
+    bool column_created = false;
   };
 
   // Add all fields that should be printed in DebugString to <fields>.
@@ -359,7 +376,8 @@ class ResolvedNode {
   // Note: implementations should use raw member fields, rather than
   // accessor methods so that DebugString() does not accidentally cause fields
   // to be marked as "accessed".
-  virtual std::string GetNameForDebugString() const;
+  virtual std::string GetNameForDebugString(
+      const DebugStringConfig& config) const;
 
   // Return true if the fields returned from CollectDebugStringFields would
   // contain any field with a non-empty <nodes> vector.  These are the fields
@@ -403,9 +421,7 @@ class ResolvedNode {
   // This enum disambiguates constructor overloads to specifically choose
   // the new (potentially unique_ptr based) constructor.  Once this becomes
   // the only constructor, this enum can be dropped.
-  enum class ConstructorOverload {
-    NEW_CONSTRUCTOR
-  };
+  enum class ConstructorOverload { NEW_CONSTRUCTOR };
 
  private:
   // Print the tree recursively.
@@ -427,6 +443,9 @@ class ResolvedNode {
   friend class ResolvedOutputColumn;
 
   std::unique_ptr<ParseLocationRange> parse_location_range_;  // May be NULL.
+
+  // The location range of the operator keyword. May be NULL.
+  std::unique_ptr<ParseLocationRange> operator_keyword_parse_location_range_;
 };
 
 // Downcast a unique_ptr<const ResolvedNode> to a

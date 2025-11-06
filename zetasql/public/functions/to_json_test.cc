@@ -141,9 +141,11 @@ TEST(ToJsonTest, GraphNode) {
       FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value node = test_values::GraphNode(
-      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
-      {"label_2", "label_1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node,
+      test_values::GraphNode({"graph_name"}, "id",
+                             {{"P0", p0_value}, {"p1", p1_value}},
+                             {"label_2", "label_1"}, "ElementTable"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       JSONValue output,
       ToJson(node, /*stringify_wide_numbers=*/false, language_options,
@@ -172,9 +174,12 @@ TEST(ToJsonTest, GraphEdge) {
       FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value edge = test_values::GraphEdge(
-      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
-      {"label_2", "label_1"}, "ElementTable", "src_node_id", "dst_node_id");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value edge,
+      test_values::GraphEdge({"graph_name"}, "id",
+                             {{"P0", p0_value}, {"p1", p1_value}},
+                             {"label_2", "label_1"}, "ElementTable",
+                             "src_node_id", "dst_node_id"));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       JSONValue output,
       ToJson(edge, /*stringify_wide_numbers=*/false, language_options,
@@ -289,15 +294,22 @@ TEST(ToJsonTest, GraphPath) {
       FEATURE_SQL_GRAPH_ELEMENT_DEFINITION_NAME_IN_JSON_RESULT);
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value node1 = test_values::GraphNode(
-      {"graph_name"}, "src_node_id", {{"P0", p0_value}, {"p1", p1_value}},
-      {"label_2", "label_1"}, "ElementTable");
-  const Value edge = test_values::GraphEdge(
-      {"graph_name"}, "id", {{"P0", p0_value}, {"p1", p1_value}},
-      {"label_2", "label_1"}, "ElementTable", "src_node_id", "dst_node_id");
-  const Value node2 = test_values::GraphNode(
-      {"graph_name"}, "dst_node_id", {{"P0", p0_value}, {"p1", p1_value}},
-      {"label_2", "label_1"}, "ElementTable");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
+      test_values::GraphNode({"graph_name"}, "src_node_id",
+                             {{"P0", p0_value}, {"p1", p1_value}},
+                             {"label_2", "label_1"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value edge,
+      test_values::GraphEdge({"graph_name"}, "id",
+                             {{"P0", p0_value}, {"p1", p1_value}},
+                             {"label_2", "label_1"}, "ElementTable",
+                             "src_node_id", "dst_node_id"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
+      test_values::GraphNode({"graph_name"}, "dst_node_id",
+                             {{"P0", p0_value}, {"p1", p1_value}},
+                             {"label_2", "label_1"}, "ElementTable"));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(const Value path,
                        Value::MakeGraphPath(test_values::MakeGraphPathType(

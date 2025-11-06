@@ -132,7 +132,7 @@ done on coerced values. There may be multiple `result` types. `result` and
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return Data Type**
 
@@ -158,14 +158,14 @@ SELECT
     AS result
 FROM Numbers
 
-/*------------------*
+/*------------------+
  | A  | B  | result |
  +------------------+
  | 90 | 2  | red    |
  | 50 | 8  | blue   |
  | 60 | 6  | green  |
  | 50 | 10 | blue   |
- *------------------*/
+ +------------------*/
 ```
 
 [logical-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
@@ -203,7 +203,7 @@ three-valued logic table in [Logical operators][logical-operators].
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return Data Type**
 
@@ -228,13 +228,13 @@ SELECT
     AS result
 FROM Numbers
 
-/*------------------*
+/*------------------+
  | A  | B  | result |
  +------------------+
  | 90 | 2  | red    |
  | 50 | 6  | blue   |
  | 20 | 10 | green  |
- *------------------*/
+ +------------------*/
 ```
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
@@ -265,21 +265,21 @@ All input expressions must be implicitly coercible to a common
 ```zetasql
 SELECT COALESCE('A', 'B', 'C') as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | A      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT COALESCE(NULL, 'B', 'C') as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | B      |
- *--------*/
+ +--------*/
 ```
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
@@ -313,11 +313,11 @@ SELECT
   20 AS B,
   IF(10 < 20, 'true', 'false') AS result
 
-/*------------------*
+/*------------------+
  | A  | B  | result |
  +------------------+
  | 10 | 20 | true   |
- *------------------*/
+ +------------------*/
 ```
 
 ```zetasql
@@ -326,11 +326,11 @@ SELECT
   20 AS B,
   IF(30 < 20, 'true', 'false') AS result
 
-/*------------------*
+/*------------------+
  | A  | B  | result |
  +------------------+
  | 30 | 20 | false  |
- *------------------*/
+ +------------------*/
 ```
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
@@ -360,21 +360,21 @@ a common [supertype][cond-exp-supertype]. Synonym for
 ```zetasql
 SELECT IFNULL(NULL, 0) as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT IFNULL(10, 0) as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
@@ -396,7 +396,7 @@ common [supertype][cond-exp-supertype], and must be comparable.
 
 This expression supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return Data Type**
 
@@ -407,21 +407,21 @@ This expression supports specifying [collation][collation].
 ```zetasql
 SELECT NULLIF(0, 0) as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT NULLIF(10, 0) as result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 [cond-exp-supertype]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md#supertypes
@@ -447,11 +447,11 @@ Type of `expr`.
 ```zetasql
 SELECT NULLIFZERO(0) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ### `ZEROIFNULL` 
@@ -475,10 +475,10 @@ Type of `expr`.
 ```zetasql
 SELECT ZEROIFNULL(NULL) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 

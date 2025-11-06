@@ -34,13 +34,16 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/simple_catalog.h"
+#include "zetasql/public/simple_catalog_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/struct_type.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.h"
@@ -117,49 +120,85 @@ void TestDatabaseCatalog::BuiltinFunctionCache::DumpStats() {
             << "%) size: " << builtins_cache_.size();
 }
 
-TestDatabaseCatalog::TestDatabaseCatalog(TypeFactory* type_factory)
-    : function_cache_(std::make_unique<BuiltinFunctionCache>()),
-      type_factory_(type_factory) {}
+static absl::Status LoadStaticEnum(
+    const google::protobuf::EnumDescriptor* enum_descriptor, SimpleCatalog* catalog) {
+  const Type* enum_type;
+  ZETASQL_RETURN_IF_ERROR(
+      catalog->type_factory()->MakeEnumType(enum_descriptor, &enum_type));
+  catalog->AddTypeIfNotPresent(enum_descriptor->full_name(), enum_type);
+  return absl::OkStatus();
+}
+
+static absl::Status LoadStaticProto(const google::protobuf::Descriptor* proto_descriptor,
+                                    SimpleCatalog* catalog) {
+  const Type* proto_type;
+  ZETASQL_RETURN_IF_ERROR(
+      catalog->type_factory()->MakeProtoType(proto_descriptor, &proto_type));
+  catalog->AddTypeIfNotPresent(proto_descriptor->full_name(), proto_type);
+  return absl::OkStatus();
+}
 
 absl::Status TestDatabaseCatalog::LoadProtoEnumTypes(
     const std::set<std::string>& filenames,
     const std::set<std::string>& proto_names,
     const std::set<std::string>& enum_names) {
-  errors_.clear();
   for (const std::string& filename : filenames) {
-    importer_->Import(filename);
+    ZETASQL_RETURN_IF_ERROR(importer_->Import(filename));
   }
-  if (!errors_.empty()) {
-    return ::zetasql_base::InternalErrorBuilder() << absl::StrJoin(errors_, "\n");
+  for (const auto& [name, enum_descriptor] : GetBuiltinEnumDescriptors()) {
+    ZETASQL_RETURN_IF_ERROR(LoadStaticEnum(enum_descriptor, catalog_.get()));
+  }
+  for (const auto& [name, proto_descriptor] : GetBuiltinProtoDescriptors()) {
+    ZETASQL_RETURN_IF_ERROR(LoadStaticProto(proto_descriptor, catalog_.get()));
   }
 
   std::set<std::string> proto_closure;
   std::set<std::string> enum_closure;
-  ZETASQL_RETURN_IF_ERROR(ComputeTransitiveClosure(importer_->pool(), proto_names,
+  ZETASQL_RETURN_IF_ERROR(ComputeTransitiveClosure(descriptor_pool(), proto_names,
                                            enum_names, &proto_closure,
                                            &enum_closure));
 
+  const absl::flat_hash_map<absl::string_view, const google::protobuf::Descriptor*>&
+      builtin_proto_descriptors = GetBuiltinProtoDescriptors();
+
   for (const std::string& proto : proto_closure) {
     const google::protobuf::Descriptor* descriptor =
-        importer_->pool()->FindMessageTypeByName(proto);
-    if (!descriptor) {
-      return ::zetasql_base::NotFoundErrorBuilder() << "Proto Message Type: " << proto;
+        descriptor_pool()->FindMessageTypeByName(proto);
+    auto it = builtin_proto_descriptors.find(proto);
+    if (it != builtin_proto_descriptors.end()) {
+      // Builtin protos should only use the global descriptor.
+      ZETASQL_RETURN_IF_ERROR(LoadStaticProto(it->second, catalog_.get()));
+    } else {
+      if (!descriptor) {
+        return ::zetasql_base::NotFoundErrorBuilder()
+               << "Proto Message Type: " << proto;
+      }
+      const ProtoType* proto_type;
+      ZETASQL_RETURN_IF_ERROR(
+          catalog_->type_factory()->MakeProtoType(descriptor, &proto_type));
+      catalog_->AddType(descriptor->full_name(), proto_type);
     }
-    const ProtoType* proto_type;
-    ZETASQL_RETURN_IF_ERROR(
-        catalog_->type_factory()->MakeProtoType(descriptor, &proto_type));
-    catalog_->AddType(descriptor->full_name(), proto_type);
   }
+
+  const absl::flat_hash_map<absl::string_view, const google::protobuf::EnumDescriptor*>&
+      builtin_enum_descriptors = GetBuiltinEnumDescriptors();
+
   for (const std::string& enum_name : enum_closure) {
-    const google::protobuf::EnumDescriptor* enum_descriptor =
-        importer_->pool()->FindEnumTypeByName(enum_name);
-    if (!enum_descriptor) {
-      return ::zetasql_base::NotFoundErrorBuilder() << "Enum Type: " << enum_name;
+    auto it = builtin_enum_descriptors.find(enum_name);
+    if (it != builtin_enum_descriptors.end()) {
+      // Builtin enums should only use the global descriptor.
+      ZETASQL_RETURN_IF_ERROR(LoadStaticEnum(it->second, catalog_.get()));
+    } else {
+      const google::protobuf::EnumDescriptor* enum_descriptor =
+          descriptor_pool()->FindEnumTypeByName(enum_name);
+      if (!enum_descriptor) {
+        return ::zetasql_base::NotFoundErrorBuilder() << "Enum Type: " << enum_name;
+      }
+      const EnumType* enum_type;
+      ZETASQL_RETURN_IF_ERROR(
+          catalog_->type_factory()->MakeEnumType(enum_descriptor, &enum_type));
+      catalog_->AddType(enum_descriptor->full_name(), enum_type);
     }
-    const EnumType* enum_type;
-    ZETASQL_RETURN_IF_ERROR(
-        catalog_->type_factory()->MakeEnumType(enum_descriptor, &enum_type));
-    catalog_->AddType(enum_descriptor->full_name(), enum_type);
   }
   return absl::OkStatus();
 }
@@ -216,6 +255,7 @@ void TestDatabaseCatalog::AddTable(const std::string& table_name,
 absl::Status TestDatabaseCatalog::AddTablesWithMeasures(
     const TestDatabase& test_db, const LanguageOptions& language_options) {
   ZETASQL_RETURN_IF_ERROR(IsInitialized());
+
   for (const auto& [table_name, table] : test_db.tables) {
     if (table.measure_column_defs.empty()) {
       continue;
@@ -232,22 +272,52 @@ absl::Status TestDatabaseCatalog::AddTablesWithMeasures(
     ZETASQL_RET_CHECK_OK(
         simple_table->SetRowIdentityColumns(table.row_identity_columns));
     AnalyzerOptions analyzer_options(language_options);
+    // Make sure that the test table's required features are enabled.
+    for (LanguageFeature feature : table.options.required_features()) {
+      analyzer_options.mutable_language()->EnableLanguageFeature(feature);
+    }
     ZETASQL_ASSIGN_OR_RETURN(
         auto measure_expr_analyzer_outputs,
         AddMeasureColumnsToTable(*simple_table, table.measure_column_defs,
                                  *type_factory_, *catalog_, analyzer_options));
-    analyzed_measure_outputs_.insert(
-        analyzed_measure_outputs_.end(),
+    sql_object_artifacts_.insert(
+        sql_object_artifacts_.end(),
         std::make_move_iterator(measure_expr_analyzer_outputs.begin()),
         std::make_move_iterator(measure_expr_analyzer_outputs.end()));
     ZETASQL_RET_CHECK(element_type->IsStruct());
     ZETASQL_ASSIGN_OR_RETURN(
         Value new_array_value,
-        UpdateTableRowsWithMeasureValues(array_value, simple_table.get(),
-                                         table.row_identity_columns,
-                                         type_factory_, language_options));
+        UpdateTableRowsWithMeasureValues(
+            array_value, simple_table.get(), table.row_identity_columns,
+            type_factory_.get(), language_options));
     table.table_as_value_with_measures = std::move(new_array_value);
     catalog_->AddOwnedTable(simple_table.release());
+  }
+  return absl::OkStatus();
+}
+
+absl::Status TestDatabaseCatalog::AddUdfsForMeasureDefinitions(
+    const TestDatabase& test_db, const LanguageOptions& language_options) {
+  ZETASQL_RETURN_IF_ERROR(IsInitialized());
+  if (!test_db.measure_function_defs.empty()) {
+    AnalyzerOptions analyzer_options(language_options);
+    analyzer_options.mutable_language()->AddSupportedStatementKind(
+        RESOLVED_CREATE_FUNCTION_STMT);
+    auto func_opts = FunctionOptions()
+                         // TODO: Relax this once IFERROR
+                         //     non-determinism is mitigated.
+                         .set_supports_safe_error_mode(false)
+                         .set_supports_distinct_modifier(false)
+                         .set_supports_having_modifier(false);
+    for (const auto& stmt : test_db.measure_function_defs) {
+      std::unique_ptr<const AnalyzerOutput> analyzer_output;
+      ZETASQL_RETURN_IF_ERROR(
+          AddFunctionFromCreateFunction(stmt, analyzer_options,
+                                        /*allow_persistent_function=*/false,
+                                        /*function_options=*/&func_opts,
+                                        analyzer_output, *catalog_, *catalog_));
+      sql_object_artifacts_.push_back(std::move(analyzer_output));
+    }
   }
   return absl::OkStatus();
 }
@@ -275,26 +345,47 @@ absl::Status TestDatabaseCatalog::GetTypes(
   return catalog_->GetTypes(output);
 }
 
-absl::Status TestDatabaseCatalog::CreateCatalogAndPreloadTypesAndFunctions(
+absl::Status TestDatabaseCatalog::SetTestDatabaseWithLeakyDescriptors(
     const TestDatabase& test_db) {
-  catalog_ = std::make_unique<SimpleCatalog>("root_catalog", type_factory_);
-  // Prepare proto importer.
-  if (test_db.runs_as_test) {
-    proto_source_tree_ = CreateProtoSourceTree();
-  } else {
-    proto_source_tree_ = std::make_unique<TestDriver::ProtoSourceTree>("");
-  }
-  proto_error_collector_ =
-      std::make_unique<TestDriver::ProtoErrorCollector>(&errors_);
-  importer_ = std::make_unique<google::protobuf::compiler::Importer>(
-      proto_source_tree_.get(), proto_error_collector_.get());
+  importer_ = std::make_unique<ProtoImporter>(test_db.runs_as_test);
+  catalog_ =
+      std::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
   // Load protos and enums.
-  return LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
-                            test_db.enum_names);
+  ZETASQL_RETURN_IF_ERROR(LoadProtoEnumTypes(test_db.proto_files, test_db.proto_names,
+                                     test_db.enum_names));
+
+  // Add tables to the catalog.
+  for (const auto& t : test_db.tables) {
+    const std::string& table_name = t.first;
+    const TestTable& test_table = t.second;
+    AddTable(table_name, test_table);
+  }
+  is_initialized_ = true;
+  return absl::OkStatus();
 }
 
-absl::Status TestDatabaseCatalog::SetTestDatabase(const TestDatabase& test_db) {
-  ZETASQL_RETURN_IF_ERROR(CreateCatalogAndPreloadTypesAndFunctions(test_db));
+absl::Status TestDatabaseCatalog::SetTestDatabase(
+    const TestDatabaseProto& test_db_proto) {
+  importer_ = std::make_unique<ProtoImporter>(test_db_proto.runs_as_test());
+  catalog_ =
+      std::make_unique<SimpleCatalog>("root_catalog", type_factory_.get());
+
+  std::set<std::string> proto_files(test_db_proto.proto_files().begin(),
+                                    test_db_proto.proto_files().end());
+  std::set<std::string> proto_names(test_db_proto.proto_names().begin(),
+                                    test_db_proto.proto_names().end());
+  std::set<std::string> enum_names(test_db_proto.enum_names().begin(),
+                                   test_db_proto.enum_names().end());
+
+  // Load protos and enums.
+  ZETASQL_RETURN_IF_ERROR(LoadProtoEnumTypes(proto_files, proto_names, enum_names));
+
+  // With a fresh TypeFactory and DescriptorPool, we can now deserialize the
+  // test database.
+  ZETASQL_ASSIGN_OR_RETURN(TestDatabase test_db,
+                   DeserializeTestDatabase(test_db_proto, type_factory_.get(),
+                                           descriptor_pool()));
+
   // Add tables to the catalog.
   for (const auto& t : test_db.tables) {
     const std::string& table_name = t.first;
@@ -310,9 +401,8 @@ absl::Status TestDatabaseCatalog::SetLanguageOptions(
   if (catalog_ == nullptr) {
     return absl::FailedPreconditionError(
         "Cannot set language options since underlying catalog is unexpectedly "
-        "null. TestDatabaseCatalog::CreateCatalogAndPreloadTypesAndFunctions() "
-        "must be called "
-        "first, before calling TestDatabaseCatalog::SetLanguageOptions().");
+        "null. TestDatabaseCatalog::SetTestDatabase() must be called first, "
+        "before calling TestDatabaseCatalog::SetLanguageOptions().");
   }
   return function_cache_->SetLanguageOptions(language_options, catalog_.get());
 }

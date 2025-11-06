@@ -1,4 +1,4 @@
-[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,+WITH_ON_SUBQUERY]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 [default no_run_sqlbuilder]
 # When no group_selection_strategy is set, default to laplace thresholding.

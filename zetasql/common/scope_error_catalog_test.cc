@@ -60,7 +60,8 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> CatalogWithObjects() {
 
   catalog->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       std::vector<std::string>{"TestTVF"},
-      {FunctionArgumentType::AnyRelation(), {}, nullptr},
+      std::vector<FunctionSignature>{
+          {FunctionArgumentType::AnyRelation(), {}, nullptr}},
       TVFRelation{{TVFSchemaColumn("a", types::Int64Type(), false)}}));
 
   catalog->AddOwnedProcedure(new Procedure(

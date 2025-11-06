@@ -197,6 +197,7 @@ Additional non-generated classes that are documented separately:
     <a href="#ResolvedGetJsonField">ResolvedGetJsonField</a>
     <a href="#ResolvedGetProtoField">ResolvedGetProtoField</a>
     <a href="#ResolvedGetProtoOneof">ResolvedGetProtoOneof</a>
+    <a href="#ResolvedGetRowField">ResolvedGetRowField</a>
     <a href="#ResolvedGetStructField">ResolvedGetStructField</a>
     <a href="#ResolvedGraphGetElementProperty">ResolvedGraphGetElementProperty</a>
     <a href="#ResolvedGraphIsLabeledPredicate">ResolvedGraphIsLabeledPredicate</a>
@@ -348,6 +349,8 @@ Additional non-generated classes that are documented separately:
     <a href="#ResolvedSetTransactionStmt">ResolvedSetTransactionStmt</a>
     <a href="#ResolvedShowStmt">ResolvedShowStmt</a>
     <a href="#ResolvedStartBatchStmt">ResolvedStartBatchStmt</a>
+    <a href="#ResolvedStatementWithPipeOperatorsStmt">ResolvedStatementWithPipeOperatorsStmt</a>
+    <a href="#ResolvedSubpipelineStmt">ResolvedSubpipelineStmt</a>
     <a href="#ResolvedTruncateStmt">ResolvedTruncateStmt</a>
     <a href="#ResolvedUndropStmt">ResolvedUndropStmt</a>
     <a href="#ResolvedUpdateStmt">ResolvedUpdateStmt</a>
@@ -1187,6 +1190,21 @@ class ResolvedGetJsonField : public <a href="#ResolvedExpr">ResolvedExpr</a> {
 };
 </code></pre></p>
 
+### ResolvedGetRowField
+<a id="ResolvedGetRowField"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// Read a field from a ROW type.
+// `expr` must have ROW&lt;T&gt; type, and `column` must be a Column of that Table.
+// The output type is that Column&#39;s type.</font>
+class ResolvedGetRowField : public <a href="#ResolvedExpr">ResolvedExpr</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GET_ROW_FIELD;
+
+  const <a href="#ResolvedExpr">ResolvedExpr</a>* expr() const;
+
+  const Column* column() const;
+};
+</code></pre></p>
+
 ### ResolvedFlatten
 <a id="ResolvedFlatten"></a>
 
@@ -1414,6 +1432,8 @@ class ResolvedSubqueryExpr : public <a href="#ResolvedExpr">ResolvedExpr</a> {
   static const SubqueryType IN = <a href="#ResolvedSubqueryExprEnum">ResolvedSubqueryExprEnums</a>::IN;
   static const SubqueryType LIKE_ANY = <a href="#ResolvedSubqueryExprEnum">ResolvedSubqueryExprEnums</a>::LIKE_ANY;
   static const SubqueryType LIKE_ALL = <a href="#ResolvedSubqueryExprEnum">ResolvedSubqueryExprEnums</a>::LIKE_ALL;
+  static const SubqueryType NOT_LIKE_ANY = <a href="#ResolvedSubqueryExprEnum">ResolvedSubqueryExprEnums</a>::NOT_LIKE_ANY;
+  static const SubqueryType NOT_LIKE_ALL = <a href="#ResolvedSubqueryExprEnum">ResolvedSubqueryExprEnums</a>::NOT_LIKE_ALL;
 
   <a href="#ResolvedSubqueryExpr">ResolvedSubqueryExpr</a>::SubqueryType subquery_type() const;
 
@@ -1667,6 +1687,17 @@ class ResolvedTableScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   const std::string&amp; alias() const;
 
   const <a href="#ResolvedLockMode">ResolvedLockMode</a>* lock_mode() const;
+
+<font color="brown">  // If true, this table is being read as a ROW-typed value table.
+  // `column_index_list` must be unset.
+  // `column_list` can contain at most one column.  If present, the
+  // column must have ROW&lt;T&gt; type, matching `table`.
+  //
+  // This is used when FEATURE_ROW_TYPE is enabled and the Table has a
+  // non-default GetColumnListMode setting.
+  //
+  // See (broken link).</font>
+  bool read_as_row_type() const;
 };
 </code></pre></p>
 
@@ -1727,6 +1758,11 @@ class ResolvedJoinScan : public <a href="#ResolvedScan">ResolvedScan</a> {
 <p><pre><code class="lang-c++"><font color="brown">// Scan one or more (N) array values produced by evaluating N expressions,
 // merging them positionally. Without FEATURE_MULTIWAY_UNNEST, it must
 // be exactly one array (N=1).
+//
+// `array_expr_list` can have one or more expressions with ARRAY type
+// or one expression with a join RowType (with `IsJoin()` true).
+// When it&#39;s a RowType, `array_expr_list` can only have one item
+// and `array_offset_column` is not allowed.
 //
 // If `input_scan` is NULL, this produces one row for each array offset.
 // This can occur when using syntax:
@@ -2185,11 +2221,11 @@ class ResolvedSetOperationItem : public <a href="#ResolvedArgument">ResolvedArgu
 
 <p><pre><code class="lang-c++"><font color="brown">// Apply a set operation (specified by &lt;op_type&gt;) on two or more input scans.
 //
-// &lt;scan_list&gt; will have at least two elements.
+// &lt;input_item_list&gt; will have at least two elements.
 //
 // &lt;column_list&gt; is a set of new <a href="#ResolvedColumn">ResolvedColumns</a> created by this scan.
 // Each input <a href="#ResolvedSetOperationItem">ResolvedSetOperationItem</a> has an &lt;output_column_list&gt; which
-// matches 1:1 with &lt;column_list&gt; and specifies how the input &lt;scan&gt;&#39;s
+// matches 1:1 with &lt;column_list&gt; and specifies how the input item&#39;s
 // columns map into the final &lt;column_list&gt;.
 //
 // - Results of {UNION, INTERSECT, EXCEPT} ALL can include duplicate rows.
@@ -3170,6 +3206,30 @@ class ResolvedExplainStmt : public <a href="#ResolvedStatement">ResolvedStatemen
   static const ResolvedNodeKind TYPE = RESOLVED_EXPLAIN_STMT;
 
   const <a href="#ResolvedStatement">ResolvedStatement</a>* statement() const;
+};
+</code></pre></p>
+
+### ResolvedStatementWithPipeOperatorsStmt
+<a id="ResolvedStatementWithPipeOperatorsStmt"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// A statement with an unanalyzed pipe operator suffix.
+// See (broken link).
+//
+// The query engine needs to analyze or run the initial statement
+// (which could have engine-defined output), and then analyze
+// `suffix_subpipeline_sql` to determine if that suffix is valid for the
+// returned table.
+//
+// If `statement` doesn&#39;t return exactly one table, the suffix is invalid.
+//
+// Only <a href="#ResolvedStatement">ResolvedStatement</a> kinds that could return a table are allowed.
+// The currently supported list is in `zetasql.tm` and `validator.cc`.</font>
+class ResolvedStatementWithPipeOperatorsStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT;
+
+  const <a href="#ResolvedStatement">ResolvedStatement</a>* statement() const;
+
+  const std::string&amp; suffix_subpipeline_sql() const;
 };
 </code></pre></p>
 
@@ -5227,24 +5287,6 @@ class ResolvedDeleteStmt : public <a href="#ResolvedStatement">ResolvedStatement
 class ResolvedUpdateItem : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_UPDATE_ITEM;
 
-  ABSL_DEPRECATED(&#34;Use `update_item_element_list()` instead&#34;)
-  inline const
-  std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedUpdateItemElement">ResolvedUpdateItemElement</a>&gt;&gt;&amp;
-  array_update_list() const {
-    return update_item_element_list();
-  }
-  ABSL_DEPRECATED(&#34;Use `update_item_element_list_size()` instead&#34;)
-  inline const size_t
-  array_update_list_size() const {
-    return update_item_element_list_size();
-  }
-  ABSL_DEPRECATED(&#34;Use `add_update_item_element_list()` instead&#34;)
-  inline void
-  add_array_update_list(
-       std::unique_ptr&lt;const <a href="#ResolvedUpdateItemElement">ResolvedUpdateItemElement</a>&gt; item) {
-    add_update_item_element_list(std::move(item));
-  }
-
 <font color="brown">  // The target entity to be updated.
   //
   // This is an expression evaluated using the <a href="#ResolvedColumn">ResolvedColumns</a> visible
@@ -5350,11 +5392,6 @@ class ResolvedUpdateItem : public <a href="#ResolvedArgument">ResolvedArgument</
 // &lt;expr&gt;. The container `container_col` is defined by the parent node.</font>
 class ResolvedUpdateItemElement : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_UPDATE_ITEM_ELEMENT;
-
-  ABSL_DEPRECATED(&#34;Use `subscript()` instead&#34;)
-  inline const <a href="#ResolvedExpr">ResolvedExpr</a>* offset() const {
-    return subscript();
-  }
 
 <font color="brown">  // The subscript expression to be used.</font>
   const <a href="#ResolvedExpr">ResolvedExpr</a>* subscript() const;
@@ -8853,7 +8890,7 @@ class ResolvedGraphElementProperty : public <a href="#ResolvedArgument">Resolved
 <p><pre><code class="lang-c++"><font color="brown">// Constructs a graph element.
 //
 // `type` is always a GraphElementType.
-// `identifier` uniquely identifies a graph element in the graph.
+// `identifier` uniquely identify a graph element in the graph.
 // `label_list` contains all static labels.
 // `property_list` contains all static properties and their definitions.
 // `dynamic_labels` is an expression that can be evaluated to a STRING or
@@ -9509,6 +9546,43 @@ class ResolvedSubpipeline : public <a href="#ResolvedArgument">ResolvedArgument<
 class ResolvedSubpipelineInputScan : public <a href="#ResolvedScan">ResolvedScan</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_SUBPIPELINE_INPUT_SCAN;
 
+};
+</code></pre></p>
+
+### ResolvedSubpipelineStmt
+<a id="ResolvedSubpipelineStmt"></a>
+
+<p><pre><code class="lang-c++"><font color="brown">// This represents a standalone subpipeline resolved as a statement.
+// See (broken link) and (broken link).
+//
+// The analyzer will only generate this if it&#39;s included in SupportedStatements
+// and `default_table_for_subpipeline_stmt` is set in AnalyzerOptions.
+//
+// The default rewriters will replace this with a <a href="#ResolvedStatement">ResolvedStatement</a> that
+// inlines the <a href="#ResolvedTableScan">ResolvedTableScan</a>.  It&#39;ll be <a href="#ResolvedQueryStmt">ResolvedQueryStmt</a> for most queries.
+// Other statement types are possible if <a href="#ResolvedGeneralizedQueryStmt">ResolvedGeneralizedQueryStmt</a>
+// features are enabled.
+//
+// `table_scan` is a <a href="#ResolvedTableScan">ResolvedTableScan</a> representing the input table for
+// the subpipeline (which comes from `default_table_for_subpipeline_stmt`).
+// This assigns <a href="#ResolvedColumn">ResolvedColumns</a> for the input.
+//
+// `subpipeline` is the subpipeline running over that table.
+//
+// `output_schema` is the final output schema for the subpipeline.
+// This can be null if the subpipeline ends with a terminal operator
+// that doesn&#39;t return a table.
+//
+// SQLBuilder output does not include `table_scan` since it&#39;s mainly
+// a placeholder representing the input table from the Analyze options.</font>
+class ResolvedSubpipelineStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_SUBPIPELINE_STMT;
+
+  const <a href="#ResolvedTableScan">ResolvedTableScan</a>* table_scan() const;
+
+  const <a href="#ResolvedSubpipeline">ResolvedSubpipeline</a>* subpipeline() const;
+
+  const <a href="#ResolvedOutputSchema">ResolvedOutputSchema</a>* output_schema() const;
 };
 </code></pre></p>
 

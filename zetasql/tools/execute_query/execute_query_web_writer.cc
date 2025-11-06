@@ -31,7 +31,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
-#include "external/mstch/mstch/include/mstch/mstch.hpp"
+#include "mstch/mstch.hpp"
 #include "re2/re2.h"
 #include "zetasql/base/status_macros.h"
 
@@ -41,7 +41,7 @@ namespace {
 
 // Prints the result of executing a query as an HTML table.
 absl::Status RenderResultsAsTable(std::unique_ptr<EvaluatorTableIterator> iter,
-                                  mstch::map &table_params) {
+                                  mstch::map& table_params) {
   std::vector<mstch::node> columnNames;
   columnNames.reserve(iter->NumColumns() + 1);
   columnNames.push_back(std::string("#"));
@@ -106,9 +106,49 @@ std::string DecorateASTDebugStringWithHTMLTags(std::string ast_debug_string) {
   RE2::GlobalReplace(&ast_debug_string, *kNodeName,
                      R"html(\1<span class="ast-node">\2</span>\3)html");
 
-  // Wrap all column IDs in a span, so that they can be highlighted on hover.
-  // If the Column ID is `col1#3`, the two capturing groups are `col1` and `3`
-  // and the span will have the class `col1_3`
+  // The following adds span tags to allow column IDs to be highlighted on
+  // hover. There are two levels of spans added:
+  //
+  // 1) Created columns that are marked with a `{c}` are wrapped in a span with
+  // class `ast-col-src`. The `{c}` marker is enabled by the
+  // DebugStringConfig.print_created_columns option.
+  //
+  // 2) All column IDs are wrapped in a span with class `ast-col`. These two
+  // together allow us to define CSS rules to highlight these columns.
+
+  // Created columns come in two formats. One is `<columnID>{c} :=`. The
+  // columnID is wrapped in an `ast-col-src` span here.
+  //
+  // Original:
+  //   +-A#7{c} := ColumnRef(type=ARRAY<INT64>, column=$aggregate.$agg1#6)
+  // Modified:
+  //   +-<span class="ast-col-src">A#7</span> := ColumnRef(...)
+  static LazyRE2 kColumnIdSrc_1 = {R"re(((\$?[A-Za-z0-9_]+)#(\d+)){c} :=)re"};
+  RE2::GlobalReplace(&ast_debug_string, *kColumnIdSrc_1,
+                     R"html(<span class="ast-col-src">\1</span> :=)html");
+
+  // The other format is `{c}=...` where the trailing substring can contain
+  // multiple created columns. The entire line after = is wrapped in an
+  // `ast-col-src` span.
+  //
+  // clang-format off
+  // Original:
+  //   +-TableScan(column_list{c}=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+  // Modified:
+  //   +-TableScan(column_list=<span class="ast-col-src">[KeyValue.Key#1], table=KeyValue, column_index_list=[0])</span>
+  // clang-format on
+  //
+  static LazyRE2 kColumnIdSrc_2 = {R"re({c}=(.*))re"};
+  RE2::GlobalReplace(&ast_debug_string, *kColumnIdSrc_2,
+                     R"html(=<span class="ast-col-src">\1</span>)html");
+
+  // Then we identify columnIDs everywhere and wrap them each in an `ast-col`
+  // span.
+  //
+  // Original:
+  //   +-column_list=[KeyValue.Key#1]
+  // Modified:
+  //  +-column_list=[KeyValue.<span class="ast-col Key_1">Key#1</span>]
   static LazyRE2 kColumnId = {R"re((\$?[A-Za-z0-9_]+)#(\d+))re"};
   RE2::GlobalReplace(&ast_debug_string, *kColumnId,
                      R"html(<span class="ast-col \1_\2">\0</span>)html");
@@ -116,8 +156,7 @@ std::string DecorateASTDebugStringWithHTMLTags(std::string ast_debug_string) {
   // For generated columns that start with a dollar-sign, the above replacement
   // would have resulted in an invalid class name, since $ is not allowed in
   // class names. So we fix that separately.
-  absl::StrReplaceAll({{R"html(<span class="ast-col $)html",
-                        R"html(<span class="ast-col dollar_)html"}},
+  absl::StrReplaceAll({{R"html(ast-col $)html", R"html(ast-col dollar_)html"}},
                       &ast_debug_string);
 
   return ast_debug_string;
@@ -131,7 +170,8 @@ absl::Status ExecuteQueryWebWriter::resolved(const ResolvedNode& ast) {
   // We make sure that the string is HTML-escaped before inserting it into the
   // template.
   current_statement_params_["result_analyzed"] =
-      DecorateASTDebugStringWithHTMLTags(ast.DebugString());
+      DecorateASTDebugStringWithHTMLTags(ast.DebugString(
+          ResolvedNode::DebugStringConfig{.print_created_columns = true}));
   got_results_ = true;
   return absl::OkStatus();
 }
@@ -174,8 +214,8 @@ absl::Status ExecuteQueryWebWriter::executed_multi(
   return absl::OkStatus();
 }
 
-absl::Status ExecuteQueryWebWriter::ExecutedExpression(const ResolvedNode &ast,
-                                                       const Value &value) {
+absl::Status ExecuteQueryWebWriter::ExecutedExpression(const ResolvedNode& ast,
+                                                       const Value& value) {
   current_statement_params_["result_executed"] = true;
   current_statement_params_["result_executed_text"] =
       OutputPrettyStyleExpressionResult(value, /*include_box=*/false);

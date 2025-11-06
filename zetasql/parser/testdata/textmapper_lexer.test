@@ -1,7 +1,4 @@
-# This file contains sample test cases to verify the parser workflow with the
-# feature FEATURE_TEXTMAPPER_LEXER enabled. The TextMapper lexer should be used,
-# although there is no difference in the parser output.
-[language_features=NONE,{{|+FORCE_FLEX_LEXER}}]
+[default language_features=ALL]
 select 1;
 --
 QueryStatement [0-8] [select 1]
@@ -15,7 +12,6 @@ SELECT
   1
 ==
 
-[language_features=NONE,{{|+FORCE_FLEX_LEXER}}]
 select "abc";
 --
 QueryStatement [0-12] [select "abc"]
@@ -33,7 +29,6 @@ SELECT
 # TextMapper lexer should not ignore the leading BOM character '\xEF\xBB\xBF',
 # i.e. the both flex and textmapper lexer should report an invalid character
 # error.
-[language_features=NONE,{{|+FORCE_FLEX_LEXER}}]
 ﻿ select 1;
 --
 ERROR: Syntax error: Illegal input character "\357" [at 1:1]

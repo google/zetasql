@@ -611,11 +611,11 @@ SELECT
     STRUCT('Yonge Street' AS street, 'Canada' AS country)
       AS address).address.country
 
-/*---------*
+/*---------+
  | country |
  +---------+
  | Canada  |
- *---------*/
+ +---------*/
 ```
 
 [struct-subscript-operator]: #struct_subscript_operator
@@ -682,11 +682,11 @@ SELECT
   ["coffee", "tea", "milk"][ORDINAL(1)] AS item_ordinal,
   ["coffee", "tea", "milk"][SAFE_OFFSET(6)] AS item_safe_offset
 
-/*---------------------+------------+-------------+--------------+------------------*
+/*---------------------+------------+-------------+--------------+------------------+
  | item_array          | item_index | item_offset | item_ordinal | item_safe_offset |
  +---------------------+------------+-------------+--------------+------------------+
  | [coffee, tea, milk] | coffee     | coffee      | coffee       | NULL             |
- *----------------------------------+-------------+--------------+------------------*/
+ +----------------------------------+-------------+--------------+------------------*/
 ```
 
 When you reference an index that's out of range in an array, and a positional
@@ -753,11 +753,11 @@ SELECT
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(0)] AS field_offset,
   STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[ORDINAL(1)] AS field_ordinal
 
-/*-------------+--------------+---------------*
+/*-------------+--------------+---------------+
  | field_index | field_offset | field_ordinal |
  +-------------+--------------+---------------+
  | 23          | 23           | 23            |
- *-------------+--------------+---------------*/
+ +-------------+--------------+---------------*/
 ```
 
 When you reference an index that's out of range in a struct, an error is
@@ -829,13 +829,13 @@ FROM
       JSON '{"class" : {"students" : [{"name" : "John"}, {"name": "Jamie"}]}}'])
     AS json_value;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | "Jane"          |
  | NULL            |
  | "John"          |
- *-----------------*/
+ +-----------------*/
 ```
 
 ### Protocol buffer map subscript operator 
@@ -894,11 +894,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*-----------*
+/*-----------+
  | map_value |
  +-----------+
  | 2         |
- *-----------*/
+ +-----------*/
 ```
 
 When the key doesn't exist in the map field and you use `KEY`, an error is
@@ -921,11 +921,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*------------------*
+/*------------------+
  | safe_key_missing |
  +------------------+
  | NULL             |
- *------------------*/
+ +------------------*/
 ```
 
 The subscript operator returns `NULL` when the map field or key is `NULL`.
@@ -938,11 +938,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*-----------------------*
+/*-----------------------+
  | null_map  | null_key  |
  +-----------------------+
  | NULL      | NULL      |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 When a key is used without `KEY()` or `SAFE_KEY()`, it has the same behavior
@@ -954,11 +954,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*-----------*
+/*-----------+
  | map_value |
  +-----------+
  | 2         |
- *-----------*/
+ +-----------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -1123,11 +1123,11 @@ WITH
   )
 SELECT * FROM SalesTable;
 
-/*----------------------------------------------*
+/*----------------------------------------------+
  | my_array                                     |
  +----------------------------------------------+
  | [{[{[25, 75] prices}, {[30] prices}] sales}] |
- *----------------------------------------------*/
+ +----------------------------------------------*/
 ```
 
 This is what the array elements field access operator looks like in the
@@ -1136,11 +1136,11 @@ This is what the array elements field access operator looks like in the
 ```zetasql
 SELECT FLATTEN(my_array.sales.prices) AS all_prices FROM SalesTable;
 
-/*--------------*
+/*--------------+
  | all_prices   |
  +--------------+
  | [25, 75, 30] |
- *--------------*/
+ +--------------*/
 ```
 
 This is how you use the array subscript operator to only return values at a
@@ -1149,11 +1149,11 @@ specific index in the `prices` array:
 ```zetasql
 SELECT FLATTEN(my_array.sales.prices[OFFSET(0)]) AS first_prices FROM SalesTable;
 
-/*--------------*
+/*--------------+
  | first_prices |
  +--------------+
  | [25, 30]     |
- *--------------*/
+ +--------------*/
 ```
 
 This is an example of an explicit `UNNEST` operation that includes the
@@ -1162,13 +1162,13 @@ array elements field access operator:
 ```zetasql
 SELECT all_prices FROM SalesTable, UNNEST(my_array.sales.prices) AS all_prices
 
-/*------------*
+/*------------+
  | all_prices |
  +------------+
  | 25         |
  | 75         |
  | 30         |
- *------------*/
+ +------------*/
 ```
 
 This is an example of an implicit `UNNEST` operation that includes the
@@ -1177,13 +1177,13 @@ array elements field access operator:
 ```zetasql
 SELECT all_prices FROM SalesTable, SalesTable.my_array.sales.prices AS all_prices
 
-/*------------*
+/*------------+
  | all_prices |
  +------------+
  | 25         |
  | 75         |
  | 30         |
- *------------*/
+ +------------*/
 ```
 
 This query produces an error because one of the `prices` arrays doesn't have
@@ -1201,11 +1201,11 @@ produces a `NULL` value instead of an error.
 ```zetasql
 SELECT FLATTEN(my_array.sales.prices[SAFE_OFFSET(1)]) AS second_prices FROM SalesTable;
 
-/*---------------*
+/*---------------+
  | second_prices |
  +---------------+
  | [75, NULL]    |
- *---------------*/
+ +---------------*/
 ```
 
 In this next example, an empty array and a `NULL` field value have been added to
@@ -1228,11 +1228,11 @@ WITH
   )
 SELECT FLATTEN(my_array.sales.prices) AS first_prices FROM SalesTable;
 
-/*--------------*
+/*--------------+
  | first_prices |
  +--------------+
  | [25, 75, 30] |
- *--------------*/
+ +--------------*/
 ```
 
 The next examples in this section reference a protocol buffer called
@@ -1271,11 +1271,11 @@ WITH
   )
 SELECT FLATTEN(albums_array.song) AS songs FROM AlbumList
 
-/*------------------------------*
+/*------------------------------+
  | songs                        |
  +------------------------------+
  | [North,South,Snow,Ice,Water] |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 The following example extracts a flattened array of album names, one album name
@@ -1305,12 +1305,12 @@ WITH
   )
 SELECT names FROM AlbumList, UNNEST(albums_array.album_name) AS names
 
-/*----------------------*
+/*----------------------+
  | names                |
  +----------------------+
  | One Way              |
  | After Hours          |
- *----------------------*/
+ +----------------------*/
 ```
 
 [array-subscript-operator]: #array_subscript_operator
@@ -1487,11 +1487,11 @@ days.
 ```zetasql
 SELECT DATE "2020-09-22" + 1 AS day_later, DATE "2020-09-22" - 7 AS week_ago
 
-/*------------+------------*
+/*------------+------------+
  | day_later  | week_ago   |
  +------------+------------+
  | 2020-09-23 | 2020-09-15 |
- *------------+------------*/
+ +------------+------------*/
 ```
 
 ### Datetime subtraction 
@@ -1518,11 +1518,11 @@ SELECT
   DATE "2021-05-20" - DATE "2020-04-19" AS date_diff,
   TIMESTAMP "2021-06-01 12:34:56.789" - TIMESTAMP "2021-05-31 00:00:00" AS time_diff
 
-/*-------------------+------------------------*
+/*-------------------+------------------------+
  | date_diff         | time_diff              |
  +-------------------+------------------------+
  | 0-0 396 0:0:0     | 0-0 0 36:34:56.789     |
- *-------------------+------------------------*/
+ +-------------------+------------------------*/
 ```
 
 ### Interval arithmetic operators 
@@ -1552,11 +1552,11 @@ SELECT
   DATE "2021-04-20" + INTERVAL 25 HOUR AS date_plus,
   TIMESTAMP "2021-05-02 00:01:02.345" - INTERVAL 10 SECOND AS time_minus;
 
-/*-------------------------+--------------------------------*
+/*-------------------------+--------------------------------+
  | date_plus               | time_minus                     |
  +-------------------------+--------------------------------+
  | 2021-04-21 01:00:00     | 2021-05-02 00:00:52.345+00     |
- *-------------------------+--------------------------------*/
+ +-------------------------+--------------------------------*/
 ```
 
 **Multiplication and division**
@@ -1580,11 +1580,11 @@ SELECT
   INTERVAL 10 YEAR / 3 AS div1,
   INTERVAL 1 MONTH / 12 AS div2
 
-/*----------------+--------------+-------------+--------------*
+/*----------------+--------------+-------------+--------------+
  | mul1           | mul2         | div1        | div2         |
  +----------------+--------------+-------------+--------------+
  | 0-0 0 10:20:30 | 0-0 0 0:2:20 | 3-4 0 0:0:0 | 0-0 2 12:0:0 |
- *----------------+--------------+-------------+--------------*/
+ +----------------+--------------+-------------+--------------*/
 ```
 
 ### Bitwise operators 
@@ -1729,14 +1729,14 @@ can be skipped if unnecessary.
 The examples in this section reference a table called `entry_table`:
 
 ```zetasql
-/*-------*
+/*-------+
  | entry |
  +-------+
  | a     |
  | b     |
  | c     |
  | NULL  |
- *-------*/
+ +-------*/
 ```
 
 ```zetasql
@@ -1746,11 +1746,11 @@ SELECT 'a' FROM entry_table WHERE entry = 'a'
 -- b => 'b' = 'a' => FALSE
 -- NULL => NULL = 'a' => NULL
 
-/*-------*
+/*-------+
  | entry |
  +-------+
  | a     |
- *-------*/
+ +-------*/
 ```
 
 ```zetasql
@@ -1760,12 +1760,12 @@ SELECT entry FROM entry_table WHERE NOT (entry = 'a')
 -- b => NOT('b' = 'a') => NOT(FALSE) => TRUE
 -- NULL => NOT(NULL = 'a') => NOT(NULL) => NULL
 
-/*-------*
+/*-------+
  | entry |
  +-------+
  | b     |
  | c     |
- *-------*/
+ +-------*/
 ```
 
 ```zetasql
@@ -1775,11 +1775,11 @@ SELECT entry FROM entry_table WHERE entry IS NULL
 -- b => 'b' IS NULL => FALSE
 -- NULL => NULL IS NULL => TRUE
 
-/*-------*
+/*-------+
  | entry |
  +-------+
  | NULL  |
- *-------*/
+ +-------*/
 ```
 
 [three-valued-logic]: https://en.wikipedia.org/wiki/Three-valued_logic
@@ -1858,12 +1858,12 @@ RETURN
   JSON_QUERY(TO_JSON(full_path)[4], '$.labels') AS element_e,
   JSON_QUERY(TO_JSON(full_path)[5], '$.labels') AS element_f
 
-/*-------------------------------------------------------------------------------------*
+/*-------------------------------------------------------------------------------------+
  | element_a   | element_b     | element_c   | element_d     | element_e   | element_f |
  +-------------------------------------------------------------------------------------+
  | ["Account"] | ["Transfers"] | ["Account"] | ["Transfers"] | ["Account"] |           |
  | ...         | ...           | ...         | ...           | ...         | ...       |
- *-------------------------------------------------------------------------------------/*
+ +-------------------------------------------------------------------------------------/*
 ```
 
 The following query produces an error because the last node for `p` must
@@ -2244,7 +2244,7 @@ value. These comparison operators are available:
         Returns <code>TRUE</code> if <code>X</code> is less than <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2256,7 +2256,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
         <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2268,7 +2268,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
         <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2280,7 +2280,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
         <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2291,7 +2291,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
         Returns <code>TRUE</code> if <code>X</code> is equal to <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2303,7 +2303,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
         <code>Y</code>.
         
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
       </td>
     </tr>
@@ -2318,7 +2318,7 @@ This operator supports specifying <a href="https://github.com/google/zetasql/blo
           evaluated only once in the former.
           
 
-This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about">collation</a>.
+This operator supports specifying <a href="https://github.com/google/zetasql/blob/master/docs/collation-concepts.md">collation</a>.
 
         </p>
       </td>
@@ -2441,11 +2441,11 @@ WITH Words AS (
  )
 SELECT EXISTS( SELECT value FROM Words WHERE direction = 'south' ) as result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | FALSE  |
- *--------*/
+ +--------*/
 ```
 
 [exists-subqueries]: https://github.com/google/zetasql/blob/master/docs/subqueries.md#exists_subquery_concepts
@@ -2583,7 +2583,7 @@ WITH Words AS (
  )
 SELECT * FROM Words;
 
-/*----------*
+/*----------+
  | value    |
  +----------+
  | Intend   |
@@ -2591,7 +2591,7 @@ SELECT * FROM Words;
  | Clarity  |
  | Peace    |
  | Intend   |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
@@ -2603,13 +2603,13 @@ WITH
   )
 SELECT * FROM Items;
 
-/*----------------------------*
+/*----------------------------+
  | info                       |
  +----------------------------+
  | {blue color, round shape}  |
  | {blue color, square shape} |
  | {red color, round shape}   |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 Example with `IN` and an expression:
@@ -2617,13 +2617,13 @@ Example with `IN` and an expression:
 ```zetasql
 SELECT * FROM Words WHERE value IN ('Intend', 'Secure');
 
-/*----------*
+/*----------+
  | value    |
  +----------+
  | Intend   |
  | Secure   |
  | Intend   |
- *----------*/
+ +----------*/
 ```
 
 Example with `NOT IN` and an expression:
@@ -2631,13 +2631,13 @@ Example with `NOT IN` and an expression:
 ```zetasql
 SELECT * FROM Words WHERE value NOT IN ('Intend');
 
-/*----------*
+/*----------+
  | value    |
  +----------+
  | Secure   |
  | Clarity  |
  | Peace    |
- *----------*/
+ +----------*/
 ```
 
 Example with `IN`, a scalar subquery, and an expression:
@@ -2645,13 +2645,13 @@ Example with `IN`, a scalar subquery, and an expression:
 ```zetasql
 SELECT * FROM Words WHERE value IN ((SELECT 'Intend'), 'Clarity');
 
-/*----------*
+/*----------+
  | value    |
  +----------+
  | Intend   |
  | Clarity  |
  | Intend   |
- *----------*/
+ +----------*/
 ```
 
 Example with `IN` and an `UNNEST` operation:
@@ -2659,12 +2659,12 @@ Example with `IN` and an `UNNEST` operation:
 ```zetasql
 SELECT * FROM Words WHERE value IN UNNEST(['Secure', 'Clarity']);
 
-/*----------*
+/*----------+
  | value    |
  +----------+
  | Secure   |
  | Clarity  |
- *----------*/
+ +----------*/
 ```
 
 Example with `IN` and a struct:
@@ -2676,11 +2676,11 @@ FROM
   Items
 WHERE (info.shape, info.color) IN (('round', 'blue'));
 
-/*------------------------------------*
+/*------------------------------------+
  | item                               |
  +------------------------------------+
  | { {blue color, round shape} info } |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 [semantic-rules-in]: #semantic_rules_in
@@ -3627,11 +3627,11 @@ SELECT WITH(a AS '123',               -- a is '123'
             c AS '789',               -- c is '789'
             CONCAT(b, c)) AS result;  -- b + c is '123456789'
 
-/*-------------*
+/*-------------+
  | result      |
  +-------------+
  | '123456789' |
- *-------------*/
+ +-------------*/
 ```
 
 In the following example, the volatile expression `RAND()` is evaluated once.
@@ -3640,11 +3640,11 @@ The value of the result expression is always `0.0`:
 ```zetasql
 SELECT WITH(a AS RAND(), a - a);
 
-/*---------*
+/*---------+
  | result  |
  +---------+
  | 0.0     |
- *---------*/
+ +---------*/
 ```
 
 Aggregate or analytic function
@@ -3654,11 +3654,11 @@ results can be stored in variables.
 SELECT WITH(s AS SUM(input), c AS COUNT(input), s/c)
 FROM UNNEST([1.0, 2.0, 3.0]) AS input;
 
-/*---------*
+/*---------+
  | result  |
  +---------+
  | 2.0     |
- *---------*/
+ +---------*/
 ```
 
 Variables can't be used in aggregate or

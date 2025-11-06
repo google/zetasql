@@ -840,3 +840,33 @@ FROM MeasureTable_SingleKey
 ERROR: Returning expressions of type MEASURE is not allowed [at 3:4]
 |> EXPORT DATA
    ^
+==
+
+# A hint on the generalized statement propagates to the rewritten statement.
+@{hint=1}
+FROM KeyValue
+|> EXPORT DATA
+--
+GeneralizedQueryStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-query=
+  +-PipeExportDataScan
+    +-export_data_stmt=
+      +-ExportDataStmt
+        +-output_column_list=
+        | +-KeyValue.Key#1 AS Key [INT64]
+        | +-KeyValue.Value#2 AS Value [STRING]
+        +-query=
+          +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+
+
+[REWRITTEN AST]
+ExportDataStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])

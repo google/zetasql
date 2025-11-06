@@ -28,7 +28,10 @@ namespace zetasql {
 // The tables include a callback to return data.
 // A new catalog is made each time, but data is shared across all instances.
 // This uses 1MB of source data linked in as a cc_embed_data.
-absl::StatusOr<std::unique_ptr<SimpleCatalog>> MakeTpchCatalog();
+//
+// If `with_semantic_graph` is true, the Tables are extended with join columns.
+absl::StatusOr<std::unique_ptr<SimpleCatalog>> MakeTpchCatalog(
+    bool with_semantic_graph = false);
 
 }  // namespace zetasql
 

@@ -62,8 +62,8 @@ struct ModuleContentsInfo {
 //   [<inline module a.b.c from QueryRequest>:5:32]
 class ModuleContentsFetcher {
  public:
-  ModuleContentsFetcher() {}
-  virtual ~ModuleContentsFetcher() {}
+  ModuleContentsFetcher() = default;
+  virtual ~ModuleContentsFetcher() = default;
 
   // Not copyable or movable.
   ModuleContentsFetcher(const ModuleContentsFetcher&) = delete;

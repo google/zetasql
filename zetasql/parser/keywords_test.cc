@@ -147,7 +147,7 @@ std::set<std::string> ExtractTokenizerKeywordsFromLines(
 //
 // Keywords are returned here, as they appear in the Bison grammar
 // (e.g. "kw_qualify_reserved" or "kw_qualify_nonreserved", not "qualify").
-std::set<std::string> GetKeywordsSetForBisonGrammar(bool reserved) {
+std::set<std::string> GetKeywordsSet(bool reserved) {
   std::set<std::string> result;
   for (const KeywordInfo& keyword_info : GetAllKeywords()) {
     if (keyword_info.IsConditionallyReserved()) {
@@ -161,27 +161,14 @@ std::set<std::string> GetKeywordsSetForBisonGrammar(bool reserved) {
   return result;
 }
 
-// Gets a set of all keywords, in lowercase.
-std::set<std::string> GetAllKeywordsSet() {
-  std::set<std::string> result;
-  for (const KeywordInfo& keyword_info : GetAllKeywords()) {
-    result.insert(absl::AsciiStrToLower(keyword_info.keyword()));
-  }
-  return result;
-}
-
 std::string GetGrammarPath() {
   return zetasql_base::JoinPath(
       getenv("TEST_SRCDIR"),
-      "com_google_zetasql/zetasql/parser");
+      "_main/zetasql/parser");
 }
 
 std::string GetBisonParserPath() {
   return zetasql_base::JoinPath(GetGrammarPath(), "zetasql.tm");
-}
-
-std::string GetFlexTokenizerPath() {
-  return zetasql_base::JoinPath(GetGrammarPath(), "flex_tokenizer.l");
 }
 
 TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
@@ -189,7 +176,7 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarKeywordAsIdentifier) {
       GetSectionFromFile(GetBisonParserPath(), "KEYWORD_AS_IDENTIFIER"));
 
   std::set<std::string> non_reserved_keywords =
-      GetKeywordsSetForBisonGrammar(false /* reserved */);
+      GetKeywordsSet(false /* reserved */);
 
   EXPECT_THAT(keyword_as_identifier,
               ::testing::ContainerEq(non_reserved_keywords));
@@ -201,19 +188,29 @@ TEST(GetAllKeywords, NonReservedMatchesGrammarNonReserved) {
           GetSectionFromFile(GetBisonParserPath(), "SENTINEL_NONRESERVED_KW"));
 
   std::set<std::string> non_reserved_keywords =
-      GetKeywordsSetForBisonGrammar(false /* reserved */);
+      GetKeywordsSet(false /* reserved */);
 
   EXPECT_THAT(grammar_non_reserved_keywords,
               ::testing::ContainerEq(non_reserved_keywords));
 }
 
-TEST(GetAllKeywords, AllKeywordsHaveTokenizerRules) {
-  std::set<std::string> tokenizer_keywords = ExtractTokenizerKeywordsFromLines(
-      GetSectionFromFile(GetFlexTokenizerPath(), "KEYWORDS"));
+TEST(GetAllKeywords, ReservedKeywordsMatchGrammarReserved) {
+  std::set<std::string> reserved_in_grammar = ExtractKeywordsFromLines(
+      GetSectionFromFile(GetBisonParserPath(), "SENTINEL_RESERVED_KW"));
 
-  std::set<std::string> all_keywords = GetAllKeywordsSet();
+  std::set<std::string> reserved_in_keyword_utils =
+      GetKeywordsSet(/*reserved=*/true);
 
-  EXPECT_THAT(tokenizer_keywords, ::testing::ContainerEq(all_keywords));
+  // TODO: "kw_define_for_macros" is a special form of "DEFINE" used only under
+  // the "define macro" context. GetKeywordsSet() contains (1) the tokens that
+  // can be produced by the lexer, and (2) their reserved variants, if
+  // applicable, so it doesn't include "kw_define_for_macros". We should
+  // evaluate whether we should remove "kw_define_for_macros" from the
+  // "SENTINEL_RESERVED_KW" section.
+  reserved_in_keyword_utils.insert("kw_define_for_macros");
+
+  EXPECT_THAT(reserved_in_keyword_utils,
+              ::testing::ContainerEq(reserved_in_grammar));
 }
 
 TEST(ParserTest, DontAddNewReservedKeywords) {

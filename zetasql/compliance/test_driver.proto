@@ -41,6 +41,10 @@ message TestDatabaseProto {
 
   // Set of CREATE TABLE FUNCTION statements. Names are required to be unique.
   repeated TestTVFProto tvfs = 8;
+
+  // Set of CREATE [AGGREGATE] FUNCTION statements that should be executed
+  // prior to adding MEASURE column definitions to a table.
+  repeated string measure_function_defs = 9;
 }
 
 message TestTableOptionsProto {
@@ -80,11 +84,19 @@ message TestTableProto {
   // ARRAY of STRUCTs, where the STRUCT field names are the column names.
   optional TypeAndValue contents = 2;
   optional TestTableOptionsProto options = 3;
+  repeated MeasureColumnDefProto measure_column_definitions = 4;
+  repeated int32 row_identity_column_indices = 5;
 }
 
 message TypeAndValue {
   optional zetasql.ValueProto value = 1;
   optional zetasql.TypeProto type = 2;
+}
+
+message MeasureColumnDefProto {
+  optional string name = 1;
+  optional string expression = 2;
+  optional bool is_pseudo_column = 3;
 }
 
 message TestTVFProto {

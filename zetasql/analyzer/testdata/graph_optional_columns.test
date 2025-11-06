@@ -1,4 +1,4 @@
-[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_EXPOSE_GRAPH_ELEMENT,+SELECT_STAR_EXCEPT_REPLACE]
 [default no_test_extract_table_names]
 
 # Property reference on exported graph element
@@ -525,6 +525,180 @@ QueryStmt
     | |   +-expr=
     | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
     | |   +-property=name(STRING)
+    | +-syndicateData#8 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=ARRAY<INT64>
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=syndicateData(ARRAY<INT64>)
+    | +-syndicateId#9 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=syndicateId(INT64)
+    | +-syndicateName#10 :=
+    |   +-GraphGetElementProperty
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    |     +-property=syndicateName(STRING)
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$element_table.a#1]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphScan
+            +-column_list=[$element_table.a#1]
+            +-input_scan_list=
+              +-GraphPathScan
+                +-column_list=[$element_table.a#1]
+                +-input_scan_list=
+                | +-GraphNodeScan
+                |   +-column_list=[$element_table.a#1]
+                |   +-label_expr=
+                |   | +-GraphLabelNaryExpr
+                |   |   +-op=OR
+                |   |   +-operand_list=
+                |   |     +-GraphWildCardLabel
+                |   |     +-GraphLabelNaryExpr
+                |   |       +-op=NOT
+                |   |       +-operand_list=
+                |   |         +-GraphWildCardLabel
+                |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+                +-head=$element_table.a#1
+                +-tail=$element_table.a#1
+==
+
+# SELECT * EXCEPT on a graph element
+SELECT a.* EXCEPT (age,balance,id,{{bad,|}}name)
+  from graph_table(
+    aml
+    match (a)
+  )
+--
+ALTERNATION GROUP: bad,
+--
+ERROR: Column bad in SELECT * EXCEPT list does not exist [at 1:35]
+SELECT a.* EXCEPT (age,balance,id,bad,name)
+                                  ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.birthday#2 AS birthday [DATE]
+| +-$query.data#3 AS data [BYTES]
+| +-$query.syndicateData#4 AS syndicateData [ARRAY<INT64>]
+| +-$query.syndicateId#5 AS syndicateId [INT64]
+| +-$query.syndicateName#6 AS syndicateName [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[birthday#2, data#3, syndicateData#4, syndicateId#5, syndicateName#6]
+    +-expr_list=
+    | +-birthday#2 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=DATE
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=birthday(DATE)
+    | +-data#3 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=BYTES
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=data(BYTES)
+    | +-syndicateData#4 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=ARRAY<INT64>
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=syndicateData(ARRAY<INT64>)
+    | +-syndicateId#5 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=syndicateId(INT64)
+    | +-syndicateName#6 :=
+    |   +-GraphGetElementProperty
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    |     +-property=syndicateName(STRING)
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$element_table.a#1]
+        +-property_graph=aml
+        +-input_scan=
+          +-GraphScan
+            +-column_list=[$element_table.a#1]
+            +-input_scan_list=
+              +-GraphPathScan
+                +-column_list=[$element_table.a#1]
+                +-input_scan_list=
+                | +-GraphNodeScan
+                |   +-column_list=[$element_table.a#1]
+                |   +-label_expr=
+                |   | +-GraphLabelNaryExpr
+                |   |   +-op=OR
+                |   |   +-operand_list=
+                |   |     +-GraphWildCardLabel
+                |   |     +-GraphLabelNaryExpr
+                |   |       +-op=NOT
+                |   |       +-operand_list=
+                |   |         +-GraphWildCardLabel
+                |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+                +-head=$element_table.a#1
+                +-tail=$element_table.a#1
+==
+
+# SELECT * REPLACE on a graph element
+SELECT a.* REPLACE (1.5 AS age,1.5 AS balance,1.5 AS id,{{0 AS bad,|}}1.5 AS name)
+  from graph_table(
+    aml
+    match (a)
+  )
+--
+ALTERNATION GROUP: 0 AS bad,
+--
+ERROR: Column bad in SELECT * REPLACE list does not exist [at 1:62]
+SELECT a.* REPLACE (1.5 AS age,1.5 AS balance,1.5 AS id,0 AS bad,1.5 AS name)
+                                                             ^
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.age#2 AS age [DOUBLE]
+| +-$query.balance#3 AS balance [DOUBLE]
+| +-$query.birthday#4 AS birthday [DATE]
+| +-$query.data#5 AS data [BYTES]
+| +-$query.id#6 AS id [DOUBLE]
+| +-$query.name#7 AS name [DOUBLE]
+| +-$query.syndicateData#8 AS syndicateData [ARRAY<INT64>]
+| +-$query.syndicateId#9 AS syndicateId [INT64]
+| +-$query.syndicateName#10 AS syndicateName [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[age#2, balance#3, birthday#4, data#5, id#6, name#7, syndicateData#8, syndicateId#9, syndicateName#10]
+    +-expr_list=
+    | +-age#2 := Literal(type=DOUBLE, value=1.5)
+    | +-balance#3 := Literal(type=DOUBLE, value=1.5)
+    | +-birthday#4 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=DATE
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=birthday(DATE)
+    | +-data#5 :=
+    | | +-GraphGetElementProperty
+    | |   +-type=BYTES
+    | |   +-expr=
+    | |   | +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.a#1)
+    | |   +-property=data(BYTES)
+    | +-id#6 := Literal(type=DOUBLE, value=1.5)
+    | +-name#7 := Literal(type=DOUBLE, value=1.5)
     | +-syndicateData#8 :=
     | | +-GraphGetElementProperty
     | |   +-type=ARRAY<INT64>

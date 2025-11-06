@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "zetasql/public/builtin_function.pb.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/sql_function.h"
@@ -39,6 +40,32 @@
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
+
+// Returns true if the function body is SQL-defined.
+static bool IsSqlDefined(const zetasql::Function* function) {
+  return function->Is<SQLFunctionInterface>() ||
+         function->Is<TemplatedSQLFunction>();
+}
+
+// Returns true if the aggregate function (or any of its nested aggregate
+// function calls) are eligible for inlining via the SqlUdaInliner.
+static absl::StatusOr<bool> IsEligibleForSqlUdaInliner(
+    const ResolvedAggregateFunctionCall* agg_call) {
+  if (IsSqlDefined(agg_call->function())) {
+    return true;
+  }
+  for (const auto& nested_agg : agg_call->group_by_aggregate_list()) {
+    ZETASQL_RET_CHECK(nested_agg->expr()->Is<ResolvedAggregateFunctionCall>());
+    ZETASQL_ASSIGN_OR_RETURN(
+        bool nested_agg_uda_inlining_eligible,
+        IsEligibleForSqlUdaInliner(
+            nested_agg->expr()->GetAs<ResolvedAggregateFunctionCall>()));
+    if (nested_agg_uda_inlining_eligible) {
+      return true;
+    }
+  }
+  return false;
+}
 
 // Implements FindRelevantRewrites.
 class RewriteApplicabilityChecker : public ResolvedASTVisitor {
@@ -65,8 +92,9 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       ZETASQL_RET_CHECK(pivot_expr->Is<ResolvedAggregateFunctionCall>());
       const auto& aggregate_func_call =
           pivot_expr->GetAs<ResolvedAggregateFunctionCall>();
-      if (aggregate_func_call->function()->Is<SQLFunctionInterface>() ||
-          aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
+      ZETASQL_ASSIGN_OR_RETURN(bool uda_inlining_eligible,
+                       IsEligibleForSqlUdaInliner(aggregate_func_call));
+      if (uda_inlining_eligible) {
         applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
       }
     }
@@ -289,6 +317,14 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
     return DefaultVisit(node);
   }
 
+  absl::Status VisitResolvedSubpipelineStmt(
+      const ResolvedSubpipelineStmt* node) override {
+    applicable_rewrites_->insert(REWRITE_SUBPIPELINE_STMT);
+    // This will also be applicable after the first rewrite runs.
+    applicable_rewrites_->insert(REWRITE_GENERALIZED_QUERY_STMT);
+    return DefaultVisit(node);
+  }
+
   absl::Status VisitResolvedUpdateConstructor(
       const ResolvedUpdateConstructor* node) override {
     applicable_rewrites_->insert(
@@ -322,8 +358,9 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
       ZETASQL_RET_CHECK(aggregate_expr->Is<ResolvedAggregateFunctionCall>());
       const auto& aggregate_func_call =
           aggregate_expr->GetAs<ResolvedAggregateFunctionCall>();
-      if (aggregate_func_call->function()->Is<SQLFunctionInterface>() ||
-          aggregate_func_call->function()->Is<TemplatedSQLFunction>()) {
+      ZETASQL_ASSIGN_OR_RETURN(bool uda_inlining_eligible,
+                       IsEligibleForSqlUdaInliner(aggregate_func_call));
+      if (uda_inlining_eligible) {
         applicable_rewrites_->insert(REWRITE_INLINE_SQL_UDAS);
       }
       if (aggregate_func_call->order_by_item_list_size() > 0 ||

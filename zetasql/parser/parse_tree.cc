@@ -58,7 +58,7 @@ ABSL_FLAG(bool, output_asc_explicitly, false,
 
 namespace zetasql {
 
-ASTNode::~ASTNode() {}
+ASTNode::~ASTNode() = default;
 
 void ASTNode::AddChild(ASTNode* child) {
   ABSL_DCHECK(child != nullptr);

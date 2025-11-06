@@ -1939,6 +1939,15 @@ class DMLValueExprEvalTest : public EvalTest {
           ConstExpr::Create(value->value()->GetAs<ResolvedLiteral>()->value()));
       (*resolved_expr_map)[value->value()] = std::move(const_expr);
     }
+    if (stmt->row_list_size() == 2) {
+      for (const auto& value : stmt->row_list(1)->value_list()) {
+        ZETASQL_ASSIGN_OR_RETURN(
+            std::unique_ptr<ValueExpr> const_expr,
+            ConstExpr::Create(
+                value->value()->GetAs<ResolvedLiteral>()->value()));
+        (*resolved_expr_map)[value->value()] = std::move(const_expr);
+      }
+    }
 
     auto column_expr_map = std::make_unique<ColumnExprMap>();
 
@@ -2087,6 +2096,89 @@ TEST_F(DMLValueExprEvalTest, DMLInsertOrIgnoreValueExpr) {
   // No rows are returned
   EXPECT_EQ(result.value().field(0).int64_value(), 0);
   EXPECT_TRUE(result.value().field(1).empty());
+}
+
+TEST_F(DMLValueExprEvalTest, DMLInsertOrIgnoreValueExprReturnAllInsertRows) {
+  const ResolvedColumnList& column_list = {
+      ResolvedColumn{1, IdString::MakeGlobal("test_table"),
+                     IdString::MakeGlobal("int_val"), Int64Type()},
+      ResolvedColumn{2, IdString::MakeGlobal("test_table"),
+                     zetasql::IdString::MakeGlobal("str_val"), StringType()}};
+  auto table_scan = MakeResolvedTableScan(column_list, table(),
+                                          /*for_system_time_expr=*/nullptr);
+
+  // Build a resolved AST for inserting:
+  // (1) a row with PK: 1, that already exists.
+  std::vector<std::unique_ptr<const ResolvedDMLValue>> insert_row1;
+  insert_row1.push_back(
+      MakeResolvedDMLValue(MakeResolvedLiteral(Int64Type(), Int64(1))));
+  insert_row1.push_back(MakeResolvedDMLValue(
+      MakeResolvedLiteral(StringType(), String("one again"))));
+  // (2) a row with PK: 10 that does not exist.
+  std::vector<std::unique_ptr<const ResolvedDMLValue>> insert_row2;
+  insert_row2.push_back(
+      MakeResolvedDMLValue(MakeResolvedLiteral(Int64Type(), Int64(10))));
+  insert_row2.push_back(
+      MakeResolvedDMLValue(MakeResolvedLiteral(StringType(), String("ten"))));
+  std::vector<std::unique_ptr<const ResolvedInsertRow>> row_list;
+  row_list.push_back(MakeResolvedInsertRow(std::move(insert_row1)));
+  row_list.push_back(MakeResolvedInsertRow(std::move(insert_row2)));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto stmt,
+                       ResolvedInsertStmtBuilder()
+                           .set_table_scan(std::move(table_scan))
+                           .set_insert_mode(ResolvedInsertStmt::OR_IGNORE)
+                           .set_row_list(std::move(row_list))
+                           .set_insert_column_list(column_list)
+                           .Build());
+
+  // Create output types.
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLInsertValueExpr> expr,
+      InsertStmtToInsertExprConverter(stmt.get(), table_array_type));
+
+  // Evaluate and check.
+  TupleSlot result;
+  absl::Status status;
+  // the case for return_all_rows_for_dml = true is covered by the reference
+  // implementation compliance tests
+  EvaluationOptions options{};
+  options.return_all_insert_rows_insert_ignore_dml = true;
+  options.return_all_rows_for_dml = false;
+  EvaluationContext context{options};
+  ZETASQL_ASSERT_OK(context.AddTableAsArray(
+      "test_table", /*is_value_table=*/false,
+      Value::Array(table_array_type,
+                   {Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(1), String("one")}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(2), NullString()}),
+                    Value::Struct(table_array_type->element_type()->AsStruct(),
+                                  {Int64(4), NullString()})}),
+      LanguageOptions{}));
+  ZETASQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+  EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+  ZETASQL_ASSERT_OK(status);
+  // 1st struct field is the number of rows modified.
+  // The count accounts only for the new row inserted.
+  EXPECT_EQ(result.value().field(0).int64_value(), 1);
+  // 2nd struct field returns the insert rows, both the new and the ignored
+  // row.
+  ASSERT_FALSE(result.value().field(1).empty());
+  EXPECT_EQ(result.value().field(1).elements().size(), 2);
+  EXPECT_EQ(result.value().field(1).elements().at(0).field(0).int64_value(), 1);
+  EXPECT_EQ(result.value().field(1).elements().at(0).field(1).string_value(),
+            "one again");
+  EXPECT_EQ(result.value().field(1).elements().at(1).field(0).int64_value(),
+            10);
+  EXPECT_EQ(result.value().field(1).elements().at(1).field(1).string_value(),
+            "ten");
 }
 
 TEST_F(DMLValueExprEvalTest,

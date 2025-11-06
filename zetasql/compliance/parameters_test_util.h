@@ -46,7 +46,6 @@ struct TestDatabase;
 // Parse a parameters string, return a map of <param_name>:<typed_value>.
 absl::Status ParseTestFileParameters(absl::string_view param_string,
                                      ReferenceDriver* reference_driver,
-                                     TypeFactory* type_factory,
                                      std::map<std::string, Value>* parameters);
 
 // A helper class which wraps ParseTestFileParameters and also owns the
@@ -67,7 +66,6 @@ class TestFileParameterParser {
 
  private:
   std::unique_ptr<ReferenceDriver> reference_impl_;
-  std::unique_ptr<TypeFactory> type_factory_;
   bool initialized_ = false;
 };
 

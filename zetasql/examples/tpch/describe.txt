@@ -8,6 +8,7 @@ Columns:
   C_ACCTBAL    DOUBLE
   C_MKTSEGMENT STRING
   C_COMMENT    STRING
+Primary key: (C_CUSTKEY)
 
 Table: LineItem
 Columns:
@@ -27,6 +28,7 @@ Columns:
   L_SHIPINSTRUCT  STRING
   L_SHIPMODE      STRING
   L_COMMENT       STRING
+Primary key: (L_ORDERKEY, L_LINENUMBER)
 
 Table: Nation
 Columns:
@@ -34,6 +36,7 @@ Columns:
   N_NAME      STRING
   N_REGIONKEY UINT64
   N_COMMENT   STRING
+Primary key: (N_NATIONKEY)
 
 Table: Orders
 Columns:
@@ -46,6 +49,7 @@ Columns:
   O_CLERK         STRING
   O_SHIPPRIORITY  INT64
   O_COMMENT       STRING
+Primary key: (O_ORDERKEY)
 
 Table: Part
 Columns:
@@ -58,6 +62,7 @@ Columns:
   P_CONTAINER   STRING
   P_RETAILPRICE DOUBLE
   P_COMMENT     STRING
+Primary key: (P_PARTKEY)
 
 Table: PartSupp
 Columns:
@@ -66,12 +71,14 @@ Columns:
   PS_AVAILQTY   INT64
   PS_SUPPLYCOST DOUBLE
   PS_COMMENT    STRING
+Primary key: (PS_PARTKEY, PS_SUPPKEY)
 
 Table: Region
 Columns:
   R_REGIONKEY UINT64
   R_NAME      STRING
   R_COMMENT   STRING
+Primary key: (R_REGIONKEY)
 
 Table: Supplier
 Columns:
@@ -82,4 +89,5 @@ Columns:
   S_PHONE     STRING
   S_ACCTBAL   DOUBLE
   S_COMMENT   STRING
+Primary key: (S_SUPPKEY)
 

@@ -16,6 +16,7 @@
 
 #include "zetasql/compliance/sql_test_filebased_options.h"
 
+#include <memory>
 #include <string>
 
 #include "zetasql/base/testing/status_matchers.h"
@@ -37,7 +38,9 @@ using ::zetasql_base::testing::IsOk;
 
 TEST(FilebasedSQLTestOptoionsTest, BasicUse) {
   ReferenceDriver driver;
-  ZETASQL_ASSERT_OK(driver.CreateDatabase(TestDatabase{}));
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_ASSERT_OK(SerializeTestDatabase(TestDatabase{}, test_db_proto.get()));
+  ZETASQL_ASSERT_OK(driver.CreateDatabase(*test_db_proto));
   FilebasedSQLTestFileOptions file_options(&driver);
   std::string reason;
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto case_options,
@@ -47,7 +50,9 @@ TEST(FilebasedSQLTestOptoionsTest, BasicUse) {
 
 TEST(FilebasedSQLTestOptoionsTest, SpacyLabels) {
   ReferenceDriver driver;
-  ZETASQL_ASSERT_OK(driver.CreateDatabase(TestDatabase{}));
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_ASSERT_OK(SerializeTestDatabase(TestDatabase{}, test_db_proto.get()));
+  ZETASQL_ASSERT_OK(driver.CreateDatabase(*test_db_proto));
   FilebasedSQLTestFileOptions file_options(&driver);
   std::string reason;
   ZETASQL_ASSERT_OK_AND_ASSIGN(auto case_options,
@@ -61,7 +66,9 @@ SELECT 1)",
 
 TEST(FilebasedSQLTestOptoionsTest, GlobalLabels) {
   ReferenceDriver driver;
-  ZETASQL_ASSERT_OK(driver.CreateDatabase(TestDatabase{}));
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_ASSERT_OK(SerializeTestDatabase(TestDatabase{}, test_db_proto.get()));
+  ZETASQL_ASSERT_OK(driver.CreateDatabase(*test_db_proto));
   FilebasedSQLTestFileOptions file_options(&driver);
   constexpr absl::string_view kFirstTest = R"(
 [default global_labels=a,b,c]

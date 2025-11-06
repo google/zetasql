@@ -477,7 +477,7 @@ SELECT FILTER_FIELDS(KitchenSink, +int32_val)
 ==
 
 # Setting a missing required field as default
-SELECT FILTER_FIELDS(KitchenSink, +int32_val, RESET_CLEARED_REQUIRED_FIELDS => True)
+SELECT FILTER_FIELDS(KitchenSink, +int32_val, {{reset_cleared_required_fields|RESET_CLEARED_REQUIRED_FIELDS}} => True)
 FROM TestTable
 --
 QueryStmt
@@ -509,11 +509,11 @@ SELECT FILTER_FIELDS(KitchenSink, +int64_key_1, +int64_key_2, +nested_with_re...
 ==
 
 # Duplicate named options
-SELECT FILTER_FIELDS(KitchenSink, +int32_val, RESET_CLEARED_REQUIRED_FIELDS => True, RESET_CLEARED_REQUIRED_FIELDS => True)
+SELECT FILTER_FIELDS(KitchenSink, +int32_val, reset_cleared_required_fields => True, RESET_CLEARED_REQUIRED_FIELDS => True)
 FROM TestTable
 --
 ERROR: Duplicated named option [at 1:86]
-...int32_val, RESET_CLEARED_REQUIRED_FIELDS => True, RESET_CLEARED_REQUIRED_F...
+...int32_val, reset_cleared_required_fields => True, RESET_CLEARED_REQUIRED_F...
                                                      ^
 ==
 

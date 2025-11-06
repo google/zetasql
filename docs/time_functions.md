@@ -126,11 +126,11 @@ yield the same value.
 ```zetasql
 SELECT CURRENT_TIME() as now;
 
-/*----------------------------*
+/*----------------------------+
  | now                        |
  +----------------------------+
  | 15:31:38.776361            |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -149,7 +149,6 @@ a supplied `time_expression`.
 Allowed `part` values are:
 
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -171,11 +170,11 @@ time part.
 ```zetasql
 SELECT EXTRACT(HOUR FROM TIME "15:30:00") as hour;
 
-/*------------------*
+/*------------------+
  | hour             |
  +------------------+
  | 15               |
- *------------------*/
+ +------------------*/
 ```
 
 ## `FORMAT_TIME`
@@ -203,11 +202,11 @@ Formats a `TIME` value according to the specified format string.
 ```zetasql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
-/*----------------*
+/*----------------+
  | formatted_time |
  +----------------+
  | 15:30          |
- *----------------*/
+ +----------------*/
 ```
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -271,21 +270,21 @@ function:
 ```zetasql
 SELECT PARSE_TIME("%H", "15") as parsed_time;
 
-/*-------------*
+/*-------------+
  | parsed_time |
  +-------------+
  | 15:00:00    |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time;
 
-/*-------------*
+/*-------------+
  | parsed_time |
  +-------------+
  | 14:23:38    |
- *-------------*/
+ +-------------*/
 ```
 
 [time-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -321,21 +320,21 @@ SELECT
   TIME(15, 30, 00) as time_hms,
   TIME(TIMESTAMP "2008-12-25 15:30:00+08", "America/Los_Angeles") as time_tstz;
 
-/*----------+-----------*
+/*----------+-----------+
  | time_hms | time_tstz |
  +----------+-----------+
  | 15:30:00 | 23:30:00  |
- *----------+-----------*/
+ +----------+-----------*/
 ```
 
 ```zetasql
 SELECT TIME(DATETIME "2008-12-25 15:30:00.000000") AS time_dt;
 
-/*----------*
+/*----------+
  | time_dt  |
  +----------+
  | 15:30:00 |
- *----------*/
+ +----------*/
 ```
 
 [time-link-to-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -353,7 +352,6 @@ Adds `int64_expression` units of `part` to the `TIME` object.
 `TIME_ADD` supports the following values for `part`:
 
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -375,11 +373,11 @@ SELECT
   TIME "15:30:00" as original_time,
   TIME_ADD(TIME "15:30:00", INTERVAL 10 MINUTE) as later;
 
-/*-----------------------------+------------------------*
+/*-----------------------------+------------------------+
  | original_time               | later                  |
  +-----------------------------+------------------------+
  | 15:30:00                    | 15:40:00               |
- *-----------------------------+------------------------*/
+ +-----------------------------+------------------------*/
 ```
 
 ## `TIME_DIFF`
@@ -403,7 +401,6 @@ Gets the number of unit boundaries between two `TIME` values (`end_time` -
 
     
     + `NANOSECOND`
-      (if the SQL engine supports it)
     + `MICROSECOND`
     + `MILLISECOND`
     + `SECOND`
@@ -433,11 +430,11 @@ SELECT
   TIME "14:35:00" as second_time,
   TIME_DIFF(TIME "15:30:00", TIME "14:35:00", MINUTE) as difference;
 
-/*----------------------------+------------------------+------------------------*
+/*----------------------------+------------------------+------------------------+
  | first_time                 | second_time            | difference             |
  +----------------------------+------------------------+------------------------+
  | 15:30:00                   | 14:35:00               | 55                     |
- *----------------------------+------------------------+------------------------*/
+ +----------------------------+------------------------+------------------------*/
 ```
 
 ## `TIME_SUB`
@@ -453,7 +450,6 @@ Subtracts `int64_expression` units of `part` from the `TIME` object.
 `TIME_SUB` supports the following values for `part`:
 
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -475,11 +471,11 @@ SELECT
   TIME "15:30:00" as original_date,
   TIME_SUB(TIME "15:30:00", INTERVAL 10 MINUTE) as earlier;
 
-/*-----------------------------+------------------------*
+/*-----------------------------+------------------------+
  | original_date               | earlier                |
  +-----------------------------+------------------------+
  | 15:30:00                    | 15:20:00               |
- *-----------------------------+------------------------*/
+ +-----------------------------+------------------------*/
 ```
 
 ## `TIME_TRUNC`
@@ -529,11 +525,11 @@ SELECT
   TIME "15:30:00" as original,
   TIME_TRUNC(TIME "15:30:00", HOUR) as truncated;
 
-/*----------------------------+------------------------*
+/*----------------------------+------------------------+
  | original                   | truncated              |
  +----------------------------+------------------------+
  | 15:30:00                   | 15:00:00               |
- *----------------------------+------------------------*/
+ +----------------------------+------------------------*/
 ```
 
 [time-trunc-granularity-time]: #time_trunc_granularity_time

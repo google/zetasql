@@ -60,7 +60,7 @@ absl::Status CopyFile(absl::string_view from_path, absl::string_view to_path) {
 // Produce a path to the test input source directory, relative to which modules
 // and protos can be read.
 std::string TestSrcDirBase() {
-  return zetasql_base::JoinPath(::testing::SrcDir(), "com_google_zetasql");
+  return zetasql_base::JoinPath(::testing::SrcDir(), "_main");
 }
 
 // Produce a module name path for a module under `testdata/modules`.
@@ -81,7 +81,7 @@ TEST(FileModuleContentsFetcherTest, FetchesModule) {
   EXPECT_THAT(module_contents.contents, HasSubstr("module simple_module;"));
 
   FileModuleContentsFetcher another_module_fetcher(zetasql_base::JoinPath(
-      ::testing::SrcDir(), "com_google_zetasql/zetasql/testdata/modules"));
+      ::testing::SrcDir(), "_main/zetasql/testdata/modules"));
   ZETASQL_EXPECT_OK(
       another_module_fetcher.FetchModuleContents({"simple"}, &module_contents));
   EXPECT_THAT(module_contents.contents, HasSubstr("module simple_module;"));
@@ -98,7 +98,7 @@ TEST(FileModuleContentsFetcherTest, ModuleNotFound) {
 TEST(FileModuleContentsFetcherTest, FetchesModuleInMultipleRoots) {
   std::vector<std::string> source_directories = {
       zetasql_base::JoinPath(::testing::SrcDir(),
-                     "com_google_zetasql/zetasql/testdata/modules"),
+                     "_main/zetasql/testdata/modules"),
       zetasql_base::JoinPath(::testing::TempDir(), "separate_modules_root")};
   FileModuleContentsFetcher module_fetcher(source_directories);
 
@@ -150,8 +150,9 @@ class FileModuleContentsFetcherFetchProtosTest : public ::testing::Test {
   FileModuleContentsFetcherFetchProtosTest() {
     const std::vector<std::string> source_directories = {
         TestSrcDirBase(),
+        // TODO: Remove dependency on canonical name format.
         // Directories for protos imported from Google protobuf code.
-        zetasql_base::JoinPath(::testing::SrcDir(), "com_google_protobuf", "src",
+        zetasql_base::JoinPath(::testing::SrcDir(), "protobuf~", "src",
                        "google", "protobuf", "_virtual_imports",
                        "descriptor_proto"),
         ::testing::TempDir()};
@@ -396,7 +397,7 @@ TEST_F(FileModuleContentsFetcherFetchProtosTest, FetchProtoFromSecondRoot) {
   const std::string filename = "unique_name.proto";
   ZETASQL_ASSERT_OK(CopyFile(
       zetasql_base::JoinPath(::testing::SrcDir(),
-                     "com_google_zetasql/zetasql/testdata/test_schema.proto"),
+                     "_main/zetasql/testdata/test_schema.proto"),
       zetasql_base::JoinPath(::testing::TempDir(), filename)));
 
   ZETASQL_EXPECT_OK(module_fetcher_->FetchProtoFileDescriptor(filename,
@@ -410,7 +411,7 @@ TEST_F(FileModuleContentsFetcherFetchProtosTest, FetchProtoFromSecondRoot) {
 TEST_F(FileModuleContentsFetcherFetchProtosTest,
        FetchProtoThatExistsInBothRoots) {
   const std::string filename =
-      "com_google_zetasql/zetasql/testdata/test_schema.proto";
+      "_main/zetasql/testdata/test_schema.proto";
   ZETASQL_ASSERT_OK(CopyFile(zetasql_base::JoinPath(::testing::SrcDir(), filename),
                      zetasql_base::JoinPath(::testing::TempDir(), filename)));
 

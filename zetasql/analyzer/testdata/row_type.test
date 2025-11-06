@@ -1,0 +1,734 @@
+[default no_java]
+
+# Tables with lazy columns don't work with FEATURE_ROW_TYPE.
+FROM KeyValue{{Lazy|FindOnly}}
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Table with non-default ColumnListMode not supported: KeyValueLazy [at 2:6]
+FROM KeyValueLazy
+     ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Table with non-default ColumnListMode not supported: KeyValueFindOnly [at 2:6]
+FROM KeyValueFindOnly
+     ^
+==
+
+# TODO Enable default testing modes.
+[default language_features=MAXIMUM,+ROW_TYPE]
+[default no_run_deserializer]
+[default no_run_sqlbuilder]
+FROM KeyValue{{Lazy|FindOnly}}
+|> STATIC_DESCRIBE
+|> SELECT 1
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#2]
+    +-expr_list=
+    | +-$col1#2 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-StaticDescribeScan
+        +-describe_text=
+        |   """
+        |   NameList (is_value_table = true):
+        |     KeyValueLazy ROW<KeyValueLazy> KeyValueLazy.$row#1 (value table)
+        |   NameScope:
+        |     Range variables:
+        |       KeyValueLazy -> RANGE_VARIABLE<$value>
+        |     Value table columns:
+        |       KeyValueLazy.$row#1
+        |   """
+        +-input_scan=
+          +-TableScan(table=KeyValueLazy, read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#2 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#2]
+    +-expr_list=
+    | +-$col1#2 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-StaticDescribeScan
+        +-describe_text=
+        |   """
+        |   NameList (is_value_table = true):
+        |     KeyValueFindOnly ROW<KeyValueFindOnly> KeyValueFindOnly.$row#1 (value table)
+        |   NameScope:
+        |     Range variables:
+        |       KeyValueFindOnly -> RANGE_VARIABLE<$value>
+        |     Value table columns:
+        |       KeyValueFindOnly.$row#1
+        |   """
+        +-input_scan=
+          +-TableScan(table=KeyValueFindOnly, read_as_row_type=TRUE)
+==
+
+# Select zero columns from the ROW table.
+FROM KeyValue{{Lazy|FindOnly}}
+|> AGGREGATE COUNT(*)
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+    | +-TableScan(table=KeyValueLazy, read_as_row_type=TRUE)
+    +-aggregate_list=
+      +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+--
+ALTERNATION GROUP: FindOnly
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#2 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$aggregate.$agg1#2]
+    +-input_scan=
+    | +-TableScan(table=KeyValueFindOnly, read_as_row_type=TRUE)
+    +-aggregate_list=
+      +-$agg1#2 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+==
+
+# This shows we get the same output for Lazy or FindOnly tables.
+# Later tests just use one or the other where output would be the same.
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> WHERE kv.value is not null
+|> SELECT kv.key
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#2 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.key#2]
+    +-expr_list=
+    | +-key#2 :=
+    |   +-GetRowField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Key
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[KeyValueLazy.$row#1]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+              +-GetRowField
+                +-type=STRING
+                +-expr=
+                | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+                +-column=KeyValueLazy.Value
+--
+ALTERNATION GROUP: FindOnly
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#2 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.key#2]
+    +-expr_list=
+    | +-key#2 :=
+    |   +-GetRowField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#1)
+    |     +-column=KeyValueFindOnly.Key
+    +-input_scan=
+      +-FilterScan
+        +-column_list=[KeyValueFindOnly.$row#1]
+        +-input_scan=
+        | +-TableScan(column_list=[KeyValueFindOnly.$row#1], table=KeyValueFindOnly, alias="kv", read_as_row_type=TRUE)
+        +-filter_expr=
+          +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+            +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+              +-GetRowField
+                +-type=STRING
+                +-expr=
+                | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#1)
+                +-column=KeyValueFindOnly.Value
+==
+
+FROM KeyValueLazy
+|> SELECT key
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#2 AS key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.key#2]
+    +-expr_list=
+    | +-key#2 :=
+    |   +-GetRowField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Key
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, read_as_row_type=TRUE)
+==
+
+FROM KeyValueFindOnly
+|> SELECT key, key, bad_col
+--
+ERROR: Table KeyValueFindOnly does not have a column bad_col [at 2:21]
+|> SELECT key, key, bad_col
+                    ^
+==
+
+FROM KeyValueLazy kv
+|> SELECT kEy, kv.keY
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.kEy#2 AS kEy [INT64]
+| +-$pipe_select.keY#3 AS keY [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[kEy#2, keY#3]
+    +-expr_list=
+    | +-kEy#2 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Key
+    | +-keY#3 :=
+    |   +-GetRowField
+    |     +-type=INT64
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Key
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv1, KeyValue{{Lazy|FindOnly}} kv2
+|> SELECT key
+--
+ERROR: Column name key is ambiguous [at 2:11]
+|> SELECT key
+          ^
+==
+
+# TODO This isn't ideal. We assume all columns exist
+# under all tables so this looks ambiguous even though it's in neither table.
+FROM KeyValue{{Lazy|FindOnly}} kv1, KeyValue{{Lazy|FindOnly}} kv2
+|> SELECT badcol
+--
+ERROR: Column name badcol is ambiguous [at 2:11]
+|> SELECT badcol
+          ^
+==
+
+# TODO This isn't ideal. We assume all columns exist
+# under all tables so this looks ambiguous even though it's only
+# in EnumTable.
+FROM KeyValue{{Lazy|FindOnly}} kv1, EnumTable et
+|> SELECT kv1.value, value, et.filename, filename
+--
+ERROR: Column name filename is ambiguous [at 2:42]
+|> SELECT kv1.value, value, et.filename, filename
+                                         ^
+==
+
+FROM KeyValueFindOnly kv1
+FULL JOIN KeyValueFindOnly kv2 ON true
+|> SELECT kv1.key, kv2.value
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#3 AS key [INT64]
+| +-$pipe_select.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[key#3, value#4]
+    +-expr_list=
+    | +-key#3 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#1)
+    | |   +-column=KeyValueFindOnly.Key
+    | +-value#4 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#2)
+    |     +-column=KeyValueFindOnly.Value
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValueFindOnly.[$row#1, $row#2]
+        +-join_type=FULL
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValueFindOnly.$row#1], table=KeyValueFindOnly, alias="kv1", read_as_row_type=TRUE)
+        +-right_scan=
+        | +-TableScan(column_list=[KeyValueFindOnly.$row#2], table=KeyValueFindOnly, alias="kv2", read_as_row_type=TRUE)
+        +-join_expr=
+          +-Literal(type=BOOL, value=true)
+==
+
+FROM KeyValueLazy kv1
+JOIN KeyValueLazy kv2 USING (key)
+|> SELECT key, kv1.value, kv2.value
+--
+QueryStmt
++-output_column_list=
+| +-$join_left.key#3 AS key [INT64]
+| +-$pipe_select.value#5 AS value [STRING]
+| +-$pipe_select.value#6 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$join_left.key#3, $pipe_select.value#5, $pipe_select.value#6]
+    +-expr_list=
+    | +-value#5 :=
+    | | +-GetRowField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Value
+    | +-value#6 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#2)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[KeyValueLazy.$row#1, $join_left.key#3, KeyValueLazy.$row#2, $join_right.key#4]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[KeyValueLazy.$row#1, $join_left.key#3]
+        |   +-expr_list=
+        |   | +-key#3 :=
+        |   |   +-GetRowField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+        |   |     +-column=KeyValueLazy.Key
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv1", read_as_row_type=TRUE)
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[KeyValueLazy.$row#2, $join_right.key#4]
+        |   +-expr_list=
+        |   | +-key#4 :=
+        |   |   +-GetRowField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#2)
+        |   |     +-column=KeyValueLazy.Key
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KeyValueLazy.$row#2], table=KeyValueLazy, alias="kv2", read_as_row_type=TRUE)
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$join_left.key#3)
+        |   +-ColumnRef(type=INT64, column=$join_right.key#4)
+        +-has_using=TRUE
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT kv.*
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.Key#2 AS Key [INT64]
+| +-$pipe_select.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[Key#2, Value#3]
+    +-expr_list=
+    | +-Key#2 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Key
+    | +-Value#3 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT kv.*
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT *
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.Key#2 AS Key [INT64]
+| +-$pipe_select.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[Key#2, Value#3]
+    +-expr_list=
+    | +-Key#2 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Key
+    | +-Value#3 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT *
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT * EXCEPT (key)
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.Value#2]
+    +-expr_list=
+    | +-Value#2 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT * EXCEPT (key)
+          ^
+==
+
+FROM KeyValue{{|Lazy|FindOnly}} kv
+|> SELECT * REPLACE (1.5 AS key)
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#3 AS key [DOUBLE]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.key#3, KeyValue.Value#2]
+    +-expr_list=
+    | +-key#3 := Literal(type=DOUBLE, value=1.5, float_literal_id=1)
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Value#2], table=KeyValue, column_index_list=[1], alias="kv")
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.key#2 AS key [DOUBLE]
+| +-$pipe_select.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[key#2, Value#3]
+    +-expr_list=
+    | +-key#2 := Literal(type=DOUBLE, value=1.5, float_literal_id=1)
+    | +-Value#3 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT * REPLACE (1.5 AS key)
+          ^
+==
+
+# TODO SELECT * EXCEPT should give an error for non-existant column.
+FROM KeyValue{{|Lazy|FindOnly}} kv
+|> SELECT * EXCEPT (bad)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Column bad in SELECT * EXCEPT list does not exist [at 2:21]
+|> SELECT * EXCEPT (bad)
+                    ^
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.Key#2 AS Key [INT64]
+| +-$pipe_select.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[Key#2, Value#3]
+    +-expr_list=
+    | +-Key#2 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Key
+    | +-Value#3 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT * EXCEPT (bad)
+          ^
+==
+
+# TODO SELECT * REPLACE should give an error for non-existant column.
+FROM KeyValue{{|Lazy|FindOnly}} kv
+|> SELECT * REPLACE (1.5 AS bad)
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: Column bad in SELECT * REPLACE list does not exist [at 2:29]
+|> SELECT * REPLACE (1.5 AS bad)
+                            ^
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.Key#2 AS Key [INT64]
+| +-$pipe_select.Value#3 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[Key#2, Value#3]
+    +-expr_list=
+    | +-Key#2 :=
+    | | +-GetRowField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    | |   +-column=KeyValueLazy.Key
+    | +-Value#3 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#1)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-TableScan(column_list=[KeyValueLazy.$row#1], table=KeyValueLazy, alias="kv", read_as_row_type=TRUE)
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT * REPLACE (1.5 AS bad)
+          ^
+==
+
+FROM KeyValue{{|Lazy|FindOnly}} kv
+|> SELECT kv.* EXCEPT (key, value)
+--
+ALTERNATION GROUPS:
+    <empty>
+    Lazy
+--
+ERROR: SELECT * expands to zero columns after applying EXCEPT [at 2:11]
+|> SELECT kv.* EXCEPT (key, value)
+          ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Star expansion not allowed for table KeyValueFindOnly [at 2:11]
+|> SELECT kv.* EXCEPT (key, value)
+          ^
+==
+
+# Non-join ROW tables cannot be joined in UNNEST.
+SELECT 1
+|> JOIN UNNEST(KeyValue{{|Lazy|FindOnly}})
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: UNNEST cannot be applied on a table: KeyValue [at 2:16]
+|> JOIN UNNEST(KeyValue)
+               ^
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: UNNEST cannot be applied on a table: KeyValueLazy [at 2:16]
+|> JOIN UNNEST(KeyValueLazy)
+               ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: UNNEST cannot be applied on a table: KeyValueFindOnly [at 2:16]
+|> JOIN UNNEST(KeyValueFindOnly)
+               ^
+==
+
+# Non-join ROW tables can be joined as tables, but require a join condition.
+SELECT 1
+|> JOIN KeyValue{{|Lazy|FindOnly}}
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: INNER JOIN must have an immediately following ON or USING clause [at 2:4]
+|> JOIN KeyValue
+   ^
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: INNER JOIN must have an immediately following ON or USING clause [at 2:4]
+|> JOIN KeyValueLazy
+   ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: INNER JOIN must have an immediately following ON or USING clause [at 2:4]
+|> JOIN KeyValueFindOnly
+   ^
+==
+
+# Non-join ROW types can be joined as tables, using a lazy column in USING.
+SELECT 1 key
+|> JOIN KeyValue{{Lazy|FindOnly}} USING (key)
+|> SELECT key, value
+--
+ALTERNATION GROUP: Lazy
+--
+QueryStmt
++-output_column_list=
+| +-$query.key#1 AS key [INT64]
+| +-$pipe_select.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.key#1, $pipe_select.value#4]
+    +-expr_list=
+    | +-value#4 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#2)
+    |     +-column=KeyValueLazy.Value
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$query.key#1, KeyValueLazy.$row#2, $join_right.key#3]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[$query.key#1]
+        |   +-expr_list=
+        |   | +-key#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[KeyValueLazy.$row#2, $join_right.key#3]
+        |   +-expr_list=
+        |   | +-key#3 :=
+        |   |   +-GetRowField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<KeyValueLazy>, column=KeyValueLazy.$row#2)
+        |   |     +-column=KeyValueLazy.Key
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KeyValueLazy.$row#2], table=KeyValueLazy, read_as_row_type=TRUE)
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$query.key#1)
+        |   +-ColumnRef(type=INT64, column=$join_right.key#3)
+        +-has_using=TRUE
+--
+ALTERNATION GROUP: FindOnly
+--
+QueryStmt
++-output_column_list=
+| +-$query.key#1 AS key [INT64]
+| +-$pipe_select.value#4 AS value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.key#1, $pipe_select.value#4]
+    +-expr_list=
+    | +-value#4 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#2)
+    |     +-column=KeyValueFindOnly.Value
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[$query.key#1, KeyValueFindOnly.$row#2, $join_right.key#3]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[$query.key#1]
+        |   +-expr_list=
+        |   | +-key#1 := Literal(type=INT64, value=1)
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[KeyValueFindOnly.$row#2, $join_right.key#3]
+        |   +-expr_list=
+        |   | +-key#3 :=
+        |   |   +-GetRowField
+        |   |     +-type=INT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<KeyValueFindOnly>, column=KeyValueFindOnly.$row#2)
+        |   |     +-column=KeyValueFindOnly.Key
+        |   +-input_scan=
+        |     +-TableScan(column_list=[KeyValueFindOnly.$row#2], table=KeyValueFindOnly, read_as_row_type=TRUE)
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$query.key#1)
+        |   +-ColumnRef(type=INT64, column=$join_right.key#3)
+        +-has_using=TRUE

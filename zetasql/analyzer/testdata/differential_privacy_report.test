@@ -5,7 +5,7 @@
 select with differential_privacy count(*, contribution_bounds_per_group => (10, "100"), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>, STRING
+ERROR: No matching signature for aggregate operator COUNT(*) in DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>, STRING
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: COUNT(*, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> JSON
@@ -20,7 +20,7 @@ select with differential_privacy count(*, contribution_bounds_per_group => (1...
 select with differential_privacy count(*, contribution_bounds_per_group => (bool, "100"), report_format => "JSON")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<BOOL, STRING>, STRING
+ERROR: No matching signature for aggregate operator COUNT(*) in DIFFERENTIAL_PRIVACY context for argument types: STRUCT<BOOL, STRING>, STRING
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: COUNT(*, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> JSON
@@ -1040,7 +1040,7 @@ select with differential_privacy APPROX_QUANTILES(*, 4, contribution_bounds_p...
 select with differential_privacy APPROX_QUANTILES(int64, contribution_bounds_per_row =>(4, bool), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, BOOL>, STRING
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, BOOL>, STRING
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `report_format` does not exist in signature
   Signature: APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> JSON
@@ -1055,7 +1055,7 @@ select with differential_privacy APPROX_QUANTILES(int64, contribution_bounds_...
 select with differential_privacy APPROX_QUANTILES(double, contribution_bounds_per_row => (bool, 3), report_format => "PROTO")
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, STRUCT<BOOL, INT64>, STRING
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, STRUCT<BOOL, INT64>, STRING
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `report_format` does not exist in signature
   Signature: APPROX_QUANTILES(DOUBLE, INT64, report_format => DIFFERENTIAL_PRIVACY_REPORT_FORMAT/*with value "JSON"*/, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> JSON
@@ -1234,7 +1234,7 @@ QueryStmt
 SELECT WITH DIFFERENTIAL_PRIVACY SUM(x, report_format => 1)
 FROM (SELECT 1 AS x);
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -1300,7 +1300,7 @@ ALTERNATION GROUPS:
     ,+ANALYSIS_CONSTANT_FUNCTION_ARGUMENT
     ,+REPORT_FORMAT_CONSTANT_ARGUMENT
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, DIFFERENTIAL_PRIVACY_REPORT_FORMAT
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, DIFFERENTIAL_PRIVACY_REPORT_FORMAT
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -1390,7 +1390,7 @@ ALTERNATION GROUPS:
     ,+ANALYSIS_CONSTANT_FUNCTION_ARGUMENT
     ,+REPORT_FORMAT_CONSTANT_ARGUMENT
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, DIFFERENTIAL_PRIVACY_REPORT_FORMAT
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, DIFFERENTIAL_PRIVACY_REPORT_FORMAT
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -1633,7 +1633,7 @@ CreateConstantStmt
 select with differential_privacy sum(int64, report_format => PROTO_INIT_STRING)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64

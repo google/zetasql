@@ -1,0 +1,114 @@
+Table: Customer
+Columns:
+  C_CUSTKEY    UINT64
+  C_NAME       STRING
+  C_ADDRESS    STRING
+  C_NATIONKEY  UINT64
+  C_PHONE      STRING
+  C_ACCTBAL    DOUBLE
+  C_MKTSEGMENT STRING
+  C_COMMENT    STRING
+  Orders       MULTIROW<Orders> (pseudo-column)
+  Nation       ROW<Nation> (pseudo-column)
+Primary key: (C_CUSTKEY)
+
+Table: LineItem
+Columns:
+  L_ORDERKEY      UINT64
+  L_PARTKEY       UINT64
+  L_SUPPKEY       UINT64
+  L_LINENUMBER    UINT64
+  L_QUANTITY      DOUBLE
+  L_EXTENDEDPRICE DOUBLE
+  L_DISCOUNT      DOUBLE
+  L_TAX           DOUBLE
+  L_RETURNFLAG    STRING
+  L_LINESTATUS    STRING
+  L_SHIPDATE      DATE
+  L_COMMITDATE    DATE
+  L_RECEIPTDATE   DATE
+  L_SHIPINSTRUCT  STRING
+  L_SHIPMODE      STRING
+  L_COMMENT       STRING
+  Order           ROW<Orders> (pseudo-column)
+  Order_          ROW<Orders> (pseudo-column)
+  PartSupp        ROW<PartSupp> (pseudo-column)
+  Part            ROW<Part> (pseudo-column)
+  Supplier        ROW<Supplier> (pseudo-column)
+Primary key: (L_ORDERKEY, L_LINENUMBER)
+
+Table: Nation
+Columns:
+  N_NATIONKEY UINT64
+  N_NAME      STRING
+  N_REGIONKEY UINT64
+  N_COMMENT   STRING
+  Region      ROW<Region> (pseudo-column)
+  Suppliers   MULTIROW<Supplier> (pseudo-column)
+  Customers   MULTIROW<Customer> (pseudo-column)
+Primary key: (N_NATIONKEY)
+
+Table: Orders
+Columns:
+  O_ORDERKEY      UINT64
+  O_CUSTKEY       UINT64
+  O_ORDERSTATUS   STRING
+  O_TOTALPRICE    DOUBLE
+  O_ORDERDATE     DATE
+  O_ORDERPRIORITY STRING
+  O_CLERK         STRING
+  O_SHIPPRIORITY  INT64
+  O_COMMENT       STRING
+  Customer        ROW<Customer> (pseudo-column)
+  LineItems       MULTIROW<LineItem> (pseudo-column)
+Primary key: (O_ORDERKEY)
+
+Table: Part
+Columns:
+  P_PARTKEY     UINT64
+  P_NAME        STRING
+  P_MFGR        STRING
+  P_BRAND       STRING
+  P_TYPE        STRING
+  P_SIZE        INT64
+  P_CONTAINER   STRING
+  P_RETAILPRICE DOUBLE
+  P_COMMENT     STRING
+  PartSupps     MULTIROW<PartSupp> (pseudo-column)
+  LineItems     MULTIROW<LineItem> (pseudo-column)
+Primary key: (P_PARTKEY)
+
+Table: PartSupp
+Columns:
+  PS_PARTKEY    UINT64
+  PS_SUPPKEY    UINT64
+  PS_AVAILQTY   INT64
+  PS_SUPPLYCOST DOUBLE
+  PS_COMMENT    STRING
+  Supplier      ROW<Supplier> (pseudo-column)
+  Part          ROW<Part> (pseudo-column)
+  LineItems     MULTIROW<LineItem> (pseudo-column)
+Primary key: (PS_PARTKEY, PS_SUPPKEY)
+
+Table: Region
+Columns:
+  R_REGIONKEY UINT64
+  R_NAME      STRING
+  R_COMMENT   STRING
+  Nations     MULTIROW<Nation> (pseudo-column)
+Primary key: (R_REGIONKEY)
+
+Table: Supplier
+Columns:
+  S_SUPPKEY   UINT64
+  S_NAME      STRING
+  S_ADDRESS   STRING
+  S_NATIONKEY UINT64
+  S_PHONE     STRING
+  S_ACCTBAL   DOUBLE
+  S_COMMENT   STRING
+  Nation      ROW<Nation> (pseudo-column)
+  PartSupps   MULTIROW<PartSupp> (pseudo-column)
+  LineItems   MULTIROW<LineItem> (pseudo-column)
+Primary key: (S_SUPPKEY)
+

@@ -16,6 +16,7 @@
 
 #include "zetasql/reference_impl/operator.h"
 
+#include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
@@ -24,7 +25,9 @@
 
 #include "zetasql/base/logging.h"
 #include "zetasql/common/thread_stack.h"
+#include "zetasql/public/numeric_value.h"
 #include "zetasql/public/type.h"
+#include "zetasql/public/type.pb.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "zetasql/reference_impl/variable_id.h"
 #include "absl/base/attributes.h"

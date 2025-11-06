@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <ostream>
 #include <queue>
 #include <string>
@@ -289,7 +290,169 @@ bool MaybeAnOpenBraceForMapConstructor(const std::vector<Token*>& tokens,
                      tokens[t - 1]->GetKeyword() != "@"));
 }
 
+// Returns the index of the next or previous non-comment token.
+// step: 1 to search forward, -1 to search backward.
+int GetTokenIndexSkippingComments(
+    int current_idx, const std::vector<formatter::internal::Token*>& tokens,
+    int step) {
+  int idx = current_idx + step;
+  while (idx >= 0 && idx < tokens.size() &&
+         tokens[idx]->kind() == zetasql::ParseToken::COMMENT) {
+    idx += step;
+  }
+  return idx;
+}
+
+// Returns the index of the next non-comment token.
+int GetNextTokenIndex(int current_idx,
+                      const std::vector<formatter::internal::Token*>& tokens) {
+  return GetTokenIndexSkippingComments(current_idx, tokens, /*step=*/1);
+}
+
+// Returns the index of the previous non-comment token.
+int GetPrevTokenIndexIndex(
+    int current_idx, const std::vector<formatter::internal::Token*>& tokens) {
+  return GetTokenIndexSkippingComments(current_idx, tokens, /*step=*/-1);
+}
+
+// Checks if a token is a valid prefix for a chained method call, i.e.,
+// if it can appear immediately before the dot. ZetaSQL requires most
+// expressions (like column names) to be in parentheses, e.g.,
+// `(column).func()`. This function allows prefixes that don't need extra
+// parentheses. Allowed prefixes include:
+//  - Closing parentheses or brackets: `)` or `]`
+//  - String and Bytes literals: `'abc'`
+//  - Boolean and NULL literals: `TRUE`, `FALSE`, `NULL`
+bool IsAllowedChainedMethodPrefix(const Token& token) {
+  const std::string image(token.GetImage());
+
+  // Case 1: Closing parentheses from function calls, parenthesized expressions,
+  // or STRUCT literals. Case 2: Closing brackets from ARRAY literals.
+  if (image == ")" || image == "]") {
+    return true;
+  }
+
+  // Case 3 & 4: String or Bytes literals.
+  // This also covers the terminal string token of DATE, TIME, DATETIME,
+  // TIMESTAMP, NUMERIC, BIGNUMERIC, JSON, RANGE, and INTERVAL literals.
+  if (token.IsStringLiteral() || token.IsBytesLiteral()) {
+    return true;
+  }
+
+  // Case 5: Boolean and NULL keyword literals.
+  if (token.IsKeyword()) {
+    std::string upper_image = absl::AsciiStrToUpper(image);
+    if (upper_image == "TRUE" || upper_image == "FALSE" ||
+        upper_image == "NULL") {
+      return true;
+    }
+  }
+
+  // Other tokens, such as identifiers (column names), numeric literals
+  // (123, 45.67), operators, etc., require the expression to be wrapped in
+  // parentheses, e.g., (my_column).CHAINED_FUNC(), (123).APPLY(...). The token
+  // preceding the '.' in those wrapped cases would be ')', which is handled
+  // above.
+  return false;
+}
+
+// Checks if the token at start_idx begins a single-part function call
+// (e.g., "FUNCTION()").
+bool IsSinglepartFunctionCall(
+    int start_idx, const std::vector<formatter::internal::Token*>& tokens) {
+  if (!tokens[start_idx]->IsIdentifier() && !tokens[start_idx]->IsKeyword()) {
+    return false;
+  }
+  int lparen_idx = GetNextTokenIndex(start_idx, tokens);
+  return lparen_idx < tokens.size() && tokens[lparen_idx]->GetImage() == "(";
+}
+
+// Returns the index of the opening parenthesis of the argument list if a
+// multipart function call is found, otherwise returns nullopt.
+std::optional<int> GetMultipartCallArgParenIndex(
+    const std::vector<Token*>& tokens, int first_paren_idx) {
+  // Expected pattern: .(part1.part2...)()
+  int current_idx = GetNextTokenIndex(first_paren_idx, tokens);
+
+  // A multi-part function name is a dot-separated list of identifiers. This
+  // loop consumes all parts of the name.
+  do {
+    if (current_idx >= tokens.size() || !tokens[current_idx]->IsIdentifier()) {
+      return std::nullopt;
+    }
+    int dot_idx = GetNextTokenIndex(current_idx, tokens);
+    if (dot_idx >= tokens.size() || tokens[dot_idx]->GetKeyword() != ".") {
+      current_idx = dot_idx;  // This will point to the token after the last
+                              // identifier part.
+      break;
+    }
+    current_idx = GetNextTokenIndex(dot_idx, tokens);
+  } while (true);
+
+  // Expect a closing parenthesis for the multi-part name.
+  if (current_idx >= tokens.size() ||
+      tokens[current_idx]->GetKeyword() != ")") {
+    return std::nullopt;
+  }
+
+  // Expect the function call parentheses.
+  int call_paren_idx = GetNextTokenIndex(current_idx, tokens);
+  if (call_paren_idx >= tokens.size() ||
+      tokens[call_paren_idx]->GetKeyword() != "(") {
+    return std::nullopt;
+  }
+
+  return call_paren_idx;
+}
+
 }  // namespace
+
+// Marks all dots that are used to separate chained method calls.
+// This function iterates through the tokens and identifies dots that
+// follow an allowed prefix and precede a function call (either single or
+// multi-part).
+void MarkChainedMethodDotSeparators(const TokensView& tokens_view) {
+  const std::vector<Token*>& tokens = tokens_view.All();
+  for (int i = 0; i < tokens.size(); ++i) {
+    if (tokens[i]->GetKeyword() != ".") {
+      continue;
+    }
+    // Found a dot. Check if the token preceding it is an expression that can
+    // be legally followed by a method call without being enclosed in
+    // parentheses (e.g., literals, or expressions ending in ')' or ']').
+    int prev_idx = GetPrevTokenIndexIndex(i, tokens);
+    if (prev_idx < 0 || !IsAllowedChainedMethodPrefix(*tokens[prev_idx])) {
+      continue;
+    }
+
+    // Check if the token following the dot is part of a function call.
+    int next_idx = GetNextTokenIndex(i, tokens);
+    if (next_idx >= tokens.size()) {
+      continue;
+    }
+
+    if (tokens[next_idx]->GetKeyword() == "(") {
+      // If dot is followed by '(', it could be a multi-part function call
+      // enclosed in parentheses, e.g., `.(SAFE.SQRT)()`.
+      std::optional<int> lparen_args_idx =
+          GetMultipartCallArgParenIndex(tokens, next_idx);
+      if (lparen_args_idx.has_value()) {
+        // It's a valid multi-part call. Mark the dot and assign type
+        // COMPLEX_TOKEN_CONTINUATION to function call tokens up to
+        // argument parenthesis to keep them in the same chunk.
+        tokens[i]->SetType(Token::Type::CHAINED_METHOD_DOT_SEPARATOR);
+        for (int k = next_idx; k <= *lparen_args_idx; ++k) {
+          tokens[k]->SetType(Token::Type::COMPLEX_TOKEN_CONTINUATION);
+        }
+        i = *lparen_args_idx;
+      }
+    } else if (IsSinglepartFunctionCall(next_idx, tokens)) {
+      // If dot is followed by an identifier and '(', it's a single-part
+      // function call like `.LOWER()`. Mark the dot.
+      tokens[i]->SetType(Token::Type::CHAINED_METHOD_DOT_SEPARATOR);
+    }
+  }
+}
 
 absl::StatusOr<Chunk> Chunk::CreateEmptyChunk(
     const bool starts_with_space, const int position_in_query,
@@ -1045,6 +1208,11 @@ bool IsPartOfSameChunk(const Chunk& chunk, const std::vector<Token*>& tokens,
            !IsArgumentNameInlineComment(*current_token);
   }
 
+  if (current_token->Is(Token::Type::CHAINED_METHOD_DOT_SEPARATOR)) {
+    // The dot separator for a chained method call always starts a new chunk.
+    // This allows for a potential line break before the method call.
+    return false;
+  }
   if (current_token->Is(Token::Type::ASSIGNMENT_OPERATOR)) {
     // For OPTIONS '=' assignments, fuse '=' with the option parameter.
     return true;
@@ -2512,6 +2680,7 @@ void AnnotateTokens(const TokensView& tokens,
   MarkAllDdlKeywords(tokens);
   MarkAllKeywordsUsedAsParams(tokens);
   MarkAllProtoBrackets(tokens);
+  MarkChainedMethodDotSeparators(tokens);
   MarkAllSlashedIdentifiers(tokens);
   MarkTokensInBracedConstructors(tokens);
   if (formatter_options.IsCapitalizeFunctions()) {

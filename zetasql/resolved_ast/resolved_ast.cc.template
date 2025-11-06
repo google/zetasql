@@ -314,6 +314,9 @@ static std::string ToStringVerbose(const std::shared_ptr<FunctionSignature>& sig
 static std::string ToStringImpl(const Table* table) {
   return table == nullptr ? "<null>" : table->FullName();
 }
+static std::string ToStringImpl(const Sequence* sequence) {
+  return sequence->FullName();
+}
 static std::string ToStringImpl(const Model* model) {
   return model->FullName();
 }
@@ -323,7 +326,7 @@ static std::string ToStringImpl(const Connection* connection) {
 static std::string ToStringImpl(const TableValuedFunction* tvf) {
   return tvf == nullptr
     ? "<null>"
-    : absl::StrCat(absl::StrJoin(tvf->function_name_path(), "."), "(",
+    : absl::StrCat(tvf->FullName(/*include_group=*/true), "(",
                    FunctionSignature::SignaturesToString(
                        tvf->signatures(), /*verbose=*/true, /*prefix=*/"",
                        /*separator=*/"; "),
@@ -497,6 +500,19 @@ static std::string ToStringCommaSeparated(const std::vector<std::string>& value_
   return absl::StrCat("[", ToStringImpl(value_vector, ", "), "]");
 }
 
+// This formats a list of objects as "[obj, obj, ...]", using ToStringImpl
+// on each object.  The template works for anything that doesn't have
+// its own overload of this method.
+template<class T>
+static std::string ToStringCommaSeparated(const std::vector<T>& value_vector) {
+  return absl::StrCat(
+      "[",
+      absl::StrJoin(value_vector, ",", [](std::string* out, const T& t) {
+        absl::StrAppend(out, ToStringImpl(t));
+      }),
+      "]");
+}
+
 // Use template functions to allow functions with the same argument list but
 // different return types.
 template <class R, class P>
@@ -651,7 +667,7 @@ static absl::Status SaveToImpl(
     const TableValuedFunction* func,
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionRefProto* proto) {
-  proto->set_name(func->FullName());
+  proto->set_name(func->FullName(/*include_group=*/true));
   return absl::OkStatus();
 }
 
@@ -1205,14 +1221,14 @@ static std::string ToStringImpl(
   if (table_list.empty()) {
     return "[]";
   } else {
-  return absl::StrCat(
-      "[",
-      absl::StrJoin(table_list, ",",
-                    [](std::string* out, const GraphElementTable* table) {
-                      absl::StrAppend(out, table->FullName());
-                    }),
-      "]");
-      }
+    return absl::StrCat(
+        "[",
+        absl::StrJoin(table_list, ",",
+                      [](std::string* out, const GraphElementTable* table) {
+                        absl::StrAppend(out, table->FullName());
+                      }),
+        "]");
+  }
 }
 
 // TODO: Migrate helper functions to dedicated .cc file.
@@ -1632,6 +1648,23 @@ void {{node.name}}::CollectDebugStringFields(
   if (!IsDefaultValue({{field.member_name}})) {
    # endif
     fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}), {{field.member_name}}accessed());
+   {#
+   For ResolvedColumnList and ResolvedColumn (and ResolvedColumnHolder), we have
+   a config option `print_created_columns` that annotates created columns with
+   `{c}` if the column is created in this node.
+
+   For determining columns that are created, we have two cases:
+   (a) The `column_list` field itself represents created columns (e.g. in
+   TableScans). This is indicated by `ColumnListIsCreatedColumns()` being true.
+   (b) The field contains a ResolvedColumn (or vector of ResolvedColumn) that
+   is created in this node. This is indicated by `column_is_created` being
+   true.
+   #}
+    # if node.name == 'ResolvedScan' and field.name == 'column_list'
+    fields->back().column_created = ColumnListIsCreatedColumns();
+    # elif field.column_is_created
+    fields->back().column_created = true;
+    # endif
   }
   # endif
  # endfor

@@ -40,6 +40,7 @@ namespace zetasql {
 using execute_query::ParserErrorContext;
 using zetasql::testing::StatusHasPayload;
 using testing::EqualsProto;
+using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::zetasql_base::testing::StatusIs;
 
@@ -100,13 +101,11 @@ TEST(ExecuteQueryLoopTest, Callback) {
       return status;
     }
 
-    // The query used invalid syntax
-    EXPECT_THAT(status, StatusIs(absl::StatusCode::kInvalidArgument));
-    EXPECT_THAT(status, StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
-                  text: "test error"
-                )pb")));
+    // The query used invalid syntax but still continues after sending that
+    // error to the output writer.
+    ZETASQL_EXPECT_OK(status);
 
-    // Provoke another error
+    // Provoke another error.  This one propagates out as an actual status.
     prompt.set_read_result(absl::UnavailableError("input error"));
 
     return absl::OkStatus();
@@ -114,7 +113,10 @@ TEST(ExecuteQueryLoopTest, Callback) {
 
   EXPECT_THAT(ExecuteQueryLoop(prompt, config, writer, handler),
               StatusIs(absl::StatusCode::kUnavailable, "input error"));
-  EXPECT_THAT(output.str(), IsEmpty());
+  EXPECT_THAT(
+      output.str(),
+      HasSubstr("ERROR: INVALID_ARGUMENT: Syntax error: Unexpected identifier "
+                "\"test\" [at 2:1]"));
 }
 
 }  // namespace zetasql

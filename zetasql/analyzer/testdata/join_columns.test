@@ -1,0 +1,1255 @@
+[default use_database=TpchCatalog]
+FROM Nation
+--
+ERROR: Table Nation has column Region with unsupported ROW type [at 1:6]
+FROM Nation
+     ^
+==
+
+# TODO Get the default test modes working.
+[default no_run_deserializer]
+[default no_run_sqlbuilder]
+[default language_features=MAXIMUM,+ROW_TYPE]
+# This works because the join columns are pseudo-columns and they get pruned,
+# so it isn't trying to return ROW types.
+FROM Nation
+--
+QueryStmt
++-output_column_list=
+| +-Nation.N_NATIONKEY#1 AS N_NATIONKEY [UINT64]
+| +-Nation.N_NAME#2 AS N_NAME [STRING]
+| +-Nation.N_REGIONKEY#3 AS N_REGIONKEY [UINT64]
+| +-Nation.N_COMMENT#4 AS N_COMMENT [STRING]
++-query=
+  +-TableScan(column_list=Nation.[N_NATIONKEY#1, N_NAME#2, N_REGIONKEY#3, N_COMMENT#4], table=Nation, column_index_list=[0, 1, 2, 3])
+==
+
+FROM Nation
+|> DESCRIBE
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_describe.Describe#8 AS Describe [STRING]
++-query=
+  +-DescribeScan
+    +-column_list=[$pipe_describe.Describe#8]
+    +-input_scan=
+    | +-TableScan(table=Nation)
+    +-describe_expr=
+      +-Describe#8 := Literal(type=STRING, value="**Columns**:\nTable Alias  Column Name  Type\n-----------  -----------  ------\nNation       N_NATIONKEY  UINT64\nNation       N_NAME       STRING\nNation       N_REGIONKEY  UINT64\nNation       N_COMMENT    STRING\n\n**Pseudo-columns**:\nTable Alias  Column Name  Type\n-----------  -----------  ------------------\nNation       Customers    MULTIROW<Customer>\nNation       Region       ROW<Region>\nNation       Suppliers    MULTIROW<Supplier>\n\n**Table Aliases**:\nTable Alias  Columns                                      Pseudo-columns\n-----------  -------------------------------------------  ----------------------------\nNation       N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT  Customers, Region, Suppliers\n")
+
+[DESCRIBE output]
+**Columns**:
+Table Alias  Column Name  Type
+\-----------  -----------  ------
+Nation       N_NATIONKEY  UINT64
+Nation       N_NAME       STRING
+Nation       N_REGIONKEY  UINT64
+Nation       N_COMMENT    STRING
+
+**Pseudo-columns**:
+Table Alias  Column Name  Type
+\-----------  -----------  ------------------
+Nation       Customers    MULTIROW<Customer>
+Nation       Region       ROW<Region>
+Nation       Suppliers    MULTIROW<Supplier>
+
+**Table Aliases**:
+Table Alias  Columns                                      Pseudo-columns
+\-----------  -------------------------------------------  ----------------------------
+Nation       N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT  Customers, Region, Suppliers
+\
+==
+
+FROM Nation n
+|> SELECT n.Region
+--
+ERROR: Returning expressions of type ROW is not allowed [at 1:1]
+FROM Nation n
+^
+==
+
+FROM Nation n
+|> SELECT n.Region r
+|> SELECT r.r_name
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.r_name#8 AS r_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.r_name#8]
+    +-expr_list=
+    | +-r_name#8 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    |     +-column=Region.R_NAME
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[Nation.Region#5]
+        +-input_scan=
+          +-TableScan(column_list=[Nation.Region#5], table=Nation, column_index_list=[4], alias="n")
+==
+
+FROM Nation n
+|> SELECT n.n_name, n.Region.r_name
+--
+QueryStmt
++-output_column_list=
+| +-Nation.N_NAME#2 AS n_name [STRING]
+| +-$pipe_select.r_name#8 AS r_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[Nation.N_NAME#2, $pipe_select.r_name#8]
+    +-expr_list=
+    | +-r_name#8 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    |     +-column=Region.R_NAME
+    +-input_scan=
+      +-TableScan(column_list=Nation.[N_NAME#2, Region#5], table=Nation, column_index_list=[1, 4], alias="n")
+==
+
+FROM Nation n
+|> SELECT n.Region.xxx
+--
+ERROR: Table Region does not have a column xxx [at 2:20]
+|> SELECT n.Region.xxx
+                   ^
+==
+
+FROM Region r
+|> SELECT r.Nations.xxx
+--
+ERROR: Cannot access fields on an expression with type MULTIROW<Nation>; Fields of MULTIROW columns can be read in JOIN, UNNEST, and FLATTEN [at 2:21]
+|> SELECT r.Nations.xxx
+                    ^
+==
+
+FROM Region r
+|> SELECT r.Nations.n_name
+--
+ERROR: Cannot access fields on an expression with type MULTIROW<Nation>; Fields of MULTIROW columns can be read in JOIN, UNNEST, and FLATTEN [at 2:21]
+|> SELECT r.Nations.n_name
+                    ^
+==
+
+FROM LineItem li
+|> SELECT li.Order.Customer.Nation.n_name
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.n_name#22 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.n_name#22]
+    +-expr_list=
+    | +-n_name#22 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-GetRowField
+    |     |   +-type=ROW<Nation (join)>
+    |     |   +-expr=
+    |     |   | +-GetRowField
+    |     |   |   +-type=ROW<Customer (join)>
+    |     |   |   +-expr=
+    |     |   |   | +-ColumnRef(type=ROW<Orders (join)>, column=LineItem.Order#17)
+    |     |   |   +-column=Orders.Customer
+    |     |   +-column=Customer.Nation
+    |     +-column=Nation.N_NAME
+    +-input_scan=
+      +-TableScan(column_list=[LineItem.Order#17], table=LineItem, column_index_list=[16], alias="li")
+==
+
+# Dot-star on join column.
+FROM Nation n
+|> SELECT n.Region.*
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.R_REGIONKEY#8 AS R_REGIONKEY [UINT64]
+| +-$pipe_select.R_NAME#9 AS R_NAME [STRING]
+| +-$pipe_select.R_COMMENT#10 AS R_COMMENT [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[R_REGIONKEY#8, R_NAME#9, R_COMMENT#10]
+    +-expr_list=
+    | +-R_REGIONKEY#8 :=
+    | | +-GetRowField
+    | |   +-type=UINT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    | |   +-column=Region.R_REGIONKEY
+    | +-R_NAME#9 :=
+    | | +-GetRowField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    | |   +-column=Region.R_NAME
+    | +-R_COMMENT#10 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    |     +-column=Region.R_COMMENT
+    +-input_scan=
+      +-TableScan(column_list=[Nation.Region#5], table=Nation, column_index_list=[4], alias="n")
+==
+
+FROM Nation n
+|> SELECT n.Region.* EXCEPT ({{r_comment|bad}})
+--
+ALTERNATION GROUP: r_comment
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.R_REGIONKEY#8 AS R_REGIONKEY [UINT64]
+| +-$pipe_select.R_NAME#9 AS R_NAME [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$pipe_select.[R_REGIONKEY#8, R_NAME#9]
+    +-expr_list=
+    | +-R_REGIONKEY#8 :=
+    | | +-GetRowField
+    | |   +-type=UINT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    | |   +-column=Region.R_REGIONKEY
+    | +-R_NAME#9 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Region (join)>, column=Nation.Region#5)
+    |     +-column=Region.R_NAME
+    +-input_scan=
+      +-TableScan(column_list=[Nation.Region#5], table=Nation, column_index_list=[4], alias="n")
+--
+ALTERNATION GROUP: bad
+--
+ERROR: Column bad in SELECT * EXCEPT list does not exist [at 2:30]
+|> SELECT n.Region.* EXCEPT (bad)
+                             ^
+==
+
+# FLATTEN through a 1:N MULTIROW join column.
+FROM Customer c
+|> SELECT FLATTEN(c.Orders.o_orderdate)
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#11 AS `$col1` [ARRAY<DATE>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#11]
+    +-expr_list=
+    | +-$col1#11 :=
+    |   +-Flatten
+    |     +-type=ARRAY<DATE>
+    |     +-expr=
+    |     | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+    |     +-get_field_list=
+    |       +-GetRowField
+    |         +-type=DATE
+    |         +-expr=
+    |         | +-FlattenedArg(type=ROW<Orders>)
+    |         +-column=Orders.O_ORDERDATE
+    +-input_scan=
+      +-TableScan(column_list=[Customer.Orders#9], table=Customer, column_index_list=[8], alias="c")
+==
+
+# FLATTEN through an N:1 ROW join column.
+FROM Customer c
+|> SELECT FLATTEN(c.Nation.n_name)
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#11 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#11]
+    +-expr_list=
+    | +-$col1#11 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+    |     +-get_field_list=
+    |       +-GetRowField
+    |         +-type=STRING
+    |         +-expr=
+    |         | +-FlattenedArg(type=ROW<Nation>)
+    |         +-column=Nation.N_NAME
+    +-input_scan=
+      +-TableScan(column_list=[Customer.Nation#10], table=Customer, column_index_list=[9], alias="c")
+==
+
+# Multi-step FLATTEN with ROWs and MULTIROWS.
+# PartSupp has a multi-part key.
+FROM Customer c
+|> SELECT FLATTEN(c.Orders.Lineitems.PartSupp.Part.p_name)
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.$col1#11 AS `$col1` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.$col1#11]
+    +-expr_list=
+    | +-$col1#11 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+    |     +-get_field_list=
+    |       +-GetRowField
+    |       | +-type=MULTIROW<LineItem (join)>
+    |       | +-expr=
+    |       | | +-FlattenedArg(type=ROW<Orders>)
+    |       | +-column=Orders.LineItems
+    |       +-GetRowField
+    |       | +-type=ROW<PartSupp (join)>
+    |       | +-expr=
+    |       | | +-FlattenedArg(type=ROW<LineItem>)
+    |       | +-column=LineItem.PartSupp
+    |       +-GetRowField
+    |       | +-type=ROW<Part (join)>
+    |       | +-expr=
+    |       | | +-FlattenedArg(type=ROW<PartSupp>)
+    |       | +-column=PartSupp.Part
+    |       +-GetRowField
+    |         +-type=STRING
+    |         +-expr=
+    |         | +-FlattenedArg(type=ROW<Part>)
+    |         +-column=Part.P_NAME
+    +-input_scan=
+      +-TableScan(column_list=[Customer.Orders#9], table=Customer, column_index_list=[8], alias="c")
+==
+
+# The FLATTEN path cannot currently end with a row type (which would make
+# an ARRAY of ROW types).
+# Note: If this works, is the result type an ARRAY or just a ROW/MULTIROW?
+FROM Customer c
+|> SELECT FLATTEN(c.Orders.Lineitems)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:19]
+|> SELECT FLATTEN(c.Orders.Lineitems)
+                  ^
+==
+
+FROM Customer c
+|> SELECT FLATTEN(c.Orders.bad)
+--
+ERROR: Table Orders does not have a column bad [at 2:28]
+|> SELECT FLATTEN(c.Orders.bad)
+                           ^
+==
+
+# Join a 1:N MULTIROW join column
+# Same result with or without UNNEST, and with or without range variables.
+FROM Customer c
+|> JOIN {{UNNEST(c.Orders)|c.Orders}} o
+|> SELECT {{|c.}}c_name, {{|o.}}o_orderdate
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.o_orderdate#12 AS o_orderdate [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.o_orderdate#12]
+    +-expr_list=
+    | +-o_orderdate#12 :=
+    |   +-GetRowField
+    |     +-type=DATE
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Orders>, column=$array.o#11)
+    |     +-column=Orders.O_ORDERDATE
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.o#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Orders#9], table=Customer, column_index_list=[1, 8], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+        +-element_column_list=[$array.o#11]
+==
+
+# JOIN a N:1 ROW join column
+# Same result with or without UNNEST, and with or without range variables.
+FROM Customer c
+|> JOIN {{UNNEST(c.Nation)|c.Nation}} n
+|> SELECT {{|c.}}c_name, {{|n.}}n_name
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.n_name#12 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.n_name#12]
+    +-expr_list=
+    | +-n_name#12 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Nation>, column=$array.n#11)
+    |     +-column=Nation.N_NAME
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Nation#10, $array.n#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Nation#10], table=Customer, column_index_list=[1, 9], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+        +-element_column_list=[$array.n#11]
+==
+
+# WITH OFFSET is not allowed with join columns (which are unordered)
+FROM Region r
+|> JOIN {{UNNEST(r.Nations)|r.Nations}} WITH OFFSET
+|> select 1 #remove
+--
+ALTERNATION GROUP: UNNEST(r.Nations)
+--
+ERROR: WITH OFFSET is not allowed when scanning values with ROW type [at 2:27]
+|> JOIN UNNEST(r.Nations) WITH OFFSET
+                          ^
+--
+ALTERNATION GROUP: r.Nations
+--
+ERROR: WITH OFFSET is not allowed when scanning values with ROW type [at 2:19]
+|> JOIN r.Nations WITH OFFSET
+                  ^
+==
+
+# Multi-arg UNNEST is not allowed with join columns (because they are unordered)
+FROM Region r
+|> JOIN UNNEST(r.Nations AS r1, r.Nations AS r2)
+|> select 1 #remove
+--
+ERROR: Multi-argument UNNEST not allowed for value with ROW type [at 2:16]
+|> JOIN UNNEST(r.Nations AS r1, r.Nations AS r2)
+               ^
+==
+
+FROM Region r
+|> JOIN UNNEST(r.Nations AS r1, [1,2] AS r2)
+--
+ERROR: Multi-argument UNNEST not allowed for value with ROW type [at 2:16]
+|> JOIN UNNEST(r.Nations AS r1, [1,2] AS r2)
+               ^
+==
+
+FROM Region r
+|> JOIN UNNEST([1,2] AS r1, r.Nations AS r2)
+--
+ERROR: Multi-argument UNNEST not allowed for value with ROW type [at 2:29]
+|> JOIN UNNEST([1,2] AS r1, r.Nations AS r2)
+                            ^
+==
+
+# Multi-step join through multiple join columns, ending on a row type.
+# Uses Flatten.
+FROM Customer c
+|> JOIN {{UNNEST(c.Orders.Lineitems)|c.Orders.Lineitems}} l
+|> SELECT {{|c.}}c_name, {{|l.}}l_quantity
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.l_quantity#12 AS l_quantity [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.l_quantity#12]
+    +-expr_list=
+    | +-l_quantity#12 :=
+    |   +-GetRowField
+    |     +-type=DOUBLE
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<LineItem>, column=$array.l#11)
+    |     +-column=LineItem.L_QUANTITY
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.l#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Orders#9], table=Customer, column_index_list=[1, 8], alias="c")
+        +-array_expr_list=
+        | +-Flatten
+        |   +-type=MULTIROW<LineItem (join)>
+        |   +-expr=
+        |   | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+        |   +-get_field_list=
+        |     +-GetRowField
+        |       +-type=MULTIROW<LineItem (join)>
+        |       +-expr=
+        |       | +-FlattenedArg(type=ROW<Orders>)
+        |       +-column=Orders.LineItems
+        +-element_column_list=[$array.l#11]
+==
+
+# Multi-step join through multiple join columns, ending on a scalar field
+# after the last row type.
+# Uses Flatten.
+FROM Customer c
+|> JOIN {{UNNEST(c.Orders.Lineitems.l_quantity)|c.Orders.Lineitems.l_quantity}} q
+|> SELECT c.c_name, q
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$array.q#11 AS q [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $array.q#11]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.q#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Orders#9], table=Customer, column_index_list=[1, 8], alias="c")
+        +-array_expr_list=
+        | +-Flatten
+        |   +-type=ARRAY<DOUBLE>
+        |   +-expr=
+        |   | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+        |   +-get_field_list=
+        |     +-GetRowField
+        |     | +-type=MULTIROW<LineItem (join)>
+        |     | +-expr=
+        |     | | +-FlattenedArg(type=ROW<Orders>)
+        |     | +-column=Orders.LineItems
+        |     +-GetRowField
+        |       +-type=DOUBLE
+        |       +-expr=
+        |       | +-FlattenedArg(type=ROW<LineItem>)
+        |       +-column=LineItem.L_QUANTITY
+        +-element_column_list=[$array.q#11]
+==
+
+# Implicit flattening in the FROM table name.
+# This is like `FROM TableName.array.array`.
+FROM Customer.Orders.Lineitems
+|> SELECT l_quantity
+--
+QueryStmt
++-output_column_list=
+| +-$pipe_select.l_quantity#12 AS l_quantity [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$pipe_select.l_quantity#12]
+    +-expr_list=
+    | +-l_quantity#12 :=
+    |   +-GetRowField
+    |     +-type=DOUBLE
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<LineItem>, column=$array.Lineitems#11)
+    |     +-column=LineItem.L_QUANTITY
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$array.Lineitems#11]
+        +-node_source="single_table_array_name_path"
+        +-input_scan=
+        | +-TableScan(column_list=[Customer.Orders#9], table=Customer, column_index_list=[8])
+        +-array_expr_list=
+        | +-Flatten
+        |   +-type=MULTIROW<LineItem (join)>
+        |   +-expr=
+        |   | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+        |   +-get_field_list=
+        |     +-GetRowField
+        |       +-type=MULTIROW<LineItem (join)>
+        |       +-expr=
+        |       | +-FlattenedArg(type=ROW<Orders>)
+        |       +-column=Orders.LineItems
+        +-element_column_list=[$array.Lineitems#11]
+==
+
+# Implicit flattening in the FROM table name, all the way to a scalar field,
+# making a scalar value table.
+FROM Customer.Orders.Lineitems.l_quantity
+--
+QueryStmt
++-output_column_list=
+| +-$array.l_quantity#11 AS `$value` [DOUBLE]
++-is_value_table=TRUE
++-query=
+  +-ArrayScan
+    +-column_list=[$array.l_quantity#11]
+    +-node_source="single_table_array_name_path"
+    +-input_scan=
+    | +-TableScan(column_list=[Customer.Orders#9], table=Customer, column_index_list=[8])
+    +-array_expr_list=
+    | +-Flatten
+    |   +-type=ARRAY<DOUBLE>
+    |   +-expr=
+    |   | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+    |   +-get_field_list=
+    |     +-GetRowField
+    |     | +-type=MULTIROW<LineItem (join)>
+    |     | +-expr=
+    |     | | +-FlattenedArg(type=ROW<Orders>)
+    |     | +-column=Orders.LineItems
+    |     +-GetRowField
+    |       +-type=DOUBLE
+    |       +-expr=
+    |       | +-FlattenedArg(type=ROW<LineItem>)
+    |       +-column=LineItem.L_QUANTITY
+    +-element_column_list=[$array.l_quantity#11]
+==
+
+# Outer joins, to ROW or MULTIROW
+FROM Customer c
+|> {{LEFT|RIGHT|FULL}} JOIN c.{{Nation|Orders}}
+|> AGGREGATE COUNT(*)
+--
+ALTERNATION GROUP: LEFT,Nation
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#12 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$aggregate.$agg1#12]
+    +-input_scan=
+    | +-ArrayScan
+    |   +-column_list=[Customer.Nation#10]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=[Customer.Nation#10], table=Customer, column_index_list=[9], alias="c")
+    |   +-array_expr_list=
+    |   | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+    |   +-element_column_list=[$array.Nation#11]
+    |   +-is_outer=TRUE
+    +-aggregate_list=
+      +-$agg1#12 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+--
+ALTERNATION GROUP: LEFT,Orders
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#12 AS `$col1` [INT64]
++-query=
+  +-AggregateScan
+    +-column_list=[$aggregate.$agg1#12]
+    +-input_scan=
+    | +-ArrayScan
+    |   +-column_list=[Customer.Orders#9]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=[Customer.Orders#9], table=Customer, column_index_list=[8], alias="c")
+    |   +-array_expr_list=
+    |   | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+    |   +-element_column_list=[$array.Orders#11]
+    |   +-is_outer=TRUE
+    +-aggregate_list=
+      +-$agg1#12 := AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
+--
+ALTERNATION GROUP: RIGHT,Nation
+--
+ERROR: Correlated array references are not allowed with RIGHT JOIN: c.Nation [at 2:15]
+|> RIGHT JOIN c.Nation
+              ^
+--
+ALTERNATION GROUP: RIGHT,Orders
+--
+ERROR: Correlated array references are not allowed with RIGHT JOIN: c.Orders [at 2:15]
+|> RIGHT JOIN c.Orders
+              ^
+--
+ALTERNATION GROUP: FULL,Nation
+--
+ERROR: Correlated array references are not allowed with FULL JOIN: c.Nation [at 2:14]
+|> FULL JOIN c.Nation
+             ^
+--
+ALTERNATION GROUP: FULL,Orders
+--
+ERROR: Correlated array references are not allowed with FULL JOIN: c.Orders [at 2:14]
+|> FULL JOIN c.Orders
+             ^
+==
+
+# Joins with a condition with ON
+FROM Customer c
+|> {{|LEFT}} JOIN c.Nation ON c_name=n_name
+|> SELECT c_name, n_name
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.n_name#12 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.n_name#12]
+    +-expr_list=
+    | +-n_name#12 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+    |     +-column=Nation.N_NAME
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Nation#10, $array.Nation#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Nation#10], table=Customer, column_index_list=[1, 9], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+        +-element_column_list=[$array.Nation#11]
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            +-ColumnRef(type=STRING, column=Customer.C_NAME#2)
+            +-GetRowField
+              +-type=STRING
+              +-expr=
+              | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+              +-column=Nation.N_NAME
+--
+ALTERNATION GROUP: LEFT
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.n_name#12 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.n_name#12]
+    +-expr_list=
+    | +-n_name#12 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+    |     +-column=Nation.N_NAME
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Nation#10, $array.Nation#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Nation#10], table=Customer, column_index_list=[1, 9], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+        +-element_column_list=[$array.Nation#11]
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   +-ColumnRef(type=STRING, column=Customer.C_NAME#2)
+        |   +-GetRowField
+        |     +-type=STRING
+        |     +-expr=
+        |     | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+        |     +-column=Nation.N_NAME
+        +-is_outer=TRUE
+==
+
+# Joins with a condition with USING
+FROM Customer c
+|> EXTEND c_name AS n_name
+|> {{|LEFT}} JOIN c.Nation USING(n_name)
+|> SELECT c_name, n_name
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-Customer.C_NAME#2 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=Customer.[C_NAME#2, C_NAME#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Nation#10, $array.Nation#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Nation#10], table=Customer, column_index_list=[1, 9], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+        +-element_column_list=[$array.Nation#11]
+        +-join_expr=
+          +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+            +-ColumnRef(type=STRING, column=Customer.C_NAME#2)
+            +-GetRowField
+              +-type=STRING
+              +-expr=
+              | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+              +-column=Nation.N_NAME
+--
+ALTERNATION GROUP: LEFT
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-Customer.C_NAME#2 AS n_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=Customer.[C_NAME#2, C_NAME#2]
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Customer.C_NAME#2, Customer.Nation#10, $array.Nation#11]
+        +-input_scan=
+        | +-TableScan(column_list=Customer.[C_NAME#2, Nation#10], table=Customer, column_index_list=[1, 9], alias="c")
+        +-array_expr_list=
+        | +-ColumnRef(type=ROW<Nation (join)>, column=Customer.Nation#10)
+        +-element_column_list=[$array.Nation#11]
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+        |   +-ColumnRef(type=STRING, column=Customer.C_NAME#2)
+        |   +-GetRowField
+        |     +-type=STRING
+        |     +-expr=
+        |     | +-ColumnRef(type=ROW<Nation>, column=$array.Nation#11)
+        |     +-column=Nation.N_NAME
+        +-is_outer=TRUE
+==
+
+# Join USING where we match a column under a join column on both sides.
+# A ProjectScan with GetRowField gets added on both sides.
+# The join rhs is an implicitly unnested `table.join_column` here.
+FROM Customer c
+|> JOIN c.Orders o1
+|> JOIN Lineitem.Order_ o2 USING (o_orderkey)
+|> SELECT c_name, o1.o_orderdate, o2.o_orderdate
+--
+QueryStmt
++-output_column_list=
+| +-Customer.C_NAME#2 AS c_name [STRING]
+| +-$pipe_select.o_orderdate#36 AS o_orderdate [DATE]
+| +-$pipe_select.o_orderdate#37 AS o_orderdate [DATE]
++-query=
+  +-ProjectScan
+    +-column_list=[Customer.C_NAME#2, $pipe_select.o_orderdate#36, $pipe_select.o_orderdate#37]
+    +-expr_list=
+    | +-o_orderdate#36 :=
+    | | +-GetRowField
+    | |   +-type=DATE
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<Orders>, column=$array.o1#11)
+    | |   +-column=Orders.O_ORDERDATE
+    | +-o_orderdate#37 :=
+    |   +-GetRowField
+    |     +-type=DATE
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<Orders>, column=$array.o2#33)
+    |     +-column=Orders.O_ORDERDATE
+    +-input_scan=
+      +-JoinScan
+        +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.o1#11, $join_left.o_orderkey#34, $array.o2#33, $join_right.o_orderkey#35]
+        +-left_scan=
+        | +-ProjectScan
+        |   +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.o1#11, $join_left.o_orderkey#34]
+        |   +-expr_list=
+        |   | +-o_orderkey#34 :=
+        |   |   +-GetRowField
+        |   |     +-type=UINT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<Orders>, column=$array.o1#11)
+        |   |     +-column=Orders.O_ORDERKEY
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[Customer.C_NAME#2, Customer.Orders#9, $array.o1#11]
+        |       +-input_scan=
+        |       | +-TableScan(column_list=Customer.[C_NAME#2, Orders#9], table=Customer, column_index_list=[1, 8], alias="c")
+        |       +-array_expr_list=
+        |       | +-ColumnRef(type=MULTIROW<Orders (join)>, column=Customer.Orders#9)
+        |       +-element_column_list=[$array.o1#11]
+        +-right_scan=
+        | +-ProjectScan
+        |   +-column_list=[$array.o2#33, $join_right.o_orderkey#35]
+        |   +-expr_list=
+        |   | +-o_orderkey#35 :=
+        |   |   +-GetRowField
+        |   |     +-type=UINT64
+        |   |     +-expr=
+        |   |     | +-ColumnRef(type=ROW<Orders>, column=$array.o2#33)
+        |   |     +-column=Orders.O_ORDERKEY
+        |   +-input_scan=
+        |     +-ArrayScan
+        |       +-column_list=[$array.o2#33]
+        |       +-node_source="single_table_array_name_path"
+        |       +-input_scan=
+        |       | +-TableScan(column_list=[LineItem.Order_#29], table=LineItem, column_index_list=[17], alias="Lineitem")
+        |       +-array_expr_list=
+        |       | +-ColumnRef(type=ROW<Orders (join)>, column=LineItem.Order_#29)
+        |       +-element_column_list=[$array.o2#33]
+        +-join_expr=
+        | +-FunctionCall(ZetaSQL:$equal(UINT64, UINT64) -> BOOL)
+        |   +-ColumnRef(type=UINT64, column=$join_left.o_orderkey#34)
+        |   +-ColumnRef(type=UINT64, column=$join_right.o_orderkey#35)
+        +-has_using=TRUE
+==
+
+# JOIN rules make Orders a table name here, not the column from Customer,
+# unless we do `c.Orders`.
+FROM Customer
+|> JOIN Orders
+--
+ERROR: INNER JOIN must have an immediately following ON or USING clause [at 2:4]
+|> JOIN Orders
+   ^
+==
+
+# JOIN rules require using `c.Orders` here too.
+FROM Customer
+|> JOIN Orders.Lineitems
+--
+ERROR: Aliases referenced in the from clause must refer to preceding scans, and cannot refer to columns on those scans. Orders refers to a column and must be qualified with a table name. [at 2:9]
+|> JOIN Orders.Lineitems
+        ^
+==
+
+# PartSupp has a multi-part ROW key.
+FROM Lineitem li
+|> SELECT li.l_quantity,
+          li.PartSupp.ps_comment,
+          li.PartSupp.Part.p_name,
+          li.PartSupp.Supplier.s_name
+--
+QueryStmt
++-output_column_list=
+| +-LineItem.L_QUANTITY#5 AS l_quantity [DOUBLE]
+| +-$pipe_select.ps_comment#22 AS ps_comment [STRING]
+| +-$pipe_select.p_name#23 AS p_name [STRING]
+| +-$pipe_select.s_name#24 AS s_name [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[LineItem.L_QUANTITY#5, $pipe_select.ps_comment#22, $pipe_select.p_name#23, $pipe_select.s_name#24]
+    +-expr_list=
+    | +-ps_comment#22 :=
+    | | +-GetRowField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-ColumnRef(type=ROW<PartSupp (join)>, column=LineItem.PartSupp#19)
+    | |   +-column=PartSupp.PS_COMMENT
+    | +-p_name#23 :=
+    | | +-GetRowField
+    | |   +-type=STRING
+    | |   +-expr=
+    | |   | +-GetRowField
+    | |   |   +-type=ROW<Part (join)>
+    | |   |   +-expr=
+    | |   |   | +-ColumnRef(type=ROW<PartSupp (join)>, column=LineItem.PartSupp#19)
+    | |   |   +-column=PartSupp.Part
+    | |   +-column=Part.P_NAME
+    | +-s_name#24 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-GetRowField
+    |     |   +-type=ROW<Supplier (join)>
+    |     |   +-expr=
+    |     |   | +-ColumnRef(type=ROW<PartSupp (join)>, column=LineItem.PartSupp#19)
+    |     |   +-column=PartSupp.Supplier
+    |     +-column=Supplier.S_NAME
+    +-input_scan=
+      +-TableScan(column_list=LineItem.[L_QUANTITY#5, PartSupp#19], table=LineItem, column_index_list=[4, 18], alias="li")
+==
+
+# PartSupps has a multi-part MULTIROW key.
+# Tests on this table exercise rewrites with multi-part join key.
+FROM Part p
+|> SELECT p_brand, p.PartSupps.ps_comment
+--
+ERROR: Cannot access fields on an expression with type MULTIROW<PartSupp>; Fields of MULTIROW columns can be read in JOIN, UNNEST, and FLATTEN [at 2:32]
+|> SELECT p_brand, p.PartSupps.ps_comment
+                               ^
+==
+
+# PartSupps has a multi-part MULTIROW key.
+FROM Part p
+|> SELECT p_brand, FLATTEN(p.PartSupps.Supplier.s_name)
+--
+QueryStmt
++-output_column_list=
+| +-Part.P_BRAND#4 AS p_brand [STRING]
+| +-$pipe_select.$col2#12 AS `$col2` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[Part.P_BRAND#4, $pipe_select.$col2#12]
+    +-expr_list=
+    | +-$col2#12 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=MULTIROW<PartSupp (join)>, column=Part.PartSupps#10)
+    |     +-get_field_list=
+    |       +-GetRowField
+    |       | +-type=ROW<Supplier (join)>
+    |       | +-expr=
+    |       | | +-FlattenedArg(type=ROW<PartSupp>)
+    |       | +-column=PartSupp.Supplier
+    |       +-GetRowField
+    |         +-type=STRING
+    |         +-expr=
+    |         | +-FlattenedArg(type=ROW<Supplier>)
+    |         +-column=Supplier.S_NAME
+    +-input_scan=
+      +-TableScan(column_list=Part.[P_BRAND#4, PartSupps#10], table=Part, column_index_list=[3, 9], alias="p")
+==
+
+FROM Part p
+|> JOIN p.PartSupps ps
+|> SELECT p_name, ps_comment
+--
+QueryStmt
++-output_column_list=
+| +-Part.P_NAME#2 AS p_name [STRING]
+| +-$pipe_select.ps_comment#13 AS ps_comment [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=[Part.P_NAME#2, $pipe_select.ps_comment#13]
+    +-expr_list=
+    | +-ps_comment#13 :=
+    |   +-GetRowField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=ROW<PartSupp>, column=$array.ps#12)
+    |     +-column=PartSupp.PS_COMMENT
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[Part.P_NAME#2, Part.PartSupps#10, $array.ps#12]
+        +-input_scan=
+        | +-TableScan(column_list=Part.[P_NAME#2, PartSupps#10], table=Part, column_index_list=[1, 9], alias="p")
+        +-array_expr_list=
+        | +-ColumnRef(type=MULTIROW<PartSupp (join)>, column=Part.PartSupps#10)
+        +-element_column_list=[$array.ps#12]
+==
+
+FROM Part p
+|> SELECT p_name, FLATTEN(p.PartSupps.ps_comment)
+--
+QueryStmt
++-output_column_list=
+| +-Part.P_NAME#2 AS p_name [STRING]
+| +-$pipe_select.$col2#12 AS `$col2` [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[Part.P_NAME#2, $pipe_select.$col2#12]
+    +-expr_list=
+    | +-$col2#12 :=
+    |   +-Flatten
+    |     +-type=ARRAY<STRING>
+    |     +-expr=
+    |     | +-ColumnRef(type=MULTIROW<PartSupp (join)>, column=Part.PartSupps#10)
+    |     +-get_field_list=
+    |       +-GetRowField
+    |         +-type=STRING
+    |         +-expr=
+    |         | +-FlattenedArg(type=ROW<PartSupp>)
+    |         +-column=PartSupp.PS_COMMENT
+    +-input_scan=
+      +-TableScan(column_list=Part.[P_NAME#2, PartSupps#10], table=Part, column_index_list=[1, 9], alias="p")
+==
+
+# Test returning ROW and MULTIROW from a CTE.
+WITH cte AS (
+  FROM Orders o
+  |> SELECT o_orderkey, o_orderdate, o_clerk, o.Customer, o.Lineitems
+)
+FROM cte
+|> STATIC_DESCRIBE
+|> JOIN cte.Lineitems li
+|> SELECT cte.o_orderdate,
+          cte.Customer.c_name,
+          cte.Customer.Nation.n_name,
+          FLATTEN(cte.Lineitems.l_comment),
+          li.l_quantity
+--
+QueryStmt
++-output_column_list=
+| +-cte.o_orderdate#13 AS o_orderdate [DATE]
+| +-$pipe_select.c_name#18 AS c_name [STRING]
+| +-$pipe_select.n_name#19 AS n_name [STRING]
+| +-$pipe_select.$col4#20 AS `$col4` [ARRAY<STRING>]
+| +-$pipe_select.l_quantity#21 AS l_quantity [DOUBLE]
++-query=
+  +-WithScan
+    +-column_list=[cte.o_orderdate#13, $pipe_select.c_name#18, $pipe_select.n_name#19, $pipe_select.$col4#20, $pipe_select.l_quantity#21]
+    +-with_entry_list=
+    | +-WithEntry
+    |   +-with_query_name="cte"
+    |   +-with_subquery=
+    |     +-ProjectScan
+    |       +-column_list=Orders.[O_ORDERKEY#1, O_ORDERDATE#5, O_CLERK#7, Customer#10, LineItems#11]
+    |       +-input_scan=
+    |         +-TableScan(column_list=Orders.[O_ORDERKEY#1, O_ORDERDATE#5, O_CLERK#7, Customer#10, LineItems#11], table=Orders, column_index_list=[0, 4, 6, 9, 10], alias="o")
+    +-query=
+      +-ProjectScan
+        +-column_list=[cte.o_orderdate#13, $pipe_select.c_name#18, $pipe_select.n_name#19, $pipe_select.$col4#20, $pipe_select.l_quantity#21]
+        +-expr_list=
+        | +-c_name#18 :=
+        | | +-GetRowField
+        | |   +-type=STRING
+        | |   +-expr=
+        | |   | +-ColumnRef(type=ROW<Customer (join)>, column=cte.Customer#15)
+        | |   +-column=Customer.C_NAME
+        | +-n_name#19 :=
+        | | +-GetRowField
+        | |   +-type=STRING
+        | |   +-expr=
+        | |   | +-GetRowField
+        | |   |   +-type=ROW<Nation (join)>
+        | |   |   +-expr=
+        | |   |   | +-ColumnRef(type=ROW<Customer (join)>, column=cte.Customer#15)
+        | |   |   +-column=Customer.Nation
+        | |   +-column=Nation.N_NAME
+        | +-$col4#20 :=
+        | | +-Flatten
+        | |   +-type=ARRAY<STRING>
+        | |   +-expr=
+        | |   | +-ColumnRef(type=MULTIROW<LineItem (join)>, column=cte.Lineitems#16)
+        | |   +-get_field_list=
+        | |     +-GetRowField
+        | |       +-type=STRING
+        | |       +-expr=
+        | |       | +-FlattenedArg(type=ROW<LineItem>)
+        | |       +-column=LineItem.L_COMMENT
+        | +-l_quantity#21 :=
+        |   +-GetRowField
+        |     +-type=DOUBLE
+        |     +-expr=
+        |     | +-ColumnRef(type=ROW<LineItem>, column=$array.li#17)
+        |     +-column=LineItem.L_QUANTITY
+        +-input_scan=
+          +-ArrayScan
+            +-column_list=[cte.o_orderkey#12, cte.o_orderdate#13, cte.o_clerk#14, cte.Customer#15, cte.Lineitems#16, $array.li#17]
+            +-input_scan=
+            | +-StaticDescribeScan
+            |   +-column_list=cte.[o_orderkey#12, o_orderdate#13, o_clerk#14, Customer#15, Lineitems#16]
+            |   +-describe_text=
+            |   |   """
+            |   |   NameList:
+            |   |     o_orderkey UINT64 cte.o_orderkey#12
+            |   |     o_orderdate DATE cte.o_orderdate#13
+            |   |     o_clerk STRING cte.o_clerk#14
+            |   |     Customer ROW<Customer> cte.Customer#15
+            |   |     Lineitems MULTIROW<LineItem> cte.Lineitems#16
+            |   |   NameScope:
+            |   |     Names:
+            |   |       Customer -> ROW<Customer> (cte.Customer#15)
+            |   |       Lineitems -> MULTIROW<LineItem> (cte.Lineitems#16)
+            |   |       o_clerk -> STRING (cte.o_clerk#14)
+            |   |       o_orderdate -> DATE (cte.o_orderdate#13)
+            |   |       o_orderkey -> UINT64 (cte.o_orderkey#12)
+            |   |     Range variables:
+            |   |       cte -> RANGE_VARIABLE<o_orderkey,o_orderdate,o_clerk,Customer,Lineitems>
+            |   |
+            |   |   **Common table expressions**:
+            |   |   Name  Columns
+            |   |   ----  -----------------------------------------------------
+            |   |   cte   o_orderkey, o_orderdate, o_clerk, Customer, Lineitems
+            |   |   """
+            |   +-input_scan=
+            |     +-WithRefScan(column_list=cte.[o_orderkey#12, o_orderdate#13, o_clerk#14, Customer#15, Lineitems#16], with_query_name="cte")
+            +-array_expr_list=
+            | +-ColumnRef(type=MULTIROW<LineItem (join)>, column=cte.Lineitems#16)
+            +-element_column_list=[$array.li#17]
+==
+
+# TPCH 5, as a large example query with join columns.
+SELECT
+  supplier.nation.n_name,
+  sum(l_extendedprice * (1 - l_discount)) AS revenue
+FROM lineitem
+WHERE order_.customer.c_nationkey = supplier.s_nationkey
+  AND supplier.nation.region.r_name = 'AFRICA'
+  AND order_.o_orderdate >= date '1994-01-01'
+  AND order_.o_orderdate < date_add(date '1994-01-01', INTERVAL 1 year)
+GROUP BY n_name
+ORDER BY revenue DESC;
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.n_name#24 AS n_name [STRING]
+| +-$aggregate.revenue#22 AS revenue [DOUBLE]
++-query=
+  +-OrderByScan
+    +-column_list=[$groupby.n_name#24, $aggregate.revenue#22]
+    +-is_ordered=TRUE
+    +-input_scan=
+    | +-AggregateScan
+    |   +-column_list=[$groupby.n_name#24, $aggregate.revenue#22]
+    |   +-input_scan=
+    |   | +-ProjectScan
+    |   |   +-column_list=[LineItem.L_EXTENDEDPRICE#6, LineItem.L_DISCOUNT#7, LineItem.Order_#18, LineItem.Supplier#21, $pre_groupby.n_name#23]
+    |   |   +-expr_list=
+    |   |   | +-n_name#23 :=
+    |   |   |   +-GetRowField
+    |   |   |     +-type=STRING
+    |   |   |     +-expr=
+    |   |   |     | +-GetRowField
+    |   |   |     |   +-type=ROW<Nation (join)>
+    |   |   |     |   +-expr=
+    |   |   |     |   | +-ColumnRef(type=ROW<Supplier (join)>, column=LineItem.Supplier#21)
+    |   |   |     |   +-column=Supplier.Nation
+    |   |   |     +-column=Nation.N_NAME
+    |   |   +-input_scan=
+    |   |     +-FilterScan
+    |   |       +-column_list=LineItem.[L_EXTENDEDPRICE#6, L_DISCOUNT#7, Order_#18, Supplier#21]
+    |   |       +-input_scan=
+    |   |       | +-TableScan(column_list=LineItem.[L_EXTENDEDPRICE#6, L_DISCOUNT#7, Order_#18, Supplier#21], table=LineItem, column_index_list=[5, 6, 17, 20])
+    |   |       +-filter_expr=
+    |   |         +-FunctionCall(ZetaSQL:$and(BOOL, repeated(3) BOOL) -> BOOL)
+    |   |           +-FunctionCall(ZetaSQL:$equal(UINT64, UINT64) -> BOOL)
+    |   |           | +-GetRowField
+    |   |           | | +-type=UINT64
+    |   |           | | +-expr=
+    |   |           | | | +-GetRowField
+    |   |           | | |   +-type=ROW<Customer (join)>
+    |   |           | | |   +-expr=
+    |   |           | | |   | +-ColumnRef(type=ROW<Orders (join)>, column=LineItem.Order_#18)
+    |   |           | | |   +-column=Orders.Customer
+    |   |           | | +-column=Customer.C_NATIONKEY
+    |   |           | +-GetRowField
+    |   |           |   +-type=UINT64
+    |   |           |   +-expr=
+    |   |           |   | +-ColumnRef(type=ROW<Supplier (join)>, column=LineItem.Supplier#21)
+    |   |           |   +-column=Supplier.S_NATIONKEY
+    |   |           +-FunctionCall(ZetaSQL:$equal(STRING, STRING) -> BOOL)
+    |   |           | +-GetRowField
+    |   |           | | +-type=STRING
+    |   |           | | +-expr=
+    |   |           | | | +-GetRowField
+    |   |           | | |   +-type=ROW<Region (join)>
+    |   |           | | |   +-expr=
+    |   |           | | |   | +-GetRowField
+    |   |           | | |   |   +-type=ROW<Nation (join)>
+    |   |           | | |   |   +-expr=
+    |   |           | | |   |   | +-ColumnRef(type=ROW<Supplier (join)>, column=LineItem.Supplier#21)
+    |   |           | | |   |   +-column=Supplier.Nation
+    |   |           | | |   +-column=Nation.Region
+    |   |           | | +-column=Region.R_NAME
+    |   |           | +-Literal(type=STRING, value="AFRICA")
+    |   |           +-FunctionCall(ZetaSQL:$greater_or_equal(DATE, DATE) -> BOOL)
+    |   |           | +-GetRowField
+    |   |           | | +-type=DATE
+    |   |           | | +-expr=
+    |   |           | | | +-ColumnRef(type=ROW<Orders (join)>, column=LineItem.Order_#18)
+    |   |           | | +-column=Orders.O_ORDERDATE
+    |   |           | +-Literal(type=DATE, value=1994-01-01, has_explicit_type=TRUE)
+    |   |           +-FunctionCall(ZetaSQL:$less(DATE, DATE) -> BOOL)
+    |   |             +-GetRowField
+    |   |             | +-type=DATE
+    |   |             | +-expr=
+    |   |             | | +-ColumnRef(type=ROW<Orders (join)>, column=LineItem.Order_#18)
+    |   |             | +-column=Orders.O_ORDERDATE
+    |   |             +-FunctionCall(ZetaSQL:date_add(DATE, INT64, ENUM<zetasql.functions.DateTimestampPart>) -> DATE)
+    |   |               +-Literal(type=DATE, value=1994-01-01, has_explicit_type=TRUE)
+    |   |               +-Literal(type=INT64, value=1)
+    |   |               +-Literal(type=ENUM<zetasql.functions.DateTimestampPart>, value=YEAR)
+    |   +-group_by_list=
+    |   | +-n_name#24 := ColumnRef(type=STRING, column=$pre_groupby.n_name#23)
+    |   +-aggregate_list=
+    |     +-revenue#22 :=
+    |       +-AggregateFunctionCall(ZetaSQL:sum(DOUBLE) -> DOUBLE)
+    |         +-FunctionCall(ZetaSQL:$multiply(DOUBLE, DOUBLE) -> DOUBLE)
+    |           +-ColumnRef(type=DOUBLE, column=LineItem.L_EXTENDEDPRICE#6)
+    |           +-FunctionCall(ZetaSQL:$subtract(DOUBLE, DOUBLE) -> DOUBLE)
+    |             +-Literal(type=DOUBLE, value=1)
+    |             +-ColumnRef(type=DOUBLE, column=LineItem.L_DISCOUNT#7)
+    +-order_by_item_list=
+      +-OrderByItem
+        +-column_ref=
+        | +-ColumnRef(type=DOUBLE, column=$aggregate.revenue#22)
+        +-is_descending=TRUE

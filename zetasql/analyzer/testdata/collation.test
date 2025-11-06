@@ -8040,6 +8040,7 @@ QueryStmt
     +-expr_list=
     | +-$col1#5 :=
     |   +-FunctionCall(ZetaSQL:iferror(STRING, STRING) -> STRING)
+    |     +-type_annotation_map={Collation:"und:ci"}
     |     +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=CollatedTable.string_ci#1{Collation:"und:ci"})
     |     +-Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
     +-input_scan=
@@ -10837,4 +10838,76 @@ QueryStmt
             +-match_number_column=$match_recognize.$match_number#5
             +-match_row_number_column=$match_recognize.$match_row_number#6
             +-classifier_column=$match_recognize.$classifier#7
+==
+
+# Explicit array constructor drops collation, just like explicit cast.
+[language_features=MAXIMUM,+COLLATION_SUPPORT]
+SELECT ARRAY<STRING>[COLLATE('abc', 'und:ci')],
+       ARRAY<STRUCT<a STRING>>[STRUCT(COLLATE('abc', 'und:ci'))]
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRING>]
+| +-$query.$col2#2 AS `$col2` [ARRAY<STRUCT<a STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    | |   +-Cast(STRING -> STRING)
+    | |     +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    | |       +-type_annotation_map={Collation:"und:ci"}
+    | |       +-Literal(type=STRING, value="abc")
+    | |       +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    | +-$col2#2 :=
+    |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING>) -> ARRAY<STRUCT<a STRING>>)
+    |     +-MakeStruct
+    |       +-type=STRUCT<a STRING>
+    |       +-field_list=
+    |         +-Cast(STRING -> STRING)
+    |           +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |             +-type_annotation_map={Collation:"und:ci"}
+    |             +-Literal(type=STRING, value="abc")
+    |             +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# TODO: enable the unparser once STRUCT<STRING COLLATE '...'> syntax
+# is supported, to specify it on the explicit types.
+# Explicit array constructor leaks collation when the flag is off.
+[no_run_sqlbuilder]
+[language_features=MAXIMUM,+COLLATION_SUPPORT,-ARRAY_CONSTRUCTOR_EXPLICIT_TYPE_ENFORCE_TARGET_ANNOTATIONS]
+SELECT ARRAY<STRING>[COLLATE('abc', 'und:ci')],
+       ARRAY<STRUCT<a STRING>>[STRUCT(COLLATE('abc', 'und:ci'))]
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1<{Collation:"und:ci"}> AS `$col1` [ARRAY<STRING>]
+| +-$query.$col2#2<<{Collation:"und:ci"}>> AS `$col2` [ARRAY<STRUCT<a STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[$col1#1, $col2#2]
+    +-expr_list=
+    | +-$col1#1 :=
+    | | +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRING) -> ARRAY<STRING>)
+    | |   +-type_annotation_map=<{Collation:"und:ci"}>
+    | |   +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    | |     +-type_annotation_map={Collation:"und:ci"}
+    | |     +-Literal(type=STRING, value="abc")
+    | |     +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    | +-$col2#2 :=
+    |   +-FunctionCall(ZetaSQL:$make_array(repeated(1) STRUCT<a STRING>) -> ARRAY<STRUCT<a STRING>>)
+    |     +-type_annotation_map=<<{Collation:"und:ci"}>>
+    |     +-MakeStruct
+    |       +-type=STRUCT<a STRING>
+    |       +-type_annotation_map=<{Collation:"und:ci"}>
+    |       +-field_list=
+    |         +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
+    |           +-type_annotation_map={Collation:"und:ci"}
+    |           +-Literal(type=STRING, value="abc")
+    |           +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
+    +-input_scan=
+      +-SingleRowScan
 ==

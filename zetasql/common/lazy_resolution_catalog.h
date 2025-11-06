@@ -167,8 +167,8 @@ class LazyResolutionCatalog : public Catalog {
   // Accessors for reading objects in this LazyResolutionCatalog.
   // These methods are primarily intended for tests.
   std::vector<const LazyResolutionFunction*> functions() const;
-  std::vector<const LazyResolutionTableFunction*>
-      table_valued_functions() const;
+  std::vector<const LazyResolutionTableFunction*> table_valued_functions()
+      const;
   std::vector<const LazyResolutionConstant*> constants() const;
   std::vector<const LazyResolutionView*> views() const;
 
@@ -321,7 +321,7 @@ class LazyResolutionObject {
                        std::unique_ptr<ParserOutput> parser_output,
                        absl::Status object_status,
                        ErrorMessageOptions error_message_options);
-  ~LazyResolutionObject() {}
+  ~LazyResolutionObject() = default;
 
   // Returns true if the object was created by CREATE PRIVATE <object>.
   bool IsPrivate() const;
@@ -344,13 +344,9 @@ class LazyResolutionObject {
   // Helper to return the start ParseLocationPoint for the CREATE statement.
   ParseLocationPoint StartParseLocationPoint() const;
 
-  const ParserOutput* parser_output() const {
-    return parser_output_.get();
-  }
+  const ParserOutput* parser_output() const { return parser_output_.get(); }
 
-  const ASTIdentifier* name() const {
-    return object_name_;
-  }
+  const ASTIdentifier* name() const { return object_name_; }
 
   // Returns the object type name as implied by the parser AST.
   std::string TypeName(bool capitalized = false) const;
@@ -515,7 +511,7 @@ class LazyResolutionFunction {
   LazyResolutionFunction(const LazyResolutionFunction&) = delete;
   LazyResolutionFunction& operator=(const LazyResolutionFunction&) = delete;
 
-  ~LazyResolutionFunction() {}
+  ~LazyResolutionFunction() = default;
 
   // Returns the function's name (derived from <lazy_resolution_object_>).
   std::string Name() const;
@@ -525,9 +521,9 @@ class LazyResolutionFunction {
   // 1) resolves the parser AST (via <lazy_resolution_object_>)
   // 2) sets the resolution status based on the result of analysis
   // 3) returns the resolution status.
-  absl::Status ResolveAndUpdateIfNeeded(
-      const AnalyzerOptions& analyzer_options, Catalog* catalog,
-      TypeFactory* type_factory);
+  absl::Status ResolveAndUpdateIfNeeded(const AnalyzerOptions& analyzer_options,
+                                        Catalog* catalog,
+                                        TypeFactory* type_factory);
 
   // Returns the SQL passed into the Create() method (via
   // <parse_resume_location>). Used for error messaging, to construct the error
@@ -542,9 +538,7 @@ class LazyResolutionFunction {
   // Returns the resolved Function (if this LazyResolutionFunction resolved
   // successfully).  Otherwise returns nullptr (if this LazyResolutionFunction
   // has not been resolved yet or if it had a resolution error).
-  const Function* ResolvedObject() const {
-    return function_.get();
-  }
+  const Function* ResolvedObject() const { return function_.get(); }
 
   // Returns the function name and other relevant information (invoking
   // DebugString() on the related ResolvedObject() if applicable).
@@ -613,7 +607,7 @@ class LazyResolutionFunction {
   // Returns the function's aggregate expression list (which is only non-empty
   // for UDAs).
   const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-      AggregateExpressionList() const;
+  AggregateExpressionList() const;
 
   // Indicates whether the function is SCALAR or AGGREGATE.
   FunctionEnums::Mode mode_;
@@ -692,10 +686,10 @@ class LazyResolutionTableFunction {
                                ErrorMessageOptions error_message_options);
 
   LazyResolutionTableFunction(const LazyResolutionTableFunction&) = delete;
-  LazyResolutionTableFunction& operator=(const LazyResolutionTableFunction&)
-      = delete;
+  LazyResolutionTableFunction& operator=(const LazyResolutionTableFunction&) =
+      delete;
 
-  ~LazyResolutionTableFunction() {}
+  ~LazyResolutionTableFunction() = default;
 
   // Returns the table function's name (derived from <lazy_resolution_object_>).
   std::string Name() const;
@@ -706,9 +700,9 @@ class LazyResolutionTableFunction {
   // 1) resolves the parser AST (via <lazy_resolution_object_>)
   // 2) sets the resolution status based on the result of analysis
   // 3) returns the resolution status.
-  absl::Status ResolveAndUpdateIfNeeded(
-      const AnalyzerOptions& analyzer_options, Catalog* catalog,
-      TypeFactory* type_factory);
+  absl::Status ResolveAndUpdateIfNeeded(const AnalyzerOptions& analyzer_options,
+                                        Catalog* catalog,
+                                        TypeFactory* type_factory);
 
   // Returns the SQL passed into the Create() method (via
   // <parse_resume_location>). Used for error messaging, to construct the error
@@ -743,7 +737,6 @@ class LazyResolutionTableFunction {
   // 1) invalid TEMP modifier found during Create()
   // 2) resolver errors found during expression analysis
   absl::Status resolution_status() const;
-
 
   // Set a Status that, if the Status is non-OK, will be produced when
   // resolution is attempted. This is used to store an error status that is
@@ -858,7 +851,7 @@ class LazyResolutionConstant {
       std::unique_ptr<ParserOutput> parser_output, absl::Status constant_status,
       ErrorMessageOptions error_message_options);
 
-  ~LazyResolutionConstant() {}
+  ~LazyResolutionConstant() = default;
 
   // This class is neither copyable nor assignable.
   LazyResolutionConstant(
@@ -909,9 +902,7 @@ class LazyResolutionConstant {
   // Returns the SQLConstant (if the LazyResolutionConstant resolved
   // successfully).  Otherwise returns nullptr (if this LazyResolutionConstant
   // has not been resolved yet or if it had a resolution error).
-  const Constant* ResolvedObject() const {
-    return sql_constant_.get();
-  }
+  const Constant* ResolvedObject() const { return sql_constant_.get(); }
 
   // TODO: Try to refactor [Full]DebugString().
   std::string DebugString(bool verbose = false) const;

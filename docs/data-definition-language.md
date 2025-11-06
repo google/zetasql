@@ -31,11 +31,11 @@ CREATE DATABASE library OPTIONS(
   owner='libadmin'
 );
 
-/*--------------------*
+/*--------------------+
  | Database           |
  +--------------------+
  | library            |
- *--------------------*/
+ +--------------------*/
 ```
 
 [hints]: https://github.com/google/zetasql/blob/master/docs/lexical.md#hints
@@ -851,11 +851,11 @@ Use it in a statement:
 ```zetasql
 SELECT (DEFAULT_HEIGHT + 5) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 30     |
- *--------*/
+ +--------*/
 ```
 
 ## `CREATE AGGREGATE FUNCTION`

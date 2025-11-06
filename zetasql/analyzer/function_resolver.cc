@@ -301,7 +301,7 @@ absl::Status FunctionResolver::CheckCreateAggregateFunctionProperties(
   };
   // In CREATE AGGREGATE FUNCTION, we are only ever ranging over the full input.
   ZETASQL_RETURN_IF_ERROR(query_info->PinToRowRange(std::nullopt));
-  if (expr_info->has_aggregation) {
+  if (expr_info->findings.has_aggregation) {
     ZETASQL_RET_CHECK(query_info->group_by_column_state_list().empty());
     ZETASQL_RET_CHECK(!query_info->aggregate_columns_to_compute().empty());
     for (const std::unique_ptr<const ResolvedComputedColumnBase>&
@@ -844,6 +844,10 @@ FunctionResolver::FindMatchingSignature(
     absl::flat_hash_map<const ResolvedInlineLambda*, const ASTLambda*>*
         lambda_ast_nodes_out,
     std::vector<std::string>* mismatch_errors) const {
+  ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(
+      "Out of stack space due to deeply nested query expression "
+      "during function resolution");
+
   std::unique_ptr<FunctionSignature> best_result_signature;
   SignatureMatchResult best_result;
   std::vector<FunctionArgumentOverride> best_result_arg_overrides;
@@ -1086,15 +1090,15 @@ absl::Status ExtractStructFieldLocations(
     case AST_STRUCT_CONSTRUCTOR_WITH_PARENS: {
       const ASTStructConstructorWithParens* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithParens>();
-      ABSL_DCHECK_EQ(ast_struct->field_expressions().size(),
-                to_struct_type->num_fields());
+      ZETASQL_RET_CHECK_EQ(ast_struct->field_expressions().size(),
+                   to_struct_type->num_fields());
       *field_arg_locations = ToASTNodes(ast_struct->field_expressions());
       break;
     }
     case AST_STRUCT_CONSTRUCTOR_WITH_KEYWORD: {
       const ASTStructConstructorWithKeyword* ast_struct =
           cast_free_ast_location->GetAs<ASTStructConstructorWithKeyword>();
-      ABSL_DCHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
+      ZETASQL_RET_CHECK_EQ(ast_struct->fields().size(), to_struct_type->num_fields());
       // Strip "AS <alias>" clauses from field arg locations.
       for (const ASTStructConstructorArg* arg : ast_struct->fields()) {
         field_arg_locations->push_back(arg->expression());
@@ -1104,7 +1108,18 @@ absl::Status ExtractStructFieldLocations(
     case AST_BRACED_CONSTRUCTOR: {
       const ASTBracedConstructor* ast_braced =
           cast_free_ast_location->GetAsOrDie<ASTBracedConstructor>();
-      ABSL_DCHECK_EQ(ast_braced->fields().size(), to_struct_type->num_fields());
+      ZETASQL_RET_CHECK_EQ(ast_braced->fields().size(), to_struct_type->num_fields());
+      for (const ASTBracedConstructorField* field : ast_braced->fields()) {
+        field_arg_locations->push_back(field->value());
+      }
+      break;
+    }
+    case AST_STRUCT_BRACED_CONSTRUCTOR: {
+      const ASTStructBracedConstructor* ast_braced_struct =
+          cast_free_ast_location->GetAsOrDie<ASTStructBracedConstructor>();
+      const ASTBracedConstructor* ast_braced =
+          ast_braced_struct->braced_constructor();
+      ZETASQL_RET_CHECK_EQ(ast_braced->fields().size(), to_struct_type->num_fields());
       for (const ASTBracedConstructorField* field : ast_braced->fields()) {
         field_arg_locations->push_back(field->value());
       }
@@ -2292,7 +2307,10 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
   return absl::OkStatus();
 }
 
-absl::Status FunctionResolver::MakeFunctionExprAnalysisError(
+// Returns a new error message reporting a failure parsing or analyzing the
+// SQL body. If 'message' is not empty, appends it to the end of the error
+// string.
+static absl::Status MakeFunctionExprAnalysisError(
     const TemplatedSQLFunction& function, absl::string_view message) {
   std::string result =
       absl::StrCat("Analysis of function ", function.FullName(), " failed");
@@ -2309,11 +2327,13 @@ absl::Status FunctionResolver::MakeFunctionExprAnalysisError(
 absl::Status FunctionResolver::ForwardNestedResolutionAnalysisError(
     const TemplatedSQLFunction& function, const absl::Status& status,
     ErrorMessageOptions options) {
+  if (status.ok() || absl::IsInternal(status) ||
+      absl::IsResourceExhausted(status)) {
+    return status;
+  }
   ParseResumeLocation parse_resume_location = function.GetParseResumeLocation();
   absl::Status new_status;
-  if (status.ok()) {
-    return absl::OkStatus();
-  } else if (HasErrorLocation(status)) {
+  if (HasErrorLocation(status)) {
     new_status = MakeFunctionExprAnalysisError(function, "");
     zetasql::internal::AttachPayload(
         &new_status, SetErrorSourcesFromStatus(
@@ -2422,13 +2442,15 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
   // Otherwise, the catalog passed as the argument is used, and it may include
   // names that were not previously available when the function was initially
   // declared.
-  // If we are analyzing a measure expression, The template body is resolved
-  // with a copy of the analyzer options without a lookup expression callback,
-  // since measure analysis relies on expression column lookup by name.
+  // If the analyzer option is set, suspend lookup expression callbacks when
+  // resolving template functions. Name resolution via lookup expression
+  // callback takes precedence over name resolution against function arguments.
+  // This can result in incorrect resolution behavior, where a name 'user'
+  // resolves to an expression generated via a callback, when in fact 'user' is
+  // present in the argument list of the CREATE FUNCTION statement.
   AnalyzerOptions options_for_template_analysis = analyzer_options;
-  if (InternalAnalyzerOptions::
-          GetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(
-              analyzer_options)) {
+  if (analyzer_options
+          .GetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction()) {
     InternalAnalyzerOptions::SetLookupExpressionCallback(
         options_for_template_analysis, nullptr);
   }
@@ -2462,6 +2484,9 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
             expr_resolution_info.get(), query_resolution_info.get(),
             resolver->language());
     if (!status.ok()) {
+      if (absl::IsInternal(status) || absl::IsResourceExhausted(status)) {
+        return status;
+      }
       return ForwardNestedResolutionAnalysisError(
           function, MakeFunctionExprAnalysisError(function, status.message()),
           options_for_template_analysis.error_message_options());
@@ -2492,7 +2517,9 @@ absl::Status FunctionResolver::ResolveTemplatedSQLFunctionCall(
             "incompatible type $1",
             &resolved_sql_body);
         !status.ok()) {
-      // TODO: Propagate internal errors, unimplemented, etc
+      if (absl::IsInternal(status) || absl::IsResourceExhausted(status)) {
+        return status;
+      }
       return MakeFunctionExprAnalysisError(function, status.message());
     }
   }

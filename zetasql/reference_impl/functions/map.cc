@@ -225,7 +225,20 @@ class MapSubscriptWithKeyFunction : public SimpleBuiltinScalarFunction {
                              absl::Span<const Value> args,
                              EvaluationContext* context) const override {
     ZETASQL_RET_CHECK_EQ(args.size(), 2);
-    return ValueLookupImpl(args[0], args[1]);
+    auto result = ValueLookupImpl(args[0], args[1]);
+    if (kind() == FunctionKind::kMapSubscriptWithKey) {
+      return result;
+    }
+    ZETASQL_RET_CHECK(kind() == FunctionKind::kMapSafeSubscriptWithKey);
+    if (result.ok()) {
+      return result;
+    }
+    if (ShouldSuppressError(result.status(),
+                            ResolvedFunctionCallBase::SAFE_ERROR_MODE)) {
+      return Value::Null(output_type());
+    }
+
+    return result.status();
   }
 };
 
@@ -710,6 +723,11 @@ void RegisterBuiltinMapFunctions() {
       });
   BuiltinFunctionRegistry::RegisterScalarFunction(
       {FunctionKind::kMapSubscriptWithKey},
+      [](FunctionKind kind, const Type* output_type) {
+        return new MapSubscriptWithKeyFunction(kind, output_type);
+      });
+  BuiltinFunctionRegistry::RegisterScalarFunction(
+      {FunctionKind::kMapSafeSubscriptWithKey},
       [](FunctionKind kind, const Type* output_type) {
         return new MapSubscriptWithKeyFunction(kind, output_type);
       });

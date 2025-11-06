@@ -558,59 +558,15 @@ ERROR: Table 't1' must not be recursively referenced from inside an inner recurs
                                           ^
 ==
 
-# Multiple recursive references are allowed in relaxed mode
+# Multiple recursive references are not allowed in relaxed mode
 WITH RECURSIVE t AS (
   SELECT 1 AS n UNION ALL
   SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
 ) SELECT * FROM t;
 --
-QueryStmt
-+-output_column_list=
-| +-t.n#6 AS n [INT64]
-+-query=
-  +-WithScan
-    +-column_list=[t.n#6]
-    +-with_entry_list=
-    | +-WithEntry
-    |   +-with_query_name="t"
-    |   +-with_subquery=
-    |     +-RecursiveScan
-    |       +-column_list=[$union_all.n#2]
-    |       +-op_type=UNION_ALL
-    |       +-non_recursive_term=
-    |       | +-SetOperationItem
-    |       |   +-scan=
-    |       |   | +-ProjectScan
-    |       |   |   +-column_list=[$union_all1.n#1]
-    |       |   |   +-expr_list=
-    |       |   |   | +-n#1 := Literal(type=INT64, value=1)
-    |       |   |   +-input_scan=
-    |       |   |     +-SingleRowScan
-    |       |   +-output_column_list=[$union_all1.n#1]
-    |       +-recursive_term=
-    |         +-SetOperationItem
-    |           +-scan=
-    |           | +-ProjectScan
-    |           |   +-column_list=[$union_all2.$col1#5]
-    |           |   +-expr_list=
-    |           |   | +-$col1#5 :=
-    |           |   |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
-    |           |   |     +-ColumnRef(type=INT64, column=t.n#3)
-    |           |   |     +-ColumnRef(type=INT64, column=t.n#4)
-    |           |   +-input_scan=
-    |           |     +-JoinScan
-    |           |       +-column_list=t.[n#3, n#4]
-    |           |       +-left_scan=
-    |           |       | +-RecursiveRefScan(column_list=[t.n#3])
-    |           |       +-right_scan=
-    |           |         +-RecursiveRefScan(column_list=[t.n#4])
-    |           +-output_column_list=[$union_all2.$col1#5]
-    +-query=
-    | +-ProjectScan
-    |   +-column_list=[t.n#6]
-    |   +-input_scan=
-    |     +-WithRefScan(column_list=[t.n#6], with_query_name="t")
-    +-recursive=TRUE
+ERROR: Multiple recursive references to table 't' are not allowed [at 3:46]
+  SELECT t1.n + t2.n FROM t AS t1 CROSS JOIN t AS t2
+                                             ^
 ==
 
 # Recursive reference in right operand of join. In relaxed mode, allowed for all

@@ -1,5 +1,5 @@
 //
-// Copyright 2020 Google LLC
+// Copyright 2025 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,7 +28,9 @@
 //
 //  - It uses the same syntax as the built-in "float" and "double"
 //    types, for example: x += 4 + fabs(2*y*y - z*z).  There are a few
-//    differences (see below).
+//    differences (see below), but the syntax is compatible enough so that
+//    ExactFloat can be used as a template argument to templatized classes
+//    such as Vector2, VectorN, Matrix3x3, etc.
 //
 //  - Results are not rounded; instead, precision is increased so that the
 //    result can be represented exactly.  An inexact result is returned only
@@ -48,22 +50,30 @@
 // built-in "double" type.  (Thus it supports fabs() but not fabsf(), for
 // example.)  The syntax is different only in the following cases:
 //
-//  - Casts and implicit conversions to built-in types (including "bool") are
-//    not supported.  So for example, the following will not compile:
+//  - Explicit conversion to double is supported, but casts and implicit
+//    conversions to other built-in types (including "bool") are not.
+//    So for example, the following will not compile:
 //
 //      ExactFloat x = 7.5;
-//      double y = x;            // ERROR: use x.ToDouble() instead
-//      long z = x;              // ERROR: use x.ToDouble() or lround(trunc(x))
-//      q = static_cast<int>(x); // ERROR: use x.ToDouble() or lround(trunc(x))
+//      double y = x;            // ERROR: use static_cast<double>(x) instead
+//      long z = x;              // ERROR: use static_cast<double>(x) or
+//                               //   lround(trunc(x))
+//      q = static_cast<int>(x); // ERROR: use static_cast<double>(x) or
+//                               //   lround(trunc(x))
 //      if (x) { ... }           // ERROR: use (x != 0) instead
 //
-//  - The glibc floating-point classification macros (fpclassify, isfinite,
-//    isnormal, isnan, isinf) are not supported.  Instead there are
-//    zero-argument methods:
+//  - The floating-point classification functions (isfinite, isnormal, isnan,
+//    isinf, fpclassify) are supported.
 //
 //      ExactFloat x;
-//      if (isnan(x)) { ... }  // ERROR: use (x.is_nan()) instead
-//      if (isinf(x)) { ... }  // ERROR: use (x.is_inf()) instead
+//      if (isnan(x)) { ... }
+//      if (isinf(x)) { ... }
+//
+// Using ExactFloat with Vector3, etc.
+// -----------------------------------
+//
+// ExactFloat can be used with templatized classes such as Vector2 and Vector3
+// (see "util/math/vector.h").
 //
 // Precision Semantics
 // -------------------
@@ -79,17 +89,17 @@
 #ifndef THIRD_PARTY_ZETASQL_ZETASQL_BASE_EXACTFLOAT_H_
 #define THIRD_PARTY_ZETASQL_ZETASQL_BASE_EXACTFLOAT_H_
 
-#include <limits.h>
-#include <math.h>
-
-#include <algorithm>
-#include <iostream>
+#include <climits>
+#include <cmath>
+#include <cstdint>
+#include <ostream>
 #include <string>
 
-#include "zetasql/base/logging.h"
+#include "absl/base/macros.h"
 #include "openssl/bn.h"
 
 namespace zetasql_base {
+namespace exactfloat {
 
 class ExactFloat {
  public:
@@ -97,16 +107,16 @@ class ExactFloat {
 
   // The maximum exponent supported.  If a value has an exponent larger than
   // this, it is replaced by infinity (with the appropriate sign).
-  static const int kMaxExp = 200*1000*1000;  // About 10**(60 million)
+  static constexpr int kMaxExp = 200 * 1000 * 1000;  // About 10**(60 million)
 
   // The minimum exponent supported.  If a value has an exponent less than
   // this, it is replaced by zero (with the appropriate sign).
-  static const int kMinExp = -kMaxExp;   // About 10**(-60 million)
+  static constexpr int kMinExp = -kMaxExp;  // About 10**(-60 million)
 
   // The maximum number of mantissa bits supported.  If a value has more
   // mantissa bits than this, it is replaced with NaN.  (It is expected that
   // users of this class will never want this much precision.)
-  static const int kMaxPrec = 64 << 20;  // About 20 million digits
+  static constexpr int kMaxPrec = 64 << 20;  // About 20 million digits
 
   // Rounding modes.  kRoundTiesToEven and kRoundTiesAwayFromZero both round
   // to the nearest representable value unless two values are equally close.
@@ -127,14 +137,14 @@ class ExactFloat {
   // The default constructor initializes the value to zero.  (The initial
   // value must be zero rather than NaN for compatibility with the built-in
   // float types.)
-  inline ExactFloat();
+  inline ExactFloat() = default;
 
   // Construct an ExactFloat from a "double".  The constructor is implicit so
   // that this class can be used as a replacement for "float" or "double" in
   // templatized libraries.  (With an explicit constructor, code such as
   // "ExactFloat f = 2.5;" would not compile.)  All double-precision values are
   // supported, including denormalized numbers, infinities, and NaNs.
-  ExactFloat(double v);
+  ExactFloat(double v);  // NOLINT(google-explicit-constructor)
 
   // Construct an ExactFloat from an "int".  Note that in general, ints are
   // automatically converted to doubles and so would be handled by the
@@ -147,7 +157,7 @@ class ExactFloat {
   // "long long", or "unsigned long long", since these types are not typically
   // used in floating-point calculations and it is safer to require them to be
   // explicitly cast.
-  ExactFloat(int v);
+  ExactFloat(int v);  // NOLINT(google-explicit-constructor)
 
   // Construct an ExactFloat from a string (such as "1.2e50").  Requires that
   // the value is exactly representable as a floating-point number (so for
@@ -206,34 +216,43 @@ class ExactFloat {
   // Set the value of the ExactFloat to NaN (Not-a-Number).
   void set_nan();
 
-  // Unfortunately, isinf(x), isnan(x), isnormal(x), and isfinite(x) are
-  // defined as macros in <math.h>.  Therefore we can't easily extend them
-  // here.  Instead we provide methods with underscores in their names that do
-  // the same thing: x.is_inf(), etc.
-  //
-  // These macros are not implemented: signbit(x), fpclassify(x).
+  // Classification functions.  These are similar to the std::is* functions.
 
-  // Return true if this value is zero (including negative zero).
-  inline bool is_zero() const;
+  friend int fpclassify(ExactFloat const& x);
 
   // Return true if this value is infinity (positive or negative).
-  inline bool is_inf() const;
+  friend inline bool isinf(ExactFloat const& x);
+  ABSL_DEPRECATED("Inline me!")
+  inline bool is_inf() const { return isinf(*this); }
 
   // Return true if this value is NaN (Not-a-Number).
-  inline bool is_nan() const;
+  friend inline bool isnan(ExactFloat const& x);
+  ABSL_DEPRECATED("Inline me!")
+  inline bool is_nan() const { return isnan(*this); }
 
   // Return true if this value is a normal floating-point number.  Non-normal
   // values (zero, infinity, and NaN) often need to be handled separately
   // because they are represented using special exponent values and their
   // mantissa is not defined.
-  inline bool is_normal() const;
+  friend inline bool isnormal(ExactFloat const& x);
+  ABSL_DEPRECATED("Inline me!")
+  inline bool is_normal() const { return isnormal(*this); }
 
   // Return true if this value is a normal floating-point number or zero,
   // i.e. it is not infinity or NaN.
-  inline bool is_finite() const;
+  friend inline bool isfinite(ExactFloat const& x);
+  ABSL_DEPRECATED("Inline me!")
+  inline bool is_finite() const { return isfinite(*this); }
 
   // Return true if the sign bit is set (this includes negative zero).
-  inline bool sign_bit() const;
+  friend inline bool signbit(ExactFloat const& x);
+  ABSL_DEPRECATED("Inline me!")
+  inline bool sign_bit() const { return signbit(*this); }
+
+  // Additional classification functions with no std:: equivalents.
+
+  // Return true if this value is zero (including negative zero).
+  inline bool is_zero() const;
 
   // Return +1 if this ExactFloat is positive, -1 if it is negative, and 0
   // if it is zero or NaN.  Note that unlike sign_bit(), sgn() returns 0 for
@@ -251,13 +270,15 @@ class ExactFloat {
   // (positive or negative) zero, and very large values may be rounded to
   // infinity.
   //
-  // It is very important to make this a named method rather than an implicit
-  // conversion, because otherwise there would be a silent loss of precision
+  // It is very important to make an explicit conversion rather than an
+  // implicit one, because otherwise there would be a silent loss of precision
   // whenever some desired operator or function happens not to be implemented.
   // For example, if fabs() were not implemented and "x" and "y" were
   // ExactFloats, then x = fabs(y) would silently convert "y" to a "double",
   // take its absolute value, and convert it back to an ExactFloat.
-  double ToDouble() const;
+  explicit operator double() const;
+  ABSL_DEPRECATED("Inline me!")
+  double ToDouble() const { return static_cast<double>(*this); }
 
   // Return a human-readable string such that if two values with the same
   // precision are different, then their string representations are different.
@@ -341,7 +362,7 @@ class ExactFloat {
   // Math Intrinsics
   //
   // The math intrinsics currently supported by ExactFloat are listed below.
-  // Except as noted, they behave identically to the usual glibc intrinsics
+  // Except as noted, they behave identically to the usual std:: functions
   // except that they have greater precision.  See the man pages for more
   // information.
 
@@ -387,18 +408,22 @@ class ExactFloat {
 
   // Like rint(), but rounds to the nearest "long" value.  Returns the
   // minimum/maximum possible integer if the value is out of range.
+  // NOLINTNEXTLINE(runtime/int, google-runtime-int)
   friend long lrint(const ExactFloat& a);
 
   // Like rint(), but rounds to the nearest "long long" value.  Returns the
   // minimum/maximum possible integer if the value is out of range.
+  // NOLINTNEXTLINE(runtime/int, google-runtime-int)
   friend long long llrint(const ExactFloat& a);
 
   // Like round(), but rounds to the nearest "long" value.  Returns the
   // minimum/maximum possible integer if the value is out of range.
+  // NOLINTNEXTLINE(runtime/int, google-runtime-int)
   friend long lround(const ExactFloat& a);
 
   // Like round(), but rounds to the nearest "long long" value.  Returns the
   // minimum/maximum possible integer if the value is out of range.
+  // NOLINTNEXTLINE(runtime/int, google-runtime-int)
   friend long long llround(const ExactFloat& a);
 
   //////// Remainder functions.
@@ -455,6 +480,7 @@ class ExactFloat {
   }
 
   // A version of ldexp() where "exp" is a long integer.
+  // NOLINTNEXTLINE(runtime/int, google-runtime-int)
   friend ExactFloat scalbln(const ExactFloat& a, long exp);
 
   // Convert "a" to a normalized fraction in the range [1,2) times a power of
@@ -473,8 +499,8 @@ class ExactFloat {
   // allocated BIGNUMS.  We use BN_init when possible, but BN_new otherwise.
   // If the performance penalty is too high, an object pool can be added
   // in the future.
-#if defined(OPENSSL_IS_BORINGSSL) || OPENSSL_VERSION_NUMBER < 0x10100000L
-  // BoringSSL and OpenSSL < 1.1 support stack allocated BIGNUMs and BN_init.
+#if defined(OPENSSL_IS_BORINGSSL)
+  // BoringSSL supports stack allocated BIGNUMs and BN_init.
   class BigNum {
    public:
     BigNum() { BN_init(&bn_); }
@@ -484,6 +510,7 @@ class ExactFloat {
     ~BigNum() { BN_free(&bn_); }
     BIGNUM* get() { return &bn_; }
     const BIGNUM* get() const { return &bn_; }
+
    private:
     BIGNUM bn_;
   };
@@ -496,6 +523,7 @@ class ExactFloat {
     ~BigNum() { BN_free(bn_); }
     BIGNUM* get() { return bn_; }
     const BIGNUM* get() const { return bn_; }
+
    private:
     BIGNUM* bn_;
   };
@@ -505,21 +533,22 @@ class ExactFloat {
   // mantissa of zero.  Do not change these values; methods such as
   // is_normal() make assumptions about their ordering.  Non-normal numbers
   // can have either a positive or negative sign (including zero and NaN).
-  static const int32_t kExpNaN = INT_MAX;
-  static const int32_t kExpInfinity = INT_MAX - 1;
-  static const int32_t kExpZero = INT_MAX - 2;
+  static constexpr int32_t kExpNaN = INT_MAX;
+  static constexpr int32_t kExpInfinity = INT_MAX - 1;
+  static constexpr int32_t kExpZero = INT_MAX - 2;
 
   // Normal numbers are represented as (sign_ * bn_ * (2 ** bn_exp_)), where:
   //  - sign_ is either +1 or -1
   //  - bn_ is a BIGNUM with a positive value
   //  - bn_exp_ is the base-2 exponent applied to bn_.
-  int32_t sign_;
-  int32_t bn_exp_;
+  // Default value is zero.
+  int32_t sign_ = 1;
+  int32_t bn_exp_ = kExpZero;
   BigNum bn_;
 
   // A standard IEEE "double" has a 53-bit mantissa consisting of a 52-bit
   // fraction plus an implicit leading "1" bit.
-  static const int kDoubleMantissaBits = 53;
+  static constexpr int kDoubleMantissaBits = 53;
 
   // Convert an ExactFloat with no more than 53 bits in its mantissa to a
   // "double".  This method handles non-normal values (NaN, etc).
@@ -531,13 +560,14 @@ class ExactFloat {
 
   // Convert the ExactFloat to a decimal value of the form 0.ddd * (10 ** x),
   // with at most "max_digits" significant digits (trailing zeros are removed).
-  // Set (*digits) to the ASCII digits and return the decimal exponent "x".
+  // Set (*digits) to the ASCII digits (just the "ddd" portion, without leading
+  // "0.") and return the decimal exponent "x".
   int GetDecimalDigits(int max_digits, std::string* digits) const;
 
   // Return a_sign * fabs(a) + b_sign * fabs(b).  Used to implement addition
   // and subtraction.
-  static ExactFloat SignedSum(int a_sign, const ExactFloat* a,
-                              int b_sign, const ExactFloat* b);
+  static ExactFloat SignedSum(int a_sign, const ExactFloat* a, int b_sign,
+                              const ExactFloat* b);
 
   // Convert an ExactFloat to its canonical form.  Underflow results in signed
   // zero, overflow results in signed infinity, and precision overflow results
@@ -563,9 +593,10 @@ class ExactFloat {
 
   // Convert an ExactFloat to an integer of type "T" using the given rounding
   // mode.  The type "T" must be signed.  Returns the largest possible integer
-  // for NaN, and std::clamps out of range values to the largest or smallest
+  // for NaN, and clamps out of range values to the largest or smallest
   // possible values.
-  template <class T> T ToInteger(RoundingMode mode) const;
+  template <class T>
+  T ToInteger(RoundingMode mode) const;
 
   // Log a fatal error message (used for unimplemented methods).
   static ExactFloat Unimplemented();
@@ -574,18 +605,24 @@ class ExactFloat {
 /////////////////////////////////////////////////////////////////////////
 // Implementation details follow:
 
-inline ExactFloat::ExactFloat() : sign_(1), bn_exp_(kExpZero) {
+inline bool isinf(ExactFloat const& x) {
+  return x.bn_exp_ == ExactFloat::kExpInfinity;
 }
+inline bool isnan(ExactFloat const& x) {
+  return x.bn_exp_ == ExactFloat::kExpNaN;
+}
+inline bool isnormal(ExactFloat const& x) {
+  return x.bn_exp_ < ExactFloat::kExpZero;
+}
+inline bool isfinite(ExactFloat const& x) {
+  return x.bn_exp_ <= ExactFloat::kExpZero;
+}
+inline bool signbit(ExactFloat const& x) { return x.sign_ < 0; }
 
 inline bool ExactFloat::is_zero() const { return bn_exp_ == kExpZero; }
-inline bool ExactFloat::is_inf() const { return bn_exp_ == kExpInfinity; }
-inline bool ExactFloat::is_nan() const { return bn_exp_ == kExpNaN; }
-inline bool ExactFloat::is_normal() const { return bn_exp_ < kExpZero; }
-inline bool ExactFloat::is_finite() const { return bn_exp_ <= kExpZero; }
-inline bool ExactFloat::sign_bit() const { return sign_ < 0; }
 
 inline int ExactFloat::sgn() const {
-  return (is_nan() || is_zero()) ? 0 : sign_;
+  return (isnan(*this) || is_zero()) ? 0 : sign_;
 }
 
 inline bool operator!=(const ExactFloat& a, const ExactFloat& b) {
@@ -594,7 +631,7 @@ inline bool operator!=(const ExactFloat& a, const ExactFloat& b) {
 
 inline bool operator<=(const ExactFloat& a, const ExactFloat& b) {
   // NaN is unordered compared to everything, including itself.
-  if (a.is_nan() || b.is_nan()) return false;
+  if (isnan(a) || isnan(b)) return false;
   return !(b < a);
 }
 
@@ -612,6 +649,7 @@ inline ExactFloat ExactFloat::CopyWithSign(int sign) const {
   return r;
 }
 
+}  // namespace exactfloat
 }  // namespace zetasql_base
 
 #endif  // THIRD_PARTY_ZETASQL_ZETASQL_BASE_EXACTFLOAT_H_

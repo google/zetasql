@@ -326,6 +326,10 @@ std::vector<FunctionTestCall> GetFunctionTestsGenerateArray() {
       {"generate_array",
        {Int64(int64min), Int64(int64min + 5), Int64(2)},
        Int64Array({int64min, int64min + 2, int64min + 4})},
+      {"generate_array",
+       {Int64(int64min), Int64(int64max), Int64(int64max / 2)},
+       Int64Array({int64min, -4611686018427387905, -2, 4611686018427387901,
+                   9223372036854775804})},
       // Zero step size.
       {"generate_array",
        {Int64(1), Int64(2), Int64(0)},

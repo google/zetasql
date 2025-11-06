@@ -51,7 +51,7 @@ static LazyRE2 key_re = {"([\\w_$][\\d\\w_$]*)"};
 
 JSONParser::JSONParser(absl::string_view json) : json_(json) {}
 
-JSONParser::~JSONParser() {}
+JSONParser::~JSONParser() = default;
 
 absl::Status JSONParser::Parse() {
   p_ = json_;

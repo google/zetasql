@@ -331,7 +331,7 @@ WITH
   )
 SELECT a FROM t ORDER BY a
 
-/*-----------*
+/*-----------+
  | a         |
  +-----------+
  | NULL      |
@@ -342,7 +342,7 @@ SELECT a FROM t ORDER BY a
  | [1, NULL] |
  | [1, 2]    |
  | [3]       |
- *-----------*/
+ +-----------*/
 ```
 
 ### Groupable data types
@@ -476,11 +476,11 @@ arrays:
   ```zetasql
   SELECT CAST(NULL AS ARRAY<INT64>) IS NULL AS array_is_null;
 
-  /*---------------*
+  /*---------------+
    | array_is_null |
    +---------------+
    | TRUE          |
-   *---------------*/
+   +---------------*/
   ```
 + ZetaSQL translates a `NULL` array into an empty array in the query
   result, although inside the query, `NULL` and empty arrays are two distinct
@@ -495,12 +495,12 @@ arrays:
   SELECT numbers, description, numbers IS NULL AS numbers_null
   FROM Items;
 
-  /*---------+----------------------+--------------*
+  /*---------+----------------------+--------------+
    | numbers | description          | numbers_null |
    +---------+----------------------+--------------+
    | []      | Empty array in query | false        |
    | []      | NULL array in query  | true         |
-   *---------+----------------------+--------------*/
+   +---------+----------------------+--------------*/
   ```
 
   When you write a `NULL` array to a table, it's converted to an
@@ -511,12 +511,12 @@ arrays:
   SELECT numbers, description, numbers IS NULL AS numbers_null
   FROM Items;
 
-  /*---------+----------------------+--------------*
+  /*---------+----------------------+--------------+
    | numbers | description          | numbers_null |
    +---------+----------------------+--------------+
    | []      | Empty array in query | false        |
    | []      | NULL array in query  | false        |
-   *---------+----------------------+--------------*/
+   +---------+----------------------+--------------*/
   ```
 
 ### Declaring an array type
@@ -651,11 +651,11 @@ integers from 11 to 33, inclusive:
 ```zetasql
 SELECT GENERATE_ARRAY(11, 33, 2) AS odds;
 
-/*--------------------------------------------------*
+/*--------------------------------------------------+
  | odds                                             |
  +--------------------------------------------------+
  | [11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31, 33] |
- *--------------------------------------------------*/
+ +--------------------------------------------------*/
 ```
 
 You can also generate an array of values in descending order by giving a
@@ -664,11 +664,11 @@ negative step value:
 ```zetasql
 SELECT GENERATE_ARRAY(21, 14, -1) AS countdown;
 
-/*----------------------------------*
+/*----------------------------------+
  | countdown                        |
  +----------------------------------+
  | [21, 20, 19, 18, 17, 16, 15, 14] |
- *----------------------------------*/
+ +----------------------------------*/
 ```
 
 ##### Generating arrays of dates
@@ -686,11 +686,11 @@ SELECT
   GENERATE_DATE_ARRAY('2017-11-21', '2017-12-31', INTERVAL 1 WEEK)
     AS date_array;
 
-/*--------------------------------------------------------------------------*
+/*--------------------------------------------------------------------------+
  | date_array                                                               |
  +--------------------------------------------------------------------------+
  | [2017-11-21, 2017-11-28, 2017-12-05, 2017-12-12, 2017-12-19, 2017-12-26] |
- *--------------------------------------------------------------------------*/
+ +--------------------------------------------------------------------------*/
 ```
 
 [array-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#array_literals
@@ -1118,11 +1118,11 @@ SELECT
   ST_GEOGFROMTEXT('POINT EMPTY') AS a,
   ST_GEOGFROMTEXT('GEOMETRYCOLLECTION EMPTY') AS b
 
-/*--------------------------+--------------------------*
+/*--------------------------+--------------------------+
  | a                        | b                        |
  +--------------------------+--------------------------+
  | GEOMETRYCOLLECTION EMPTY | GEOMETRYCOLLECTION EMPTY |
- *--------------------------+--------------------------*/
+ +--------------------------+--------------------------*/
 ```
 
 The structure of compound geometry objects isn't preserved if a
@@ -1135,11 +1135,11 @@ SELECT
   ST_GEOGFROMTEXT('MULTIPOINT(1 1, 2 2)') AS a,
   ST_GEOGFROMTEXT('GEOMETRYCOLLECTION(POINT(1 1), POINT(2 2))') AS b
 
-/*----------------------+----------------------*
+/*----------------------+----------------------+
  | a                    | b                    |
  +----------------------+----------------------+
  | MULTIPOINT(1 1, 2 2) | MULTIPOINT(1 1, 2 2) |
- *----------------------+----------------------*/
+ +----------------------+----------------------*/
 ```
 
 A geography is the result of, or an argument to, a
@@ -2103,11 +2103,11 @@ NEW protocol_buffer(expression AS (path.to.extension), ...)
      )
      FROM (SELECT 'New Moon' AS album, 30 AS count);
 
-    /*---------------------------------------------------*
+    /*---------------------------------------------------+
      | $col1                                             |
      +---------------------------------------------------+
      | {album_name: 'New Moon' [...music.downloads]: 30} |
-     *---------------------------------------------------*/
+     +---------------------------------------------------*/
     ```
 +   If `path.to.extension` points to a nested protocol buffer extension, `expr1`
     provides an instance or a text format string of that protocol buffer.
@@ -2123,14 +2123,14 @@ NEW protocol_buffer(expression AS (path.to.extension), ...)
        )
      AS (zetasql.examples.music.AlbumExtension.album_extension));
 
-    /*---------------------------------------------*
+    /*---------------------------------------------+
      | $col1                                       |
      +---------------------------------------------+
      | album_name: "New Moon"                      |
      | [...music.AlbumExtension.album_extension] { |
      |   release_date: -5114                       |
      | }                                           |
-     *---------------------------------------------*/
+     +---------------------------------------------*/
     ```
 
 #### `SELECT AS typename` 
@@ -2630,14 +2630,12 @@ see [Time literals][time-literals].
 A timestamp value represents an absolute point in time,
 independent of any time zone or convention such as daylight saving time (DST),
 with
-microsecond or nanosecond
+microsecond, nanosecond, or picosecond
 precision.
-The range of subsecond precision is determined by the SQL engine.
+The range of subsecond precision is determined by the query engine.
 
 A timestamp is typically represented internally as the number of elapsed
-nanoseconds or
-microseconds
-since a fixed initial point in time.
+microseconds, nanoseconds, or picoseconds since a fixed initial point in time.
 
 Note that a timestamp itself doesn't have a time zone; it represents the same
 instant in time globally. However, the _display_ of a timestamp for human
@@ -2681,8 +2679,8 @@ time_part:
 +   <code>[H]H</code>: One or two digit hour (valid values from 00 to 23).
 +   <code>[M]M</code>: One or two digit minutes (valid values from 00 to 59).
 +   <code>[S]S</code>: One or two digit seconds (valid values from 00 to 60).
-+   <code>[.F]</code>: Up to nine fractional
-    digits (nanosecond precision).
++   <code>[.F]</code>: Up to 12 fractional
+    digits (picosecond precision).
 +   <code>[time_zone]</code>: String representing the time zone. When a time
     zone isn't explicitly specified, the default time zone,
     which is implementation defined, is used. For details, see <a href="#time_zones">time
@@ -3019,11 +3017,11 @@ using lexicographical order.
 ```zetasql
   SELECT NEW_UUID() >= "00000000-0000-0000-0000-000000000000" AS Is_GE;
 
-/*-------*
+/*-------+
  | Is_GE |
  +-------+
  | true  |
- *-------*/
+ +-------*/
 ```
 
 [array-nulls]: #array_nulls

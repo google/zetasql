@@ -16,6 +16,7 @@ function_name(
   [ DISTINCT ]
   function_arguments
   [ { IGNORE | RESPECT } NULLS ]
+  [ WHERE where_expression ]
   [ HAVING { MAX | MIN } having_expression ]
   [ ORDER BY key [ { ASC | DESC } ] [, ... ] ]
   [ LIMIT n ]
@@ -39,6 +40,7 @@ aggregate function:
   If neither `IGNORE NULLS` nor `RESPECT NULLS` is specified, most functions
   default to `IGNORE NULLS` behavior but in a few cases `NULL` values are
   respected.
++ `WHERE`: Filters the aggregate function input using a boolean expression.
 + `HAVING MAX` or `HAVING MIN`: Restricts the set of rows that the
   function aggregates by a maximum or minimum value.
   For details, see [HAVING MAX and HAVING MIN clause][max_min_clause].
@@ -86,9 +88,10 @@ aggregate function:
 The clauses in an aggregate function call are applied in the following order:
 
 + `OVER`
-+ `DISTINCT`
++ `WHERE`
++ `HAVING MAX`/`HAVING MIN`
 + `IGNORE NULLS` or `RESPECT NULLS`
-+ `HAVING MAX` or `HAVING MIN`
++ `DISTINCT`
 + `ORDER BY`
 + `LIMIT`
 + `CLAMPED BETWEEN`
@@ -105,7 +108,9 @@ needs to summarize an empty group.
 Some aggregate functions support two optional clauses that are called
 `HAVING MAX` and `HAVING MIN`. These clauses restrict the set of rows that a
 function aggregates to rows that have a maximum or minimum value in a particular
-column.
+column. These clauses are also
+different from the `GROUP BY ... HAVING ...` clauses, which aggregate
+specifically grouped output.
 
 ### HAVING MAX clause 
 <a id="having_max"></a>
@@ -145,11 +150,11 @@ WITH
   )
 SELECT ANY_VALUE(year HAVING MAX inches) AS any_year_with_max_inches FROM Precipitation;
 
-/*--------------------------*
+/*--------------------------+
  | any_year_with_max_inches |
  +--------------------------+
  | 2001                     |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 In the following example, the average rainfall is returned for 2001, the most
@@ -174,11 +179,11 @@ WITH
   )
 SELECT AVG(inches HAVING MAX year) AS average FROM Precipitation;
 
-/*---------*
+/*---------+
  | average |
  +---------+
  | 5       |
- *---------*/
+ +---------*/
 ```
 
 ### HAVING MIN clause 
@@ -219,11 +224,11 @@ WITH
   )
 SELECT ANY_VALUE(year HAVING MIN inches) AS any_year_with_min_inches FROM Precipitation;
 
-/*--------------------------*
+/*--------------------------+
  | any_year_with_min_inches |
  +--------------------------+
  | 2003                     |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 In the following example, the average rainfall is returned for 2000, the
@@ -248,11 +253,11 @@ WITH
   )
 SELECT AVG(inches HAVING MIN year) AS average FROM Precipitation;
 
-/*---------*
+/*---------+
  | average |
  +---------+
  | 4.25    |
- *---------*/
+ +---------*/
 ```
 
 ## Aggregate function examples
@@ -276,11 +281,11 @@ FROM
     SELECT 'orange' AS fruit
   )
 
-/*-------------+----------------+-------+------*
+/*-------------+----------------+-------+------+
  | total_count | non_null_count | min   | max  |
  +-------------+----------------+-------+------+
  | 4           | 3              | apple | pear |
- *-------------+----------------+-------+------*/
+ +-------------+----------------+-------+------*/
 ```
 
 In the following example, the average of `x` over a specified window is returned
@@ -293,7 +298,7 @@ SELECT
   AVG(x) OVER (ORDER BY x ROWS BETWEEN 1 PRECEDING AND CURRENT ROW) AS avg
 FROM UNNEST([0, 2, 4, 4, 5]) AS x;
 
-/*------+------*
+/*------+------+
  | x    | avg  |
  +------+------+
  | 0    | 0    |
@@ -301,7 +306,37 @@ FROM UNNEST([0, 2, 4, 4, 5]) AS x;
  | 4    | 3    |
  | 4    | 4    |
  | 5    | 4.5  |
- *------+------*/
+ +------+------*/
+```
+
+The following example uses a `WHERE` clause to filter the `AVG` aggregate input
+for average inches of precipitation in wet seasons compared to dry seasons.
+
+```zetasql
+WITH
+  Precipitation AS (
+    SELECT 2001 AS year, 'spring' AS season, 9 AS inches
+    UNION ALL
+    SELECT 2001, 'winter', 1
+    UNION ALL
+    SELECT 2000, 'fall', 3
+    UNION ALL
+    SELECT 2000, 'summer', 5
+    UNION ALL
+    SELECT 2000, 'spring', 7
+    UNION ALL
+    SELECT 2000, 'winter', 2
+  )
+SELECT
+  AVG(inches WHERE season IN ('spring', 'summer')) AS wet_seasons_avg,
+  AVG(inches WHERE season IN ('fall', 'winter')) AS dry_seasons_avg
+FROM Precipitation;
+
+/*-----------------+------------------+
+ | wet_seasons_avg | dry_seasons_avg  |
+ +-----------------+------------------+
+ | 7               | 2                |
+ +-----------------+------------------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

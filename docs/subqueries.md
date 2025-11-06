@@ -61,13 +61,13 @@ SELECT
 FROM
   Players;
 
-/*---------------------------*
+/*---------------------------+
  | username  | player_mascot |
  +---------------------------+
  | gorbie    | cardinal      |
  | junelyn   | finch         |
  | corba     | parrot        |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 In this example, an aggregate scalar
@@ -82,13 +82,13 @@ SELECT
 FROM
   Players;
 
-/*---------------------------------------*
+/*---------------------------------------+
  | username  | level      | avg_level    |
  +---------------------------------------+
  | gorbie    | 29         | 24.66        |
  | junelyn   | 2          | 24.66        |
  | corba     | 43         | 24.66        |
- *---------------------------------------*/
+ +---------------------------------------*/
 ```
 
 ### Array subqueries 
@@ -130,11 +130,11 @@ red team in the [`NPCs`][example-tables] table:
 SELECT
   ARRAY(SELECT username FROM NPCs WHERE team = 'red') AS red;
 
-/*-----------------*
+/*-----------------+
  | red             |
  +-----------------+
  | [niles,jujul]   |
- *-----------------*/
+ +-----------------*/
 ```
 
 ### `IN` subqueries 
@@ -170,11 +170,11 @@ In this example, the `IN` operator that checks to see if a username called
 SELECT
   'corba' IN (SELECT username FROM Players) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | TRUE   |
- *--------*/
+ +--------*/
 ```
 
 ### Quantified `LIKE` subqueries 
@@ -234,11 +234,11 @@ produced, using the [`Players`][example-tables] table:
 SELECT
   EXISTS(SELECT username FROM Players WHERE team = 'yellow') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | FALSE  |
- *--------*/
+ +--------*/
 ```
 
 ## Table subqueries 
@@ -262,13 +262,13 @@ In this example, a subquery returns a table of usernames from the
 SELECT results.username
 FROM (SELECT * FROM Players) AS results;
 
-/*-----------*
+/*-----------+
  | username  |
  +-----------+
  | gorbie    |
  | junelyn   |
  | corba     |
- *-----------*/
+ +-----------*/
 ```
 
 In this example, a list of [`NPCs`][example-tables]
@@ -282,12 +282,12 @@ FROM (
   SELECT * FROM red_team
 );
 
-/*-----------*
+/*-----------+
  | username  |
  +-----------+
  | niles     |
  | jujul     |
- *-----------*/
+ +-----------*/
 ```
 
 ## Correlated subqueries 
@@ -309,11 +309,11 @@ FROM Mascots
 WHERE
   NOT EXISTS(SELECT username FROM Players WHERE Mascots.team = Players.team);
 
-/*----------*
+/*----------+
  | mascot   |
  +----------+
  | sparrow  |
- *----------*/
+ +----------*/
 ```
 
 In this example, a correlated scalar subquery returns the mascots for a list of
@@ -326,13 +326,13 @@ SELECT
   (SELECT mascot FROM Mascots WHERE Players.team = Mascots.team) AS player_mascot
 FROM Players;
 
-/*---------------------------*
+/*---------------------------+
  | username  | player_mascot |
  +---------------------------+
  | gorbie    | cardinal      |
  | junelyn   | finch         |
  | corba     | parrot        |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ## Volatile subqueries
@@ -355,12 +355,12 @@ FROM
 
 -- The results aren't always the same when you execute
 -- the preceding query, but will look similar to this:
-/*----------*
+/*----------+
  | username |
  +----------+
  | gorbie   |
  | junelyn  |
- *----------*/
+ +----------*/
 ```
 
 ## Evaluation rules for subqueries 
@@ -387,38 +387,38 @@ Some subqueries are evaluated once, others more often.
 Some examples reference a table called `Players`:
 
 ```zetasql
-/*-----------------------------*
+/*-----------------------------+
  | username  | level   | team  |
  +-----------------------------+
  | gorbie    | 29      | red   |
  | junelyn   | 2       | blue  |
  | corba     | 43      | green |
- *-----------------------------*/
+ +-----------------------------*/
 ```
 
 Some examples reference a table called `NPCs`:
 
 ```zetasql
-/*-------------------*
+/*-------------------+
  | username  | team  |
  +-------------------+
  | niles     | red   |
  | jujul     | red   |
  | effren    | blue  |
- *-------------------*/
+ +-------------------*/
 ```
 
 Some examples reference a table called `Mascots`:
 
 ```zetasql
-/*-------------------*
+/*-------------------+
  | mascot   | team   |
  +-------------------+
  | cardinal | red    |
  | parrot   | green  |
  | finch    | blue   |
  | sparrow  | yellow |
- *-------------------*/
+ +-------------------*/
 ```
 
 You can use this `WITH` clause to emulate temporary table names for

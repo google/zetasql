@@ -114,7 +114,7 @@ bool Collation::Equals(const Collation& that) const {
 
 absl::Status Collation::Serialize(CollationProto* proto) const {
   if (HasCollation()) {
-    *proto->mutable_collation_name() = std::string(CollationName());
+    proto->set_collation_name(CollationName());
   }
   for (int i = 0; i < child_list_.size(); i++) {
     ZETASQL_RETURN_IF_ERROR(child_list_[i].Serialize(proto->add_child_list()));
@@ -126,7 +126,8 @@ absl::Status Collation::Serialize(CollationProto* proto) const {
 absl::StatusOr<Collation> Collation::Deserialize(const CollationProto& proto) {
   Collation collation;
   if (proto.has_collation_name()) {
-    collation.collation_name_ = SimpleValue::String(proto.collation_name());
+    collation.collation_name_ =
+        SimpleValue::String(std::string(proto.collation_name()));
   }
   for (int i = 0; i < proto.child_list_size(); i++) {
     ZETASQL_ASSIGN_OR_RETURN(Collation child, Deserialize(proto.child_list(i)));

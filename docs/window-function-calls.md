@@ -215,15 +215,15 @@ If you use a named window in your window specifications, these rules apply:
    ```zetasql
    --this works:
    SELECT item, purchases, LAST_VALUE(item)
-     OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+     OVER (ItemWindow ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
    FROM Produce
-   WINDOW item_window AS (ORDER BY purchases)
+   WINDOW ItemWindow AS (ORDER BY purchases)
 
    --this doesn't work:
    SELECT item, purchases, LAST_VALUE(item)
-     OVER (item_window ORDER BY purchases) AS most_popular
+     OVER (ItemWindow ORDER BY purchases) AS most_popular
    FROM Produce
-   WINDOW item_window AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
+   WINDOW ItemWindow AS (ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
    ```
 +  A named window and `PARTITION BY` can't appear together in the
    window specification. If you need `PARTITION BY`, add it to the named window.
@@ -465,7 +465,7 @@ WITH Produce AS
   UNION ALL SELECT 'lettuce', 10, 'vegetable')
 SELECT * FROM Produce
 
-/*-------------------------------------*
+/*-------------------------------------+
  | item      | category   | purchases  |
  +-------------------------------------+
  | kale      | vegetable  | 23         |
@@ -474,7 +474,7 @@ SELECT * FROM Produce
  | apple     | fruit      | 8          |
  | leek      | vegetable  | 2          |
  | lettuce   | vegetable  | 10         |
- *-------------------------------------*/
+ +-------------------------------------*/
 ```
 
 #### Employees table
@@ -491,7 +491,7 @@ WITH Employees AS
   UNION ALL SELECT 'Jose', 2, DATE(2013, 03, 17))
 SELECT * FROM Employees
 
-/*-------------------------------------*
+/*-------------------------------------+
  | name      | department | start_date |
  +-------------------------------------+
  | Isabella  | 2          | 1997-09-28 |
@@ -500,7 +500,7 @@ SELECT * FROM Employees
  | Andrew    | 1          | 1999-01-23 |
  | Jacob     | 1          | 1990-07-11 |
  | Jose      | 2          | 2013-03-17 |
- *-------------------------------------*/
+ +-------------------------------------*/
 ```
 
 #### Farm table
@@ -517,7 +517,7 @@ WITH Farm AS
   UNION ALL SELECT 'goat', 2, 'mammal')
 SELECT * FROM Farm
 
-/*-------------------------------------*
+/*-------------------------------------+
  | animal    | category   | population |
  +-------------------------------------+
  | cat       | mammal     | 23         |
@@ -526,7 +526,7 @@ SELECT * FROM Farm
  | goose     | bird       | 1          |
  | ox        | mammal     | 2          |
  | goat      | mammal     | 2          |
- *-------------------------------------*/
+ +-------------------------------------*/
 ```
 
 ### Compute a grand total
@@ -546,7 +546,7 @@ SELECT item, purchases, category, SUM(purchases)
   OVER () AS total_purchases
 FROM Produce
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | total_purchases |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | 54              |
@@ -555,7 +555,7 @@ FROM Produce
  | cabbage   | 9          | vegetable  | 54              |
  | lettuce   | 10         | vegetable  | 54              |
  | kale      | 23         | vegetable  | 54              |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 ### Compute a subtotal
@@ -581,7 +581,7 @@ SELECT item, purchases, category, SUM(purchases)
   ) AS total_purchases
 FROM Produce
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | total_purchases |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | 10              |
@@ -590,7 +590,7 @@ FROM Produce
  | cabbage   | 9          | vegetable  | 44              |
  | lettuce   | 10         | vegetable  | 44              |
  | kale      | 23         | vegetable  | 44              |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 ### Compute a cumulative sum
@@ -617,7 +617,7 @@ SELECT item, purchases, category, SUM(purchases)
   ) AS total_purchases
 FROM Produce
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | total_purchases |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | 2               |
@@ -626,7 +626,7 @@ FROM Produce
  | cabbage   | 9          | vegetable  | 11              |
  | lettuce   | 10         | vegetable  | 21              |
  | kale      | 23         | vegetable  | 44              |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 This does the same thing as the preceding example. You don't have to add
@@ -661,7 +661,7 @@ SELECT item, purchases, category, SUM(purchases)
   ) AS total_purchases
 FROM Produce;
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | total_purchases |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | NULL            |
@@ -670,7 +670,7 @@ FROM Produce;
  | cabbage   | 9          | vegetable  | 4               |
  | lettuce   | 10         | vegetable  | 12              |
  | kale      | 23         | vegetable  | 21              |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 ### Compute a moving average
@@ -694,7 +694,7 @@ SELECT item, purchases, category, AVG(purchases)
   ) AS avg_purchases
 FROM Produce
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | avg_purchases   |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | 2               |
@@ -703,7 +703,7 @@ FROM Produce
  | cabbage   | 9          | vegetable  | 9               |
  | lettuce   | 10         | vegetable  | 14              |
  | kale      | 23         | vegetable  | 16.5            |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 ### Compute the number of items within a range
@@ -726,7 +726,7 @@ SELECT animal, population, category, COUNT(*)
   ) AS similar_population
 FROM Farm;
 
-/*----------------------------------------------------------*
+/*----------------------------------------------------------+
  | animal    | population | category   | similar_population |
  +----------------------------------------------------------+
  | goose     | 1          | bird       | 4                  |
@@ -735,7 +735,7 @@ FROM Farm;
  | goat      | 2          | mammal     | 5                  |
  | duck      | 3          | bird       | 4                  |
  | cat       | 23         | mammal     | 1                  |
- *----------------------------------------------------------*/
+ +----------------------------------------------------------*/
 ```
 
 ### Get the most popular item in each category
@@ -762,7 +762,7 @@ SELECT item, purchases, category, LAST_VALUE(item)
   ) AS most_popular
 FROM Produce
 
-/*----------------------------------------------------*
+/*----------------------------------------------------+
  | item      | purchases  | category   | most_popular |
  +----------------------------------------------------+
  | banana    | 2          | fruit      | apple        |
@@ -771,7 +771,7 @@ FROM Produce
  | cabbage   | 9          | vegetable  | kale         |
  | lettuce   | 10         | vegetable  | kale         |
  | kale      | 23         | vegetable  | kale         |
- *----------------------------------------------------*/
+ +----------------------------------------------------*/
 ```
 
 ### Get the last value in a range
@@ -800,7 +800,7 @@ SELECT item, purchases, category, LAST_VALUE(item)
   ) AS most_popular
 FROM Produce
 
-/*----------------------------------------------------*
+/*----------------------------------------------------+
  | item      | purchases  | category   | most_popular |
  +----------------------------------------------------+
  | banana    | 2          | fruit      | apple        |
@@ -809,21 +809,21 @@ FROM Produce
  | cabbage   | 9          | vegetable  | lettuce      |
  | lettuce   | 10         | vegetable  | kale         |
  | kale      | 23         | vegetable  | kale         |
- *----------------------------------------------------*/
+ +----------------------------------------------------*/
 ```
 
 This example returns the same results as the preceding example, but it includes
-a named window called `item_window`. Some of the window specifications are
+a named window called `ItemWindow`. Some of the window specifications are
 defined directly in the `OVER` clause and some are defined in the named window.
 
 ```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
-    item_window
+    ItemWindow
     ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
   ) AS most_popular
 FROM Produce
-WINDOW item_window AS (
+WINDOW ItemWindow AS (
   PARTITION BY category
   ORDER BY purchases)
 ```
@@ -848,7 +848,7 @@ SELECT name, department, start_date,
   RANK() OVER (PARTITION BY department ORDER BY start_date) AS rank
 FROM Employees;
 
-/*--------------------------------------------*
+/*--------------------------------------------+
  | name      | department | start_date | rank |
  +--------------------------------------------+
  | Jacob     | 1          | 1990-07-11 | 1    |
@@ -857,7 +857,7 @@ FROM Employees;
  | Isabella  | 2          | 1997-09-28 | 1    |
  | Daniel    | 2          | 2004-06-24 | 2    |
  | Jose      | 2          | 2013-03-17 | 3    |
- *--------------------------------------------*/
+ +--------------------------------------------*/
 ```
 
 ### Use a named window in a window frame clause 
@@ -869,14 +869,14 @@ window frame clause. This logic is combined. Here is an example, using the
 
 ```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window) AS most_popular
+  OVER (ItemWindow AS most_popular
 FROM Produce
-WINDOW item_window AS (
+WINDOW ItemWindow AS (
   PARTITION BY category
   ORDER BY purchases
   ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | item      | purchases  | category   | most_popular    |
  +-------------------------------------------------------+
  | banana    | 2          | fruit      | apple           |
@@ -885,30 +885,30 @@ WINDOW item_window AS (
  | cabbage   | 9          | vegetable  | kale            |
  | lettuce   | 10         | vegetable  | kale            |
  | kale      | 23         | vegetable  | kale            |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 You can also get the previous results with these examples:
 
 ```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window) AS most_popular
+  OVER (ItemWindow) AS most_popular
 FROM Produce
 WINDOW
   a AS (PARTITION BY category),
   b AS (a ORDER BY purchases),
   c AS (b ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING),
-  item_window AS (c)
+  ItemWindow AS (c)
 ```
 
 ```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (item_window ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
+  OVER (ItemWindow ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS most_popular
 FROM Produce
 WINDOW
   a AS (PARTITION BY category),
   b AS (a ORDER BY purchases),
-  item_window AS (b)
+  ItemWindow AS (b)
 ```
 
 The following example produces an error because a window frame clause has been
@@ -917,11 +917,11 @@ defined twice:
 ```zetasql {.bad}
 SELECT item, purchases, category, LAST_VALUE(item)
   OVER (
-    item_window
+    ItemWindow
     ROWS BETWEEN 1 PRECEDING AND 1 FOLLOWING
     ) AS most_popular
 FROM Produce
-WINDOW item_window AS (
+WINDOW ItemWindow AS (
   ORDER BY purchases
   ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING)
 ```

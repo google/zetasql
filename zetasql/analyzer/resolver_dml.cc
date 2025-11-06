@@ -19,6 +19,7 @@
 #include <stddef.h>
 
 #include <algorithm>
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -110,6 +111,7 @@ absl::Status Resolver::ResolveDMLTargetTable(
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       target_path, *alias, has_explicit_alias, alias_location, hint,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"DML statements",
       /*remaining_names=*/nullptr, resolved_table_scan, name_list,
       /*output_column_name_list=*/nullptr,
       resolved_columns_to_catalog_columns_for_target_scan));
@@ -223,6 +225,7 @@ absl::Status Resolver::ResolveDeleteStatementImpl(
       std::move(resolved_table_scan), std::move(resolved_assert_rows_modified),
       std::move(resolved_returning_clause),
       std::move(resolved_array_offset_column), std::move(resolved_where_expr));
+  MaybeRecordResolvedNodeOperatorKeywordLocation(ast_statement, output->get());
   return absl::OkStatus();
 }
 
@@ -237,6 +240,7 @@ absl::Status Resolver::ResolveTruncateStatement(
       name_path, GetAliasForExpression(name_path), /*has_explicit_alias=*/false,
       /*alias_location=*/name_path, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"DML statements",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
 
@@ -619,6 +623,7 @@ absl::Status Resolver::ResolveInsertStatement(
       target_path, target_alias, /*has_explicit_alias=*/false,
       /*alias_location=*/target_path, ast_statement->hint(),
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"DML statements",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr,
       out_resolved_columns_to_catalog_columns_for_target_scan));
@@ -875,7 +880,7 @@ absl::Status Resolver::ResolveInsertStatementImpl(
       std::move(resolved_on_conflict_clause),
       out_topologically_sorted_generated_column_ids,
       std::move(out_generated_column_expr_list));
-
+  MaybeRecordResolvedNodeOperatorKeywordLocation(ast_statement, output->get());
   return absl::OkStatus();
 }
 
@@ -987,6 +992,7 @@ absl::Status Resolver::ResolveOnConflictClause(
       /*has_explicit_alias=*/true,
       /*alias_location=*/insert_target_path, nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"DML statements",
       /*remaining_names=*/nullptr, &insert_row_scan, &insert_row_name_list,
       /*output_column_name_list=*/nullptr,
       out_resolved_columns_to_catalog_columns_for_target_scan));
@@ -1002,7 +1008,7 @@ absl::Status Resolver::ResolveOnConflictClause(
   // and WHERE clause. It is a union of columns from table row
   // (i.e target table scan) and the insert row (i.e. insert row scan built
   // above).
-  std::unique_ptr<NameList> update_name_list(new NameList);
+  std::unique_ptr<NameList> update_name_list = std::make_unique<NameList>();
   ZETASQL_RETURN_IF_ERROR(
       update_name_list->MergeFrom(*target_name_list, insert_target_path));
   ZETASQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*insert_row_name_list, ast_node));
@@ -1374,7 +1380,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       ZETASQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
       return ResolveFieldAccess(
-          std::move(info.target), dot_identifier->GetParseLocationRange(),
+          std::move(info.target), dot_identifier->location(),
           dot_identifier->name(), &expr_resolution_info->flatten_state,
           &info.target);
     }
@@ -1564,6 +1570,10 @@ absl::Status Resolver::VerifyUpdateTargetIsWritable(
 }
 
 absl::StatusOr<bool> Resolver::IsColumnWritable(const ResolvedColumn& column) {
+  // ROW types don't work in DML yet. This gives an error to avoid RET_CHECks.
+  if (column.type()->IsRow()) {
+    return false;
+  }
   const zetasql::Column** catalog_column =
       zetasql_base::FindOrNull(resolved_columns_from_table_scans_, column);
   ZETASQL_RET_CHECK(catalog_column);
@@ -1586,13 +1596,25 @@ bool IsColumnWritableOrCanBeUpdatedToValue(
 absl::Status Resolver::VerifyTableScanColumnIsWritable(
     const ASTNode* ast_location, const ResolvedColumn& column,
     const char* statement_type, const ASTExpression* value) {
-  const zetasql::Column** catalog_column =
-      zetasql_base::FindOrNull(resolved_columns_from_table_scans_, column);
-  ZETASQL_RET_CHECK(catalog_column);
-  if (!IsColumnWritableOrCanBeUpdatedToValue(*catalog_column, value)) {
+  bool writable = true;
+  std::string name;
+  if (column.type()->IsRow()) {
+    // ROW types don't work in DML yet. This gives an error to avoid RET_CHECks.
+    writable = false;
+    name = "ROW-typed value";
+  } else {
+    const zetasql::Column** catalog_column =
+        zetasql_base::FindOrNull(resolved_columns_from_table_scans_, column);
+    ZETASQL_RET_CHECK(catalog_column);
+    if (!IsColumnWritableOrCanBeUpdatedToValue(*catalog_column, value)) {
+      writable = false;
+      name = (*catalog_column)->Name();
+    }
+  }
+  if (!writable) {
     return MakeSqlErrorAt(ast_location)
            << "Cannot " << statement_type
-           << " value on non-writable column: " << (*catalog_column)->Name();
+           << " value on non-writable column: " << name;
   }
 
   return absl::OkStatus();
@@ -2092,7 +2114,7 @@ absl::Status Resolver::ResolveUpdateStatement(
   // With the exception of the target expression in the SET clause, the rest of
   // the update statement should see names from the target table and from the
   // FROM clause, so prepare a combined name list.
-  std::unique_ptr<NameList> update_name_list(new NameList);
+  std::unique_ptr<NameList> update_name_list = std::make_unique<NameList>();
   if (ast_statement->from_clause() != nullptr) {
     if (from_name_list->HasRangeVariable(target_alias)) {
       return MakeSqlErrorAt(ast_statement->from_clause())
@@ -2233,6 +2255,7 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
       std::move(update_item_list), std::move(resolved_from_scan),
       out_topologically_sorted_generated_column_ids,
       std::move(out_generated_column_expr_list));
+  MaybeRecordResolvedNodeOperatorKeywordLocation(ast_statement, output->get());
   return absl::OkStatus();
 }
 
@@ -2272,7 +2295,7 @@ absl::Status Resolver::ResolveMergeStatement(
   //   2. If there is explicit table alias, the alias will be used to look for
   //      range variable and the associated column list. Then, the expected
   //      column can be found within the column list.
-  std::unique_ptr<NameList> all_name_list(new NameList);
+  std::unique_ptr<NameList> all_name_list = std::make_unique<NameList>();
   ZETASQL_RETURN_IF_ERROR(all_name_list->MergeFrom(*source_name_list,
                                            statement->table_expression()));
   ZETASQL_RETURN_IF_ERROR(all_name_list->MergeFrom(*target_name_list, target_path));
@@ -2306,6 +2329,7 @@ absl::Status Resolver::ResolveMergeStatement(
   *output = MakeResolvedMergeStmt(
       std::move(resolved_target_table_scan), std::move(resolved_from_scan),
       std::move(resolved_merge_condition_expr), std::move(when_clause_list));
+  MaybeRecordResolvedNodeOperatorKeywordLocation(statement, output->get());
 
   return absl::OkStatus();
 }
@@ -2555,9 +2579,13 @@ absl::Status Resolver::ResolveReturningClause(
   auto query_resolution_info = std::make_unique<QueryResolutionInfo>(this);
   query_resolution_info->set_is_resolving_returning_clause();
 
-  ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsFirstPass(select_list, from_scan_scope,
-                                                  from_clause_name_list,
-                                                  query_resolution_info.get()));
+  std::unique_ptr<NameScope> unused_scope;
+  std::shared_ptr<NameList> unused_name_list;
+
+  ZETASQL_RETURN_IF_ERROR(ResolveSelectListExprsFirstPass(
+      select_list, from_scan_scope, from_clause_name_list,
+      query_resolution_info.get(), target_alias, unused_scope,
+      unused_name_list));
 
   if (query_resolution_info->HasGroupByOrAggregation()) {
     return MakeSqlErrorAt(ast_node)
@@ -2688,5 +2716,4 @@ absl::Status Resolver::ResolveGeneratedColumnsForDml(
 
   return absl::OkStatus();
 }
-
 }  // namespace zetasql

@@ -109,8 +109,8 @@ class ParseResumeLocation {
   // Creates a ParseResumeLocation with the input and the byte position
   // from the proto.
   static ParseResumeLocation FromProto(const ParseResumeLocationProto& proto) {
-    ParseResumeLocation ret = ParseResumeLocation(proto.filename(),
-                                                  proto.input());
+    ParseResumeLocation ret = ParseResumeLocation(
+        std::string(proto.filename()), proto.input());
     ret.allow_resume_ = proto.allow_resume();
     ret.set_byte_position(proto.byte_position());
     return ret;

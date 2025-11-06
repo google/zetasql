@@ -1686,8 +1686,12 @@ ARRAY<STRUCT<JSON>>[
 [name=differential_privacy_group_selection_laplace_with_delta]
 [required_features=DIFFERENTIAL_PRIVACY,NAMED_ARGUMENTS]
 [labels=differential_privacy]
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=LAPLACE_THRESHOLD)
-  SUM(double_val)
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(
+    epsilon=1e20,
+    delta=1.0,
+    max_groups_contributed=NULL,
+    group_selection_strategy=LAPLACE_THRESHOLD
+  ) SUM(double_val)
 FROM TestTableWithUid2;
 --
 ARRAY<STRUCT<DOUBLE>>[{11}]
@@ -1697,7 +1701,11 @@ ARRAY<STRUCT<DOUBLE>>[{11}]
 [name=differential_privacy_public_groups_without_group_by]
 [required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(
+    epsilon=1e20,
+    delta=1.0,
+    max_groups_contributed=NULL,
+    group_selection_strategy=PUBLIC_GROUPS)
   COUNT(int64_val)
 FROM TestTableWithUid;
 --
@@ -1708,7 +1716,11 @@ ARRAY<STRUCT<INT64>>[{8}]
 [name=differential_privacy_public_groups_with_group_by]
 [required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=differential_privacy]
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS)
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(
+    epsilon=1e20,
+    delta=1.0,
+    max_groups_contributed=NULL,
+    group_selection_strategy=PUBLIC_GROUPS)
   int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
 FROM TestTableWithUid
 RIGHT OUTER JOIN (
@@ -1729,8 +1741,12 @@ ARRAY<STRUCT<int64_val INT64, INT64>>[unknown order:
 [name=differential_privacy_public_groups_with_group_by_and_max_groups_contributed]
 [required_features=DIFFERENTIAL_PRIVACY,DIFFERENTIAL_PRIVACY_PUBLIC_GROUPS,NAMED_ARGUMENTS,WITH_ON_SUBQUERY]
 [labels=anonymization]
-SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=1e20, delta=1.0, group_selection_strategy=PUBLIC_GROUPS, max_groups_contributed=3)
-  int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(
+    epsilon=1e20,
+    delta=1.0,
+    group_selection_strategy=PUBLIC_GROUPS,
+    max_groups_contributed=3
+  ) int64_val, COUNT(*, contribution_bounds_per_group => (0, 1))
 FROM TestTableWithUid
 RIGHT OUTER JOIN (
     SELECT DISTINCT int64_val FROM TestTableWithoutUid

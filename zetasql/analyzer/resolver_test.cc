@@ -84,10 +84,10 @@ class ResolverTest : public ::testing::Test {
  protected:
   IdStringPool id_string_pool_;
 
-  ResolverTest() {}
+  ResolverTest() = default;
   ResolverTest(const ResolverTest&) = delete;
   ResolverTest& operator=(const ResolverTest&) = delete;
-  ~ResolverTest() override {}
+  ~ResolverTest() override = default;
 
   void SetUp() override {
     InitializeQueryParameters();
@@ -502,7 +502,7 @@ class ResolverTest : public ::testing::Test {
     ZETASQL_ASSERT_OK(resolver_->ResolveExpr(parsed_expression, &expr_resolution_info,
                                      &resolved_expression));
 
-    EXPECT_EQ(expr_resolution_info.has_volatile, expected_volatile);
+    EXPECT_EQ(expr_resolution_info.findings.has_volatile, expected_volatile);
   }
 
   TypeFactory type_factory_;

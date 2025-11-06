@@ -99,8 +99,8 @@
   {% endif %}
   {{node.builder_name}}{{ref_qualifier}} set_{{field.name}}({{arg_type}} v{{', bool propagate_order=true' if field.propagate_order else ''}}) {{ref_qualifier}} {
   {% if is_status_or %}
-    {% if not field.is_node_ptr and not field.is_resolved_column %}
-      {{ RaiseException("StatusOr<T> setters can only be generated for fields that are node pointers or ResolvedColumns, but is called for field: %s::%s" % (node.name, field.name)) }}
+    {% if not field.is_node_ptr and not field.include_scalar_rewriter %}
+      {{ RaiseException("StatusOr<T> setters can only be generated for fields that are node pointers or have include_scalar_rewriter, but is called for field: %s::%s" % (node.name, field.name)) }}
     {% endif %}
     if (v.ok()) {
       {{inner_node_member_name}}->set_{{field.name}}({{move_or_copy_value(field, '*v')}}{{', propagate_order' if field.propagate_order else ''}});
@@ -305,7 +305,7 @@ class {{node.builder_name}} final {
   {{ blank_line }}
   {{- chained_direct_setter(node, field, inner_node_member_name, '&', is_status_or=False) -}}
   {{ blank_line }}
- # if field.is_node_ptr or field.is_resolved_column
+ # if field.is_node_ptr or field.include_scalar_rewriter
   {{- chained_direct_setter(node, field, inner_node_member_name, '&&', is_status_or=True) -}}
   {{ blank_line }}
   {{- chained_direct_setter(node, field, inner_node_member_name, '&', is_status_or=True) -}}

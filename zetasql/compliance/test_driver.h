@@ -34,6 +34,8 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/base/path.h"
 #include "zetasql/common/measure_analysis_utils.h"
+#include "zetasql/common/testing/testing_proto_util.h"
+#include "zetasql/common/type_visitors.h"
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/functions/date_time_util.h"  
 #include "zetasql/public/language_options.h"
@@ -41,11 +43,13 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/value.h"
+#include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/flags/declare.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -247,12 +251,14 @@ struct TestDatabase {
     tables.clear();
     tvfs.clear();
     property_graph_defs.clear();
+    measure_function_defs.clear();
   }
 
   // Returns true if empty.
   bool empty() const {
     return proto_files.empty() && proto_names.empty() && enum_names.empty() &&
-           tables.empty() && tvfs.empty() && property_graph_defs.empty();
+           tables.empty() && tvfs.empty() && property_graph_defs.empty() &&
+           measure_function_defs.empty();
   }
   // LINT.IfChange
   // File paths (*.proto) relative to the build workspace
@@ -264,6 +270,10 @@ struct TestDatabase {
   std::map<std::string, std::string> tvfs;  // Keyed on TVF name.
   std::map<std::string, std::string>
       property_graph_defs;  // Keyed on graph name.
+
+  // Holds CREATE FUNCTION statements to create UDFs and UDAs that are
+  // referenced by measure expressions
+  std::vector<std::string> measure_function_defs;
 };
 
 // The result of executing a single statement. It can be a statement in a
@@ -321,18 +331,9 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
 // Deserializes a TestDatabaseProto to a TestDatabase. This is used for running
 // a compliance driver for a standalone repro, by allowing the database to be
 // specified as a proto.
-//
-// <descriptor_pools> should be initialized by the caller to contain one element
-// per descriptor file in the proto; each pool will be filled with deserialized
-// proto descriptors, and should outlive the type factory.
-//
-// <annotation_maps> will own the lifetime of deserialized AnnotationMap objects
-// whose pointers are inserted into the returned TestDatabase; it should outlive
-// the TestDatabase object.
 absl::StatusOr<TestDatabase> DeserializeTestDatabase(
     const TestDatabaseProto& proto, TypeFactory* type_factory,
-    const std::vector<google::protobuf::DescriptorPool*>& descriptor_pools,
-    std::vector<std::unique_ptr<const AnnotationMap>>& annotation_maps);
+    const ::google::protobuf::DescriptorPool* descriptor_pool);
 
 static const char default_default_time_zone[] = "America/Los_Angeles";
 
@@ -364,22 +365,17 @@ class TestDriver {
     return false;
   }
 
-  // Pre-load the catalog with PROTO and ENUM types and built-in functions.
-  // This method is to pre-load the catalog with types and functions to support
-  // randomly generating ZetaSQL measure expressions.
-  //
-  // Note: This method is called before `CreateDatabase`. `CreateDatabase` may
-  // create a new catalog and invalidate any pointers to objects in the previous
-  // catalog. Thus, it is important that any pointers to objects in the previous
-  // catalog are not used after `CreateDatabase` is called.
-  virtual absl::Status PreloadTypesAndFunctions(
-      const TestDatabase& test_db, const LanguageOptions& language_options) {
-    return absl::UnimplementedError(
-        "Test driver does not support pre-loading PROTO and ENUM types.");
-  }
-
   // Supplies a TestDatabase. Must be called prior to ExecuteStatement().
-  virtual absl::Status CreateDatabase(const TestDatabase& test_db) = 0;
+  ABSL_DEPRECATED(
+      "Use the overload which takes a proto instead, to ensure all"
+      "types and proto/enum descriptors are internalized.")
+  virtual absl::Status CreateDatabase(const TestDatabase& test_db) {
+    ZETASQL_RET_CHECK_FAIL() << "Implement the overload which takes a proto instead";
+  }
+  virtual absl::Status CreateDatabase(const TestDatabaseProto& test_db_proto) {
+    return absl::UnimplementedError(
+        "Test driver does not support creating database from proto");
+  }
 
   // Supplies several "temporary" SQL constants that the driver should add to
   // the catalog. This will be called after CreateDatabase but before
@@ -502,6 +498,12 @@ class TestDriver {
   // reference implementation.  Other engines should not override.
   virtual bool IsReferenceImplementation() const { return false; }
 
+  // This method is here only to pass the TypeFactory to the ExecuteStatement()
+  // method. Once all external drivers are migrated to encapsulate their own
+  // TypeFactory, this method can be removed and ExecuteStatement() will
+  // transition to not take a TypeFactory.
+  virtual TypeFactory* type_factory() { return nullptr; }
+
   // Sets a query evaluation timeout or returns an error if that timeout is not
   // supported by this engine. This timeout does not apply to non-query
   // ZetaSQL statements.
@@ -602,6 +604,39 @@ class TestDriver {
 // into the same binary.  If we need that, we could switch to a more
 // sophisticated registration mechanism like util/registration/registerer.h.
 TestDriver* GetComplianceTestDriver();
+
+// Wrapper class to encapsulate the helper classes like the error collector
+// for convenience.
+class ProtoImporter {
+ public:
+  explicit ProtoImporter(bool runs_as_test) {
+    if (runs_as_test) {
+      proto_source_tree_ = CreateProtoSourceTree();
+    } else {
+      proto_source_tree_ = std::make_unique<TestDriver::ProtoSourceTree>("");
+    }
+    proto_error_collector_ =
+        std::make_unique<TestDriver::ProtoErrorCollector>(&errors_);
+    importer_ = std::make_unique<google::protobuf::compiler::Importer>(
+        proto_source_tree_.get(), proto_error_collector_.get());
+  }
+
+  google::protobuf::compiler::Importer* importer() const { return importer_.get(); }
+
+  absl::Status Import(absl::string_view filename) {
+    importer_->Import(std::string(filename));
+    if (!errors_.empty()) {
+      return absl::InternalError(absl::StrJoin(errors_, "\n"));
+    }
+    return absl::OkStatus();
+  }
+
+ private:
+  std::vector<std::string> errors_;
+  std::unique_ptr<google::protobuf::compiler::SourceTree> proto_source_tree_;
+  std::unique_ptr<TestDriver::ProtoErrorCollector> proto_error_collector_;
+  std::unique_ptr<google::protobuf::compiler::Importer> importer_;
+};
 
 }  // namespace zetasql
 

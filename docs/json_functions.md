@@ -264,6 +264,20 @@ behavior:
       </td>
     </tr>
     
+    
+    <tr>
+      <td><a id="transformers"></a>Transformers</td>
+      <td>
+        
+        <a href="#json_flatten"><code>JSON_FLATTEN</code></a><br>
+        
+      </td>
+      <td>
+        Functions that apply a transformation to a JSON value.
+      </td>
+    </tr>
+    
+    
     <tr>
       <td><a id="predicates"></a>Predicates</td>
       <td>
@@ -475,6 +489,14 @@ behavior:
     <code>ARRAY&lt;STRING&gt;</code> value.
     
   </td>
+</tr>
+
+<tr>
+  <td><a href="https://github.com/google/zetasql/blob/master/docs/json_functions.md#json_flatten"><code>JSON_FLATTEN</code></a>
+</td>
+  <td>Produces a new SQL <code>ARRAY&lt;JSON&gt;</code> value containing all
+  non-array values that are either directly in the input JSON value or children
+  of one or more consecutively nested arrays in the input JSON value.</td>
 </tr>
 
 <tr>
@@ -853,21 +875,21 @@ Arguments:
 ```zetasql
 SELECT BOOL(JSON 'true') AS vacancy;
 
-/*---------*
+/*---------+
  | vacancy |
  +---------+
  | true    |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT BOOL(JSON_QUERY(JSON '{"hotel class": "5-star", "vacancy": true}', "$.vacancy")) AS vacancy;
 
-/*---------*
+/*---------+
  | vacancy |
  +---------+
  | true    |
- *---------*/
+ +---------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -910,11 +932,11 @@ Arguments:
 ```zetasql
 SELECT BOOL_ARRAY(JSON '[true, false]') AS vacancies;
 
-/*---------------*
+/*---------------+
  | vacancies     |
  +---------------+
  | [true, false] |
- *---------------*/
+ +---------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -970,41 +992,41 @@ Arguments:
 ```zetasql
 SELECT DOUBLE(JSON '9.8') AS velocity;
 
-/*----------*
+/*----------+
  | velocity |
  +----------+
  | 9.8      |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT DOUBLE(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
-/*---------*
+/*---------+
  | vo2_max |
  +---------+
  | 39.1    |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT DOUBLE(JSON '18446744073709551615', wide_number_mode=>'round') as result;
 
-/*------------------------*
+/*------------------------+
  | result                 |
  +------------------------+
  | 1.8446744073709552e+19 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ```zetasql
 SELECT DOUBLE(JSON '18446744073709551615') as result;
 
-/*------------------------*
+/*------------------------+
  | result                 |
  +------------------------+
  | 1.8446744073709552e+19 |
- *------------------------*/
+ +------------------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1069,31 +1091,31 @@ Arguments:
 ```zetasql
 SELECT DOUBLE_ARRAY(JSON '[9, 9.8]') AS velocities;
 
-/*-------------*
+/*-------------+
  | velocities  |
  +-------------+
  | [9.0, 9.8]  |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]', wide_number_mode=>'round') as result;
 
-/*--------------------------*
+/*--------------------------+
  | result                   |
  +--------------------------+
  | [1.8446744073709552e+19] |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 ```zetasql
 SELECT DOUBLE_ARRAY(JSON '[18446744073709551615]') as result;
 
-/*--------------------------*
+/*--------------------------+
  | result                   |
  +--------------------------+
  | [1.8446744073709552e+19] |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1156,41 +1178,41 @@ Arguments:
 ```zetasql
 SELECT FLOAT(JSON '9.8') AS velocity;
 
-/*----------*
+/*----------+
  | velocity |
  +----------+
  | 9.8      |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT FLOAT(JSON_QUERY(JSON '{"vo2_max": 39.1, "age": 18}', "$.vo2_max")) AS vo2_max;
 
-/*---------*
+/*---------+
  | vo2_max |
  +---------+
  | 39.1    |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT FLOAT(JSON '16777217', wide_number_mode=>'round') as result;
 
-/*------------*
+/*------------+
  | result     |
  +------------+
  | 16777216.0 |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT FLOAT(JSON '16777216') as result;
 
-/*------------*
+/*------------+
  | result     |
  +------------+
  | 16777216.0 |
- *------------*/
+ +------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1255,31 +1277,31 @@ Arguments:
 ```zetasql
 SELECT FLOAT_ARRAY(JSON '[9, 9.8]') AS velocities;
 
-/*-------------*
+/*-------------+
  | velocities  |
  +-------------+
  | [9.0, 9.8]  |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT FLOAT_ARRAY(JSON '[16777217]', wide_number_mode=>'round') as result;
 
-/*--------------*
+/*--------------+
  | result       |
  +--------------+
  | [16777216.0] |
- *--------------*/
+ +--------------*/
 ```
 
 ```zetasql
 SELECT FLOAT_ARRAY(JSON '[16777216]') as result;
 
-/*--------------*
+/*--------------+
  | result       |
  +--------------+
  | [16777216.0] |
- *--------------*/
+ +--------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1330,31 +1352,31 @@ Arguments:
 ```zetasql
 SELECT INT32(JSON '2005') AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT INT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT INT32(JSON '10.0') AS score;
 
-/*-------*
+/*-------+
  | score |
  +-------+
  | 10    |
- *-------*/
+ +-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1399,21 +1421,21 @@ Arguments:
 ```zetasql
 SELECT INT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
-/*----------------*
+/*----------------+
  | flight_numbers |
  +----------------+
  | [2005, 2003]   |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT INT32_ARRAY(JSON '[10.0]') AS scores;
 
-/*--------*
+/*--------+
  | scores |
  +--------+
  | [10]   |
- *--------*/
+ +--------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1458,31 +1480,31 @@ Arguments:
 ```zetasql
 SELECT INT64(JSON '2005') AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT INT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT INT64(JSON '10.0') AS score;
 
-/*-------*
+/*-------+
  | score |
  +-------+
  | 10    |
- *-------*/
+ +-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1527,21 +1549,21 @@ Arguments:
 ```zetasql
 SELECT INT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
-/*----------------*
+/*----------------+
  | flight_numbers |
  +----------------+
  | [2005, 2003]   |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT INT64_ARRAY(JSON '[10.0]') AS scores;
 
-/*--------*
+/*--------+
  | scores |
  +--------+
  | [10]   |
- *--------*/
+ +--------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -1580,11 +1602,11 @@ The following query creates a JSON array with one value in it:
 ```zetasql
 SELECT JSON_ARRAY(10) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [10]      |
- *-----------*/
+ +-----------*/
 ```
 
 You can create a JSON array with an empty JSON array in it. For example:
@@ -1592,51 +1614,51 @@ You can create a JSON array with an empty JSON array in it. For example:
 ```zetasql
 SELECT JSON_ARRAY([]) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [[]]      |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT JSON_ARRAY(10, 'foo', NULL) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | [10,"foo",null] |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT JSON_ARRAY(STRUCT(10 AS a, 'foo' AS b)) AS json_data
 
-/*----------------------*
+/*----------------------+
  | json_data            |
  +----------------------+
  | [{"a":10,"b":"foo"}] |
- *----------------------*/
+ +----------------------*/
 ```
 
 ```zetasql
 SELECT JSON_ARRAY(10, ['foo', 'bar'], [20, 30]) AS json_data
 
-/*----------------------------*
+/*----------------------------+
  | json_data                  |
  +----------------------------+
  | [10,["foo","bar"],[20,30]] |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 ```zetasql
 SELECT JSON_ARRAY(10, [JSON '20', JSON '"foo"']) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | [10,[20,"foo"]] |
- *-----------------*/
+ +-----------------*/
 ```
 
 You can create an empty JSON array. For example:
@@ -1644,11 +1666,11 @@ You can create an empty JSON array. For example:
 ```zetasql
 SELECT JSON_ARRAY() AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | []        |
- *-----------*/
+ +-----------*/
 ```
 
 ## `JSON_ARRAY_APPEND`
@@ -1722,11 +1744,11 @@ In the following example, path `$` is matched and appends `1`.
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', 1) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | ["a","b","c",1] |
- *-----------------*/
+ +-----------------*/
 ```
 
 In the following example, `append_each_element` defaults to `TRUE`, so
@@ -1735,11 +1757,11 @@ In the following example, `append_each_element` defaults to `TRUE`, so
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '["a", "b", "c"]', '$', [1, 2]) AS json_data
 
-/*-------------------*
+/*-------------------+
  | json_data         |
  +-------------------+
  | ["a","b","c",1,2] |
- *-------------------*/
+ +-------------------*/
 ```
 
 In the following example, `append_each_element` is `FALSE`, so
@@ -1751,11 +1773,11 @@ SELECT JSON_ARRAY_APPEND(
   '$', [1, 2],
   append_each_element=>FALSE) AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | ["a","b","c",[1,2]] |
- *---------------------*/
+ +---------------------*/
 ```
 
 In the following example, `append_each_element` is `FALSE`, so
@@ -1768,11 +1790,11 @@ SELECT JSON_ARRAY_APPEND(
   '$[1][1]', [3, 4],
   append_each_element=>FALSE) AS json_data
 
-/*-----------------------------*
+/*-----------------------------+
  | json_data                   |
  +-----------------------------+
  | ["a",["b",[1,2,[3,4]]],"c"] |
- *-----------------------------*/
+ +-----------------------------*/
 ```
 
 In the following example, the first path `$[1]` appends `[1, 2]` as single
@@ -1785,11 +1807,11 @@ SELECT JSON_ARRAY_APPEND(
   '$[1]', [1, 2],
   '$[1][1]', [3, 4]) AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | ["a",["b",1,2],"c"] |
- *---------------------*/
+ +---------------------*/
 ```
 
 In the following example, path `$.a` is matched and appends `2`.
@@ -1797,11 +1819,11 @@ In the following example, path `$.a` is matched and appends `2`.
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": [1]}', '$.a', 2) AS json_data
 
-/*-------------*
+/*-------------+
  | json_data   |
  +-------------+
  | {"a":[1,2]} |
- *-------------*/
+ +-------------*/
 ```
 
 In the following example, a value is appended into a JSON null.
@@ -1809,11 +1831,11 @@ In the following example, a value is appended into a JSON null.
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": null}', '$.a', 10)
 
-/*------------*
+/*------------+
  | json_data  |
  +------------+
  | {"a":[10]} |
- *------------*/
+ +------------*/
 ```
 
 In the following example, path `$.a` isn't an array, so the operation is
@@ -1822,11 +1844,11 @@ ignored.
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.a', 2) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":1}   |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, path `$.b` doesn't exist, so the operation is
@@ -1835,11 +1857,11 @@ ignored.
 ```zetasql
 SELECT JSON_ARRAY_APPEND(JSON '{"a": 1}', '$.b', 2) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":1}   |
- *-----------*/
+ +-----------*/
 ```
 
 ## `JSON_ARRAY_INSERT`
@@ -1917,11 +1939,11 @@ In the following example, path `$[1]` is matched and inserts `1`.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1]', 1) AS json_data
 
-/*-----------------------*
+/*-----------------------+
  | json_data             |
  +-----------------------+
  | ["a",1,["b","c"],"d"] |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 In the following example, path `$[1][0]` is matched and inserts `1`.
@@ -1929,11 +1951,11 @@ In the following example, path `$[1][0]` is matched and inserts `1`.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", ["b", "c"], "d"]', '$[1][0]', 1) AS json_data
 
-/*-----------------------*
+/*-----------------------+
  | json_data             |
  +-----------------------+
  | ["a",[1,"b","c"],"d"] |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 In the following example, `insert_each_element` defaults to `TRUE`, so
@@ -1942,11 +1964,11 @@ In the following example, `insert_each_element` defaults to `TRUE`, so
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c"]', '$[1]', [1, 2]) AS json_data
 
-/*-------------------*
+/*-------------------+
  | json_data         |
  +-------------------+
  | ["a",1,2,"b","c"] |
- *-------------------*/
+ +-------------------*/
 ```
 
 In the following example, `insert_each_element` is `FALSE`, so `[1, 2]` is
@@ -1958,11 +1980,11 @@ SELECT JSON_ARRAY_INSERT(
   '$[1]', [1, 2],
   insert_each_element=>FALSE) AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | ["a",[1,2],"b","c"] |
- *---------------------*/
+ +---------------------*/
 ```
 
 In the following example, path `$[7]` is larger than the length of the
@@ -1972,11 +1994,11 @@ the end of the array.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '["a", "b", "c", "d"]', '$[7]', "e") AS json_data
 
-/*--------------------------------------*
+/*--------------------------------------+
  | json_data                            |
  +--------------------------------------+
  | ["a","b","c","d",null,null,null,"e"] |
- *--------------------------------------*/
+ +--------------------------------------*/
 ```
 
 In the following example, path `$.a` is an object, so the operation is ignored.
@@ -1984,11 +2006,11 @@ In the following example, path `$.a` is an object, so the operation is ignored.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '{"a": {}}', '$.a[0]', 2) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":{}}  |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, path `$` doesn't specify a valid array position,
@@ -1997,11 +2019,11 @@ so the operation is ignored.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '[1, 2]', '$', 3) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [1,2]     |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, a value is inserted into a JSON null.
@@ -2009,11 +2031,11 @@ In the following example, a value is inserted into a JSON null.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '{"a": null}', '$.a[2]', 10) AS json_data
 
-/*----------------------*
+/*----------------------+
  | json_data            |
  +----------------------+
  | {"a":[null,null,10]} |
- *----------------------*/
+ +----------------------*/
 ```
 
 In the following example, the operation is ignored because you can't insert
@@ -2022,11 +2044,11 @@ data into a JSON number.
 ```zetasql
 SELECT JSON_ARRAY_INSERT(JSON '1', '$[0]', 'r1') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | 1         |
- *-----------*/
+ +-----------*/
 ```
 
 ## `JSON_CONTAINS`
@@ -2085,11 +2107,11 @@ In the following example, a JSON scalar value (a string) contains only itself:
 ```zetasql
 SELECT JSON_CONTAINS(JSON '"a"', JSON '"a"') AS result;
 
-/*----------*
+/*----------+
  |  result  |
  +----------+
  |   true   |
- *----------*/
+ +----------*/
 ```
 
 The following examples check if a JSON object contains another JSON object:
@@ -2100,11 +2122,11 @@ SELECT
     JSON_CONTAINS(JSON '{"a": {"b": 1}, "c": 2}', JSON '{"a": {"b": 1}}') AS result2,
     JSON_CONTAINS(JSON '{"a": {"b": 1, "d": 3}, "c": 2}', JSON '{"a": {"b": 1}}') AS result3;
 
-/*----------*----------*----------*
+/*----------*----------*----------+
  |  result1 |  result2 |  result3 |
  +----------+----------+----------+
  |   false  |   true   |   true   |
- *----------*----------*----------*/
+ +----------*----------*----------*/
 ```
 
 The following examples check if a JSON array contains another JSON array. An
@@ -2118,11 +2140,11 @@ SELECT
     JSON_CONTAINS(JSON '[1, 2, 3]', JSON '[2]') AS result1,
     JSON_CONTAINS(JSON '[1, 2, 3]', JSON '2') AS result2;
 
-/*----------*----------*
+/*----------*----------+
  |  result1 |  result2 |
  +----------+----------+
  |   true   |   true   |
- *----------*----------*/
+ +----------*----------*/
 ```
 
 ```zetasql
@@ -2131,11 +2153,11 @@ SELECT
     JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[2]') AS result2,
     JSON_CONTAINS(JSON '[[1, 2, 3]]', JSON '[[2]]') AS result3;
 
-/*----------*----------*----------*
+/*----------*----------*----------+
  |  result1 |  result2 |  result3 |
  +----------+----------+----------+
  |   false  |   false  |   true   |
- *----------*----------*----------*/
+ +----------*----------*----------*/
 ```
 
 The following examples check if a JSON array contains a JSON object:
@@ -2146,11 +2168,11 @@ SELECT
     JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '{"b":1}') AS results2,
     JSON_CONTAINS(JSON '[{"a":0}, {"b":1, "c":2}]', JSON '[{"a":0, "b":1}]') AS results3;
 
-/*----------*----------*----------*
+/*----------*----------*----------+
  |  result1 |  result2 |  result3 |
  +----------+----------+----------+
  |   true   |   false  |   false  |
- *----------*----------*----------*/
+ +----------*----------*----------*/
 ```
 
 ## `JSON_EXTRACT`
@@ -2217,11 +2239,11 @@ SELECT
   JSON_EXTRACT(JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}', '$.class')
   AS json_data;
 
-/*-----------------------------------*
+/*-----------------------------------+
  | json_data                         |
  +-----------------------------------+
  | {"students":[{"id":5},{"id":12}]} |
- *-----------------------------------*/
+ +-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -2232,11 +2254,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -2244,11 +2266,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -2256,11 +2278,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -2268,11 +2290,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
@@ -2280,11 +2302,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | NULL            |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
@@ -2292,11 +2314,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | {"name":"John"} |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
@@ -2304,11 +2326,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -2316,11 +2338,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -2328,11 +2350,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
   '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -2340,11 +2362,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | "Jamie"        |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -2352,11 +2374,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "Jane"}]}}',
   "$.class['students']") AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -2364,11 +2386,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": []}}',
   "$.class['students']") AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | []                                 |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -2376,11 +2398,11 @@ SELECT JSON_EXTRACT(
   '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
   "$.class['students']") AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -2454,11 +2476,11 @@ SELECT JSON_EXTRACT_ARRAY(
   JSON '{"fruits":["apples","oranges","grapes"]}','$.fruits'
   ) AS json_array;
 
-/*---------------------------------*
+/*---------------------------------+
  | json_array                      |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -2466,11 +2488,11 @@ This extracts the items in a JSON-formatted string to a string array:
 ```zetasql
 SELECT JSON_EXTRACT_ARRAY('[1,2,3]') AS string_array;
 
-/*--------------*
+/*--------------+
  | string_array |
  +--------------+
  | [1, 2, 3]    |
- *--------------*/
+ +--------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -2483,11 +2505,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-/*---------------*
+/*---------------+
  | integer_array |
  +---------------+
  | [1, 2, 3]     |
- *---------------*/
+ +---------------*/
 ```
 
 This extracts string values in a JSON-formatted string to an array:
@@ -2496,11 +2518,11 @@ This extracts string values in a JSON-formatted string to an array:
 -- Doesn't strip the double quotes
 SELECT JSON_EXTRACT_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
 
-/*---------------------------------*
+/*---------------------------------+
  | string_array                    |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 
 -- Strips the double quotes
 SELECT ARRAY(
@@ -2508,11 +2530,11 @@ SELECT ARRAY(
   FROM UNNEST(JSON_EXTRACT_ARRAY('["apples","oranges","grapes"]','$')) AS string_element
 ) AS string_array;
 
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 This extracts only the items in the `fruit` property to an array:
@@ -2523,11 +2545,11 @@ SELECT JSON_EXTRACT_ARRAY(
   '$.fruit'
 ) AS string_array;
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | string_array                                          |
  +-------------------------------------------------------+
  | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 These are equivalent:
@@ -2538,11 +2560,11 @@ SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$[frui
 SELECT JSON_EXTRACT_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
 
 -- The queries above produce the following result:
-/*---------------------------------*
+/*---------------------------------+
  | string_array                    |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -2551,11 +2573,11 @@ characters using single quotes and brackets, `[' ']`. For example:
 ```zetasql
 SELECT JSON_EXTRACT_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
 
-/*-----------*
+/*-----------+
  | hello     |
  +-----------+
  | ["world"] |
- *-----------*/
+ +-----------*/
 ```
 
 The following examples explore how invalid requests and empty arrays are
@@ -2572,29 +2594,29 @@ SELECT JSON_EXTRACT_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result
 -- If the JSONPath doesn't refer to an array, then NULL is returned.
 SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a key that doesn't exist is specified, then the result is NULL.
 SELECT JSON_EXTRACT_ARRAY('{"a": "foo"}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- Empty arrays in JSON-formatted strings are supported.
 SELECT JSON_EXTRACT_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | []     |
- *--------*/
+ +--------*/
 ```
 
 [json-query-array]: #json_query_array
@@ -2660,11 +2682,11 @@ In the following example, `age` is extracted.
 ```zetasql
 SELECT JSON_EXTRACT_SCALAR(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
-/*------------*
+/*------------+
  | scalar_age |
  +------------+
  | 6          |
- *------------*/
+ +------------*/
 ```
 
 The following example compares how results are returned for the `JSON_EXTRACT`
@@ -2676,22 +2698,22 @@ SELECT JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.name') AS json_name,
   JSON_EXTRACT('{"name": "Jakob", "age": "6" }', '$.age') AS json_age,
   JSON_EXTRACT_SCALAR('{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
-/*-----------+-------------+----------+------------*
+/*-----------+-------------+----------+------------+
  | json_name | scalar_name | json_age | scalar_age |
  +-----------+-------------+----------+------------+
  | "Jakob"   | Jakob       | "6"      | 6          |
- *-----------+-------------+----------+------------*/
+ +-----------+-------------+----------+------------*/
 ```
 
 ```zetasql
 SELECT JSON_EXTRACT('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract,
   JSON_EXTRACT_SCALAR('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_extract_scalar;
 
-/*--------------------+---------------------*
+/*--------------------+---------------------+
  | json_extract       | json_extract_scalar |
  +--------------------+---------------------+
  | ["apple","banana"] | NULL                |
- *--------------------+---------------------*/
+ +--------------------+---------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -2700,11 +2722,11 @@ characters using single quotes and brackets, `[' ']`. For example:
 ```zetasql
 SELECT JSON_EXTRACT_SCALAR('{"a.b": {"c": "world"}}', "$['a.b'].c") AS hello;
 
-/*-------*
+/*-------+
  | hello |
  +-------+
  | world |
- *-------*/
+ +-------*/
 ```
 
 [json-value]: #json_value
@@ -2777,11 +2799,11 @@ SELECT JSON_EXTRACT_STRING_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS string_array;
 
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 The following example compares how results are returned for the
@@ -2791,11 +2813,11 @@ The following example compares how results are returned for the
 SELECT JSON_EXTRACT_ARRAY('["apples", "oranges"]') AS json_array,
 JSON_EXTRACT_STRING_ARRAY('["apples", "oranges"]') AS string_array;
 
-/*-----------------------+-------------------*
+/*-----------------------+-------------------+
  | json_array            | string_array      |
  +-----------------------+-------------------+
  | ["apples", "oranges"] | [apples, oranges] |
- *-----------------------+-------------------*/
+ +-----------------------+-------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -2804,11 +2826,11 @@ This extracts the items in a JSON-formatted string to a string array:
 -- Strips the double quotes
 SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
-/*-----------------*
+/*-----------------+
  | string_array    |
  +-----------------+
  | [foo, bar, baz] |
- *-----------------*/
+ +-----------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -2821,11 +2843,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-/*---------------*
+/*---------------+
  | integer_array |
  +---------------+
  | [1, 2, 3]     |
- *---------------*/
+ +---------------*/
 ```
 
 These are equivalent:
@@ -2836,11 +2858,11 @@ SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', 
 SELECT JSON_EXTRACT_STRING_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits') AS string_array;
 
 -- The queries above produce the following result:
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -2849,11 +2871,11 @@ characters using single quotes and brackets: `[' ']`. For example:
 ```zetasql
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a.b": {"c": ["world"]}}', "$['a.b'].c") AS hello;
 
-/*---------*
+/*---------+
  | hello   |
  +---------+
  | [world] |
- *---------*/
+ +---------*/
 ```
 
 The following examples explore how invalid requests and empty arrays are
@@ -2866,75 +2888,75 @@ SELECT JSON_EXTRACT_STRING_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS
 -- If the JSON formatted string is invalid, then NULL is returned.
 SELECT JSON_EXTRACT_STRING_ARRAY('}}', '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If the JSON document is NULL, then NULL is returned.
 SELECT JSON_EXTRACT_STRING_ARRAY(NULL, '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath doesn't match anything, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an object that isn't an array, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo"}', '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [{"b": "foo", "c": 1}, {"b": "bar", "c":2}], "d": "baz"}', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an array of mixed scalar and non-scalar objects, then the output is NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": [10, {"b": 20}]', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
 SELECT JSON_EXTRACT_STRING_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | []     |
- *--------*/
+ +--------*/
 
 -- In the following query, the JSON null input is returned as a
 -- SQL NULL in the output.
 SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
 
-/*------------------*
+/*------------------+
  | result           |
  +------------------+
  | [world, 1, NULL] |
- *------------------*/
+ +------------------*/
 
 ```
 
@@ -2943,6 +2965,99 @@ SELECT JSON_EXTRACT_STRING_ARRAY('["world", 1, null]') AS result;
 [JSONPath-format]: #JSONPath_format
 
 [differences-json-and-string]: #differences_json_and_string
+
+## `JSON_FLATTEN`
+
+```zetasql
+JSON_FLATTEN(json_expr)
+```
+
+**Description**
+
+Produces a new SQL `ARRAY<JSON>` value containing all non-array values that are
+either directly in the input JSON value or children of one or more consecutively
+nested arrays in the input JSON value.
+
+Arguments:
+
++   `json_expr`: `JSON`. For example:
+
+    ```
+    JSON '["Jane", ["John", "Jamie"]]'
+    ```
+
+Details:
+
++   If `json_expr` is SQL `NULL`, the function returns SQL `NULL`.
+
+**Return type**
+
+`ARRAY<JSON>`
+
+**Examples**
+
+In the following example, there is a single non-array value that is returned.
+
+```zetasql
+SELECT JSON_FLATTEN(JSON '1') AS json_flatten
+
+/*--------------+
+ | json_flatten |
+ +--------------+
+ | [1]          |
+ +--------------*/
+```
+
+In the following example, an input array of values is flattened.
+
+```zetasql
+SELECT JSON_FLATTEN(JSON '[1, 2, null]') AS json_flatten
+
+/*--------------+
+ | json_flatten |
+ +--------------+
+ | [1, 2, null] |
+ +--------------*/
+```
+
+In the following example, an input array which includes nested array elements is
+flattened.
+
+```zetasql
+SELECT JSON_FLATTEN(JSON '[[[1]], 2, [3]]') AS json_flatten
+
+/*--------------+
+ | json_flatten |
+ +--------------+
+ | [1, 2, 3]    |
+ +--------------*/
+```
+
+In the following example, the nested-array value in a key-value pair is not
+flattened because it is enclosed within a JSON object.
+
+```zetasql
+SELECT JSON_FLATTEN(JSON '{"a": [[1]]}') AS json_flatten
+
+/*---------------+
+ | json_flatten  |
+ +---------------+
+ | [{"a":[[1]]}] |
+ +---------------*/
+```
+
+In the following example, the output contains both the flattened array elements
+from the input and the non-array elements from the input.
+
+```zetasql
+SELECT JSON_FLATTEN(JSON '[[[1, 2], 3], {"a": 4}, true]') AS json_flatten
+
+/*---------------------------+
+ | json_flatten              |
+ +---------------------------+
+ | [1, 2, 3, {"a": 4}, true] |
+ +---------------------------*/
+```
 
 ## `JSON_OBJECT`
 
@@ -2986,11 +3101,11 @@ For example:
 ```zetasql
 SELECT JSON_OBJECT() AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {}        |
- *-----------*/
+ +-----------*/
 ```
 
 You can create a JSON object by passing in key-value pairs. For example:
@@ -2998,52 +3113,52 @@ You can create a JSON object by passing in key-value pairs. For example:
 ```zetasql
 SELECT JSON_OBJECT('foo', 10, 'bar', TRUE) AS json_data
 
-/*-----------------------*
+/*-----------------------+
  | json_data             |
  +-----------------------+
  | {"bar":true,"foo":10} |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 ```zetasql
 SELECT JSON_OBJECT('foo', 10, 'bar', ['a', 'b']) AS json_data
 
-/*----------------------------*
+/*----------------------------+
  | json_data                  |
  +----------------------------+
  | {"bar":["a","b"],"foo":10} |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 ```zetasql
 SELECT JSON_OBJECT('a', NULL, 'b', JSON 'null') AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | {"a":null,"b":null} |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT JSON_OBJECT('a', 10, 'a', 'foo') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":10}  |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 WITH Items AS (SELECT 'hello' AS key, 'world' AS value)
 SELECT JSON_OBJECT(key, value) AS json_data FROM Items
 
-/*-------------------*
+/*-------------------+
  | json_data         |
  +-------------------+
  | {"hello":"world"} |
- *-------------------*/
+ +-------------------*/
 ```
 
 An error is produced if a SQL `NULL` is passed in for a JSON key.
@@ -3098,11 +3213,11 @@ keys and values. For example:
 ```zetasql
 SELECT JSON_OBJECT(CAST([] AS ARRAY<STRING>), []) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {}        |
- *-----------*/
+ +-----------*/
 ```
 
 You can create a JSON object by passing in an array of keys and an array of
@@ -3111,21 +3226,21 @@ values. For example:
 ```zetasql
 SELECT JSON_OBJECT(['a', 'b'], [10, NULL]) AS json_data
 
-/*-------------------*
+/*-------------------+
  | json_data         |
  +-------------------+
  | {"a":10,"b":null} |
- *-------------------*/
+ +-------------------*/
 ```
 
 ```zetasql
 SELECT JSON_OBJECT(['a', 'b'], [JSON '10', JSON '"foo"']) AS json_data
 
-/*--------------------*
+/*--------------------+
  | json_data          |
  +--------------------+
  | {"a":10,"b":"foo"} |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
@@ -3135,11 +3250,11 @@ SELECT
     [STRUCT(10 AS id, 'Red' AS color), STRUCT(20 AS id, 'Blue' AS color)])
     AS json_data
 
-/*------------------------------------------------------------*
+/*------------------------------------------------------------+
  | json_data                                                  |
  +------------------------------------------------------------+
  | {"a":{"color":"Red","id":10},"b":{"color":"Blue","id":20}} |
- *------------------------------------------------------------*/
+ +------------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -3149,11 +3264,11 @@ SELECT
     [TO_JSON(10), TO_JSON(['foo', 'bar'])])
     AS json_data
 
-/*----------------------------*
+/*----------------------------+
  | json_data                  |
  +----------------------------+
  | {"a":10,"b":["foo","bar"]} |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 The following query groups by `id` and then creates an array of keys and
@@ -3171,12 +3286,12 @@ SELECT JSON_OBJECT(ARRAY_AGG(json_key), ARRAY_AGG(json_value)) AS json_data
 FROM Fruits
 GROUP BY id
 
-/*----------------------------------*
+/*----------------------------------+
  | json_data                        |
  +----------------------------------+
  | {"color":"red","fruit":"apple"}  |
  | {"fruit":"banana","ripe":"true"} |
- *----------------------------------*/
+ +----------------------------------*/
 ```
 
 An error is produced if the size of the JSON keys and values arrays don't
@@ -3265,11 +3380,11 @@ SELECT
     JSON '{"class": {"students": [{"id": 5}, {"id": 12}]}}',
     '$.class') AS json_data;
 
-/*-----------------------------------*
+/*-----------------------------------+
  | json_data                         |
  +-----------------------------------+
  | {"students":[{"id":5},{"id":12}]} |
- *-----------------------------------*/
+ +-----------------------------------*/
 ```
 
 In the following examples, JSON data is extracted and returned as
@@ -3279,21 +3394,21 @@ JSON-formatted strings.
 SELECT
   JSON_QUERY('{"class": {"students": [{"name": "Jane"}]}}', '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"Jane"}]}}                  |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
 SELECT JSON_QUERY('{"class": {"students": []}}', '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[]}}                                 |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -3302,11 +3417,11 @@ SELECT
     '{"class": {"students": [{"name": "John"},{"name": "Jamie"}]}}',
     '$') AS json_text_string;
 
-/*-----------------------------------------------------------*
+/*-----------------------------------------------------------+
  | json_text_string                                          |
  +-----------------------------------------------------------+
  | {"class":{"students":[{"name":"John"},{"name":"Jamie"}]}} |
- *-----------------------------------------------------------*/
+ +-----------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -3315,22 +3430,22 @@ SELECT
     '{"class": {"students": [{"name": "Jane"}]}}',
     '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | {"name":"Jane"} |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT
   JSON_QUERY('{"class": {"students": []}}', '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | NULL            |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
@@ -3339,11 +3454,11 @@ SELECT
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
     '$.class.students[0]') AS first_student;
 
-/*-----------------*
+/*-----------------+
  | first_student   |
  +-----------------+
  | {"name":"John"} |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
@@ -3352,11 +3467,11 @@ SELECT
     '{"class": {"students": [{"name": "Jane"}]}}',
     '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -3365,11 +3480,11 @@ SELECT
     '{"class": {"students": []}}',
     '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -3378,11 +3493,11 @@ SELECT
     '{"class": {"students": [{"name": "John"}, {"name": null}]}}',
     '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | NULL           |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -3391,11 +3506,11 @@ SELECT
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
     '$.class.students[1].name') AS second_student;
 
-/*----------------*
+/*----------------+
  | second_student |
  +----------------+
  | "Jamie"        |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
@@ -3404,11 +3519,11 @@ SELECT
     '{"class": {"students": [{"name": "Jane"}]}}',
     '$.class."students"') AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | [{"name":"Jane"}]                  |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -3417,11 +3532,11 @@ SELECT
     '{"class": {"students": []}}',
     '$.class."students"') AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | []                                 |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -3430,11 +3545,11 @@ SELECT
     '{"class": {"students": [{"name": "John"}, {"name": "Jamie"}]}}',
     '$.class."students"') AS student_names;
 
-/*------------------------------------*
+/*------------------------------------+
  | student_names                      |
  +------------------------------------+
  | [{"name":"John"},{"name":"Jamie"}] |
- *------------------------------------*/
+ +------------------------------------*/
 ```
 
 ```zetasql
@@ -3505,11 +3620,11 @@ SELECT JSON_QUERY_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS json_array;
 
-/*---------------------------------*
+/*---------------------------------+
  | json_array                      |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -3517,11 +3632,11 @@ This extracts the items in a JSON-formatted string to a string array:
 ```zetasql
 SELECT JSON_QUERY_ARRAY('[1, 2, 3]') AS string_array;
 
-/*--------------*
+/*--------------+
  | string_array |
  +--------------+
  | [1, 2, 3]    |
- *--------------*/
+ +--------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -3534,11 +3649,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-/*---------------*
+/*---------------+
  | integer_array |
  +---------------+
  | [1, 2, 3]     |
- *---------------*/
+ +---------------*/
 ```
 
 This extracts string values in a JSON-formatted string to an array:
@@ -3547,11 +3662,11 @@ This extracts string values in a JSON-formatted string to an array:
 -- Doesn't strip the double quotes
 SELECT JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$') AS string_array;
 
-/*---------------------------------*
+/*---------------------------------+
  | string_array                    |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 ```zetasql
@@ -3561,11 +3676,11 @@ SELECT ARRAY(
   FROM UNNEST(JSON_QUERY_ARRAY('["apples", "oranges", "grapes"]', '$')) AS string_element
 ) AS string_array;
 
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 This extracts only the items in the `fruit` property to an array:
@@ -3576,11 +3691,11 @@ SELECT JSON_QUERY_ARRAY(
   '$.fruit'
 ) AS string_array;
 
-/*-------------------------------------------------------*
+/*-------------------------------------------------------+
  | string_array                                          |
  +-------------------------------------------------------+
  | [{"apples":5,"oranges":10}, {"apples":2,"oranges":4}] |
- *-------------------------------------------------------*/
+ +-------------------------------------------------------*/
 ```
 
 These are equivalent:
@@ -3591,11 +3706,11 @@ SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits
 SELECT JSON_QUERY_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-/*---------------------------------*
+/*---------------------------------+
  | string_array                    |
  +---------------------------------+
  | ["apples", "oranges", "grapes"] |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -3604,11 +3719,11 @@ characters using double quotes: `" "`. For example:
 ```zetasql
 SELECT JSON_QUERY_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-/*-----------*
+/*-----------+
  | hello     |
  +-----------+
  | ["world"] |
- *-----------*/
+ +-----------*/
 ```
 
 The following examples show how invalid requests and empty arrays are handled:
@@ -3620,29 +3735,29 @@ SELECT JSON_QUERY_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 -- If the JSONPath doesn't refer to an array, then NULL is returned.
 SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a key that doesn't exist is specified, then the result is NULL.
 SELECT JSON_QUERY_ARRAY('{"a": "foo"}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- Empty arrays in JSON-formatted strings are supported.
 SELECT JSON_QUERY_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | []     |
- *--------*/
+ +--------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -3695,11 +3810,11 @@ In the following example, the path `$[1]` is matched and removes
 ```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | ["a","d"] |
- *-----------*/
+ +-----------*/
 ```
 
 You can use the field access operator to pass JSON data into this function.
@@ -3709,11 +3824,11 @@ For example:
 WITH T AS (SELECT JSON '{"a": {"b": 10, "c": 20}}' AS data)
 SELECT JSON_REMOVE(data.a, '$.b') AS json_data FROM T
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"c":20}  |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, the first path `$[1]` is matched and removes
@@ -3722,11 +3837,11 @@ In the following example, the first path `$[1]` is matched and removes
 ```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | ["a"]     |
- *-----------*/
+ +-----------*/
 ```
 
 The structure of an empty array is preserved when all elements are deleted
@@ -3735,11 +3850,11 @@ from it. For example:
 ```zetasql
 SELECT JSON_REMOVE(JSON '["a", ["b", "c"], "d"]', '$[1]', '$[1]', '$[0]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | []        |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, the path `$.a.b.c` is matched and removes the
@@ -3748,11 +3863,11 @@ In the following example, the path `$.a.b.c` is matched and removes the
 ```zetasql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b.c') AS json_data
 
-/*----------------*
+/*----------------+
  | json_data      |
  +----------------+
  | {"a":{"b":{}}} |
- *----------------*/
+ +----------------*/
 ```
 
 In the following example, the path `$.a.b` is matched and removes the
@@ -3761,11 +3876,11 @@ In the following example, the path `$.a.b` is matched and removes the
 ```zetasql
 SELECT JSON_REMOVE(JSON '{"a": {"b": {"c": "d"}}}', '$.a.b') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":{}}  |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, the path `$.b` isn't valid, so the operation makes
@@ -3774,11 +3889,11 @@ no changes.
 ```zetasql
 SELECT JSON_REMOVE(JSON '{"a": 1}', '$.b') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":1}   |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, path `$.a.b` and `$.b` don't exist, so those
@@ -3787,11 +3902,11 @@ operations are ignored, but the others are processed.
 ```zetasql
 SELECT JSON_REMOVE(JSON '{"a": [1, 2, 3]}', '$.a[0]', '$.a.b', '$.b', '$.a[0]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"a":[3]} |
- *-----------*/
+ +-----------*/
 ```
 
 If you pass in `$` as the path, an error is produced. For example:
@@ -3807,11 +3922,11 @@ data from a JSON null.
 ```zetasql
 SELECT JSON_REMOVE(JSON 'null', '$.a.b') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | null      |
- *-----------*/
+ +-----------*/
 ```
 
 ## `JSON_SET`
@@ -3894,11 +4009,11 @@ and replaces it with `{"b": 2, "c": 3}`.
 ```zetasql
 SELECT JSON_SET(JSON '{"a": 1}', '$', JSON '{"b": 2, "c": 3}') AS json_data
 
-/*---------------*
+/*---------------+
  | json_data     |
  +---------------+
  | {"b":2,"c":3} |
- *---------------*/
+ +---------------*/
 ```
 
 In the following example, `create_if_missing` is `FALSE` and the path `$.b`
@@ -3910,11 +4025,11 @@ SELECT JSON_SET(
   "$.b", 999,
   create_if_missing => false) AS json_data
 
-/*------------*
+/*------------+
  | json_data  |
  +------------+
  | '{"a": 1}' |
- *------------*/
+ +------------*/
 ```
 
 In the following example, `create_if_missing` is `TRUE` and the path `$.a`
@@ -3926,11 +4041,11 @@ SELECT JSON_SET(
   "$.a", 999,
   create_if_missing => false) AS json_data
 
-/*--------------*
+/*--------------+
  | json_data    |
  +--------------+
  | '{"a": 999}' |
- *--------------*/
+ +--------------*/
 ```
 
 In the following example, the path `$.a` is matched, but `$.a.b` doesn't
@@ -3939,11 +4054,11 @@ exist, so the new path and the value are inserted.
 ```zetasql
 SELECT JSON_SET(JSON '{"a": {}}', '$.a.b', 100) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | {"a":{"b":100}} |
- *-----------------*/
+ +-----------------*/
 ```
 
 In the following example, the path prefix `$` points to a JSON null, so the
@@ -3952,11 +4067,11 @@ remainder of the path is created for the value `100`.
 ```zetasql
 SELECT JSON_SET(JSON 'null', '$.a.b', 100) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | {"a":{"b":100}} |
- *-----------------*/
+ +-----------------*/
 ```
 
 In the following example, the path `$.a.c` implies that the value at `$.a` is
@@ -3970,11 +4085,11 @@ SELECT JSON_SET(
   '$.a.c', 100,
   '$.d', 3) AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | {"a":1,"b":2,"d":3} |
- *---------------------*/
+ +---------------------*/
 ```
 
 In the following example, the path `$.a[2]` implies that the value for `$.a` is
@@ -3986,11 +4101,11 @@ SELECT JSON_SET(
   '$.a[2]', 100,
   '$.b', 2) AS json_data
 
-/*---------------*
+/*---------------+
  | json_data     |
  +---------------+
  | {"a":1,"b":2} |
- *---------------*/
+ +---------------*/
 ```
 
 In the following example, the path `$[1]` is matched and replaces the
@@ -3999,11 +4114,11 @@ array element value with `foo`.
 ```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1]', "foo") AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | ["a","foo","d"] |
- *-----------------*/
+ +-----------------*/
 ```
 
 In the following example, the path `$[1][0]` is matched and replaces the
@@ -4012,11 +4127,11 @@ array element value with `foo`.
 ```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0]', "foo") AS json_data
 
-/*-----------------------*
+/*-----------------------+
  | json_data             |
  +-----------------------+
  | ["a",["foo","c"],"d"] |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 In the following example, the path prefix `$` points to a JSON null, so the
@@ -4026,11 +4141,11 @@ JSON nulls and appended with `foo`.
 ```zetasql
 SELECT JSON_SET(JSON 'null', '$[0][3]', "foo")
 
-/*--------------------------*
+/*--------------------------+
  | json_data                |
  +--------------------------+
  | [[null,null,null,"foo"]] |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 In the following example, the path `$[1]` is matched, the matched array is
@@ -4040,11 +4155,11 @@ inserted in the array.
 ```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][4]', "foo") AS json_data
 
-/*-------------------------------------*
+/*-------------------------------------+
  | json_data                           |
  +-------------------------------------+
  | ["a",["b","c",null,null,"foo"],"d"] |
- *-------------------------------------*/
+ +-------------------------------------*/
 ```
 
 In the following example, the path `$[1][0][0]` implies that the value of
@@ -4053,11 +4168,11 @@ In the following example, the path `$[1][0][0]` implies that the value of
 ```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][0][0]', "foo") AS json_data
 
-/*---------------------*
+/*---------------------+
  | json_data           |
  +---------------------+
  | ["a",["b","c"],"d"] |
- *---------------------*/
+ +---------------------*/
 ```
 
 In the following example, the path `$[1][2]` is larger than the length of
@@ -4068,11 +4183,11 @@ and inserts `foo`.
 ```zetasql
 SELECT JSON_SET(JSON '["a", ["b", "c"], "d"]', '$[1][2][1]', "foo") AS json_data
 
-/*----------------------------------*
+/*----------------------------------+
  | json_data                        |
  +----------------------------------+
  | ["a",["b","c",[null,"foo"]],"d"] |
- *----------------------------------*/
+ +----------------------------------*/
 ```
 
 In the following example, because the `JSON` object is empty, key `b` is
@@ -4081,11 +4196,11 @@ inserted, and the remainder of the path is recursively created.
 ```zetasql
 SELECT JSON_SET(JSON '{}', '$.b[2].d', 100) AS json_data
 
-/*-----------------------------*
+/*-----------------------------+
  | json_data                   |
  +-----------------------------+
  | {"b":[null,null,{"d":100}]} |
- *-----------------------------*/
+ +-----------------------------*/
 ```
 
 In the following example, multiple values are set.
@@ -4097,11 +4212,11 @@ SELECT JSON_SET(
   '$.b.e', 'v2',
   '$.d[2]', 'v3') AS json_data
 
-/*---------------------------------------------------*
+/*---------------------------------------------------+
  | json_data                                         |
  +---------------------------------------------------+
  | {"a":"v1","b":{"c":3,"e":"v2"},"d":[4,null,"v3"]} |
- *---------------------------------------------------*/
+ +---------------------------------------------------*/
 ```
 
 ## `JSON_STRIP_NULLS`
@@ -4160,11 +4275,11 @@ In the following example, all JSON nulls are removed.
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": null, "b": "c"}') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"b":"c"} |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, all JSON nulls are removed from a JSON array.
@@ -4172,11 +4287,11 @@ In the following example, all JSON nulls are removed from a JSON array.
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [1,2]     |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, `include_arrays` is set as `FALSE` so that JSON nulls
@@ -4185,11 +4300,11 @@ aren't removed from JSON arrays.
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null]', include_arrays=>FALSE) AS json_data
 
-/*-----------------*
+/*-----------------+
  | json_data       |
  +-----------------+
  | [1,null,2,null] |
- *-----------------*/
+ +-----------------*/
 ```
 
 In the following example, `remove_empty` is omitted and defaults to
@@ -4198,11 +4313,11 @@ In the following example, `remove_empty` is omitted and defaults to
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '[1, null, 2, null, [null]]') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [1,2,[]]  |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, `remove_empty` is set as `TRUE`, and the
@@ -4213,11 +4328,11 @@ SELECT JSON_STRIP_NULLS(
   JSON '[1, null, 2, null, [null]]',
   remove_empty=>TRUE) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | [1,2]     |
- *-----------*/
+ +-----------*/
 ```
 
 In the following examples, `remove_empty` is set as `TRUE`, and the
@@ -4227,21 +4342,21 @@ returns JSON null.
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": null}', remove_empty=>TRUE) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | null      |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON '{"a": [null]}', remove_empty=>TRUE) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | null      |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, empty structures are removed for JSON objects,
@@ -4253,11 +4368,11 @@ SELECT JSON_STRIP_NULLS(
   include_arrays=>FALSE,
   remove_empty=>TRUE) AS json_data
 
-/*---------------------------*
+/*---------------------------+
  | json_data                 |
  +---------------------------+
  | {"d":[null],"e":[],"f":1} |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 In the following example, empty structures are removed for both JSON objects,
@@ -4268,11 +4383,11 @@ SELECT JSON_STRIP_NULLS(
   JSON '{"a": {"b": {"c": null}}, "d": [null], "e": [], "f": 1}',
   remove_empty=>TRUE) AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | {"f":1}   |
- *-----------*/
+ +-----------*/
 ```
 
 In the following example, because no JSON data is left, the function returns a
@@ -4281,11 +4396,11 @@ JSON null.
 ```zetasql
 SELECT JSON_STRIP_NULLS(JSON 'null') AS json_data
 
-/*-----------*
+/*-----------+
  | json_data |
  +-----------+
  | null      |
- *-----------*/
+ +-----------*/
 ```
 
 ## `JSON_TYPE` 
@@ -4333,7 +4448,7 @@ FROM
     ]
   ) AS json_val;
 
-/*----------------------------------+---------*
+/*----------------------------------+---------+
  | json_val                         | type    |
  +----------------------------------+---------+
  | "apple"                          | string  |
@@ -4343,7 +4458,7 @@ FROM
  | {"State":"NY","city":"New York"} | object  |
  | ["apple","banana"]               | array   |
  | false                            | boolean |
- *----------------------------------+---------*/
+ +----------------------------------+---------*/
 ```
 
 ## `JSON_VALUE`
@@ -4401,11 +4516,11 @@ In the following example, JSON data is extracted and returned as a scalar value.
 ```zetasql
 SELECT JSON_VALUE(JSON '{"name": "Jakob", "age": "6" }', '$.age') AS scalar_age;
 
-/*------------*
+/*------------+
  | scalar_age |
  +------------+
  | 6          |
- *------------*/
+ +------------*/
 ```
 
 The following example compares how results are returned for the `JSON_QUERY`
@@ -4417,22 +4532,22 @@ SELECT JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.name') AS json_name,
   JSON_QUERY('{"name": "Jakob", "age": "6"}', '$.age') AS json_age,
   JSON_VALUE('{"name": "Jakob", "age": "6"}', '$.age') AS scalar_age;
 
-/*-----------+-------------+----------+------------*
+/*-----------+-------------+----------+------------+
  | json_name | scalar_name | json_age | scalar_age |
  +-----------+-------------+----------+------------+
  | "Jakob"   | Jakob       | "6"      | 6          |
- *-----------+-------------+----------+------------*/
+ +-----------+-------------+----------+------------*/
 ```
 
 ```zetasql
 SELECT JSON_QUERY('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_query,
   JSON_VALUE('{"fruits": ["apple", "banana"]}', '$.fruits') AS json_value;
 
-/*--------------------+------------*
+/*--------------------+------------+
  | json_query         | json_value |
  +--------------------+------------+
  | ["apple","banana"] | NULL       |
- *--------------------+------------*/
+ +--------------------+------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -4441,11 +4556,11 @@ characters using double quotes. For example:
 ```zetasql
 SELECT JSON_VALUE('{"a.b": {"c": "world"}}', '$."a.b".c') AS hello;
 
-/*-------*
+/*-------+
  | hello |
  +-------+
  | world |
- *-------*/
+ +-------*/
 ```
 
 [JSONPath-format]: #JSONPath_format
@@ -4514,11 +4629,11 @@ SELECT JSON_VALUE_ARRAY(
   JSON '{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits'
   ) AS string_array;
 
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 The following example compares how results are returned for the
@@ -4528,11 +4643,11 @@ The following example compares how results are returned for the
 SELECT JSON_QUERY_ARRAY('["apples", "oranges"]') AS json_array,
        JSON_VALUE_ARRAY('["apples", "oranges"]') AS string_array;
 
-/*-----------------------+-------------------*
+/*-----------------------+-------------------+
  | json_array            | string_array      |
  +-----------------------+-------------------+
  | ["apples", "oranges"] | [apples, oranges] |
- *-----------------------+-------------------*/
+ +-----------------------+-------------------*/
 ```
 
 This extracts the items in a JSON-formatted string to a string array:
@@ -4541,11 +4656,11 @@ This extracts the items in a JSON-formatted string to a string array:
 -- Strips the double quotes
 SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', '$') AS string_array;
 
-/*-----------------*
+/*-----------------+
  | string_array    |
  +-----------------+
  | [foo, bar, baz] |
- *-----------------*/
+ +-----------------*/
 ```
 
 This extracts a string array and converts it to an integer array:
@@ -4558,11 +4673,11 @@ SELECT ARRAY(
   ) AS integer_element
 ) AS integer_array;
 
-/*---------------*
+/*---------------+
  | integer_array |
  +---------------+
  | [1, 2, 3]     |
- *---------------*/
+ +---------------*/
 ```
 
 These are equivalent:
@@ -4572,11 +4687,11 @@ SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$.fruits
 SELECT JSON_VALUE_ARRAY('{"fruits": ["apples", "oranges", "grapes"]}', '$."fruits"') AS string_array;
 
 -- The queries above produce the following result:
-/*---------------------------*
+/*---------------------------+
  | string_array              |
  +---------------------------+
  | [apples, oranges, grapes] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 In cases where a JSON key uses invalid JSONPath characters, you can escape those
@@ -4585,11 +4700,11 @@ characters using double quotes: `" "`. For example:
 ```zetasql
 SELECT JSON_VALUE_ARRAY('{"a.b": {"c": ["world"]}}', '$."a.b".c') AS hello;
 
-/*---------*
+/*---------+
  | hello   |
  +---------+
  | [world] |
- *---------*/
+ +---------*/
 ```
 
 The following examples explore how invalid requests and empty arrays are
@@ -4602,76 +4717,76 @@ SELECT JSON_VALUE_ARRAY('["foo", "bar", "baz"]', 'INVALID_JSONPath') AS result;
 -- If the JSON-formatted string is invalid, then NULL is returned.
 SELECT JSON_VALUE_ARRAY('}}', '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If the JSON document is NULL, then NULL is returned.
 SELECT JSON_VALUE_ARRAY(NULL, '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath doesn't match anything, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": ["foo", "bar", "baz"]}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an object that isn't an array, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": "foo"}', '$') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an array of non-scalar objects, then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": [{"b": "foo", "c": 1}, {"b": "bar", "c": 2}], "d": "baz"}', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an array of mixed scalar and non-scalar objects,
 -- then the output is NULL.
 SELECT JSON_VALUE_ARRAY('{"a": [10, {"b": 20}]', '$.a') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 
 -- If a JSONPath matches an empty JSON array, then the output is an empty array instead of NULL.
 SELECT JSON_VALUE_ARRAY('{"a": "foo", "b": []}', '$.b') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | []     |
- *--------*/
+ +--------*/
 
 -- In the following query, the JSON null input is returned as a
 -- SQL NULL in the output.
 SELECT JSON_VALUE_ARRAY('["world", null, 1]') AS result;
 
-/*------------------*
+/*------------------+
  | result           |
  +------------------+
  | [world, NULL, 1] |
- *------------------*/
+ +------------------*/
 
 ```
 
@@ -4751,11 +4866,11 @@ Example with input that's a JSON boolean:
 ```zetasql
 SELECT LAX_BOOL(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | true   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -4763,31 +4878,31 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_BOOL(JSON '"true"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | TRUE   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL(JSON '"true "') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON numbers:
@@ -4795,41 +4910,41 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_BOOL(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | TRUE   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL(JSON '0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | FALSE  |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL(JSON '0.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | FALSE  |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL(JSON '-1.1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | TRUE   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_BOOL_ARRAY` 
@@ -4886,11 +5001,11 @@ Example with input that's a JSON array of booleans:
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[true, false]') AS result;
 
-/*---------------*
+/*---------------+
  | result        |
  +---------------+
  | [true, false] |
- *---------------*/
+ +---------------*/
 ```
 
 Examples with inputs that are JSON arrays of strings:
@@ -4898,21 +5013,21 @@ Examples with inputs that are JSON arrays of strings:
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '["true", "false", "TRue", "FaLse"]') AS result;
 
-/*----------------------------*
+/*----------------------------+
  | result                     |
  +----------------------------+
  | [true, false, true, false] |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '["true ", "foo", "null", ""]') AS result;
 
-/*-------------------------*
+/*-------------------------+
  | result                  |
  +-------------------------+
  | [NULL, NULL, NULL, NULL |
- *-------------------------*/
+ +-------------------------*/
 ```
 
 Examples with input that's JSON array of numbers:
@@ -4920,11 +5035,11 @@ Examples with input that's JSON array of numbers:
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[10, 0, 0.0, -1.1]') AS result;
 
-/*--------------------------*
+/*--------------------------+
  | result                   |
  +--------------------------+
  | TRUE, FALSE, FALSE, TRUE |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 Example with input that's JSON array of other types:
@@ -4932,11 +5047,11 @@ Example with input that's JSON array of other types:
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -4944,31 +5059,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_BOOL_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_BOOL_ARRAY(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_DOUBLE` 
@@ -5043,41 +5158,41 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_DOUBLE(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 9.8    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '9') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 9.0    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '9007199254740993') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | 9007199254740992.0 |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1e+100 |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -5085,21 +5200,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_DOUBLE(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -5107,91 +5222,91 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10.0   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1.1    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110.0  |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"9007199254740993"') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | 9007199254740992.0 |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1.5    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"NaN"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NaN    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"Inf"') AS result;
 
-/*----------*
+/*----------+
  | result   |
  +----------+
  | Infinity |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"-InfiNiTY"') AS result;
 
-/*-----------*
+/*-----------+
  | result    |
  +-----------+
  | -Infinity |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_DOUBLE_ARRAY` 
@@ -5251,31 +5366,31 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[9.8, 9]') AS result;
 
-/*-------------*
+/*-------------+
  | result      |
  +-------------+
  | [9.8, 9.0,] |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[9007199254740993, -9007199254740993]') AS result;
 
-/*-------------------------------------------*
+/*-------------------------------------------+
  | result                                    |
  +-------------------------------------------+
  | [9007199254740992.0, -9007199254740992.0] |
- *-------------------------------------------*/
+ +-------------------------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
 
-/*-----------------------------------------------------*
+/*-----------------------------------------------------+
  | result                                              |
  +-----------------------------------------------------+
  | [-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e+100] |
- *-----------------------------------------------------*/
+ +-----------------------------------------------------*/
 ```
 
 Example with inputs that's JSON array of booleans:
@@ -5283,11 +5398,11 @@ Example with inputs that's JSON array of booleans:
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[true, false]') AS result;
 
-/*----------------*
+/*----------------+
  | result         |
  +----------------+
  | [NULL, NULL]   |
- *----------------*/
+ +----------------*/
 ```
 
 Examples with inputs that are JSON arrays of strings:
@@ -5295,41 +5410,41 @@ Examples with inputs that are JSON arrays of strings:
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-------------------------*
+/*-------------------------+
  | result                  |
  +-------------------------+
  | [10.0, 1.1, 110.0, 1.5] |
- *-------------------------*/
+ +-------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["9007199254740993"]') AS result;
 
-/*----------------------*
+/*----------------------+
  | result               |
  +----------------------+
  | [9007199254740992.0] |
- *----------------------*/
+ +----------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
 
-/*----------------------------*
+/*----------------------------+
  | result                     |
  +----------------------------+
  | [NaN, Infinity, -Infinity] |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's JSON array of other types:
@@ -5337,11 +5452,11 @@ Example with input that's JSON array of other types:
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -5349,31 +5464,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_DOUBLE_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_FLOAT` 
@@ -5447,41 +5562,41 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_FLOAT(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 9.8    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '9') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 9.0    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '16777217') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | 16777216.0         |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -5489,21 +5604,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_FLOAT(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -5511,91 +5626,91 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_FLOAT(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10.0   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1.1    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110.0  |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"16777217"') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | 16777216.0         |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1.5    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"NaN"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NaN    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"Inf"') AS result;
 
-/*----------*
+/*----------+
  | result   |
  +----------+
  | Infinity |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"-InfiNiTY"') AS result;
 
-/*-----------*
+/*-----------+
  | result    |
  +-----------+
  | -Infinity |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_FLOAT_ARRAY` 
@@ -5654,41 +5769,41 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[9.8, 9]') AS result;
 
-/*------------*
+/*------------+
  | result     |
  +------------+
  | [9.8, 9.0] |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[16777217, -16777217]') AS result;
 
-/*---------------------------*
+/*---------------------------+
  | result                    |
  +---------------------------+
  | [16777216.0, -16777216.0] |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[-3.40282e+38, 1.17549e-38, 3.40282e+38]') AS result;
 
-/*------------------------------------------*
+/*------------------------------------------+
  | result                                   |
  +------------------------------------------+
  | [-3.40282e+38, 1.17549e-38, 3.40282e+38] |
- *------------------------------------------*/
+ +------------------------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[-1.79769e+308, 2.22507e-308, 1.79769e+308, 1e100]') AS result;
 
-/*-----------------------*
+/*-----------------------+
  | result                |
  +-----------------------+
  | [NULL, 0, NULL, NULL] |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 Example with inputs that's JSON array of booleans:
@@ -5696,11 +5811,11 @@ Example with inputs that's JSON array of booleans:
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[true, false]') AS result;
 
-/*----------------*
+/*----------------+
  | result         |
  +----------------+
  | [NULL, NULL]   |
- *----------------*/
+ +----------------*/
 ```
 
 Examples with inputs that are JSON arrays of strings:
@@ -5708,41 +5823,41 @@ Examples with inputs that are JSON arrays of strings:
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-------------------------*
+/*-------------------------+
  | result                  |
  +-------------------------+
  | [10.0, 1.1, 110.0, 1.5] |
- *------------------------*/
+ +------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["16777217"]') AS result;
 
-/*--------------*
+/*--------------+
  | result       |
  +--------------+
  | [16777216.0] |
- *--------------*/
+ +--------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["NaN", "Inf", "-InfiNiTY"]') AS result;
 
-/*----------------------------*
+/*----------------------------+
  | result                     |
  +----------------------------+
  | [NaN, Infinity, -Infinity] |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's JSON array of other types:
@@ -5750,11 +5865,11 @@ Example with input that's JSON array of other types:
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -5762,31 +5877,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_FLOAT_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_INT32` 
@@ -5860,61 +5975,61 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_INT32(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '10.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '1.1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '3.5') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 4      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '1.1e2') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -5922,21 +6037,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_INT32(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -5944,61 +6059,61 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_INT32(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 2      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '"1e100"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_INT32_ARRAY` 
@@ -6055,21 +6170,21 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
-/*---------------------*
+/*---------------------+
  | result              |
  +---------------------+
  | [10, 10, 1, 4, 110] |
- *---------------- ----*/
+ +---------------- ----*/
 ```
 
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[1e100]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 Example with inputs that's JSON array of booleans:
@@ -6077,11 +6192,11 @@ Example with inputs that's JSON array of booleans:
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[true, false]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [1, 0] |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -6089,31 +6204,31 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-----------------*
+/*-----------------+
  | result          |
  +-----------------+
  | [10, 1, 110, 2] |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["1e100"]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's JSON array of other types:
@@ -6121,11 +6236,11 @@ Example with input that's JSON array of other types:
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -6133,31 +6248,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_INT32_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT32_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_INT64` 
@@ -6231,61 +6346,61 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_INT64(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '10.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '1.1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '3.5') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 4      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '1.1e2') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -6293,21 +6408,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_INT64(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -6315,61 +6430,61 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_INT64(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 2      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '"1e100"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_INT64_ARRAY` 
@@ -6426,21 +6541,21 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
-/*---------------------*
+/*---------------------+
  | result              |
  +---------------------+
  | [10, 10, 1, 4, 110] |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[1e100]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 Example with inputs that's JSON array of booleans:
@@ -6448,11 +6563,11 @@ Example with inputs that's JSON array of booleans:
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[true, false]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [1, 0] |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -6460,31 +6575,31 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-----------------*
+/*-----------------+
  | result          |
  +-----------------+
  | [10, 1, 110, 2] |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["1e100"]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's JSON array of other types:
@@ -6492,11 +6607,11 @@ Example with input that's JSON array of other types:
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -6504,31 +6619,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_INT64_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_INT64_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_STRING` 
@@ -6598,21 +6713,21 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_STRING(JSON '"purple"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | purple |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -6620,21 +6735,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_STRING(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | true   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | false  |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON numbers:
@@ -6642,31 +6757,31 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_STRING(JSON '10.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1e+100 |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_STRING_ARRAY` 
@@ -6723,11 +6838,11 @@ Example with input that's a JSON array of strings:
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON '["purple", "10"]') AS result;
 
-/*--------------*
+/*--------------+
  | result       |
  +--------------+
  | [purple, 10] |
- *--------------*/
+ +--------------*/
 ```
 
 Example with input that's a JSON array of booleans:
@@ -6735,11 +6850,11 @@ Example with input that's a JSON array of booleans:
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[true, false]') AS result;
 
-/*---------------*
+/*---------------+
  | result        |
  +---------------+
  | [true, false] |
- *---------------*/
+ +---------------*/
 ```
 
 Example with input that's a JSON array of numbers:
@@ -6747,11 +6862,11 @@ Example with input that's a JSON array of numbers:
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[10.0, 10, 1e100]') AS result;
 
-/*------------------*
+/*------------------+
  | result           |
  +------------------+
  | [10, 10, 1e+100] |
- *------------------*/
+ +------------------*/
 ```
 
 Example with input that's a JSON array of other types:
@@ -6759,11 +6874,11 @@ Example with input that's a JSON array of other types:
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -6771,31 +6886,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_STRING_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_STRING_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_UINT32` 
@@ -6869,71 +6984,71 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_UINT32(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '10.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '1.1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '3.5') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 4      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '1.1e2') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '-1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -6941,21 +7056,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_UINT32(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -6963,61 +7078,61 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_UINT32(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 2      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '"1e100"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_UINT32_ARRAY` 
@@ -7076,21 +7191,21 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
-/*---------------------*
+/*---------------------+
  | result              |
  +---------------------+
  | [10, 10, 1, 4, 110] |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[1e100]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 Example with inputs that's a JSON array of booleans:
@@ -7098,11 +7213,11 @@ Example with inputs that's a JSON array of booleans:
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[true, false]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [1, 0] |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -7110,31 +7225,31 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-----------------*
+/*-----------------+
  | result          |
  +-----------------+
  | [10, 1, 110, 2] |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["1e100"]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's a JSON array of other types:
@@ -7142,11 +7257,11 @@ Example with input that's a JSON array of other types:
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -7154,31 +7269,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_UINT32_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT32_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_UINT64` 
@@ -7252,71 +7367,71 @@ Examples with inputs that are JSON numbers:
 ```zetasql
 SELECT LAX_UINT64(JSON '10') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '10.0') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '1.1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '3.5') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 4      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '1.1e2') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '-1') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '1e100') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON booleans:
@@ -7324,21 +7439,21 @@ Examples with inputs that are JSON booleans:
 ```zetasql
 SELECT LAX_UINT64(JSON 'true') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON 'false') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 0      |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -7346,61 +7461,61 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_UINT64(JSON '"10"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 10     |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '"1.1"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '"1.1e2"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 110    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '"+1.5"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 2      |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '"1e100"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64(JSON '"foo"') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `LAX_UINT64_ARRAY` 
@@ -7457,21 +7572,21 @@ Examples with inputs that are JSON arrays of numbers:
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[10, 10.0, 1.1, 3.5, 1.1e2]') AS result;
 
-/*---------------------*
+/*---------------------+
  | result              |
  +---------------------+
  | [10, 10, 1, 4, 110] |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[1e100]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 Example with inputs that's a JSON array of booleans:
@@ -7479,11 +7594,11 @@ Example with inputs that's a JSON array of booleans:
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[true, false]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [1, 0] |
- *--------*/
+ +--------*/
 ```
 
 Examples with inputs that are JSON strings:
@@ -7491,31 +7606,31 @@ Examples with inputs that are JSON strings:
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["10", "1.1", "1.1e2", "+1.5"]') AS result;
 
-/*-----------------*
+/*-----------------+
  | result          |
  +-----------------+
  | [10, 1, 110, 2] |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["1e100"]') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | [NULL] |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '["foo", "null", ""]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Example with input that's a JSON array of other types:
@@ -7523,11 +7638,11 @@ Example with input that's a JSON array of other types:
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '[null, {"foo": 1}, [1]]') AS result;
 
-/*--------------------*
+/*--------------------+
  | result             |
  +--------------------+
  | [NULL, NULL, NULL] |
- *--------------------*/
+ +--------------------*/
 ```
 
 Examples with inputs that aren't JSON arrays:
@@ -7535,31 +7650,31 @@ Examples with inputs that aren't JSON arrays:
 ```zetasql
 SELECT LAX_UINT64_ARRAY(NULL) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON 'null') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT LAX_UINT64_ARRAY(JSON '9.8') AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 ## `PARSE_JSON`
@@ -7615,11 +7730,11 @@ In the following example, a JSON-formatted string is converted to `JSON`.
 ```zetasql
 SELECT PARSE_JSON('{"coordinates": [10, 20], "id": 1}') AS json_data;
 
-/*--------------------------------*
+/*--------------------------------+
  | json_data                      |
  +--------------------------------+
  | {"coordinates":[10,20],"id":1} |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 The following queries fail because:
@@ -7638,11 +7753,11 @@ The following query rounds the number to a number that can be stored in JSON.
 ```zetasql
 SELECT PARSE_JSON('{"id": 922337203685477580701}', wide_number_mode=>'round') AS json_data;
 
-/*------------------------------*
+/*------------------------------+
  | json_data                    |
  +------------------------------+
  | {"id":9.223372036854776e+20} |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 You can also use valid JSON-formatted strings that don't represent name/value pairs. For example:
@@ -7650,21 +7765,21 @@ You can also use valid JSON-formatted strings that don't represent name/value pa
 ```zetasql
 SELECT PARSE_JSON('6') AS json_data;
 
-/*------------------------------*
+/*------------------------------+
  | json_data                    |
  +------------------------------+
  | 6                            |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 ```zetasql
 SELECT PARSE_JSON('"red"') AS json_data;
 
-/*------------------------------*
+/*------------------------------+
  | json_data                    |
  +------------------------------+
  | "red"                        |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 ## `SAFE_TO_JSON`
@@ -7710,11 +7825,11 @@ unsupported type:
 ```zetasql
 SELECT SAFE_TO_JSON(STRUCT(CAST(b'' AS UNSUPPORTED_TYPE) AS ut) AS result;
 
-/*--------------*
+/*--------------+
  | result       |
  +--------------+
  | {"ut": null} |
- *--------------*/
+ +--------------*/
 ```
 
 The following array produces a JSON null instead of an error because the data
@@ -7727,11 +7842,11 @@ SELECT SAFE_TO_JSON([
         CAST(b'' AS UNSUPPORTED_TYPE),
     ]) AS result;
 
-/*------------*
+/*------------+
  | result     |
  +------------+
  | null       |
- *------------*/
+ +------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -7767,21 +7882,21 @@ Arguments:
 ```zetasql
 SELECT STRING(JSON '"purple"') AS color;
 
-/*--------*
+/*--------+
  | color  |
  +--------+
  | purple |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT STRING(JSON_QUERY(JSON '{"name": "sky", "color": "blue"}', "$.color")) AS color;
 
-/*-------*
+/*-------+
  | color |
  +-------+
  | blue  |
- *-------*/
+ +-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -7824,11 +7939,11 @@ Arguments:
 ```zetasql
 SELECT STRING_ARRAY(JSON '["purple", "blue"]') AS colors;
 
-/*----------------*
+/*----------------+
  | colors         |
  +----------------+
  | [purple, blue] |
- *----------------*/
+ +----------------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -7895,13 +8010,13 @@ With CoordinatesTable AS (
 SELECT TO_JSON(t) AS json_objects
 FROM CoordinatesTable AS t;
 
-/*--------------------------------*
+/*--------------------------------+
  | json_objects                   |
  +--------------------------------+
  | {"coordinates":[10,20],"id":1} |
  | {"coordinates":[30,40],"id":2} |
  | {"coordinates":[50,60],"id":3} |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 In the following example, the query returns a large numerical value as a
@@ -7910,11 +8025,11 @@ JSON string.
 ```zetasql
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>TRUE) as stringify_on;
 
-/*--------------------*
+/*--------------------+
  | stringify_on       |
  +--------------------+
  | "9007199254740993" |
- *--------------------*/
+ +--------------------*/
 ```
 
 In the following example, both queries return a large numerical value as a
@@ -7924,11 +8039,11 @@ JSON number.
 SELECT TO_JSON(9007199254740993, stringify_wide_numbers=>FALSE) as stringify_off;
 SELECT TO_JSON(9007199254740993) as stringify_off;
 
-/*------------------*
+/*------------------+
  | stringify_off    |
  +------------------+
  | 9007199254740993 |
- *------------------*/
+ +------------------*/
 ```
 
 In the following example, only large numeric values are converted to
@@ -7941,12 +8056,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-/*---------------------------*
+/*---------------------------+
  | json_objects              |
  +---------------------------+
  | {"id":"9007199254740993"} |
  | {"id":2}                  |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 In this example, the values `9007199254740993` (`INT64`)
@@ -7961,12 +8076,12 @@ With T1 AS (
 SELECT TO_JSON(t, stringify_wide_numbers=>TRUE) AS json_objects
 FROM T1 AS t;
 
-/*------------------------------*
+/*------------------------------+
  | json_objects                 |
  +------------------------------+
  | {"id":9.007199254740992e+15} |
  | {"id":2.1}                   |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -7999,11 +8114,11 @@ The following query converts a `STRUCT` value to a JSON-formatted string:
 ```zetasql
 SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates)) AS json_data
 
-/*--------------------------------*
+/*--------------------------------+
  | json_data                      |
  +--------------------------------+
  | {"id":1,"coordinates":[10,20]} |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 The following query converts a `STRUCT` value to a JSON-formatted string that is
@@ -8012,7 +8127,7 @@ easy to read:
 ```zetasql
 SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_data
 
-/*--------------------*
+/*--------------------+
  | json_data          |
  +--------------------+
  | {                  |
@@ -8022,7 +8137,7 @@ SELECT TO_JSON_STRING(STRUCT(1 AS id, [10,20] AS coordinates), true) AS json_dat
  |     20             |
  |   ]                |
  | }                  |
- *--------------------*/
+ +--------------------*/
 ```
 
 [json-encodings]: #json_encodings
@@ -8059,31 +8174,31 @@ Arguments:
 ```zetasql
 SELECT UINT32(JSON '2005') AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT UINT32(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT UINT32(JSON '10.0') AS score;
 
-/*-------*
+/*-------+
  | score |
  +-------+
  | 10    |
- *-------*/
+ +-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -8129,21 +8244,21 @@ Arguments:
 ```zetasql
 SELECT UINT32_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
-/*----------------*
+/*----------------+
  | flight_numbers |
  +----------------+
  | [2005, 2003]   |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT UINT32_ARRAY(JSON '[10.0]') AS scores;
 
-/*--------*
+/*--------+
  | scores |
  +--------+
  | [10]   |
- *--------*/
+ +--------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -8189,31 +8304,31 @@ Arguments:
 ```zetasql
 SELECT UINT64(JSON '2005') AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT UINT64(JSON_QUERY(JSON '{"gate": "A4", "flight_number": 2005}', "$.flight_number")) AS flight_number;
 
-/*---------------*
+/*---------------+
  | flight_number |
  +---------------+
  | 2005          |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT UINT64(JSON '10.0') AS score;
 
-/*-------*
+/*-------+
  | score |
  +-------+
  | 10    |
- *-------*/
+ +-------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -8259,21 +8374,21 @@ Arguments:
 ```zetasql
 SELECT UINT64_ARRAY(JSON '[2005, 2003]') AS flight_numbers;
 
-/*----------------*
+/*----------------+
  | flight_numbers |
  +----------------+
  | [2005, 2003]   |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT UINT64_ARRAY(JSON '[10.0]') AS scores;
 
-/*--------*
+/*--------+
  | scores |
  +--------+
  | [10]   |
- *--------*/
+ +--------*/
 ```
 
 The following examples show how invalid requests are handled:
@@ -8321,11 +8436,11 @@ For example:
 ```zetasql
 SELECT JSON_VALUE('{"hello": "world"', "$.hello") AS hello;
 
-/*-------*
+/*-------+
  | hello |
  +-------+
  | world |
- *-------*/
+ +-------*/
 ```
 
 ```zetasql
@@ -8344,21 +8459,21 @@ parsing.
 ```zetasql
 SELECT JSON_QUERY('{"key": 1, "key": 2}', "$") AS string;
 
-/*-------------------*
+/*-------------------+
  | string            |
  +-------------------+
  | {"key":1,"key":2} |
- *-------------------*/
+ +-------------------*/
 ```
 
 ```zetasql
 SELECT JSON_QUERY(JSON '{"key": 1, "key": 2}', "$") AS json;
 
-/*-----------*
+/*-----------+
  | json      |
  +-----------+
  | {"key":1} |
- *-----------*/
+ +-----------*/
 ```
 
 #### JSON `null`
@@ -8378,11 +8493,11 @@ SELECT JSON_QUERY(json_string, "$.name") AS name_string,
   JSON_QUERY(json, "$.name") IS NULL AS name_json_is_null
 FROM t;
 
-/*-------------+---------------------+-----------+-------------------*
+/*-------------+---------------------+-----------+-------------------+
  | name_string | name_string_is_null | name_json | name_json_is_null |
  +-------------+---------------------+-----------+-------------------+
  | NULL        | true                | null      | false             |
- *-------------+---------------------+-----------+-------------------*/
+ +-------------+---------------------+-----------+-------------------*/
 ```
 
 [JSON-type]: https://github.com/google/zetasql/blob/master/docs/data-types.md#json_type

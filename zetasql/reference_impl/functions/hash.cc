@@ -17,6 +17,7 @@
 #include "zetasql/reference_impl/functions/hash.h"
 
 #include <memory>
+#include <string>
 
 #include "zetasql/public/functions/hash.h"
 #include "zetasql/public/type.pb.h"
@@ -27,10 +28,12 @@
 #include "zetasql/reference_impl/function.h"
 #include "zetasql/reference_impl/tuple.h"
 #include "absl/log/log.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 namespace {

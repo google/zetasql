@@ -45,7 +45,7 @@ class SignatureMatchResult {
       : non_matched_arguments_(0), non_literals_coerced_(0),
         non_literals_distance_(0), literals_coerced_(0),
         literals_distance_(0) {}
-  ~SignatureMatchResult() {}
+  ~SignatureMatchResult() = default;
 
   int non_matched_arguments() const { return non_matched_arguments_; }
   void incr_non_matched_arguments() { non_matched_arguments_++; }

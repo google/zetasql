@@ -188,7 +188,7 @@ absl::StatusOr<SimpleValue> SimpleValue::Deserialize(
       value = SimpleValue::Int64(proto.int64_value());
       break;
     case SimpleValueProto::kStringValue:
-      value = SimpleValue::String(proto.string_value());
+      value = SimpleValue::String(std::string(proto.string_value()));
       break;
     case SimpleValueProto::kBoolValue:
       value = SimpleValue::Bool(proto.bool_value());
@@ -197,7 +197,7 @@ absl::StatusOr<SimpleValue> SimpleValue::Deserialize(
       value = SimpleValue::Double(proto.double_value());
       break;
     case SimpleValueProto::kBytesValue:
-      value = SimpleValue::Bytes(proto.bytes_value());
+      value = SimpleValue::Bytes(std::string(proto.bytes_value()));
       break;
     case SimpleValueProto::VALUE_NOT_SET:
       ZETASQL_RET_CHECK_FAIL() << "No value set on SimpleValueProto::value";

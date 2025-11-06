@@ -43,15 +43,16 @@
 #include "zetasql/parser/textmapper_lexer_adapter.h"
 #include "zetasql/parser/tm_parser.h"
 #include "zetasql/parser/tm_token.h"
-#include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/proto/logging.pb.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -129,8 +130,6 @@ static std::string GetParserModeName(ParserMode mode) {
       return "expression";
     case ParserMode::kType:
       return "type";
-    case ParserMode::kSubpipeline:
-      return "subpipeline";
     case ParserMode::kStatement:
     case ParserMode::kNextStatement:
     case ParserMode::kNextScriptStatement:
@@ -224,9 +223,8 @@ static std::string ShortenBytesLiteralForError(absl::string_view literal) {
 // the given inputs.
 static absl::Status GenerateImprovedBisonSyntaxError(
     const LanguageOptions& language_options, const absl::Status& parse_status,
-    ParserMode mode, absl::string_view input, int start_offset,
-    MacroExpansionMode macro_expansion_mode,
-    const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena) {
+    ParserMode mode, const Lexer& lexer, absl::string_view input,
+    int start_offset) {
   // Bison error messages are always of the form "syntax error, unexpected X,
   // expecting Y", where Y may be of the form "A" or "A or B" or "A or B or C".
   // It will use $end to indicate "end of input". We don't want to have the text
@@ -340,115 +338,121 @@ static absl::Status GenerateImprovedBisonSyntaxError(
   ParseLocationPoint error_location =
       ParseLocationPoint::FromInternalErrorLocation(internal_error_location);
 
-  // TODO: Make this conditional on the language features that are
-  // enabled, and remove other elements from the expectations that are not
-  // supported by the enabled language features.
+  // Normalize the special forms of the keywords so that they don't require
+  // special handling in error message generation.
+  auto normalize_token = [](Token token) {
+    static const auto* const kNormalized =
+        new absl::flat_hash_map<Token, Token>{
+            {Token::KW_WITH_STARTING_WITH_GROUP_ROWS, Token::KW_WITH},
+            {Token::KW_WITH_STARTING_WITH_EXPRESSION, Token::KW_WITH},
+            {Token::KW_EXCEPT_IN_SET_OP, Token::KW_EXCEPT},
+            {Token::KW_FOR_BEFORE_LOCK_MODE, Token::KW_FOR},
+            {Token::KW_FULL_IN_SET_OP, Token::KW_FULL},
+            {Token::KW_INNER_IN_SET_OP, Token::KW_INNER},
+            {Token::KW_LEFT_IN_SET_OP, Token::KW_LEFT},
+            {Token::KW_TABLE_FOR_TABLE_CLAUSE, Token::KW_TABLE},
+            {Token::KW_REPLACE_AFTER_INSERT, Token::KW_REPLACE},
+            {Token::KW_UPDATE_AFTER_INSERT, Token::KW_UPDATE},
+            {Token::KW_NOT_SPECIAL, Token::KW_NOT},
+        };
+    return kNormalized->contains(token) ? kNormalized->at(token) : token;
+  };
+  Token token = normalize_token(lexer.Last());
+  absl::string_view token_text = lexer.Text();
+  std::string actual_token_description;
 
-  // Re-parse the input so that we can get the token at the error location. We
-  // start the tokenizer in kTokenizer mode because we don't need to get a bogus
-  // token at the start to indicate the statement type. That token interferes
-  // with errors at offset 0.
-  StackFrame::StackFrameFactory stack_frame_factory;
-  ZETASQL_ASSIGN_OR_RETURN(
-      auto tokenizer,
-      LookaheadTransformer::Create(
-          ParserMode::kTokenizerPreserveComments, error_location.filename(),
-          input, start_offset, language_options, macro_expansion_mode,
-          macro_catalog, arena, stack_frame_factory));
-  ParseLocationRange token_location;
-  Token token = Token::UNAVAILABLE;
-  while (token != Token::EOI) {
-    ParseLocationPoint last_token_location_end = token_location.end();
-    ZETASQL_RETURN_IF_ERROR(tokenizer->GetNextToken(&token_location, &token));
-    // Bison always returns parse errors at token boundaries, so this should
-    // never happen.
-    ZETASQL_RET_CHECK_GE(error_location.GetByteOffset(),
-                 token_location.start().GetByteOffset());
-    if (token == Token::EOI || error_location.GetByteOffset() ==
-                                   token_location.start().GetByteOffset()) {
-      const absl::string_view token_text = token_location.GetTextFrom(input);
-      std::string actual_token_description;
-      if (token == Token::EOI) {
-        // The error location was at end-of-input, so this is an
-        // unexpected-end-of error. Format with a better string, and move its
-        // location to the end of the last token.
-        actual_token_description =
-            absl::StrCat("end of ", GetParserModeName(mode));
-        if (last_token_location_end.IsValid()) {
-          error_location = last_token_location_end;
-        } else {
-          // There was not even a comment, the input is just whitespace. Move
-          // the error to skip it all.
-          error_location = token_location.start();
-          error_location.SetByteOffset(start_offset);
-        }
-      } else if (token == Token::KW_OVER) {
-        // When the OVER keyword is used in the wrong place, we tell the user
-        // exactly where it can be used.
-        return MakeSqlErrorAtPoint(error_location)
-               << "Syntax error: OVER keyword must follow a function call";
-      } else if (const KeywordInfo* keyword_info =
-                     GetKeywordInfoForToken(token)) {
-        actual_token_description =
-            absl::StrCat("keyword ", keyword_info->keyword());
-      } else if (token == Token::STRING_LITERAL) {
-        // Escape physical newlines, to avoid multi-line error messages. (Note
-        // that this is technically incorrect for raw string literals.)
-        std::string escaped_token_text = std::string(token_text);
-        absl::StrReplaceAll({{"\r", "\\r"}}, &escaped_token_text);
-        absl::StrReplaceAll({{"\n", "\\n"}}, &escaped_token_text);
-        actual_token_description =
-            absl::StrCat("string literal ",
-                         ShortenStringLiteralForError(escaped_token_text));
-      } else if (token == Token::BYTES_LITERAL) {
-        // Escape physical newlines, to avoid multi-line error messages. (Note
-        // that this is technically incorrect for raw bytes literals.)
-        std::string escaped_token_text = std::string(token_text);
-        absl::StrReplaceAll({{"\r", "\\r"}}, &escaped_token_text);
-        absl::StrReplaceAll({{"\n", "\\n"}}, &escaped_token_text);
-        actual_token_description = absl::StrCat(
-            "bytes literal ", ShortenBytesLiteralForError(escaped_token_text));
-      } else if (token == Token::INTEGER_LITERAL) {
-        actual_token_description =
-            absl::StrCat("integer literal \"", token_text, "\"");
-      } else if (token == Token::FLOATING_POINT_LITERAL) {
-        actual_token_description =
-            absl::StrCat("floating point literal \"", token_text, "\"");
-      } else if (token == Token::IDENTIFIER) {
-        if (token_text[0] == '`') {
-          // Don't put extra quotes around an already-backquoted identifier.
-          actual_token_description = absl::StrCat("identifier ", token_text);
-        } else {
-          actual_token_description =
-              absl::StrCat("identifier \"", token_text, "\"");
-        }
-      } else if (token == Token::SEMICOLON) {
-        // The ";" token includes trailing whitespace, and we don't want to
-        // echo that back.
-        actual_token_description = "\";\"";
-      } else if (token == Token::KW_OPEN_HINT ||
-                 token == Token::KW_OPEN_INTEGER_HINT ||
-                 token == Token::OPEN_INTEGER_PREFIX_HINT) {
-        // This is a single token for "@{", but we want to expose this as "@"
-        // externally.
-        actual_token_description = "\"@\"";
-      } else if (token == Token::KW_DOUBLE_AT) {
-        actual_token_description = "\"@@\"";
-      } else {
-        actual_token_description = absl::StrCat("\"", token_text, "\"");
+  if (token == Token::EOI) {
+    // The error location was at end-of-input, so this is an
+    // unexpected-end-of error. Format with a better string, and move its
+    // location to the end of the last token.
+    actual_token_description = absl::StrCat("end of ", GetParserModeName(mode));
+    ParseLocationRange last_non_eoi_location = lexer.LastLastTokenLocation();
+    int error_offset =
+        last_non_eoi_location.IsValid()
+            // This is the case were we saw at least one non-EOI, non-comment
+            // token.
+            ? last_non_eoi_location.end().GetByteOffset()
+            // This is the case that the input is all whitespace or comments.
+            : start_offset;
+    // For statements that end in comments, its nicer if the error points to the
+    // true end of input after the comment. This code is not perfect because it
+    // doesn't perfectly match the lexer's definition of whitespace, but it's
+    // good enough for this case of adjusting a corner case error message.
+    absl::string_view tag =
+        absl::StripLeadingAsciiWhitespace(input.substr(error_offset));
+    if (absl::StartsWith(tag, "--") || absl::StartsWith(tag, "#") ||
+        absl::StartsWith(tag, "/*")) {
+      // Reset to the true end of the input.
+      error_offset = error_location.GetByteOffset();
+      // If the last comment is /* ... */ then we can put the error immediately
+      // after the "*/", otherwise leave it at the end of input token.
+      absl::string_view stripped_tag = absl::StripTrailingAsciiWhitespace(tag);
+      if (absl::EndsWith(stripped_tag, "*/")) {
+        error_offset -= (tag.size() - stripped_tag.size());
       }
-      if (!expectations_set.empty()) {
-        return MakeSqlErrorAtPoint(error_location)
-               << "Syntax error: Expected "
-               << absl::StrJoin(expectations_set, " or ") << " but got "
-               << actual_token_description;
-      }
-      return MakeSqlErrorAtPoint(error_location)
-             << "Syntax error: Unexpected " << actual_token_description;
     }
+    error_location.SetByteOffset(error_offset);
+  } else if (token == Token::KW_OVER) {
+    // When the OVER keyword is used in the wrong place, we tell the user
+    // exactly where it can be used.
+    return MakeSqlErrorAtPoint(error_location)
+           << "Syntax error: OVER keyword must follow a function call";
+  } else if (const KeywordInfo* keyword_info = GetKeywordInfoForToken(token)) {
+    actual_token_description =
+        absl::StrCat("keyword ", keyword_info->keyword());
+  } else if (token == Token::STRING_LITERAL) {
+    // Escape physical newlines, to avoid multi-line error messages. (Note
+    // that this is technically incorrect for raw string literals.)
+    std::string escaped_token_text = std::string(token_text);
+    absl::StrReplaceAll({{"\r", "\\r"}}, &escaped_token_text);
+    absl::StrReplaceAll({{"\n", "\\n"}}, &escaped_token_text);
+    actual_token_description = absl::StrCat(
+        "string literal ", ShortenStringLiteralForError(escaped_token_text));
+  } else if (token == Token::BYTES_LITERAL) {
+    // Escape physical newlines, to avoid multi-line error messages. (Note
+    // that this is technically incorrect for raw bytes literals.)
+    std::string escaped_token_text = std::string(token_text);
+    absl::StrReplaceAll({{"\r", "\\r"}}, &escaped_token_text);
+    absl::StrReplaceAll({{"\n", "\\n"}}, &escaped_token_text);
+    actual_token_description = absl::StrCat(
+        "bytes literal ", ShortenBytesLiteralForError(escaped_token_text));
+  } else if (token == Token::INTEGER_LITERAL) {
+    actual_token_description =
+        absl::StrCat("integer literal \"", token_text, "\"");
+  } else if (token == Token::FLOATING_POINT_LITERAL) {
+    actual_token_description =
+        absl::StrCat("floating point literal \"", token_text, "\"");
+  } else if (token == Token::IDENTIFIER) {
+    if (token_text[0] == '`') {
+      // Don't put extra quotes around an already-backquoted identifier.
+      actual_token_description = absl::StrCat("identifier ", token_text);
+    } else {
+      actual_token_description =
+          absl::StrCat("identifier \"", token_text, "\"");
+    }
+  } else if (token == Token::SEMICOLON) {
+    // The ";" token includes trailing whitespace, and we don't want to
+    // echo that back.
+    actual_token_description = "\";\"";
+  } else if (token == Token::KW_OPEN_HINT ||
+             token == Token::KW_OPEN_INTEGER_HINT ||
+             token == Token::OPEN_INTEGER_PREFIX_HINT) {
+    // This is a single token for "@{", but we want to expose this as "@"
+    // externally.
+    actual_token_description = "\"@\"";
+  } else if (token == Token::KW_DOUBLE_AT) {
+    actual_token_description = "\"@@\"";
+  } else {
+    actual_token_description = absl::StrCat("\"", token_text, "\"");
   }
-  ABSL_LOG(ERROR) << "Syntax error location not found in input";
-  return MakeSqlErrorAtPoint(error_location) << parse_status.message();
+  if (!expectations_set.empty()) {
+    return MakeSqlErrorAtPoint(error_location)
+           << "Syntax error: Expected "
+           << absl::StrJoin(expectations_set, " or ") << " but got "
+           << actual_token_description;
+  }
+  return MakeSqlErrorAtPoint(error_location)
+         << "Syntax error: Unexpected " << actual_token_description;
 }
 
 // Dispatch to the appropriate parser input method based on the mode.
@@ -468,8 +472,6 @@ static absl::Status ParseByMode(ParserMode mode, Lexer& lexer, Parser& parser) {
       return parser.ParseStandaloneExpression(lexer);
     case ParserMode::kType:
       return parser.ParseStandaloneType(lexer);
-    case ParserMode::kSubpipeline:
-      return parser.ParseStandaloneSubpipeline(lexer);
     case ParserMode::kTokenizerPreserveComments:
     case ParserMode::kTokenizer:
     case ParserMode::kMacroBody:
@@ -537,8 +539,6 @@ absl::Status ParseInternal(
   // return paths are handled by MaybeStripParserError while allowing natural
   // control flow within the function body.
   return MaybeStripParserError([&]() -> absl::Status {
-    absl::Status parse_status;
-    {  // Scope of the timer.
       auto parser_timer =
           MakeScopedTimerStarted(&runtime_info.parser_timed_value());
 
@@ -551,7 +551,7 @@ absl::Status ParseInternal(
                     warning_sink, macro_expansion_mode, &output_node,
                     ast_statement_properties, statement_end_byte_offset);
 
-      parse_status = ParseByMode(mode, lexer, parser);
+      absl::Status parse_status = ParseByMode(mode, lexer, parser);
       // We want to continue if there was a parsing error or a successful parse.
       // Anything else, such as kInternal or kResourceExhausted, should be
       // returned.
@@ -577,22 +577,18 @@ absl::Status ParseInternal(
         return InitNodes(input, output_node, allocated_ast_nodes, output,
                          *other_allocated_ast_nodes);
       }
-    }  // End of the timer scope.
-
-    // TODO: b/376552156 -- Remove re-parsing from error message generation then
-    //                      let timer scope run to the end of the function.
 
     // Bison returns error messages that start with "syntax error, ". The parser
     // logic itself will return an empty error message if it wants to generate
     // a simple "Unexpected X" error.
-    if (absl::StartsWith(parse_status.message(), "syntax error, ")) {
-      // This was a Bison-generated syntax error. Generate a message that is to
-      // our own liking.
-      return GenerateImprovedBisonSyntaxError(
-          language_options, parse_status, mode, input, start_byte_offset,
-          macro_expansion_mode, macro_catalog, arena);
-    }
-    return parse_status;
+      if (absl::StartsWith(parse_status.message(), "syntax error, ")) {
+        // This was a Bison-generated syntax error. Generate a message that is
+        // to our own liking.
+        return GenerateImprovedBisonSyntaxError(language_options, parse_status,
+                                                mode, lexer, input,
+                                                start_byte_offset);
+      }
+      return parse_status;
   }());
 }
 

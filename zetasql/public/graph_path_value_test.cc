@@ -65,7 +65,7 @@ TEST(GraphPathValueTest, GraphPathCannotBeEmpty) {
   const GraphPathType* path_type = MakeGraphPathType(node_type, edge_type);
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, /*graph_elements=*/{}),
-      StatusIs(absl::StatusCode::kInternal, HasSubstr("has 0 graph elements")));
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("got 0 graph elements")));
 }
 
 TEST(GraphPathValueTest, GraphPathCannotContainNull) {
@@ -124,13 +124,13 @@ TEST(GraphPathValueTest, GraphPathTypeMismatch) {
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Expected node type")));
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {node, node}),
-      StatusIs(absl::StatusCode::kInternal, HasSubstr("has 2 graph elements")));
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("got 2 graph elements")));
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {edge}),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Expected node type")));
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {edge, node}),
-      StatusIs(absl::StatusCode::kInternal, HasSubstr("has 2 graph elements")));
+      StatusIs(absl::StatusCode::kInternal, HasSubstr("got 2 graph elements")));
   EXPECT_THAT(
       Value::MakeGraphPath(path_type, {edge, node, node}),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("Expected node type")));

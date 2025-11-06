@@ -618,11 +618,11 @@ or byte.
 ```zetasql
 SELECT ASCII('abcd') as A, ASCII('a') as B, ASCII('') as C, ASCII(NULL) as D;
 
-/*-------+-------+-------+-------*
+/*-------+-------+-------+-------+
  | A     | B     | C     | D     |
  +-------+-------+-------+-------+
  | 97    | 97    | 0     | NULL  |
- *-------+-------+-------+-------*/
+ +-------+-------+-------+-------*/
 ```
 
 ## `BYTE_LENGTH`
@@ -645,21 +645,21 @@ regardless of whether the value is a `STRING` or `BYTES` type.
 ```zetasql
 SELECT BYTE_LENGTH('абвгд') AS string_example;
 
-/*----------------*
+/*----------------+
  | string_example |
  +----------------+
  | 10             |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT BYTE_LENGTH(b'абвгд') AS bytes_example;
 
-/*----------------*
+/*----------------+
  | bytes_example  |
  +----------------+
  | 10             |
- *----------------*/
+ +----------------*/
 ```
 
 ## `CHAR_LENGTH`
@@ -681,11 +681,11 @@ Gets the number of characters in a `STRING` value.
 ```zetasql
 SELECT CHAR_LENGTH('абвгд') AS char_length;
 
-/*-------------*
+/*-------------+
  | char_length |
  +-------------+
  | 5           |
- *------------ */
+ +------------ */
 ```
 
 ## `CHARACTER_LENGTH`
@@ -709,11 +709,11 @@ SELECT
   'абвгд' AS characters,
   CHARACTER_LENGTH('абвгд') AS char_length_example
 
-/*------------+---------------------*
+/*------------+---------------------+
  | characters | char_length_example |
  +------------+---------------------+
  | абвгд      |                   5 |
- *------------+---------------------*/
+ +------------+---------------------*/
 ```
 
 [string-link-to-char-length]: #char_length
@@ -744,21 +744,21 @@ To work with an array of Unicode code points, see
 ```zetasql
 SELECT CHR(65) AS A, CHR(255) AS B, CHR(513) AS C, CHR(1024)  AS D;
 
-/*-------+-------+-------+-------*
+/*-------+-------+-------+-------+
  | A     | B     | C     | D     |
  +-------+-------+-------+-------+
  | A     | ÿ     | ȁ     | Ѐ     |
- *-------+-------+-------+-------*/
+ +-------+-------+-------+-------*/
 ```
 
 ```zetasql
 SELECT CHR(97) AS A, CHR(0xF9B5) AS B, CHR(0) AS C, CHR(NULL) AS D;
 
-/*-------+-------+-------+-------*
+/*-------+-------+-------+-------+
  | A     | B     | C     | D     |
  +-------+-------+-------+-------+
  | a     | 例    |       | NULL  |
- *-------+-------+-------+-------*/
+ +-------+-------+-------+-------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -791,11 +791,11 @@ The following is a basic example using `CODE_POINTS_TO_BYTES`.
 ```zetasql
 SELECT CODE_POINTS_TO_BYTES([65, 98, 67, 100]) AS bytes;
 
-/*----------*
+/*----------+
  | bytes    |
  +----------+
  | AbCd     |
- *----------*/
+ +----------*/
 ```
 
 The following example uses a rotate-by-13 places (ROT13) algorithm to encode a
@@ -818,11 +818,11 @@ SELECT CODE_POINTS_TO_BYTES(ARRAY_AGG(
   ) ORDER BY OFFSET)) AS encoded_string
 FROM UNNEST(TO_CODE_POINTS(b'Test String!')) code WITH OFFSET;
 
-/*------------------*
+/*------------------+
  | encoded_string   |
  +------------------+
  | Grfg Fgevat!     |
- *------------------*/
+ +------------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -854,31 +854,31 @@ The following are basic examples using `CODE_POINTS_TO_STRING`.
 ```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, 513, 1024]) AS string;
 
-/*--------*
+/*--------+
  | string |
  +--------+
  | AÿȁЀ   |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT CODE_POINTS_TO_STRING([97, 0, 0xF9B5]) AS string;
 
-/*--------*
+/*--------+
  | string |
  +--------+
  | a例    |
- *--------*/
+ +--------*/
 ```
 
 ```zetasql
 SELECT CODE_POINTS_TO_STRING([65, 255, NULL, 1024]) AS string;
 
-/*--------*
+/*--------+
  | string |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 The following example computes the frequency of letters in a set of words.
@@ -896,7 +896,7 @@ FROM Words,
 GROUP BY 1
 ORDER BY 2 DESC;
 
-/*--------+--------------*
+/*--------+--------------+
  | letter | letter_count |
  +--------+--------------+
  | a      | 5            |
@@ -910,7 +910,7 @@ ORDER BY 2 DESC;
  | e      | 1            |
  | m      | 1            |
  | i      | 1            |
- *--------+--------------*/
+ +--------+--------------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -929,7 +929,7 @@ returns a value with collation removed from the `STRING`.
 
 The collation specification defines how the resulting `STRING` can be compared
 and sorted. To learn more, see
-[Working with collation][link-collation-concepts].
+[Collation][link-collation-concepts].
 
 + `collation_specification` must be a string literal, otherwise an error is
   thrown.
@@ -953,11 +953,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-/*----------------*
+/*----------------+
  | a_less_than_Z  |
  +----------------+
  | TRUE           |
- *----------------*/
+ +----------------*/
 ```
 
 In this example, the weight of `a` is greater than the weight of `Z`. This
@@ -972,11 +972,11 @@ WITH Words AS (
 SELECT ( Words.char1 < Words.char2 ) AS a_less_than_Z
 FROM Words;
 
-/*----------------*
+/*----------------+
  | a_less_than_Z  |
  +----------------+
  | FALSE          |
- *----------------*/
+ +----------------*/
 ```
 
 [link-collation-spec]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_spec_details
@@ -1009,21 +1009,21 @@ values into a string.
 ```zetasql
 SELECT CONCAT('T.P.', ' ', 'Bar') as author;
 
-/*---------------------*
+/*---------------------+
  | author              |
  +---------------------+
  | T.P. Bar            |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT CONCAT('Summer', ' ', 1923) as release_date;
 
-/*---------------------*
+/*---------------------+
  | release_date        |
  +---------------------+
  | Summer 1923         |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
@@ -1046,13 +1046,13 @@ SELECT
   AS full_name
 FROM Employees;
 
-/*---------------------*
+/*---------------------+
  | full_name           |
  +---------------------+
  | John Doe            |
  | Jane Smith          |
  | Joe Jackson         |
- *---------------------*/
+ +---------------------*/
 ```
 
 [string-link-to-operators]: https://github.com/google/zetasql/blob/master/docs/operators.md
@@ -1101,11 +1101,11 @@ In the following example, the first character in both strings is different:
 ```zetasql
 SELECT EDIT_DISTANCE('a', 'b') AS results;
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | 1       |
- *---------*/
+ +---------*/
 ```
 
 In the following example, the first and second characters in both strings are
@@ -1114,11 +1114,11 @@ different:
 ```zetasql
 SELECT EDIT_DISTANCE('aa', 'b') AS results;
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | 2       |
- *---------*/
+ +---------*/
 ```
 
 In the following example, only the first character in both strings is
@@ -1127,11 +1127,11 @@ different:
 ```zetasql
 SELECT EDIT_DISTANCE('aa', 'ba') AS results;
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | 1       |
- *---------*/
+ +---------*/
 ```
 
 In the following example, the last six characters are different, but because
@@ -1141,11 +1141,11 @@ maximum distance:
 ```zetasql
 SELECT EDIT_DISTANCE('abcdefg', 'a', max_distance => 2) AS results;
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | 2       |
- *---------*/
+ +---------*/
 ```
 
 [l-distance]: https://en.wikipedia.org/wiki/Levenshtein_distance
@@ -1163,7 +1163,7 @@ is a suffix of `value`.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -1174,11 +1174,11 @@ This function supports specifying [collation][collation].
 ```zetasql
 SELECT ENDS_WITH('apple', 'e') as example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |    True |
- *---------*/
+ +---------*/
 ```
 
 ## `FORMAT` 
@@ -2008,11 +2008,11 @@ Converts the base32-encoded input `string_expr` into `BYTES` format. To convert
 ```zetasql
 SELECT FROM_BASE32('MFRGGZDF74======') AS byte_data;
 
-/*-----------*
+/*-----------+
  | byte_data |
  +-----------+
  | abcde\xff |
- *-----------*/
+ +-----------*/
 ```
 
 [string-link-to-base32]: #to_base32
@@ -2044,11 +2044,11 @@ function expects the alphabet `[A-Za-z0-9+/=]`.
 ```zetasql
 SELECT FROM_BASE64('/+A=') AS byte_data;
 
-/*-----------*
+/*-----------+
  | byte_data |
  +-----------+
  | \377\340  |
- *-----------*/
+ +-----------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -2060,11 +2060,11 @@ uses `-_=` as the last characters rather than `+/=`. To decode a
 ```zetasql
 SELECT FROM_BASE64(REPLACE(REPLACE('_-A=', '-', '+'), '_', '/')) AS binary;
 
-/*-----------*
+/*-----------+
  | binary    |
  +-----------+
  | \377\340  |
- *-----------*/
+ +-----------*/
 ```
 
 [RFC-4648]: https://tools.ietf.org/html/rfc4648#section-4
@@ -2101,13 +2101,13 @@ WITH Input AS (
 SELECT hex_str, FROM_HEX(hex_str) AS bytes_str
 FROM Input;
 
-/*------------------+----------------------------------*
+/*------------------+----------------------------------+
  | hex_str          | bytes_str                        |
  +------------------+----------------------------------+
  | 0AF              | \x00\xaf                         |
  | 00010203aaeeefff | \x00\x01\x02\x03\xaa\xee\xef\xff |
  | 666f6f626172     | foobar                           |
- *------------------+----------------------------------*/
+ +------------------+----------------------------------*/
 ```
 
 [string-link-to-to-hex]: #to_hex
@@ -2142,11 +2142,11 @@ SELECT
   'Hello World-everyone!' AS value,
   INITCAP('Hello World-everyone!') AS initcap_value
 
-/*-------------------------------+-------------------------------*
+/*-------------------------------+-------------------------------+
  | value                         | initcap_value                 |
  +-------------------------------+-------------------------------+
  | Hello World-everyone!         | Hello World-Everyone!         |
- *-------------------------------+-------------------------------*/
+ +-------------------------------+-------------------------------*/
 ```
 
 ```zetasql
@@ -2155,11 +2155,11 @@ SELECT
   '12' AS delimiters,
   INITCAP('Apples1oranges2pears' , '12') AS initcap_value
 
-/*----------------------+------------+----------------------*
+/*----------------------+------------+----------------------+
  | value                | delimiters | initcap_value        |
  +----------------------+------------+----------------------+
  | Apples1oranges2pears | 12         | Apples1Oranges2Pears |
- *----------------------+------------+----------------------*/
+ +----------------------+------------+----------------------*/
 ```
 
 ## `INSTR`
@@ -2188,7 +2188,7 @@ For `occurrence` > `1`, the function includes overlapping occurrences.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 Returns `0` if:
 
@@ -2216,11 +2216,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 1, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 1          | 2     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2228,11 +2228,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('banana', 'an', 1, 2) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 2          | 4     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2240,11 +2240,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, 1 AS position, 3 AS occurrence,
   INSTR('banana', 'an', 1, 3) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 1        | 3          | 0     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2252,11 +2252,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, 3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', 3, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | 3        | 1          | 4     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2264,11 +2264,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, -1 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -1, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | -1       | 1          | 4     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2276,11 +2276,11 @@ SELECT
   'banana' AS value, 'an' AS subvalue, -3 AS position, 1 AS occurrence,
   INSTR('banana', 'an', -3, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | an           | -3       | 1          | 4     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2288,11 +2288,11 @@ SELECT
   'banana' AS value, 'ann' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('banana', 'ann', 1, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | banana       | ann          | 1        | 1          | 0     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2300,11 +2300,11 @@ SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 1 AS occurrence,
   INSTR('helloooo', 'oo', 1, 1) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 1          | 5     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ```zetasql
@@ -2312,11 +2312,11 @@ SELECT
   'helloooo' AS value, 'oo' AS subvalue, 1 AS position, 2 AS occurrence,
   INSTR('helloooo', 'oo', 1, 2) AS instr;
 
-/*--------------+--------------+----------+------------+-------*
+/*--------------+--------------+----------+------------+-------+
  | value        | subvalue     | position | occurrence | instr |
  +--------------+--------------+----------+------------+-------+
  | helloooo     | oo           | 1        | 2          | 6     |
- *--------------+--------------+----------+------------+-------*/
+ +--------------+--------------+----------+------------+-------*/
 ```
 
 ## `LEFT`
@@ -2348,21 +2348,21 @@ will be returned.
 ```zetasql
 SELECT LEFT('banana', 3) AS results
 
-/*---------*
+/*---------+
  | results |
   +--------+
  | ban     |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT LEFT(b'\xab\xcd\xef\xaa\xbb', 3) AS results
 
-/*--------------*
+/*--------------+
  | results      |
  +--------------+
  | \xab\xcd\xef |
- *--------------*/
+ +--------------*/
 ```
 
 ## `LENGTH`
@@ -2388,11 +2388,11 @@ SELECT
   LENGTH('абвгд') AS string_example,
   LENGTH(CAST('абвгд' AS BYTES)) AS bytes_example;
 
-/*----------------+---------------*
+/*----------------+---------------+
  | string_example | bytes_example |
  +----------------+---------------+
  | 5              | 10            |
- *----------------+---------------*/
+ +----------------+---------------*/
 ```
 
 ## `LOWER`
@@ -2423,11 +2423,11 @@ SELECT
   LOWER('FOO BAR BAZ') AS example
 FROM items;
 
-/*-------------*
+/*-------------+
  | example     |
  +-------------+
  | foo bar baz |
- *-------------*/
+ +-------------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/
@@ -2471,51 +2471,51 @@ This function returns an error if:
 ```zetasql
 SELECT FORMAT('%T', LPAD('c', 5)) AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | "    c" |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT LPAD('b', 5, 'a') AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | aaaab   |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT LPAD('abc', 10, 'ghd') AS results
 
-/*------------*
+/*------------+
  | results    |
  +------------+
  | ghdghdgabc |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT LPAD('abc', 2, 'd') AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | ab      |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT FORMAT('%T', LPAD(b'abc', 10, b'ghd')) AS results
 
-/*---------------*
+/*---------------+
  | results       |
  +---------------+
  | b"ghdghdgabc" |
- *---------------*/
+ +---------------*/
 ```
 
 ## `LTRIM`
@@ -2537,31 +2537,31 @@ Identical to [TRIM][string-link-to-trim], but only removes leading characters.
 ```zetasql
 SELECT CONCAT('#', LTRIM('   apple   '), '#') AS example
 
-/*-------------*
+/*-------------+
  | example     |
  +-------------+
  | #apple   #  |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT LTRIM('***apple***', '*') AS example
 
-/*-----------*
+/*-----------+
  | example   |
  +-----------+
  | apple***  |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT LTRIM('xxxapplexxx', 'xyz') AS example
 
-/*-----------*
+/*-----------+
  | example   |
  +-----------+
  | applexxx  |
- *-----------*/
+ +-----------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -2605,52 +2605,52 @@ SELECT
   NORMALIZE('\u0065\u0302') as b,
   NORMALIZE('\u00ea') = NORMALIZE('\u0065\u0302') as normalized;
 
-/*---+---+------------*
+/*---+---+------------+
  | a | b | normalized |
  +---+---+------------+
  | ê | ê | TRUE       |
- *---+---+------------*/
+ +---+---+------------*/
 ```
 The following examples normalize different space characters:
 
 ```zetasql
 SELECT NORMALIZE('Raha\u2004Mahan', NFKC) AS normalized_name
 
-/*-----------------*
+/*-----------------+
  | normalized_name |
  +-----------------+
  | Raha Mahan      |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT NORMALIZE('Raha\u2005Mahan', NFKC) AS normalized_name
 
-/*-----------------*
+/*-----------------+
  | normalized_name |
  +-----------------+
  | Raha Mahan      |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT NORMALIZE('Raha\u2006Mahan', NFKC) AS normalized_name
 
-/*-----------------*
+/*-----------------+
  | normalized_name |
  +-----------------+
  | Raha Mahan      |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT NORMALIZE('Raha Mahan', NFKC) AS normalized_name
 
-/*-----------------*
+/*-----------------+
  | normalized_name |
  +-----------------+
  | Raha Mahan      |
- *-----------------*/
+ +-----------------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -2697,11 +2697,11 @@ SELECT
   NORMALIZE_AND_CASEFOLD('The red barn')
     = NORMALIZE_AND_CASEFOLD('The Red Barn') AS normalized_with_case_folding;
 
-/*------------+------------------------------*
+/*------------+------------------------------+
  | normalized | normalized_with_case_folding |
  +------------+------------------------------+
  | FALSE      | TRUE                         |
- *------------+------------------------------*/
+ +------------+------------------------------*/
 ```
 
 ```zetasql
@@ -2713,11 +2713,11 @@ SELECT
   NORMALIZE_AND_CASEFOLD('\u2168', NFKD)=NORMALIZE_AND_CASEFOLD('IX', NFKD) AS nkfd,
   NORMALIZE_AND_CASEFOLD('\u2168', NFKC)=NORMALIZE_AND_CASEFOLD('IX', NFKC) AS nkfc;
 
-/*---+----+-------+-------+------+------*
+/*---+----+-------+-------+------+------+
  | a | b  | nfd   | nfc   | nkfd | nkfc |
  +---+----+-------+-------+------+------+
  | Ⅸ | IX | false | false | true | true |
- *---+----+-------+-------+------+------*/
+ +---+----+-------+-------+------+------*/
 ```
 
 ```zetasql
@@ -2729,11 +2729,11 @@ SELECT
   NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKD)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKD) AS nkfd,
   NORMALIZE_AND_CASEFOLD('\u0041\u030A', NFKC)=NORMALIZE_AND_CASEFOLD('\u00C5', NFKC) AS nkfc;
 
-/*---+----+-------+-------+------+------*
+/*---+----+-------+-------+------+------+
  | a | b  | nfd   | nfc   | nkfd | nkfc |
  +---+----+-------+-------+------+------+
  | Å | Å  | true  | true  | true | true |
- *---+----+-------+-------+------+------*/
+ +---+----+-------+-------+------+------*/
 ```
 
 [string-link-to-normalization-wikipedia]: https://en.wikipedia.org/wiki/Unicode_equivalence#Normalization
@@ -2786,11 +2786,11 @@ SELECT
   'foo@example.com' AS email,
   REGEXP_CONTAINS('foo@example.com', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
 
-/*-----------------+----------*
+/*-----------------+----------+
  | email           | is_valid |
  +-----------------+----------+
  | foo@example.com | TRUE     |
- *-----------------+----------*/
+ +-----------------+----------*/
  ```
 
  ```zetasql
@@ -2798,11 +2798,11 @@ SELECT
   'www.example.net' AS email,
   REGEXP_CONTAINS('www.example.net', r'@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+') AS is_valid
 
-/*-----------------+----------*
+/*-----------------+----------+
  | email           | is_valid |
  +-----------------+----------+
  | www.example.net | FALSE    |
- *-----------------+----------*/
+ +-----------------+----------*/
  ```
 
 The following queries check to see if an email is valid. They
@@ -2816,11 +2816,11 @@ SELECT
   REGEXP_CONTAINS('a@foo.com', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
   REGEXP_CONTAINS('a@foo.com', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
-/*----------------+---------------------+---------------------*
+/*----------------+---------------------+---------------------+
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | a@foo.com      | true                | true                |
- *----------------+---------------------+---------------------*/
+ +----------------+---------------------+---------------------*/
 ```
 
 ```zetasql
@@ -2829,11 +2829,11 @@ SELECT
   REGEXP_CONTAINS('a@foo.computer', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
   REGEXP_CONTAINS('a@foo.computer', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
-/*----------------+---------------------+---------------------*
+/*----------------+---------------------+---------------------+
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | a@foo.computer | false               | true                |
- *----------------+---------------------+---------------------*/
+ +----------------+---------------------+---------------------*/
 ```
 
 ```zetasql
@@ -2842,11 +2842,11 @@ SELECT
   REGEXP_CONTAINS('b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
   REGEXP_CONTAINS('b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
-/*----------------+---------------------+---------------------*
+/*----------------+---------------------+---------------------+
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | b@bar.org      | true                | true                |
- *----------------+---------------------+---------------------*/
+ +----------------+---------------------+---------------------*/
 ```
 
 ```zetasql
@@ -2855,11 +2855,11 @@ SELECT
   REGEXP_CONTAINS('!b@bar.org', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
   REGEXP_CONTAINS('!b@bar.org', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
-/*----------------+---------------------+---------------------*
+/*----------------+---------------------+---------------------+
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | !b@bar.org     | false               | true                |
- *----------------+---------------------+---------------------*/
+ +----------------+---------------------+---------------------*/
 ```
 
 ```zetasql
@@ -2868,11 +2868,11 @@ SELECT
   REGEXP_CONTAINS('c@buz.net', r'^([\w.+-]+@foo\.com|[\w.+-]+@bar\.org)$') AS valid_email_address,
   REGEXP_CONTAINS('c@buz.net', r'^[\w.+-]+@foo\.com|[\w.+-]+@bar\.org$') AS without_parentheses;
 
-/*----------------+---------------------+---------------------*
+/*----------------+---------------------+---------------------+
  | email          | valid_email_address | without_parentheses |
  +----------------+---------------------+---------------------+
  | c@buz.net      | false               | false               |
- *----------------+---------------------+---------------------*/
+ +----------------+---------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -2923,21 +2923,21 @@ Returns an error if:
 ```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+') AS user_name
 
-/*-----------*
+/*-----------+
  | user_name |
  +-----------+
  | foo       |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT REGEXP_EXTRACT('foo@example.com', r'^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.([a-zA-Z0-9-.]+$)')
 
-/*------------------*
+/*------------------+
  | top_level_domain |
  +------------------+
  | com              |
- *------------------*/
+ +------------------*/
 ```
 
 ```zetasql
@@ -2947,11 +2947,11 @@ SELECT
   REGEXP_EXTRACT('xyztb', '(.)+b') AS result_c,
   REGEXP_EXTRACT('ab', '(z)?b') AS result_d
 
-/*-------------------------------------------*
+/*-------------------------------------------+
  | result_a | result_b | result_c | result_d |
  +-------------------------------------------+
  | ab       | a        | t        | NULL     |
- *-------------------------------------------*/
+ +-------------------------------------------*/
 ```
 
 ```zetasql
@@ -2972,7 +2972,7 @@ SELECT 'cats&dogs&rabbits', '\\w+&', 2, 3
 SELECT value, regex, position, occurrence, REGEXP_EXTRACT(value, regex,
 position, occurrence) AS regexp_value FROM example;
 
-/*--------------------------+---------+----------+------------+--------------*
+/*--------------------------+---------+----------+------------+--------------+
  | value                    | regex   | position | occurrence | regexp_value |
  +--------------------------+---------+----------+------------+--------------+
  | Hello Helloo and Hellooo | H?ello+ | 1        | 1          | Hello        |
@@ -2986,7 +2986,7 @@ position, occurrence) AS regexp_value FROM example;
  | Hello Helloo and Hellooo | H?ello+ | 20       | 1          | NULL         |
  | cats&dogs&rabbits        | \w+&    | 1        | 2          | dogs&        |
  | cats&dogs&rabbits        | \w+&    | 2        | 3          | NULL         |
- *--------------------------+---------+----------+------------+--------------*/
+ +--------------------------+---------+----------+------------+--------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3052,11 +3052,11 @@ Extract unnamed groups:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('abc123xyz', r'([a-z]+)([0-9]+)([a-z]+)') AS result
 
-/*---------------------------------*
+/*---------------------------------+
  | result                          |
  +---------------------------------+
  | {abc, 123, xyz}                 |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 Extract named groups:
@@ -3064,11 +3064,11 @@ Extract named groups:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('2025-09-10', r'(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})') AS result
 
-/*----------------------------------------------*
+/*----------------------------------------------+
  | result                                       |
  +----------------------------------------------+
  | {2025 year, 09 month, 10 day}                |
- *----------------------------------------------*/
+ +----------------------------------------------*/
 ```
 
 **Expand STRUCT fields into columns**
@@ -3081,11 +3081,11 @@ groups are named.
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('PROD-WIDGET-1234', r'(?<env>\w+)-(?<product>\w+)-(?<id>\d+)').*
 
-/*-------+-----------+------*
+/*-------+-----------+------+
  | env   | product   | id   |
  +-------+-----------+------+
  | PROD  | WIDGET    | 1234 |
- *-------+-----------+------*/
+ +-------+-----------+------*/
 ```
 
 Mix of named and unnamed groups:
@@ -3093,11 +3093,11 @@ Mix of named and unnamed groups:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('id:123', r'(?<key>[a-z]+):([0-9]+)') AS result
 
-/*-----------------------*
+/*-----------------------+
  | result                |
  +-----------------------+
  | {id key, 123}         |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 No match returns `NULL`:
@@ -3105,11 +3105,11 @@ No match returns `NULL`:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('abc', r'(\d+)') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 Optional groups and empty matches:
@@ -3125,13 +3125,13 @@ SELECT
   REGEXP_EXTRACT_GROUPS(t, r'(?<key>\w+):(?<val>\w+)(?::(?<opt>\w*))?') AS result
 FROM inputs;
 
-/*-----------------+--------------------------------------*
+/*-----------------+--------------------------------------+
  | t               | result                               |
  +-----------------+--------------------------------------+
  | id:123:extra    | {id key, 123 val, extra opt}         |
  | id:123:         | {id key, 123 val,  opt}              |
  | id:123          | {id key, 123 val, NULL opt}          |
- *-----------------+--------------------------------------*/
+ +-----------------+--------------------------------------*/
 ```
 
 Note that in the second row, the optional group `opt` matches an empty string,
@@ -3143,11 +3143,11 @@ Nested groups:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('a=b=c', r'(\w+)=((\w+)=\w+)') AS result
 
-/*-----------------------*
+/*-----------------------+
  | result                |
  +-----------------------+
  | {a, b=c, b}           |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 Alternation with different groups:
@@ -3162,12 +3162,12 @@ SELECT
   REGEXP_EXTRACT_GROUPS(t, r'config_id=(?<id>\d+)|option_name=(?<name>\w+)') AS result
 FROM inputs;
 
-/*-----------------+--------------------------*
+/*-----------------+--------------------------+
  | t               | result                   |
  +-----------------+--------------------------+
  | config_id=123   | {123 id, NULL name}      |
  | option_name=ABC | {NULL id, ABC name}      |
- *-----------------+--------------------------*/
+ +-----------------+--------------------------*/
 ```
 
 The `STRUCT` result contains fields for all named capturing groups across all
@@ -3197,11 +3197,11 @@ cast result is also `NULL`.
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('val=0x1a', r'val=(?<val__INT64>0x[0-9a-fA-F]+)') AS result
 
-/*-------------*
+/*-------------+
  | result      |
  +-------------+
  | {26 val}    |
- *-------------*/
+ +-------------*/
 ```
 
 Auto-casted values in expressions with Pipe syntax:
@@ -3211,12 +3211,12 @@ FROM UNNEST(['02:30:10', '01:02:03']) AS time_str
 |> EXTEND REGEXP_EXTRACT_GROUPS(time_str, r'(?<h__INT64>\d{2}):(?<m__INT64>\d{2}):(?<s__INT64>\d{2})').*
 |> SELECT time_str, h * 3600 + m * 60 + s AS total_seconds
 
-/*----------+---------------*
+/*----------+---------------+
  | time_str | total_seconds |
  +----------+---------------+
  | 02:30:10 | 9010          |
  | 01:02:03 | 3723          |
- *----------+---------------*/
+ +----------+---------------*/
 ```
 
 Expand auto-casted fields into columns:
@@ -3224,11 +3224,11 @@ Expand auto-casted fields into columns:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('2025-09-10', r'(?<year__INT64>\d{4})-(?<month__INT64>\d{2})-(?<day__INT64>\d{2})').*
 
-/*--------+---------+-------*
+/*--------+---------+-------+
  | year   | month   | day   |
  +--------+---------+-------+
  | 2025   | 9       | 10    |
- *--------+---------+-------*/
+ +--------+---------+-------*/
 ```
 
 Cast failure:
@@ -3250,11 +3250,11 @@ Workaround for empty string cast failure by making the group optional:
 ```zetasql
 SELECT REGEXP_EXTRACT_GROUPS('ID: ', r'ID: (?<item_id__INT64>\d+)?') AS result
 
-/*-----------------*
+/*-----------------+
  | result          |
  +-----------------+
  | {NULL item_id}  |
- *-----------------*/
+ +-----------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3294,11 +3294,11 @@ Returns an error if:
 ```zetasql
 SELECT REGEXP_EXTRACT_ALL('Try `func(x)` or `func(y)`', '`(.+?)`') AS example
 
-/*--------------------*
+/*--------------------+
  | example            |
  +--------------------+
  | [func(x), func(y)] |
- *--------------------*/
+ +--------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3366,11 +3366,11 @@ SELECT
   REGEXP_INSTR('abc@cd-ef', '@[^-]*') AS instr_c,
   REGEXP_INSTR('abc-ef',    '@[^-]*') AS instr_d,
 
-/*---------------------------------------*
+/*---------------------------------------+
  | instr_a | instr_b | instr_c | instr_d |
  +---------------------------------------+
  | 3       | 3       | 4       | 0       |
- *---------------------------------------*/
+ +---------------------------------------*/
 ```
 
 ```zetasql
@@ -3380,11 +3380,11 @@ SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 3) AS instr_c,
   REGEXP_INSTR('a@cd-ef b@cd-ef', '@[^-]*', 4) AS instr_d,
 
-/*---------------------------------------*
+/*---------------------------------------+
  | instr_a | instr_b | instr_c | instr_d |
  +---------------------------------------+
  | 2       | 2       | 10      | 10      |
- *---------------------------------------*/
+ +---------------------------------------*/
 ```
 
 ```zetasql
@@ -3393,11 +3393,11 @@ SELECT
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 2) AS instr_b,
   REGEXP_INSTR('a@cd-ef b@cd-ef c@cd-ef', '@[^-]*', 1, 3) AS instr_c
 
-/*-----------------------------*
+/*-----------------------------+
  | instr_a | instr_b | instr_c |
  +-----------------------------+
  | 2       | 10      | 18      |
- *-----------------------------*/
+ +-----------------------------*/
 ```
 
 ```zetasql
@@ -3405,11 +3405,11 @@ SELECT
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 0) AS instr_a,
   REGEXP_INSTR('a@cd-ef', '@[^-]*', 1, 1, 1) AS instr_b
 
-/*-------------------*
+/*-------------------+
  | instr_a | instr_b |
  +-------------------+
  | 2       | 5       |
- *-------------------*/
+ +-------------------*/
 ```
 
 ## `REGEXP_MATCH` (Deprecated) 
@@ -3454,13 +3454,13 @@ SELECT
                AS valid_email_address
 FROM email_addresses;
 
-/*-----------------------+---------------------*
+/*-----------------------+---------------------+
  | email                 | valid_email_address |
  +-----------------------+---------------------+
  | foo@example.com       | true                |
  | bar@example.org       | true                |
  | notavalidemailaddress | false               |
- *-----------------------+---------------------*/
+ +-----------------------+---------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3507,11 +3507,11 @@ regular expression syntax.
 ```zetasql
 SELECT REGEXP_REPLACE('# Heading', r'^# ([a-zA-Z0-9\s]+$)', '<h1>\\1</h1>') AS html
 
-/*--------------------------*
+/*--------------------------+
  | html                     |
  +--------------------------+
  | <h1>Heading</h1>         |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 [string-link-to-re2]: https://github.com/google/re2/wiki/Syntax
@@ -3542,11 +3542,11 @@ occurrence
 SELECT value, regex, position, occurrence, REGEXP_SUBSTR(value, regex,
 position, occurrence) AS regexp_value FROM example;
 
-/*--------------------+---------+----------+------------+--------------*
+/*--------------------+---------+----------+------------+--------------+
  | value              | regex   | position | occurrence | regexp_value |
  +--------------------+---------+----------+------------+--------------+
  | Hello World Helloo | H?ello+ | 1        | 1          | Hello        |
- *--------------------+---------+----------+------------+--------------*/
+ +--------------------+---------+----------+------------+--------------*/
 ```
 
 [string-link-to-regex]: #regexp_extract
@@ -3575,31 +3575,31 @@ This function returns an error if the `repetitions` value is negative.
 ```zetasql
 SELECT REPEAT('abc', 3) AS results
 
-/*-----------*
+/*-----------+
  | results   |
  |-----------|
  | abcabcabc |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT REPEAT('abc', NULL) AS results
 
-/*---------*
+/*---------+
  | results |
  |---------|
  | NULL    |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT REPEAT(NULL, 3) AS results
 
-/*---------*
+/*---------+
  | results |
  |---------|
  | NULL    |
- *---------*/
+ +---------*/
 ```
 
 ## `REPLACE`
@@ -3615,7 +3615,7 @@ Replaces all occurrences of `from_pattern` with `to_pattern` in
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -3635,13 +3635,13 @@ SELECT
   REPLACE (dessert, 'pie', 'cobbler') as example
 FROM desserts;
 
-/*--------------------*
+/*--------------------+
  | example            |
  +--------------------+
  | apple cobbler      |
  | blackberry cobbler |
  | cherry cobbler     |
- *--------------------*/
+ +--------------------*/
 ```
 
 ## `REVERSE`
@@ -3663,21 +3663,21 @@ Returns the reverse of the input `STRING` or `BYTES`.
 ```zetasql
 SELECT REVERSE('abc') AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | cba     |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT FORMAT('%T', REVERSE(b'1a3')) AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | b"3a1"  |
- *---------*/
+ +---------*/
 ```
 
 ## `RIGHT`
@@ -3709,21 +3709,21 @@ will be returned.
 ```zetasql
 SELECT 'apple' AS example, RIGHT('apple', 3) AS right_example
 
-/*---------+---------------*
+/*---------+---------------+
  | example | right_example |
  +---------+---------------+
  | apple   | ple           |
- *---------+---------------*/
+ +---------+---------------*/
 ```
 
 ```zetasql
 SELECT b'apple' AS example, RIGHT(b'apple', 3) AS right_example
 
-/*----------------------+---------------*
+/*----------------------+---------------+
  | example              | right_example |
  +----------------------+---------------+
  | apple                | ple           |
- *----------------------+---------------*
+ +----------------------+---------------*
 ```
 
 ## `RPAD`
@@ -3766,51 +3766,51 @@ This function returns an error if:
 ```zetasql
 SELECT FORMAT('%T', RPAD('c', 5)) AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | "c    " |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT RPAD('b', 5, 'a') AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | baaaa   |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT RPAD('abc', 10, 'ghd') AS results
 
-/*------------*
+/*------------+
  | results    |
  +------------+
  | abcghdghdg |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT RPAD('abc', 2, 'd') AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | ab      |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT FORMAT('%T', RPAD(b'abc', 10, b'ghd')) AS results
 
-/*---------------*
+/*---------------+
  | results       |
  +---------------+
  | b"abcghdghdg" |
- *---------------*/
+ +---------------*/
 ```
 
 ## `RTRIM`
@@ -3832,21 +3832,21 @@ Identical to [TRIM][string-link-to-trim], but only removes trailing characters.
 ```zetasql
 SELECT RTRIM('***apple***', '*') AS example
 
-/*-----------*
+/*-----------+
  | example   |
  +-----------+
  | ***apple  |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
 SELECT RTRIM('applexxz', 'xyz') AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | apple   |
- *---------*/
+ +---------*/
 ```
 
 [string-link-to-trim]: #trim
@@ -3903,11 +3903,11 @@ non-Latin characters, an empty `STRING` is returned.
 ```zetasql
 SELECT 'Ashcraft' AS value, SOUNDEX('Ashcraft') AS soundex
 
-/*----------------------+---------*
+/*----------------------+---------+
  | value                | soundex |
  +----------------------+---------+
  | Ashcraft             | A261    |
- *----------------------+---------*/
+ +----------------------+---------*/
 ```
 
 [string-link-to-soundex-wikipedia]: https://en.wikipedia.org/wiki/Soundex
@@ -3937,7 +3937,7 @@ Splitting an empty `STRING` returns an
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -3956,13 +3956,13 @@ WITH letters AS
 SELECT SPLIT(letter_group, ' ') as example
 FROM letters;
 
-/*----------------------*
+/*----------------------+
  | example              |
  +----------------------+
  | []                   |
  | [a]                  |
  | [b, c, d]            |
- *----------------------*/
+ +----------------------*/
 ```
 
 ## `SPLIT_SUBSTR`
@@ -4018,7 +4018,7 @@ of splits to include in the returned substring.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -4031,11 +4031,11 @@ The following example returns an empty string because `count` is `0`:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 0) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |         |
- *---------*/
+ +---------*/
 ```
 
 The following example returns two splits starting with the first split:
@@ -4043,11 +4043,11 @@ The following example returns two splits starting with the first split:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 2) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | www.abc |
- *---------*/
+ +---------*/
 ```
 
 The following example returns one split starting with the first split:
@@ -4055,11 +4055,11 @@ The following example returns one split starting with the first split:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 1) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | www     |
- *---------*/
+ +---------*/
 ```
 
 The following example returns splits from the right because `start_split` is a
@@ -4068,11 +4068,11 @@ negative value:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -1, 1) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | com     |
- *---------*/
+ +---------*/
 ```
 
 The following example returns a substring with three splits, starting with the
@@ -4081,11 +4081,11 @@ first split:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 1, 3) AS example
 
-/*-------------*
+/*-------------+
  | example     |
  +-------------+
  | www.abc.xyz |
- *------------*/
+ +------------*/
 ```
 
 If `start_split` is zero, then it's treated as if it's `1`. The following
@@ -4094,11 +4094,11 @@ example returns three substrings starting with the first split:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 0, 3) AS example
 
-/*-------------*
+/*-------------+
  | example     |
  +-------------+
  | www.abc.xyz |
- *------------*/
+ +------------*/
 ```
 
 If `start_split` is greater than the number of splits, then an empty string is
@@ -4107,11 +4107,11 @@ returned:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 5, 3) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |         |
- *--------*/
+ +--------*/
 ```
 
 In the following example, the `start_split` value (`-5`) is less than the
@@ -4120,11 +4120,11 @@ negative of the number of splits (`-4`), so `start_split` is treated as `1`:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", -5, 3) AS example
 
-/*-------------*
+/*-------------+
  | example     |
  +-------------+
  | www.abc.xyz |
- *------------*/
+ +------------*/
 ```
 
 In the following example, the substring from `start_split` to the end of the
@@ -4133,11 +4133,11 @@ string is returned because `count` isn't specified:
 ```zetasql
 SELECT SPLIT_SUBSTR("www.abc.xyz.com", ".", 3) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | xyz.com |
- *--------*/
+ +--------*/
 ```
 
 The following two examples demonstrate how `SPLIT_SUBSTR` works with a
@@ -4148,21 +4148,21 @@ each example, the input string contains instances of three asterisks in a row
 ```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 1, 2) AS example
 
-/*-----------*
+/*-----------+
  | example   |
  +-----------+
  | aaa***bbb |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT SPLIT_SUBSTR('aaa***bbb***ccc', '**', 2, 2) AS example
 
-/*------------*
+/*------------+
  | example    |
  +------------+
  | *bbb***ccc |
- *-----------*/
+ +-----------*/
 ```
 
 ## `STARTS_WITH`
@@ -4178,7 +4178,7 @@ prefix of `value`.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -4189,11 +4189,11 @@ This function supports specifying [collation][collation].
 ```zetasql
 SELECT STARTS_WITH('bar', 'b') AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |    True |
- *---------*/
+ +---------*/
 ```
 
 ## `STRPOS`
@@ -4209,7 +4209,7 @@ occurrence of `subvalue` inside `value`. Returns `0` if `subvalue` isn't found.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return type**
 
@@ -4220,11 +4220,11 @@ This function supports specifying [collation][collation].
 ```zetasql
 SELECT STRPOS('foo@example.com', '@') AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |       4 |
- *---------*/
+ +---------*/
 ```
 
 ## `SUBSTR`
@@ -4268,61 +4268,61 @@ return.
 ```zetasql
 SELECT SUBSTR('apple', 2) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | pple    |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT SUBSTR('apple', 2, 2) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | pp      |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT SUBSTR('apple', -2) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | le      |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT SUBSTR('apple', 1, 123) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | apple   |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT SUBSTR('apple', 123) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |         |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
 SELECT SUBSTR('apple', 123, 5) AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  |         |
- *---------*/
+ +---------*/
 ```
 
 ## `SUBSTRING`
@@ -4355,11 +4355,11 @@ base32-encoded `STRING` into `BYTES`, use [FROM_BASE32][string-link-to-from-base
 ```zetasql
 SELECT TO_BASE32(b'abcde\xFF') AS base32_string;
 
-/*------------------*
+/*------------------+
  | base32_string    |
  +------------------+
  | MFRGGZDF74====== |
- *------------------*/
+ +------------------*/
 ```
 
 [string-link-to-from-base32]: #from_base32
@@ -4389,11 +4389,11 @@ function adds padding and uses the alphabet `[A-Za-z0-9+/=]`.
 ```zetasql
 SELECT TO_BASE64(b'\377\340') AS base64_string;
 
-/*---------------*
+/*---------------+
  | base64_string |
  +---------------+
  | /+A=          |
- *---------------*/
+ +---------------*/
 ```
 
 To work with an encoding using a different base64 alphabet, you might need to
@@ -4405,11 +4405,11 @@ uses `-_=` as the last characters rather than `+/=`. To encode a
 ```zetasql
 SELECT REPLACE(REPLACE(TO_BASE64(b'\377\340'), '+', '-'), '/', '_') as websafe_base64;
 
-/*----------------*
+/*----------------+
  | websafe_base64 |
  +----------------+
  | _-A=           |
- *----------------*/
+ +----------------*/
 ```
 
 [string-link-to-from-base64]: #from_base64
@@ -4451,11 +4451,11 @@ SELECT
   'foo' AS word,
   TO_CODE_POINTS('foo') AS code_points
 
-/*---------+------------------------------------*
+/*---------+------------------------------------+
  | word    | code_points                        |
  +---------+------------------------------------+
  | foo     | [102, 111, 111]                    |
- *---------+------------------------------------*/
+ +---------+------------------------------------*/
 ```
 
 ```zetasql
@@ -4463,11 +4463,11 @@ SELECT
   'bar' AS word,
   TO_CODE_POINTS('bar') AS code_points
 
-/*---------+------------------------------------*
+/*---------+------------------------------------+
  | word    | code_points                        |
  +---------+------------------------------------+
  | bar     | [98, 97, 114]                      |
- *---------+------------------------------------*/
+ +---------+------------------------------------*/
 ```
 
 ```zetasql
@@ -4475,11 +4475,11 @@ SELECT
   'baz' AS word,
   TO_CODE_POINTS('baz') AS code_points
 
-/*---------+------------------------------------*
+/*---------+------------------------------------+
  | word    | code_points                        |
  +---------+------------------------------------+
  | baz     | [98, 97, 122]                      |
- *---------+------------------------------------*/
+ +---------+------------------------------------*/
 ```
 
 ```zetasql
@@ -4487,11 +4487,11 @@ SELECT
   'giraffe' AS word,
   TO_CODE_POINTS('giraffe') AS code_points
 
-/*---------+------------------------------------*
+/*---------+------------------------------------+
  | word    | code_points                        |
  +---------+------------------------------------+
  | giraffe | [103, 105, 114, 97, 102, 102, 101] |
- *---------+------------------------------------*/
+ +---------+------------------------------------*/
 ```
 
 ```zetasql
@@ -4499,11 +4499,11 @@ SELECT
   'llama' AS word,
   TO_CODE_POINTS('llama') AS code_points
 
-/*---------+------------------------------------*
+/*---------+------------------------------------+
  | word    | code_points                        |
  +---------+------------------------------------+
  | llama   | [108, 108, 97, 109, 97]            |
- *---------+------------------------------------*/
+ +---------+------------------------------------*/
 ```
 
 The following examples convert integer representations of `BYTES` to their
@@ -4514,11 +4514,11 @@ SELECT
   b'\x66\x6f\x6f' AS bytes_value,
   TO_CODE_POINTS(b'\x66\x6f\x6f') AS bytes_value_as_integer
 
-/*------------------+------------------------*
+/*------------------+------------------------+
  | bytes_value      | bytes_value_as_integer |
  +------------------+------------------------+
  | foo              | [102, 111, 111]        |
- *------------------+------------------------*/
+ +------------------+------------------------*/
 ```
 
 ```zetasql
@@ -4526,11 +4526,11 @@ SELECT
   b'\x00\x01\x10\xff' AS bytes_value,
   TO_CODE_POINTS(b'\x00\x01\x10\xff') AS bytes_value_as_integer
 
-/*------------------+------------------------*
+/*------------------+------------------------+
  | bytes_value      | bytes_value_as_integer |
  +------------------+------------------------+
  | \x00\x01\x10\xff | [0, 1, 16, 255]        |
- *------------------+------------------------*/
+ +------------------+------------------------*/
 ```
 
 The following example demonstrates the difference between a `BYTES` result and a
@@ -4542,11 +4542,11 @@ single element.
 ```zetasql
 SELECT TO_CODE_POINTS(b'Ā') AS b_result, TO_CODE_POINTS('Ā') AS s_result;
 
-/*------------+----------*
+/*------------+----------+
  | b_result   | s_result |
  +------------+----------+
  | [196, 128] | [256]    |
- *------------+----------*/
+ +------------+----------*/
 ```
 
 [string-link-to-code-points-wikipedia]: https://en.wikipedia.org/wiki/Code_point
@@ -4579,11 +4579,11 @@ SELECT
   b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF' AS byte_string,
   TO_HEX(b'\x00\x01\x02\x03\xAA\xEE\xEF\xFF') AS hex_string
 
-/*----------------------------------+------------------*
+/*----------------------------------+------------------+
  | byte_string                      | hex_string       |
  +----------------------------------+------------------+
  | \x00\x01\x02\x03\xaa\xee\xef\xff | 00010203aaeeefff |
- *----------------------------------+------------------*/
+ +----------------------------------+------------------*/
 ```
 
 [string-link-to-from-hex]: #from_hex
@@ -4616,11 +4616,11 @@ type, either `STRING` or `BYTES`.
 ```zetasql
 SELECT TRANSLATE('This is a cookie', 'sco', 'zku') AS translate
 
-/*------------------*
+/*------------------+
  | translate        |
  +------------------+
  | Thiz iz a kuukie |
- *------------------*/
+ +------------------*/
 ```
 
 ## `TRIM`
@@ -4655,11 +4655,11 @@ removed from `item` because `set_of_characters_to_remove` isn't specified.
 ```zetasql
 SELECT CONCAT('#', TRIM( '   apple   '), '#') AS example
 
-/*----------*
+/*----------+
  | example  |
  +----------+
  | #apple#  |
- *----------*/
+ +----------*/
 ```
 
 In the following example, all leading and trailing `*` characters are removed
@@ -4668,11 +4668,11 @@ from '***apple***'.
 ```zetasql
 SELECT TRIM('***apple***', '*') AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | apple   |
- *---------*/
+ +---------*/
 ```
 
 In the following example, all leading and trailing `x`, `y`, and `z` characters
@@ -4681,11 +4681,11 @@ are removed from 'xzxapplexxy'.
 ```zetasql
 SELECT TRIM('xzxapplexxy', 'xyz') as example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | apple   |
- *---------*/
+ +---------*/
 ```
 
 In the following example, examine how `TRIM` interprets characters as
@@ -4700,11 +4700,11 @@ SELECT
   TRIM('abaŪ̊', 'Y̊') AS c,
   TRIM('Ū̊aba', 'Y̊') AS d
 
-/*------+------+------+------*
+/*------+------+------+------+
  | a    | b    | c    | d    |
  +------+------+------+------+
  | abaW | W̊aba | abaŪ | Ūaba |
- *------+------+------+------*/
+ +------+------+------+------*/
 ```
 
 In the following example, all leading and trailing `b'n'`, `b'a'`, `b'\xab'`
@@ -4713,11 +4713,11 @@ bytes are removed from `item`.
 ```zetasql
 SELECT b'apple', TRIM(b'apple', b'na\xab') AS example
 
-/*----------------------+------------------*
+/*----------------------+------------------+
  | item                 | example          |
  +----------------------+------------------+
  | apple                | pple             |
- *----------------------+------------------*/
+ +----------------------+------------------*/
 ```
 
 ## `UNICODE`
@@ -4741,11 +4741,11 @@ point is `0`.
 ```zetasql
 SELECT UNICODE('âbcd') as A, UNICODE('â') as B, UNICODE('') as C, UNICODE(NULL) as D;
 
-/*-------+-------+-------+-------*
+/*-------+-------+-------+-------+
  | A     | B     | C     | D     |
  +-------+-------+-------+-------+
  | 226   | 226   | 0     | NULL  |
- *-------+-------+-------+-------*/
+ +-------+-------+-------+-------*/
 ```
 
 [string-code-point]: https://en.wikipedia.org/wiki/Code_point
@@ -4776,11 +4776,11 @@ greater than 127 left intact.
 ```zetasql
 SELECT UPPER('foo') AS example
 
-/*---------*
+/*---------+
  | example |
  +---------+
  | FOO     |
- *---------*/
+ +---------*/
 ```
 
 [string-link-to-unicode-character-definitions]: http://unicode.org/ucd/

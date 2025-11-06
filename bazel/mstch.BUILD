@@ -29,7 +29,7 @@ filegroup(
 
 cmake(
     name = "mstch",
-    deps = ["@boost"],
+    deps = ["@boost.variant"],
     cache_entries = {
         "CMAKE_C_FLAGS": "-fPIC",
         "CMAKE_CXX_FLAGS": "-fPIC",

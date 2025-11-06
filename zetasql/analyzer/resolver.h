@@ -17,7 +17,6 @@
 #ifndef ZETASQL_ANALYZER_RESOLVER_H_
 #define ZETASQL_ANALYZER_RESOLVER_H_
 
-#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <map>
@@ -56,7 +55,6 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/property_graph.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -70,6 +68,7 @@
 #include "zetasql/public/types/type_modifiers.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
@@ -197,7 +196,7 @@ class Resolver {
   // Do final checks and updates at the end of ResolveStatement.
   // These are also applied at the end of resolve methods for terminal pipe
   // operators that correspond to statements.
-  absl::Status FinishResolveStatement(const ASTStatement* ast_stmt,
+  absl::Status FinishResolveStatement(const ASTNode* ast_location,
                                       ResolvedStatement* stmt);
 
   // Resolve a standalone expression outside a query.
@@ -955,6 +954,14 @@ class Resolver {
       const ASTQueryStatement* query_stmt,
       std::unique_ptr<ResolvedStatement>* output_stmt,
       std::shared_ptr<const NameList>* output_name_list);
+
+  absl::Status ResolveSubpipelineStatement(
+      const ASTSubpipelineStatement* ast_subpipeline_statement,
+      std::unique_ptr<ResolvedStatement>* output_stmt);
+
+  absl::Status ResolveStatementWithPipeOperators(
+      const ASTStatementWithPipeOperators* ast_stmt,
+      std::unique_ptr<ResolvedStatement>* output_stmt);
 
   // Resolve the LIKE table name from a generic CREATE statement.
   absl::Status ResolveCreateStatementLikeTableName(
@@ -2002,7 +2009,7 @@ class Resolver {
       const ASTSelect* select, const ASTOrderBy* order_by,
       const ASTLimitOffset* limit_offset, const NameScope* external_scope,
       IdString query_alias, SelectForm select_form,
-      SelectWithMode select_with_mode,
+      WithModifierMode with_modifier_mode,
       bool force_new_columns_for_projected_outputs,
       const Type* inferred_type_for_query,
       std::unique_ptr<const ResolvedScan>* scan,
@@ -2105,6 +2112,7 @@ class Resolver {
   absl::Status ResolveWhere(const ASTWhereClause* ast_where,
                             const NameScope* name_scope,
                             const char* clause_name,
+                            QueryResolutionInfo* query_resolution_info,
                             std::unique_ptr<const ResolvedExpr>* resolved_expr);
 
   // Resolve the WHERE clause expression (which must be non-NULL) and
@@ -2130,7 +2138,9 @@ class Resolver {
   absl::Status ResolveSelectListExprsFirstPass(
       const ASTSelectList* select_list, const NameScope* from_scan_scope,
       const std::shared_ptr<const NameList>& from_clause_name_list,
-      QueryResolutionInfo* query_resolution_info,
+      QueryResolutionInfo* query_resolution_info, IdString query_alias,
+      std::unique_ptr<NameScope>& updated_name_scope,
+      std::shared_ptr<NameList>& updated_name_list,
       const Type* inferred_type_for_query = nullptr);
 
   // Resolve SELECT list expressions that were excluded from first pass
@@ -2141,7 +2151,7 @@ class Resolver {
   absl::Status ResolveDeferredFirstPassSelectListExprs(
       const NameScope* name_scope,
       const std::shared_ptr<const NameList>& name_list,
-      QueryResolutionInfo* query_resolution_info,
+      QueryResolutionInfo* query_resolution_info, IdString query_alias,
       const Type* inferred_type_for_query = nullptr);
 
   // Performs first pass analysis on a SELECT list expression. Resulting
@@ -2158,6 +2168,7 @@ class Resolver {
       const ASTSelectColumn* ast_select_column,
       const NameScope* from_scan_scope,
       const std::shared_ptr<const NameList>& from_clause_name_list,
+      std::unique_ptr<NameScope>& current_name_scope,
       IdString select_column_alias, int select_column_state_list_write_idx,
       QueryResolutionInfo* query_resolution_info,
       const Type* inferred_type = nullptr);
@@ -2248,19 +2259,18 @@ class Resolver {
 
   // Adds all fields of the column referenced by `src_column_ref` to the SELECT
   // list on `query_resolution_info`, like we do for 'SELECT column.*'.
-  // Copies `src_column_ref`, without taking ownership. If
-  // `src_column_has_aggregation`, then marks the new SelectColumnState as
-  // has_aggregation. If `src_column_has_analytic`, then marks the new
-  // SelectColumnState as has_analytic. If `src_column_has_volatile`, then marks
-  // the new SelectColumnState as has_volatile. If the column has no fields,
-  // then if `column_alias_if_no_fields` is non-empty, emits the column itself,
-  // and otherwise returns an error.
+  // Copies `src_column_ref`, without taking ownership.
+  // Updates the SelectColumnState's `expr_findings` with
+  // `src_column_expr_findings`. If the column has no fields, then if
+  // `column_alias_if_no_fields` is non-empty, emits the column itself, and
+  // otherwise returns an error.
   absl::Status AddColumnFieldsToSelectList(
       const ASTSelectColumn* ast_select_column,
       const ResolvedColumnRef* src_column_ref,
       std::unique_ptr<const ResolvedExpr> resolved_src_expr,
-      bool src_column_has_aggregation, bool src_column_has_analytic,
-      bool src_column_has_volatile, IdString column_alias_if_no_fields,
+      ExprFindings src_column_expr_findings,
+      std::vector<SelectColumnState*> columns_referenced_laterally,
+      IdString column_alias_if_no_fields,
       const IdStringSetCase* excluded_field_names,
       QueryResolutionInfo* query_resolution_info,
       ColumnReplacements* column_replacements = nullptr);
@@ -2324,6 +2334,14 @@ class Resolver {
           computed_columns,
       std::unique_ptr<const ResolvedScan>* current_scan);
 
+  // Adds each expression in `successive_columns_to_compute` on its own project
+  // scan, in order.
+  // Takes ownership of `successive_columns_to_compute`.
+  static absl::Status WrapInSuccessiveProjectScans(
+      std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+          successive_columns_to_compute,
+      std::unique_ptr<const ResolvedScan>* current_scan);
+
   // Add a ResolvedProjectScan wrapping `current_scan` but keeping only the
   // visible columns from `name_list` in its column_list.
   // No-op if there are no columns to prune away.
@@ -2341,8 +2359,9 @@ class Resolver {
       const ASTSelect* select, const ASTOrderBy* order_by,
       const ASTLimitOffset* limit_offset,
       const NameScope* having_and_order_by_scope,
-      std::unique_ptr<const ResolvedExpr>* resolved_having_expr,
-      std::unique_ptr<const ResolvedExpr>* resolved_qualify_expr,
+      std::unique_ptr<const ResolvedExpr> resolved_where_expr,
+      std::unique_ptr<const ResolvedExpr> resolved_having_expr,
+      std::unique_ptr<const ResolvedExpr> resolved_qualify_expr,
       QueryResolutionInfo* query_resolution_info,
       std::shared_ptr<const NameList>* output_name_list,
       std::unique_ptr<const ResolvedScan>* current_scan);
@@ -2799,6 +2818,10 @@ class Resolver {
       std::shared_ptr<const NameList> name_list_template;
     };
 
+    // Converts a span of ResolvedInputResult to a vector of IndexedColumnNames.
+    static std::vector<IndexedColumnNames> ToIndexedColumnNamesList(
+        absl::Span<const ResolvedInputResult> resolved_inputs);
+
     // Resolves the non-recursive term of the recursive set operation.
     //
     // `scope`: the name scope used to resolve the non-recursive term.
@@ -2944,49 +2967,6 @@ class Resolver {
     CalculateFinalColumnNamesForCorrespondingBy(
         const std::vector<ResolvedInputResult>& resolved_inputs) const;
 
-    // This class provides a two-way index mapping between the columns in the
-    // <output_column_list> of each input and the final columns of the set
-    // operation.
-    class IndexMapper {
-     public:
-      explicit IndexMapper(size_t num_queries) {
-        for (int query_idx = 0; query_idx < num_queries; ++query_idx) {
-          index_mapping_[query_idx] = {};
-        }
-      }
-
-      // Returns std::nullopt if the `final_column_idx` -th final column does
-      // not have a corresponding column in the <output_column_list> of the
-      // `query_idx` -th input.
-      absl::StatusOr<std::optional<int>> GetOutputColumnIndex(
-          int query_idx, int final_column_idx) const;
-
-      // Returns std::nullopt if for the `query_idx` -th input, its
-      // `output_column_idx` -th column in the <output_column_list> of does not
-      // appear in the final columns of the set operation.
-      absl::StatusOr<std::optional<int>> GetFinalColumnIndex(
-          int query_idx, int output_column_idx) const;
-
-      absl::Status AddMapping(int query_idx, int final_column_idx,
-                              int output_column_idx);
-
-     private:
-      struct TwoWayMapping {
-        absl::flat_hash_map</*final_column_idx*/ int, /*output_column_idx*/ int>
-            final_to_output;
-        absl::flat_hash_map</*output_column_idx*/ int, /*final_column_idx*/ int>
-            output_to_final;
-      };
-
-      absl::flat_hash_map</*query_idx*/ int, TwoWayMapping> index_mapping_;
-    };
-
-    // Builds an index mapping between the columns of the <output_column_list>
-    // of each input in `resolved_inputs` and the names in `final_column_names`.
-    absl::StatusOr<std::unique_ptr<IndexMapper>> BuildIndexMapping(
-        absl::Span<const ResolvedInputResult> resolved_inputs,
-        absl::Span<const IdString> final_column_names) const;
-
     // Builds a vector specifying the type of each column for each input scan,
     // where the returned column_type_lists[column_idx][scan_idx] specifies the
     // type for the given (column index, input index) combination.
@@ -3006,20 +2986,6 @@ class Resolver {
     absl::Status AddTypeCastIfNeededForCorresponding(
         const ResolvedColumnList& final_column_list,
         absl::Span<ResolvedInputResult> resolved_inputs,
-        const IndexMapper* index_mapper) const;
-
-    // Returns a column list of final columns that match positionally with the
-    // columns in `output_column_list`. If a column in `output_column_list` does
-    // not have a corresponding column in `final_column_list` (mapping is
-    // provided by `index_mapper`), the column itself is used as the "final
-    // column" (to guarantee no type cast is added for those columns).
-    //
-    // This function is primarily used by AddTypeCastIfNeededForCorresponding to
-    // accommodate the interface of
-    // CreateWrapperScanWithCastsForSetOperationItem.
-    absl::StatusOr<ResolvedColumnList> GetCorrespondingFinalColumns(
-        const ResolvedColumnList& final_column_list,
-        const ResolvedColumnList& output_column_list, int query_idx,
         const IndexMapper* index_mapper) const;
 
     // Builds the NameList template for the final NameList for CORRESPONDING.
@@ -3808,6 +3774,10 @@ class Resolver {
   void RecordTVFRelationColumnParseLocationsIfPresent(
       const ASTTVFSchemaColumn& tvf_schema_column, TVFRelation::Column* column);
 
+  // Records the parse location of operator keyword to resolved node.
+  void MaybeRecordResolvedNodeOperatorKeywordLocation(
+      const ASTNode* ast_node, ResolvedNode* resolved_node) const;
+
   // Generate a ResolvedScan for the FROM clause, populating the
   // <output_name_list> with the names visible in the FROM.  If there
   // is no FROM clause, then a ResolvedSingleRowScan will be produced.
@@ -4007,16 +3977,15 @@ class Resolver {
       const ASTTVF* ast_tvf, std::unique_ptr<const ResolvedScan>* output,
       std::shared_ptr<const NameList>* group_rows_name_list);
 
-  // Returns true in <add_projection> if the relation argument of
-  // <tvf_signature_arg> at <arg_idx> has a required schema where the number,
-  // order, and/or types of columns do not exactly match those in the provided
-  // input relation. If so, the CoerceOrRearrangeTVFRelationArgColumns method
-  // can construct a projection to produce the column names that the required
-  // schema expects.
-  absl::Status CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
+  // Returns true if the relation argument of <tvf_signature_arg> at <arg_idx>
+  // has a required schema where the number, order, and/or types of columns do
+  // not exactly match those in the provided input relation. If so, the
+  // CoerceOrRearrangeTVFRelationArgColumns method can construct a projection to
+  // produce the column names that the required schema expects.
+  absl::StatusOr<bool> CheckIfMustCoerceOrRearrangeTVFRelationArgColumns(
       const FunctionArgumentType& tvf_signature_arg, int arg_idx,
       const SignatureMatchResult& signature_match_result,
-      const ResolvedTVFArg& resolved_tvf_arg, bool* add_projection);
+      const ResolvedTVFArg& resolved_tvf_arg);
 
   // This method adds a ProjectScan on top of a relation argument for a
   // table-valued function relation argument when the function signature
@@ -4046,7 +4015,7 @@ class Resolver {
   absl::Status CoerceOrRearrangeTVFRelationArgColumns(
       const FunctionArgumentType& tvf_signature_arg, int arg_idx,
       const SignatureMatchResult& signature_match_result,
-      const ASTNode* ast_location, ResolvedTVFArg* resolved_tvf_arg);
+      const ASTNode* ast_location, ResolvedTVFArg& resolved_tvf_arg);
 
   // Resolve a column in the USING clause on one side of the join.
   // <side_name> is "left" or "right", for error messages.
@@ -4216,9 +4185,20 @@ class Resolver {
   // against <name_scope>, without support for aggregate or analytic functions.
   // If the expression contains aggregate or analytic functions then this method
   // returns an error message, possibly including <clause_name>.
-  absl::Status ResolveScalarExpr(
+  inline absl::Status ResolveScalarExpr(
       const ASTExpression* ast_expr, const NameScope* name_scope,
       const char* clause_name,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
+      const Type* inferred_type = nullptr) {
+    return ResolveScalarExpr(ast_expr, name_scope, clause_name,
+                             /*query_resolution_info=*/nullptr,
+                             resolved_expr_out, inferred_type);
+  }
+  // Same as above but considers QueryResolutionInfo. Useful for lateral
+  // references to SELECT columns.
+  absl::Status ResolveScalarExpr(
+      const ASTExpression* ast_expr, const NameScope* name_scope,
+      const char* clause_name, QueryResolutionInfo* query_resolution_info,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
       const Type* inferred_type = nullptr);
 
@@ -4359,6 +4339,10 @@ class Resolver {
 
   // Make the ResolvedTableScan and NameList for scanning `table`.
   //
+  // If <read_as_row_type_error_kind> is non-empty and this the table would be
+  // read as ROW-typed (because it has a no-default ColumnListMode), give an
+  // error, using this string in the error text.
+  //
   // <output_name_list> contains the scan column list of the found table and a
   // range variable with <alias> as the name.
   //
@@ -4369,6 +4353,7 @@ class Resolver {
       const ASTNode* ast_location, const Table* table, IdString alias,
       bool has_explicit_alias, const ASTNode* alias_location,
       const ASTForSystemTime* for_system_time,
+      const std::string& read_as_row_type_error_kind,
       std::unique_ptr<ResolvedTableScan>* output_table_scan,
       NameListPtr* output_name_list,
       NameListPtr* /*absl_nullable*/ output_column_name_list,
@@ -4383,6 +4368,10 @@ class Resolver {
   //
   // <alias> is the alias of the table name. Only when it's explicit alias will
   // it becomes the alias of the resolved table scan.
+  //
+  // If <read_as_row_type_error_kind> is non-empty and this the table would be
+  // read as ROW-typed (because it has a no-default ColumnListMode), give an
+  // error, using this string in the error text.
   //
   // When <remaining_names> is not nullptr, we allow the prefix of
   // 'path_expr->names()' as the table names by calling
@@ -4411,7 +4400,7 @@ class Resolver {
       const ASTPathExpression* path_expr, IdString alias,
       bool has_explicit_alias, const ASTNode* alias_location,
       const ASTHint* hints, const ASTForSystemTime* for_system_time,
-      const NameScope* scope,
+      const NameScope* scope, const std::string& read_as_row_type_error_kind,
       std::unique_ptr<PathExpressionSpan>* remaining_names,
       std::unique_ptr<const ResolvedTableScan>* output,
       std::shared_ptr<const NameList>* output_name_list,
@@ -4479,6 +4468,12 @@ class Resolver {
   // On success, <resolved_lhs> will be reset.
   absl::Status ResolveJsonFieldAccess(
       const ASTIdentifier* identifier,
+      std::unique_ptr<const ResolvedExpr> resolved_lhs,
+      std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
+
+  // Resolve field access on a ROW type to a ResolvedGetRowField.
+  absl::Status ResolveGetRowField(
+      const ASTIdentifier* identifier, FlattenState* flatten_state,
       std::unique_ptr<const ResolvedExpr> resolved_lhs,
       std::unique_ptr<const ResolvedExpr>* resolved_expr_out);
 
@@ -4758,8 +4753,11 @@ class Resolver {
   // Function names returned by ResolveNonArrayElement().
   static const char kSubscript[];
   static const char kSubscriptWithOffset[];
+  static const char kSafeSubscriptWithOffset[];
   static const char kSubscriptWithOrdinal[];
+  static const char kSafeSubscriptWithOrdinal[];
   static const char kSubscriptWithKey[];
+  static const char kSafeSubscriptWithKey[];
 
   // Resolves subscript([]) operator for non-array type.
   // Depending on the argument the subscript operator can be resolved to one of
@@ -5583,6 +5581,15 @@ class Resolver {
       std::vector<const ASTExpression*>* function_arguments,
       QueryResolutionInfo* query_resolution_info);
 
+  // Adds the alias of the select column to the scope for lateral references.
+  absl::Status AddSelectColumnAliasToScopeForLateralReferences(
+      SelectForm select_form,
+      const std::shared_ptr<const NameList>& from_clause_name_list,
+      const NameScope* from_scan_scope, IdString query_alias,
+      SelectColumnState* select_column_state,
+      std::shared_ptr<NameList>& updated_name_list,
+      std::unique_ptr<NameScope>& updated_name_scope);
+
   // Resolve the value part of a hint or option key/value pair.
   // This includes checking against <allowed> to ensure the options are
   // valid (typically used with AnalyzerOptions::allowed_hints_and_options).
@@ -5964,11 +5971,16 @@ class Resolver {
   // closest matching signature are not yet implemented, so the resolution will
   // fail with an internal error. Until this support is added, the catalog must
   // be constructed such that it's impossible for multiple signatures to match.
-  // The `arg_locations` and `resolved_tvf_args` are function outputs, and
-  // reflect and match 1:1 to the concrete function call arguments in the
-  // `result_signature`.
-  // Returning integer is the index of the matching signature.
   // `pipe_input_arg` if present is the pipe input argument in pipe CALL.
+  //
+  // The following arguments are function outputs and are populated if exactly
+  // one TVF signature matches the input arguments - `result_signature`,
+  // `arg_locations`, `resolved_tvf_args`, `named_arguments` and
+  // `signature_match_result`.
+  // The `arg_locations` and `resolved_tvf_args` reflect and match 1:1 to the
+  // concrete function call arguments in the `result_signature`.
+  //
+  // Returned integer is the index of the matching signature.
   // TODO: b/409730404 - Add support to score and select a signature when
   // multiple signatures match.
   absl::StatusOr<int> FindMatchingTVFSignature(
@@ -5977,41 +5989,50 @@ class Resolver {
       const NameScope* /*absl_nonnull*/ external_scope,
       const FunctionResolver& function_resolver,
       ResolvedTVFArg* /*absl_nullable*/ pipe_input_arg,
-      std::unique_ptr<FunctionSignature>* /*absl_nonnull*/ result_signature,
-      std::vector<const ASTNode*>* /*absl_nonnull*/ arg_locations,
-      std::vector<ResolvedTVFArg>* /*absl_nonnull*/ resolved_tvf_args,
-      std::vector<NamedArgumentInfo>* /*absl_nonnull*/ named_arguments,
-      SignatureMatchResult* /*absl_nonnull*/ signature_match_result);
+      std::unique_ptr<FunctionSignature>& result_signature,
+      std::vector<const ASTNode*>& arg_locations,
+      std::vector<ResolvedTVFArg>& resolved_tvf_args,
+      std::vector<NamedArgumentInfo>& named_arguments,
+      SignatureMatchResult& signature_match_result);
 
   // Checks if a TVF signature matches the input arguments and returns an
   // OK-status in case of a successful match. Resolves the input arguments
   // based on the signature and checks if the argument count and types matches
-  // the signature. The `arg_locations` and `resolved_tvf_args` are function
-  // outputs, and reflect and match 1:1 to the concrete function call arguments
-  // in the `result_signature`.
+  // the signature.
+  //
+  // `pipe_input_arg` if present is the pipe input argument in pipe CALL.
+  //
+  // The following arguments are function outputs and are populated if the
+  // signature corresponding to `signature_idx` matches with the input
+  // arguments: `result_signature`, `arg_locations`, `resolved_tvf_args`,
+  // `named_arguments` and `signature_match_result`.
+  // The `arg_locations` and `resolved_tvf_args` reflect and match 1:1 to the
+  // concrete function call arguments in the `result_signature`.
   absl::Status MatchTVFSignature(
       const ASTTVF* /*absl_nonnull*/ ast_tvf,
       const TableValuedFunction* /*absl_nonnull*/ tvf_catalog_entry,
       int signature_idx, const NameScope* /*absl_nonnull*/ external_scope,
       const FunctionResolver& function_resolver,
       ResolvedTVFArg* /*absl_nullable*/ pipe_input_arg,
-      std::unique_ptr<FunctionSignature>* /*absl_nonnull*/ result_signature,
-      std::vector<const ASTNode*>* /*absl_nonnull*/ arg_locations,
-      std::vector<ResolvedTVFArg>* /*absl_nonnull*/ resolved_tvf_args,
-      std::vector<NamedArgumentInfo>* /*absl_nonnull*/ named_arguments,
-      SignatureMatchResult* /*absl_nonnull*/ signature_match_result);
+      std::unique_ptr<FunctionSignature>& result_signature,
+      std::vector<const ASTNode*>& arg_locations,
+      std::vector<ResolvedTVFArg>& resolved_tvf_args,
+      std::vector<NamedArgumentInfo>& named_arguments,
+      SignatureMatchResult& signature_match_result);
 
   // Prepares a list of TVF input arguments and a result signature. This
   // includes adding necessary casts and coercions, and wrapping the resolved
   // input arguments with TVFInputArgumentType as appropriate.
-  // <pipe_input_arg> if present is the pipe input argument in pipe CALL.
+  // `pipe_input_arg` if present is the pipe input argument in pipe CALL.
+  // `result_signature`, `resolved_tvf_args` and `tvf_input_arguments` are
+  // output parameters.
   absl::Status PrepareTVFInputArguments(
       absl::string_view tvf_name_string, const ASTTVF* ast_tvf,
       const TableValuedFunction* tvf_catalog_entry,
       const NameScope* external_scope, ResolvedTVFArg* pipe_input_arg,
-      std::unique_ptr<FunctionSignature>* result_signature,
-      std::vector<ResolvedTVFArg>* resolved_tvf_args,
-      std::vector<TVFInputArgumentType>* tvf_input_arguments);
+      std::unique_ptr<FunctionSignature>& result_signature,
+      std::vector<ResolvedTVFArg>& resolved_tvf_args,
+      std::vector<TVFInputArgumentType>& tvf_input_arguments);
 
   // Generates an error status about a TVF call not matching a signature.
   // It is made to avoid redundant code in MatchTVFSignature.
@@ -6351,9 +6372,11 @@ class Resolver {
       const ASTExpressionWithOptAlias* argument);
 
   // Resolve a single array argument for explicit UNNEST.
+  // `num_arguments` indicates if this is a multi-argument UNNEST.
   absl::Status ResolveArrayArgumentForExplicitUnnest(
       const ASTExpressionWithOptAlias* argument,
-      UnnestArrayColumnAlias& arg_alias, ExprResolutionInfo* info,
+      UnnestArrayColumnAlias& arg_alias, int num_unnest_arguments,
+      ExprResolutionInfo* info,
       std::vector<UnnestArrayColumnAlias>& output_alias_list,
       ResolvedColumnList& output_column_list,
       std::shared_ptr<NameList>& output_name_list,

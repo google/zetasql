@@ -639,7 +639,7 @@ MATCH_RECOGNIZE(
     B AS true
 )
 --
-ERROR: FIRST Function  does not support GROUP BY modifiers [at 6:5]
+ERROR: FIRST Function does not support GROUP BY modifiers [at 6:5]
     FIRST(int32 + SUM(int32 + int64 + MIN(double) GROUP BY int64) GROUP BY in...
     ^
 ==

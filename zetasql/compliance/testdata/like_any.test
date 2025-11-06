@@ -98,6 +98,19 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ==
 
 [required_features=LIKE_ANY_SOME_ALL]
+[name=not_like_any_with_null_elements]
+# Test "NOT LIKE ANY" for NULL elements on either LHS or RHS list.
+SELECT
+  NULL NOT LIKE ANY (NULL, 'abc'),
+  'abc' NOT LIKE ANY (NULL, NULL),
+  'abc' NOT LIKE ANY ('abc', '%z%'),
+  'abc' NOT LIKE ANY ('abc', '%b%'),
+  'abc' NOT LIKE ANY ('x', '%y%'),
+--
+ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
+==
+
+[required_features=LIKE_ANY_SOME_ALL]
 [name=like_any_string_simple]
 SELECT
   Value,
@@ -370,19 +383,6 @@ SELECT
 ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, NULL, NULL, true}]
 ==
 
-[required_features=LIKE_ANY_SOME_ALL]
-[name=not_like_any_with_null_elements]
-# Test "NOT LIKE ANY" for NULL elements on either LHS or RHS list.
-SELECT
-  NULL NOT LIKE ANY (NULL, 'abc'),
-  'abc' NOT LIKE ANY (NULL, NULL),
-  'abc' NOT LIKE ANY ('abc', '%z%'),
-  'abc' NOT LIKE ANY ('abc', '%b%'),
-  'abc' NOT LIKE ANY ('x', '%y%'),
---
-ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, NULL, true, false, true}]
-==
-
 [required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL]
 [name=not_like_any_with_collation_ci_test_with_null_elements]
 # Test "NOT LIKE ANY" with collation for NULL elements on either LHS or RHS list.
@@ -554,6 +554,117 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
 ]
 ==
 
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_any_string_constant_patterns_in_non_paranthesized_scalar_subquery]
+SELECT
+  Value,
+  Value NOT LIKE ANY (SELECT 'Value1'),
+  Value NOT LIKE ANY (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, false},
+  {"Value2", true, true}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_any_subquery_with_nulls]
+# Test LIKE ANY with a subquery that contains NULL patterns.
+SELECT
+  Value,
+  Value LIKE ANY (SELECT Pattern FROM UNNEST([NULL, 'Value1']) AS Pattern),
+  Value LIKE ANY (SELECT Pattern FROM UNNEST(['Value1', 'Value2', NULL]) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", true, true},
+  {"Value2", NULL, true}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_any_subquery_with_nulls]
+# Test NOT LIKE ANY with a subquery that contains NULL patterns.
+SELECT
+  Value,
+  Value NOT LIKE ANY (SELECT Pattern FROM UNNEST([NULL, 'Value1']) AS Pattern),
+  Value NOT LIKE ANY (SELECT Pattern FROM UNNEST(['Value1', 'Value2', NULL]) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", NULL, true},
+  {"Value2", true, true}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_any_subquery_with_bytes]
+# Test LIKE ANY with a subquery that returns BYTES.
+SELECT
+  Value,
+  Value LIKE ANY (SELECT Pattern FROM UNNEST([b'Valu%1', b'%lue2']) AS Pattern),
+  Value LIKE ANY (SELECT Pattern FROM UNNEST([b'%lue1', b'invalid']) AS Pattern)
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {b"Value1", true, true},
+  {b"Value2", true, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_any_subquery_with_bytes]
+# Test NOT LIKE ANY with a subquery that returns BYTES.
+SELECT
+  Value,
+  Value NOT LIKE ANY (SELECT Pattern FROM UNNEST([b'Valu%1', b'V%lue2']) AS Pattern),
+  Value NOT LIKE ANY (SELECT Pattern FROM UNNEST([b'%lue1', b'invalid']) AS Pattern)
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {b"Value1", true, true},
+  {b"Value2", true, true}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_any_subquery_with_expressions]
+# Test LIKE ANY with a subquery that contains expressions.
+SELECT
+  Value,
+  Value LIKE ANY (SELECT CONCAT(Pattern, '%') FROM UNNEST(['Value', 'Val']) AS Pattern),
+  Value LIKE ANY (SELECT CONCAT(Pattern, '1') FROM UNNEST(['Invalid', 'Valu']) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", true, false},
+  {"Value2", true, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_any_subquery_with_expressions]
+# Test NOT LIKE ANY with a subquery that contains expressions.
+SELECT
+  Value,
+  Value NOT LIKE ANY (SELECT CONCAT(Pattern, '%') FROM UNNEST(['Value', 'Val']) AS Pattern),
+  Value NOT LIKE ANY (SELECT CONCAT(Pattern, '1') FROM UNNEST(['Invalid', 'Valu']) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, true},
+  {"Value2", false, true}
+]
+==
+
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_any_string_constant_patterns_in_subquery_as_array_element]
 SELECT
@@ -569,8 +680,27 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL>>[known order:
   {"Value1", true, true, true, true},
   {"Value2", true, true, NULL, false}
 ]
-
 ==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
+[name=not_like_any_array_with_scalar_subquery]
+SELECT
+  Value,
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), 'Value2']),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), NULL]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), (SELECT 'Value2')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%1'), (SELECT 'V%lue1')]),
+  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%2'), (SELECT 'V%lue2')]),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
+  {"Value1", false, true, NULL, true, false, true},
+  {"Value2", true, true, true, true, true, false}
+]
+==
+
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=not_like_any_string_constant_patterns_in_subquery_as_array_elements]
 SELECT
@@ -725,44 +855,6 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ]
 ==
 
-[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
-[name=not_like_any_array_with_scalar_subquery]
-SELECT
-  Value,
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1')]),
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), 'Value2']),
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), NULL]),
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Value1'), (SELECT 'Value2')]),
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%1'), (SELECT 'V%lue1')]),
-  Value NOT LIKE ANY UNNEST ([(SELECT 'Valu%2'), (SELECT 'V%lue2')]),
-FROM KeyValue ORDER BY Value;
---
-ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
-  {NULL, NULL, NULL, NULL, NULL, NULL, NULL},
-  {"Value1", false, true, NULL, true, false, true},
-  {"Value2", true, true, true, true, true, false}
-]
-==
-
-[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
-[name=not_like_any_with_patterns_in_non_paranthesized_scalar_subquery]
-# TODO: Like any/all subquery is current not using the new
-# implementation of 'not like any/all' operator which needs to be fixed
-# when subquery feature will be fully implemented. As of now, the subquery
-# variant of like any/all is not completely ready.
-SELECT
-  Value,
-  Value NOT LIKE ANY (SELECT 'Value1'),
-  Value NOT LIKE ANY (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
-FROM KeyValue ORDER BY Value;
---
-ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
-  {NULL, NULL, NULL},
-  {"Value1", true, true},
-  {"Value2", false, false}
-]
-==
-
 [required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_any_array_with_scalar_subquery_with_collation]
 SELECT
@@ -810,7 +902,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ==
 
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
-[name=not_like_any_array_with_array_agg_function]
+[name=like_any_array_with_array_agg_function]
 SELECT
   'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
   'a' LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),
@@ -822,7 +914,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[{NULL, true, true, false, true}]
 ==
 
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
-[name=like_any_array_with_array_agg_function]
+[name=not_like_any_array_with_array_agg_function]
 SELECT
   'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
   'a' NOT LIKE ANY UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),

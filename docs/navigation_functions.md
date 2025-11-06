@@ -169,7 +169,7 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS fastest_time
   FROM finishers);
 
-/*-----------------+-------------+----------+--------------+------------------*
+/*-----------------+-------------+----------+--------------+------------------+
  | name            | finish_time | division | fastest_time | delta_in_seconds |
  +-----------------+-------------+----------+--------------+------------------+
  | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
@@ -182,7 +182,7 @@ FROM (
  | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 426              |
  | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 691              |
  | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 733              |
- *-----------------+-------------+----------+--------------+------------------*/
+ +-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ## `LAG`
@@ -258,7 +258,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS preceding_runner
 FROM finishers;
 
-/*-----------------+-------------+----------+------------------*
+/*-----------------+-------------+----------+------------------+
  | name            | finish_time | division | preceding_runner |
  +-----------------+-------------+----------+------------------+
  | Carly Forte     | 03:08:58    | F25-29   | NULL             |
@@ -271,7 +271,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | Lisa Stelzner    |
  | Desiree Berry   | 03:05:42    | F35-39   | Lauren Matthews  |
  | Suzy Slane      | 03:06:24    | F35-39   | Desiree Berry    |
- *-----------------+-------------+----------+------------------*/
+ +-----------------+-------------+----------+------------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -297,7 +297,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-/*-----------------+-------------+----------+-------------------*
+/*-----------------+-------------+----------+-------------------+
  | name            | finish_time | division | two_runners_ahead |
  +-----------------+-------------+----------+-------------------+
  | Carly Forte     | 03:08:58    | F25-29   | NULL              |
@@ -310,7 +310,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | NULL              |
  | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
  | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
- *-----------------+-------------+----------+-------------------*/
+ +-----------------+-------------+----------+-------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -336,7 +336,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_ahead
 FROM finishers;
 
-/*-----------------+-------------+----------+-------------------*
+/*-----------------+-------------+----------+-------------------+
  | name            | finish_time | division | two_runners_ahead |
  +-----------------+-------------+----------+-------------------+
  | Carly Forte     | 03:08:58    | F25-29   | Nobody            |
@@ -349,7 +349,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | Nobody            |
  | Desiree Berry   | 03:05:42    | F35-39   | Lisa Stelzner     |
  | Suzy Slane      | 03:06:24    | F35-39   | Lauren Matthews   |
- *-----------------+-------------+----------+-------------------*/
+ +-----------------+-------------+----------+-------------------*/
 ```
 
 ## `LAST_VALUE`
@@ -427,7 +427,7 @@ FROM (
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS slowest_time
   FROM finishers);
 
-/*-----------------+-------------+----------+--------------+------------------*
+/*-----------------+-------------+----------+--------------+------------------+
  | name            | finish_time | division | slowest_time | delta_in_seconds |
  +-----------------+-------------+----------+--------------+------------------+
  | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | 0                |
@@ -440,7 +440,7 @@ FROM (
  | Lauren Matthews | 03:01:17    | F35-39   | 03:06:24     | 307              |
  | Desiree Berry   | 03:05:42    | F35-39   | 03:06:24     | 42               |
  | Suzy Slane      | 03:06:24    | F35-39   | 03:06:24     | 0                |
- *-----------------+-------------+----------+--------------+------------------*/
+ +-----------------+-------------+----------+--------------+------------------*/
 ```
 
 ## `LEAD`
@@ -516,7 +516,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS followed_by
 FROM finishers;
 
-/*-----------------+-------------+----------+-----------------*
+/*-----------------+-------------+----------+-----------------+
  | name            | finish_time | division | followed_by     |
  +-----------------+-------------+----------+-----------------+
  | Carly Forte     | 03:08:58    | F25-29   | NULL            |
@@ -529,7 +529,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | Desiree Berry   |
  | Desiree Berry   | 03:05:42    | F35-39   | Suzy Slane      |
  | Suzy Slane      | 03:06:24    | F35-39   | NULL            |
- *-----------------+-------------+----------+-----------------*/
+ +-----------------+-------------+----------+-----------------*/
 ```
 
 This next example uses the optional `offset` parameter.
@@ -555,7 +555,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-/*-----------------+-------------+----------+------------------*
+/*-----------------+-------------+----------+------------------+
  | name            | finish_time | division | two_runners_back |
  +-----------------+-------------+----------+------------------+
  | Carly Forte     | 03:08:58    | F25-29   | NULL             |
@@ -568,7 +568,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
  | Desiree Berry   | 03:05:42    | F35-39   | NULL             |
  | Suzy Slane      | 03:06:24    | F35-39   | NULL             |
- *-----------------+-------------+----------+------------------*/
+ +-----------------+-------------+----------+------------------*/
 ```
 
 The following example replaces NULL values with a default value.
@@ -594,7 +594,7 @@ SELECT name,
     OVER (PARTITION BY division ORDER BY finish_time ASC) AS two_runners_back
 FROM finishers;
 
-/*-----------------+-------------+----------+------------------*
+/*-----------------+-------------+----------+------------------+
  | name            | finish_time | division | two_runners_back |
  +-----------------+-------------+----------+------------------+
  | Carly Forte     | 03:08:58    | F25-29   | Nobody           |
@@ -607,7 +607,7 @@ FROM finishers;
  | Lauren Matthews | 03:01:17    | F35-39   | Suzy Slane       |
  | Desiree Berry   | 03:05:42    | F35-39   | Nobody           |
  | Suzy Slane      | 03:06:24    | F35-39   | Nobody           |
- *-----------------+-------------+----------+------------------*/
+ +-----------------+-------------+----------+------------------*/
 ```
 
 ## `NTH_VALUE`
@@ -691,7 +691,7 @@ FROM (
     PARTITION BY division ORDER BY finish_time ASC
     ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING));
 
-/*-----------------+-------------+----------+--------------+----------------*
+/*-----------------+-------------+----------+--------------+----------------+
  | name            | finish_time | division | fastest_time | second_fastest |
  +-----------------+-------------+----------+--------------+----------------+
  | Carly Forte     | 03:08:58    | F25-29   | 03:08:58     | NULL           |
@@ -704,7 +704,7 @@ FROM (
  | Lauren Matthews | 03:01:17    | F35-39   | 02:54:11     | 03:01:17       |
  | Desiree Berry   | 03:05:42    | F35-39   | 02:54:11     | 03:01:17       |
  | Suzy Slane      | 03:06:24    | F35-39   | 02:54:11     | 03:01:17       |
- *-----------------+-------------+----------+--------------+----------------*/
+ +-----------------+-------------+----------+--------------+----------------*/
 ```
 
 ## `PERCENTILE_CONT`
@@ -788,11 +788,11 @@ SELECT
   PERCENTILE_CONT(x, 1) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
- /*-----+-------------+--------+--------------+-----*
+ /*-----+-------------+--------+--------------+-----+
   | min | percentile1 | median | percentile90 | max |
   +-----+-------------+--------+--------------+-----+
   | 0   | 0.03        | 1.5    | 2.7          | 3   |
-  *-----+-------------+--------+--------------+-----*/
+  +-----+-------------+--------+--------------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -807,11 +807,11 @@ SELECT
   PERCENTILE_CONT(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST([0, 3, NULL, 1, 2]) AS x LIMIT 1;
 
-/*------+-------------+--------+--------------+-----*
+/*------+-------------+--------+--------------+-----+
  | min  | percentile1 | median | percentile90 | max |
  +------+-------------+--------+--------------+-----+
  | NULL | 0           | 1      | 2.6          | 3   |
- *------+-------------+--------+--------------+-----*/
+ +------+-------------+--------+--------------+-----*/
 ```
 
 [dp-functions]: https://github.com/google/zetasql/blob/master/docs/aggregate-dp-functions.md
@@ -876,14 +876,14 @@ SELECT
   PERCENTILE_DISC(x, 1) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-/*------+-----+--------+-----*
+/*------+-----+--------+-----+
  | x    | min | median | max |
  +------+-----+--------+-----+
  | c    | a   | b      | c   |
  | NULL | a   | b      | c   |
  | b    | a   | b      | c   |
  | a    | a   | b      | c   |
- *------+-----+--------+-----*/
+ +------+-----+--------+-----*/
 ```
 
 The following example computes the value for some percentiles from a column of
@@ -897,14 +897,14 @@ SELECT
   PERCENTILE_DISC(x, 1 RESPECT NULLS) OVER() AS max
 FROM UNNEST(['c', NULL, 'b', 'a']) AS x;
 
-/*------+------+--------+-----*
+/*------+------+--------+-----+
  | x    | min  | median | max |
  +------+------+--------+-----+
  | c    | NULL | a      | c   |
  | NULL | NULL | a      | c   |
  | b    | NULL | a      | c   |
  | a    | NULL | a      | c   |
- *------+------+--------+-----*/
+ +------+------+--------+-----*/
 
 ```
 

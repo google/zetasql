@@ -19,15 +19,19 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/public/catalog_helper.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/strings.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "google/protobuf/io/tokenizer.h"
+#include "zetasql/base/map_util.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
@@ -874,6 +878,72 @@ std::string Table::GetTableTypeName(ProductMode mode) const {
   }
   absl::StrAppend(&ret, ">");
   return ret;
+}
+
+// Note: This has a different name rather than being an overload of
+// CreateEvaluatorTableIterator to avoid ambiguities for calls with {} or {0}.
+absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+Table::CreateEvaluatorTableIteratorFromColumns(
+    absl::Span<const Column* const> column_list) const {
+  // Build a map from Column to its idx.
+  absl::flat_hash_map<const Column*, int> column_to_idx_map;
+  for (int idx = 0; idx < NumColumns(); ++idx) {
+    column_to_idx_map[GetColumn(idx)] = idx;
+  }
+
+  // Convert the list of Columns to the list of idxs.
+  std::vector<int> column_idx_list;
+  column_idx_list.reserve(column_list.size());
+  for (const Column* column : column_list) {
+    const int* idx = zetasql_base::FindOrNull(column_to_idx_map, column);
+    ZETASQL_RET_CHECK(idx != nullptr) << "Column " << column->FullName()
+                              << " not found in table" << FullName();
+    column_idx_list.push_back(*idx);
+  }
+
+  return CreateEvaluatorTableIterator(column_idx_list);
+}
+
+absl::StatusOr<std::vector<const Column*>> Table::ListLazyColumns(
+    LazyColumnsTableScanContext* context,
+    const Catalog::FindOptions& options) const {
+  // This base class implementation works for tables with ColumnListMode
+  // DEFAULT, where we don't need lazy lookups.
+  ZETASQL_RET_CHECK(HasColumnList())
+      << "ListLazyColumns not implemented for table " << FullName();
+
+  std::vector<const Column*> columns;
+  columns.reserve(NumColumns());
+  for (int i = 0; i < NumColumns(); ++i) {
+    columns.push_back(GetColumn(i));
+  }
+  return columns;
+}
+
+absl::StatusOr<Table::FindLazyColumnsResult> Table::FindLazyColumns(
+    const absl::Span<const std::string>& column_names,
+    LazyColumnsTableScanContext* context,
+    const Catalog::FindOptions& options) const {
+  // This base class implementation works for tables with ColumnListMode
+  // DEFAULT, where we don't need lazy lookups.
+  ZETASQL_RET_CHECK(HasColumnList())
+      << "FindLazyColumns not implemented for table " << FullName();
+
+  Table::FindLazyColumnsResult result;
+  result.reserve(column_names.size());
+  for (const std::string& column_name : column_names) {
+    result.push_back(FindColumnByName(column_name));
+  }
+  return result;
+}
+
+absl::StatusOr<const Column*> Table::FindLazyColumn(
+    const std::string& column_name, LazyColumnsTableScanContext* context,
+    const Catalog::FindOptions& options) const {
+  ZETASQL_ASSIGN_OR_RETURN(FindLazyColumnsResult result,
+                   FindLazyColumns({column_name}, context, options));
+  ZETASQL_RET_CHECK_EQ(result.size(), 1);
+  return result[0];
 }
 
 }  // namespace zetasql

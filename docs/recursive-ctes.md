@@ -48,7 +48,7 @@ ORDER BY 1 ASC
 The preceding example produces the following results:
 
 ```zetasql
-/*-----------*
+/*-----------+
  | iteration |
  +-----------+
  | 1         |
@@ -57,7 +57,7 @@ The preceding example produces the following results:
  | 2         |
  | 3         |
  | 3         |
- *-----------*/
+ +-----------*/
 ```
 
 To avoid duplicate rows so that only distinct rows become part of the final CTE
@@ -77,13 +77,13 @@ ORDER BY 1 ASC
 The preceding example produces the following results:
 
 ```zetasql
-/*-----------*
+/*-----------+
  | iteration |
  +-----------+
  | 1         |
  | 2         |
  | 3         |
- *-----------*/
+ +-----------*/
 ```
 
 A recursive CTE includes a base term, a union operator, and a recursive term.
@@ -143,14 +143,14 @@ SELECT DISTINCT node FROM R ORDER BY node;
 The preceding example produces the following results:
 
 ```zetasql
-/*------*
+/*------+
  | node |
  +------+
  | 5    |
  | 6    |
  | 7    |
  | 8    |
- *------*/
+ +------*/
 ```
 
 ## Troubleshoot iteration limit errors 
@@ -267,7 +267,7 @@ The preceding example produces the following results that include the
 iteration ID and the number of rows that were produced during that iteration:
 
 ```zetasql
-/*-----------+----------*
+/*-----------+----------+
  | iteration | num_rows |
  +-----------+----------+
  | 0         | 1        |
@@ -281,17 +281,17 @@ iteration ID and the number of rows that were produced during that iteration:
  | 8         | 1        |
  | 9         | 1        |
  | 10        | 1        |
- *-----------+----------*/
+ +-----------+----------*/
 ```
 
 These are the actual results produced during iteration `2`:
 
 ```zetasql
-/*----------+-----------*
+/*----------+-----------+
  | n        | iteration |
  +----------+-----------+
  | 7        | 2         |
- *----------+-----------*/
+ +----------+-----------*/
 ```
 
 If the number of rows is always greater than zero, which is true in this
@@ -377,13 +377,13 @@ but each recursive CTE only iterates 10 times. The output looks like the
 following:
 
 ```zetasql
-/*-----------*
+/*-----------+
  | iteration |
  +-----------+
  | 2         |
  | ...       |
  | 30        |
- *-----------*/
+ +-----------*/
 ```
 
 You could test the previous query on much larger iterations.

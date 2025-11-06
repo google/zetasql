@@ -79,7 +79,7 @@ cc_library(
         "@com_google_absl//absl/functional:function_ref",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@icu",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -107,6 +107,9 @@ cc_test(
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/strings",
+        "@icu//icu4c/source/common:bytestream",
+        "@icu//icu4c/source/common:headers",
+        "@icu//icu4c/source/common:uset_props",
     ],
 )
 
@@ -120,7 +123,9 @@ cc_library(
         "//zetasql/base:logging",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@icu",
+        "@icu//icu4c/source/common:bytestream",
+        "@icu//icu4c/source/common:headers",
+        "@icu//icu4c/source/common:uset_props",
     ],
 )
 

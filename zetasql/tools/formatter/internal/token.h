@@ -142,6 +142,8 @@ class Token : public ParseToken {
     // Marks the first token hat starts a SET operator, e.g., 'FULL' in
     // "FULL OUTER UNION ALL".
     SET_OPERATOR_START,
+    // Marks a dot that separates chained method calls.
+    CHAINED_METHOD_DOT_SEPARATOR,
   };
 
   explicit Token(ParseToken t)
@@ -193,6 +195,9 @@ class Token : public ParseToken {
 
   // Returns true if the current token is a string literal.
   bool IsStringLiteral() const;
+
+  // Returns true if the current token is a bytes literal.
+  bool IsBytesLiteral() const;
 
   // Returns true if the current token is marked as open angle bracket: "<" (but
   // not a comparison operator).

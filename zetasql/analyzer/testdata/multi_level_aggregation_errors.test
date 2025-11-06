@@ -93,12 +93,13 @@ ERROR: Multi-level aggregation requires the enclosing aggregate function to have
 
 ==
 
+[language_features=MAXIMUM,-JSON_TYPE_COMPARISON]
 # GROUP BY modifier must be a groupable type.
 SELECT
   SUM(ANY_VALUE(int64) GROUP BY json)
 FROM SimpleTypes;
 --
-ERROR: GROUP BY modifier has type JSON, which is not groupable. [at 2:33]
+ERROR: GROUP BY modifier has type JSON, which is not groupable. [at 3:33]
   SUM(ANY_VALUE(int64) GROUP BY json)
                                 ^
 ==
@@ -467,7 +468,7 @@ SELECT
 FROM SimpleTypes
 GROUP BY {{string,int64|ROLLUP(string,int64)|CUBE(string,int64)|GROUPING SETS(string,int64)}}
 --
-ERROR: GROUPING Function  does not support GROUP BY modifiers [at 2:3]
+ERROR: GROUPING Function does not support GROUP BY modifiers [at 2:3]
   GROUPING(string GROUP BY bool)
   ^
 ==

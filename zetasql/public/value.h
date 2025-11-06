@@ -118,10 +118,12 @@ class Value {
   ~Value();
 
   // Returns the type of the value.
+  // Requires (crashes otherwise): is_valid()
   const Type* type() const;
 
   // Returns the type kind of the value. Same as type()->type_kind() but in some
   // cases can be a bit more efficient.
+  // Requires (crashes otherwise): is_valid()
   TypeKind type_kind() const;
 
   // Returns the estimated size of the in-memory C++ representation of this
@@ -129,9 +131,11 @@ class Value {
   uint64_t physical_byte_size() const;
 
   // Returns true if the value is null.
+  // Requires (crashes otherwise): is_valid()
   bool is_null() const;
 
   // Returns true if the value is an empty array.
+  // Requires (crashes otherwise): is_valid()
   bool is_empty_array() const;
 
   // Returns true if the value is valid (invalid values are created by the
@@ -142,22 +146,35 @@ class Value {
   bool has_content() const;
 
   // Accessors for accessing the data within atomic typed Values.
-  // REQUIRES: !is_null().
-  int32_t int32_value() const;              // REQUIRES: int32 type
-  int64_t int64_value() const;              // REQUIRES: int64 type
-  uint32_t uint32_value() const;            // REQUIRES: uint32 type
-  uint64_t uint64_value() const;            // REQUIRES: uint64 type
-  bool bool_value() const;                  // REQUIRES: bool type
-  float float_value() const;                // REQUIRES: float type
-  double double_value() const;              // REQUIRES: double type
-  const std::string& string_value() const;  // REQUIRES: string type
-  const std::string& bytes_value() const;   // REQUIRES: bytes type
-  int32_t date_value() const;               // REQUIRES: date type
-  int32_t enum_value() const;               // REQUIRES: enum type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_INT32
+  int32_t int32_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_INT64
+  int64_t int64_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_UINT32
+  uint32_t uint32_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_UINT64
+  uint64_t uint64_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_BOOL
+  bool bool_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_FLOAT
+  float float_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_DOUBLE
+  double double_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_STRING
+  const std::string& string_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_BYTES
+  const std::string& bytes_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_DATE
+  int32_t date_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_ENUM
+  int32_t enum_value() const;
   // Returns the name like "TESTENUM1" or number as string, like "7" if the name
   // is not known.
-  std::string EnumDisplayName() const;    // REQUIRES: enum type
-  const absl::Cord& proto_value() const;  // REQUIRES: proto type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_ENUM
+  std::string EnumDisplayName() const;
+  // Returns the proto value as a Cord.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_PROTO
+  const absl::Cord& proto_value() const;
 
   // Returns the name like "TESTENUM1", or a Status if the enum name cannot be
   // determined. The returned Status message is guaranteed to be usable in
@@ -166,38 +183,49 @@ class Value {
   absl::StatusOr<absl::string_view> EnumName() const;
 
   // Returns date value as a absl::CivilDay.
-  absl::CivilDay ToCivilDay() const;  // REQUIRES: date type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_DATE
+  absl::CivilDay ToCivilDay() const;
 
   // Returns timestamp value as absl::Time at nanoseconds precision.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIMESTAMP
   ABSL_DEPRECATED("Use ToUnixPicos()")
-  absl::Time ToTime() const;  // REQUIRES: timestamp type
+  absl::Time ToTime() const;
 
   // Returns timestamp value as Unix epoch microseconds.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIMESTAMP
   ABSL_DEPRECATED("Use ToUnixPicos()")
-  int64_t ToUnixMicros() const;  // REQUIRES: timestamp type.
+  int64_t ToUnixMicros() const;
+
   // Returns timestamp value as Unix epoch nanoseconds or an error if the value
   // does not fit into an int64.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIMESTAMP
   ABSL_DEPRECATED("Use ToUnixPicos()")
-  absl::Status ToUnixNanos(int64_t* nanos) const;  // REQUIRES: timestamp type.
+  absl::Status ToUnixNanos(int64_t* nanos) const;
 
   // Returns timestamp value as a TimestampPicosValue.
-  const TimestampPicosValue& ToUnixPicos() const;  // REQUIRES: timestamp type.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIMESTAMP
+  const TimestampPicosValue& ToUnixPicos() const;
 
   // Returns time and datetime values at micros precision as bitwise encoded
   // int64, see public/civil_time.h for the encoding.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIME
   ABSL_DEPRECATED("Use ToUnixPicos()")
-  int64_t ToPacked64TimeMicros() const;  // REQUIRES: time type
+  int64_t ToPacked64TimeMicros() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_DATETIME
   ABSL_DEPRECATED("Use ToUnixPicos()")
-  int64_t ToPacked64DatetimeMicros() const;  // REQUIRES: datetime type
+  int64_t ToPacked64DatetimeMicros() const;
 
-  TimeValue time_value() const;                 // REQUIRES: time type
-  DatetimeValue datetime_value() const;         // REQUIRES: datetime type
-  const IntervalValue& interval_value() const;  // REQUIRES: interval type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TIME
+  TimeValue time_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_DATETIME
+  DatetimeValue datetime_value() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_INTERVAL
+  const IntervalValue& interval_value() const;
 
-  // REQUIRES: numeric type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_NUMERIC
   const NumericValue& numeric_value() const;
 
-  // REQUIRES: bignumeric type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_BIGNUMERIC
   const BigNumericValue& bignumeric_value() const;
 
   // Checks whether the value belongs to the JSON type, non-NULL and is in
@@ -207,44 +235,58 @@ class Value {
   // unparsed representation. See comments to is_validated_json() for more
   // details.
   bool is_unparsed_json() const;
-  // REQUIRES: json type
-  // REQUIRES: is_unparsed_json()
   // Returns the JSON representation in the unparsed mode.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_JSON &&
+  //   is_unparsed_json()
   const std::string& json_value_unparsed() const;
-  // REQUIRES: json type
-  // REQUIRES: is_validated_json()
   // Returns the JSON value in the validated mode.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_JSON &&
+  //   is_validated_json()
   JSONValueConstRef json_value() const;
-  // REQUIRES: json type
   // Returns the string representing stored JSON value.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_JSON
   std::string json_string() const;
 
-  const tokens::TokenList& tokenlist_value() const;  // REQUIRES: tokenlist type
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_TOKENLIST
+  const tokens::TokenList& tokenlist_value() const;
 
-  // REQUIRES: uuid type
-  const absl::StatusOr<UuidValue> uuid_value() const;
+  // RET_CHECKs if is_null() || type_kind() != TYPE_UUID,
+  absl::StatusOr<UuidValue> uuid_value() const;
 
   // Returns the value content of extended type.
-  // REQUIRES: type_kind() == TYPE_EXTENDED
+  // Caller must check `has_content()`, as an invalid value will be returned.
+  // Requires (crashes otherwise): type_kind() == TYPE_EXTENDED
   ValueContent extended_value() const;
 
   // Generic accessor for numeric PODs.
-  // REQUIRES: T is one of int32, int64, uint32, uint64, bool, float, double,
-  // NumericValue, BigNumericValue, IntervalValue
-  // T must match exactly the type_kind() of this value.
+  // Requires (crashes otherwise): !is_null() && T corresponds to type_kind():
+  //   int32_t (TYPE_INT32), int64_t (TYPE_INT64), uint32_t (TYPE_UINT32),
+  //   uint64_t (TYPE_UINT64), bool (TYPE_BOOL), float (TYPE_FLOAT), double
+  //   (TYPE_DOUBLE), NumericValue (TYPE_NUMERIC), BigNumericValue
+  //   (TYPE_BIGNUMERIC), IntervalValue (TYPE_INTERVAL)
   template <typename T>
   inline T Get() const;
 
   // Accessors that coerce the data to the requested C++ type.
-  // REQUIRES: !is_null().
-  // Use of this method for timestamp_ values is DEPRECATED.
-  int64_t ToInt64() const;    // For bool, int_, uint32, date, enum
-  uint64_t ToUint64() const;  // For bool, uint32, uint64
-  // Use of this method for timestamp_ values is DEPRECATED.
-  double ToDouble() const;  // For bool, int_, date, timestamp_, enum, Numeric,
-                            // BigNumeric types.
-  absl::Cord ToCord() const;     // For string, bytes, and protos
-  std::string ToString() const;  // For string, bytes, and protos
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_BOOL,
+  //   TYPE_INT32, TYPE_INT64, TYPE_UINT32, TYPE_DATE, TYPE_ENUM,
+  //   TYPE_TIMESTAMP, TYPE_TIMESTAMP_PICOS)
+  // Use of this method for TIMESTAMP values is DEPRECATED.
+  int64_t ToInt64() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_BOOL,
+  //   TYPE_UINT32, TYPE_UINT64)
+  uint64_t ToUint64() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_BOOL,
+  //   TYPE_DATE, TYPE_DOUBLE, TYPE_FLOAT, TYPE_INT32, TYPE_UINT32, TYPE_UINT64,
+  //   TYPE_INT64, TYPE_NUMERIC, TYPE_BIGNUMERIC, TYPE_ENUM)
+  // Use of this method for TIMESTAMP values is DEPRECATED.
+  double ToDouble() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_STRING,
+  //   TYPE_BYTES, TYPE_PROTO)
+  absl::Cord ToCord() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_STRING,
+  //   TYPE_BYTES, TYPE_PROTO)
+  std::string ToString() const;
 
   // Convert this value to a dynamically allocated proto Message.
   //
@@ -254,7 +296,6 @@ class Value {
   // is true, returns null if there is a parse error (missing required fields
   // is still not considered an error).
   //
-  // REQUIRES: !is_null() && type()->IsProto()
   // Caller owns the returned object, which cannot outlive <message_factory>.
   //
   // Note: If all you want to do is to convert a proto Value into a c++ proto
@@ -266,91 +307,129 @@ class Value {
   //   }
   // This simpler pattern avoids passing in a message factory and avoids the
   // ownership issues associated with the returned Message.
+  //
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_PROTO
   google::protobuf::Message* ToMessage(google::protobuf::DynamicMessageFactory* message_factory,
                              bool return_null_on_error = false) const;
 
-  // Struct-specific methods. REQUIRES: !is_null().
+  // Struct-specific methods.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_STRUCT
   int num_fields() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_STRUCT
   const Value& field(int i) const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_STRUCT
   const std::vector<Value>& fields() const;
   // Returns the value of the first field with the given 'name'. If one doesn't
   // exist, returns an invalid value.
   // Does not find anonymous fields (those with empty names).
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_STRUCT
   const Value& FindFieldByName(absl::string_view name) const;
 
   // Array and Map-specific methods.
-  // REQUIRES: !is_null()
-  // REQUIRES: (type_kind() == TYPE_ARRAY or type_kind() == TYPE_MAP).
-  bool empty() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() in (TYPE_ARRAY,
+  //   TYPE_MAP)
   int num_elements() const;
 
-  // Array-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_ARRAY.
+  // Array-specific methods.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_ARRAY
+  bool empty() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_ARRAY
   const Value& element(int i) const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_ARRAY
   const std::vector<Value>& elements() const;
 
-  // Map-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_MAP.
+  // Map-specific methods.
   // Returns the entries of the map. Note that a stable order is not guaranteed.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_MAP
   zetasql_base::MapView<Value, Value> map_entries() const;
 
-  // Range-specific methods. REQUIRES: !is_null(), type_kind() == TYPE_RANGE
+  // Range-specific methods.
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_RANGE
   const Value& start() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_RANGE
   const Value& end() const;
 
   // GraphElement-specific methods.
-  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_ELEMENT
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   bool IsNode() const;
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   bool IsEdge() const;
 
   // Returns an identifier uniquely identifies the graph element in a graph.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::string_view GetIdentifier() const;
 
   // Returns the definition name of the graph element.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::string_view GetDefinitionName() const;
 
   // Returns all the labels of the graph element, sorted by alphabet order
   // case-insensitively. The output preserves the original case.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::Span<const std::string> GetLabels() const;
 
-  // Returns the source/destination node identifier of the edge.
-  // REQUIRES: IsEdge()
+  // Returns the source node identifier of the edge. Caller should check
+  // IsEdge(), function will ABSL_DCHECK or return an invalid value for non-edges.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::string_view GetSourceNodeIdentifier() const;
+
+  // Returns the destination node identifier of the edge. Caller should check
+  // IsEdge(), function will ABSL_DCHECK or return an invalid value for non-edges.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::string_view GetDestNodeIdentifier() const;
 
   // Returns the names of all properties that exist on the names of the graph
   // element, sorted by alphabet order case-insensitively.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   std::vector<std::string> property_names() const;
 
   // Returns all the property values of the graph element.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::Span<const Value> property_values() const;
 
   // Returns the value of the property in its union-ed graph element type with
   // the given 'name'. If one doesn't exist, returns an error status.
   // Note that Value is designed to be copied cheaply.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::StatusOr<Value> FindPropertyByName(const std::string& name) const;
 
   // Returns the value of the property with a valid value with the given 'name'.
   // If one doesn't exist, returns an error status.
   // Note that Value is designed to be copied cheaply.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::StatusOr<Value> FindValidPropertyValueByName(
       const std::string& name) const;
 
   // Returns the value of the static property with the given 'name'. If one
   // doesn't exist, returns an error status.
+  // Requires (crashes otherwise): !is_null() && type_kind() ==
+  //   TYPE_GRAPH_ELEMENT
   absl::StatusOr<Value> FindStaticPropertyByName(const std::string& name) const;
 
   // GraphPath-specific methods
   // Returns the number of graph elements in the path.
-  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_GRAPH_PATH
   int num_graph_elements() const;
 
   // Returns all graph elements in the path.
-  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_GRAPH_PATH
   absl::Span<const Value> graph_elements() const;
 
   // Returns the `i`th graph element of a path. If `i` is even, the type of the
   // returned type will be equal the path type's node_type(); otherwise will be
   // equal to the path type's edge_type().
-  // REQUIRES: !is_null(), type_kind() == TYPE_GRAPH_PATH
+  // Requires (crashes otherwise): !is_null() && type_kind() == TYPE_GRAPH_PATH
   const Value& graph_element(int i) const;
 
   // Returns true if 'this' equals 'that' or both are null. This is *not* SQL
@@ -1127,7 +1206,8 @@ class Value {
       const GraphElementType* graph_element_type, std::string identifier,
       const GraphElementLabelsAndProperties& labels_and_properties,
       std::string definition_name, std::string source_node_identifier,
-      std::string dest_node_identifier);
+      std::string dest_node_identifier
+  );
 
 #ifndef SWIG  // TODO: Investigate SWIG compatibility for MAP.
 

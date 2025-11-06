@@ -17,8 +17,6 @@
 Bazel build files for ZetaSQL.
 """
 
-load("flex.bzl", "flex_header")
-
 licenses(["notice"])  # Apache v2.0
 
 package(
@@ -27,16 +25,5 @@ package(
 
 exports_files([
     "bison.bzl",
-    "flex.bzl",
-    "maven_install.json",
     "textmapper.bzl",
-    "zetasql_deps_step_1.bzl",
-    "zetasql_deps_step_2.bzl",
-    "zetasql_deps_step_3.bzl",
-    "zetasql_deps_step_4.bzl",
-    "zetasql_java_deps.bzl",
 ])
-
-flex_header(
-    name = "flex",
-)

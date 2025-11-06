@@ -24,6 +24,7 @@ import "zetasql/proto/simple_property_graph.proto";
 import "zetasql/public/simple_connection.proto";
 import "zetasql/public/simple_constant.proto";
 import "zetasql/public/simple_model.proto";
+import "zetasql/public/simple_sequence.proto";
 import "zetasql/public/simple_table.proto";
 import "zetasql/public/type.proto";
 
@@ -53,4 +54,5 @@ message SimpleCatalogProto {
   repeated SimplePropertyGraphProto property_graph = 11;
   repeated SimpleConnectionProto connection = 12;
   repeated SimpleModelProto model = 13;
+  repeated SimpleSequenceProto sequence = 14;
 }

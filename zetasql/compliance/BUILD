@@ -15,11 +15,11 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
+load("@rules_python//python:proto.bzl", "py_proto_library")
 load(
     "//zetasql/compliance:builddefs.bzl",
     "zetasql_compliance_test",
@@ -43,6 +43,7 @@ cc_library(
         ":sql_test_filebased_options",
         ":test_database_catalog",
         ":test_driver",
+        ":test_driver_cc_proto",
         ":test_util",
         "//zetasql/base",
         "//zetasql/base:file_util",
@@ -223,6 +224,8 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:measure_analysis_utils",
+        "//zetasql/common:type_visitors",
+        "//zetasql/common/testing:testing_proto_util",
         "//zetasql/public:annotation_cc_proto",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
@@ -290,12 +293,19 @@ cc_library(
         "//zetasql/base",
         "//zetasql/base:map_util",
         "//zetasql/base:status",
+        "//zetasql/public/functions:array_find_mode_cc_proto",
+        "//zetasql/public/functions:array_zip_mode_cc_proto",
+        "//zetasql/public/functions:rounding_mode_cc_proto",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/flags:commandlineflag",
         "@com_google_absl//absl/flags:reflection",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_googleapis//google/type:date_cc_proto",
+        "@com_google_googleapis//google/type:timeofday_cc_proto",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -324,7 +334,6 @@ cc_library(
         "//zetasql/public/types",
         "//zetasql/reference_impl:reference_driver",
         "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )
@@ -467,6 +476,7 @@ cc_library(
         "//zetasql/public:function_headers",
         "//zetasql/public:language_options",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public:simple_catalog_util",
         "//zetasql/public:type",
         "//zetasql/public/types",
         "@com_google_absl//absl/container:flat_hash_map",

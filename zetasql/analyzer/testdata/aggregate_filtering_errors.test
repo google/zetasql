@@ -1,4 +1,4 @@
-[default language_features=MAXIMUM,+ANALYTIC_FUNCTIONS,+AGGREGATE_FILTERING,+MULTILEVEL_AGGREGATION,+GROUPING_BUILTIN,+QUALIFY,+GROUP_BY_STRUCT,+ORDER_BY_IN_AGGREGATE]
+[default language_features=MAXIMUM,+ANALYTIC_FUNCTIONS,+AGGREGATE_FILTERING,+MULTILEVEL_AGGREGATION,+GROUPING_BUILTIN,+QUALIFY,+GROUP_BY_STRUCT,+ORDER_BY_IN_AGGREGATE,+ANONYMIZATION,+DIFFERENTIAL_PRIVACY,+AGGREGATION_THRESHOLD]
 [default show_sqlbuilder_output]
 [default enabled_ast_rewrites=ALL,-WITH_EXPR]
 
@@ -254,92 +254,7 @@ SELECT *
 FROM MultipleColumns
 PIVOT(COUNT(* WHERE int_b > 5) FOR int_a IN (0 AS zero, 1 AS one));
 --
-[PRE-REWRITE AST]
-QueryStmt
-+-output_column_list=
-| +-$groupby.string_a#8 AS string_a [STRING]
-| +-$groupby.string_b#9 AS string_b [STRING]
-| +-$groupby.int_c#10 AS int_c [INT64]
-| +-$groupby.int_d#11 AS int_d [INT64]
-| +-$pivot.zero#12 AS zero [INT64]
-| +-$pivot.one#13 AS one [INT64]
-+-query=
-  +-ProjectScan
-    +-column_list=[$groupby.string_a#8, $groupby.string_b#9, $groupby.int_c#10, $groupby.int_d#11, $pivot.zero#12, $pivot.one#13]
-    +-input_scan=
-      +-PivotScan
-        +-column_list=[$groupby.string_a#8, $groupby.string_b#9, $groupby.int_c#10, $groupby.int_d#11, $pivot.zero#12, $pivot.one#13]
-        +-input_scan=
-        | +-TableScan(column_list=MultipleColumns.[int_a#1, string_a#2, int_b#3, string_b#4, int_c#5, int_d#6], table=MultipleColumns, column_index_list=[0, 1, 2, 3, 4, 5])
-        +-group_by_list=
-        | +-string_a#8 := ColumnRef(type=STRING, column=MultipleColumns.string_a#2)
-        | +-string_b#9 := ColumnRef(type=STRING, column=MultipleColumns.string_b#4)
-        | +-int_c#10 := ColumnRef(type=INT64, column=MultipleColumns.int_c#5)
-        | +-int_d#11 := ColumnRef(type=INT64, column=MultipleColumns.int_d#6)
-        +-pivot_expr_list=
-        | +-AggregateFunctionCall(ZetaSQL:$count_star() -> INT64)
-        |   +-parse_location=36-60
-        |   +-where_expr=
-        |     +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
-        |       +-ColumnRef(type=INT64, column=MultipleColumns.int_b#3)
-        |       +-Literal(type=INT64, value=5)
-        +-for_expr=
-        | +-ColumnRef(parse_location=65-70, type=INT64, column=MultipleColumns.int_a#1)
-        +-pivot_value_list=
-        | +-Literal(type=INT64, value=0)
-        | +-Literal(type=INT64, value=1)
-        +-pivot_column_list=
-          +-PivotColumn(column=$pivot.zero#12, pivot_expr_index=0, pivot_value_index=0)
-          +-PivotColumn(column=$pivot.one#13, pivot_expr_index=0, pivot_value_index=1)
-
-[SQLBUILDER_TARGET_SYNTAX_MODE standard]
-[SQLBUILDER_OUTPUT]
-SELECT
-  a_2 AS string_a,
-  a_4 AS string_b,
-  a_5 AS int_c,
-  a_6 AS int_d,
-  a_8_a_9 AS zero,
-  a_8_a_10 AS one
-FROM
-  (
-    SELECT
-      MultipleColumns.int_a AS a_1,
-      MultipleColumns.string_a AS a_2,
-      MultipleColumns.int_b AS a_3,
-      MultipleColumns.string_b AS a_4,
-      MultipleColumns.int_c AS a_5,
-      MultipleColumns.int_d AS a_6
-    FROM
-      MultipleColumns
-  ) AS multiplecolumns_7 PIVOT(COUNT(*
-    WHERE
-      (multiplecolumns_7.a_3) > 5) AS a_8 FOR(multiplecolumns_7.a_1) IN (0 AS a_9, 1 AS a_10));
-
-[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
-[SQLBUILDER_OUTPUT]
-FROM
-  MultipleColumns
-|> SELECT
-     MultipleColumns.int_a AS a_1,
-     MultipleColumns.string_a AS a_2,
-     MultipleColumns.int_b AS a_3,
-     MultipleColumns.string_b AS a_4,
-     MultipleColumns.int_c AS a_5,
-     MultipleColumns.int_d AS a_6
-|> AS multiplecolumns_7
-|> PIVOT(COUNT(*
-     WHERE
-       (multiplecolumns_7.a_3) > 5) AS a_8 FOR(multiplecolumns_7.a_1) IN (0 AS a_9, 1 AS a_10))
-|> SELECT
-     a_2 AS string_a,
-     a_4 AS string_b,
-     a_5 AS int_c,
-     a_6 AS int_d,
-     a_8_a_9 AS zero,
-     a_8_a_10 AS one;
-
-Rewrite ERROR: generic::unimplemented: Use of WHERE filter inside an aggregate function used as a PIVOT expression is not supported [at 3:7]
+ERROR: PIVOT expression cannot use aggregate filtering WHERE clause [at 3:7]
 PIVOT(COUNT(* WHERE int_b > 5) FOR int_a IN (0 AS zero, 1 AS one));
       ^
 ==
@@ -354,3 +269,326 @@ PIVOT(COUNT(* GROUP BY int_b HAVING int_b > 5) FOR int_a IN (0 AS zero, 1 AS one
 ERROR: PIVOT expression cannot be a multi-level aggregate function call [at 3:7]
 PIVOT(COUNT(* GROUP BY int_b HAVING int_b > 5) FOR int_a IN (0 AS zero, 1 AS ...
       ^
+==
+
+# WHERE aggregate filtering is not supported with anonymization.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  ANON_SUM(int64 WHERE bool)
+FROM SimpleTypes;
+--
+ERROR: ANON_SUM Anonymization / Differential Privacy Function does not support WHERE modifier [at 2:18]
+  ANON_SUM(int64 WHERE bool)
+                 ^
+==
+
+# HAVING aggregate filtering is not supported with anonymization. Since GROUP BY
+# is checked first, the error message mentions GROUP BY.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+[no_expect_error_location]
+SELECT
+  ANON_SUM(int64 GROUP BY int64 HAVING int64 > 1)
+FROM SimpleTypes;
+--
+ERROR: ANON_SUM Anonymization / Differential Privacy Function does not support GROUP BY modifiers [at 2:3]
+  ANON_SUM(int64 GROUP BY int64 HAVING int64 > 1)
+  ^
+==
+
+# WHERE aggregate filtering does not work with differential privacy.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT WITH DIFFERENTIAL_PRIVACY
+  COUNT(int64 WHERE bool)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: COUNT Anonymization / Differential Privacy Function does not support WHERE modifier [at 2:15]
+  COUNT(int64 WHERE bool)
+              ^
+==
+
+# HAVING aggregate filtering does not work with differential privacy. Since
+# GROUP BY is checked first, the error message mentions GROUP BY.
+[enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
+SELECT WITH DIFFERENTIAL_PRIVACY
+  COUNT(int64 GROUP BY int64 HAVING int64 > 1)
+from SimpleTypesWithAnonymizationUid;
+--
+ERROR: COUNT Anonymization / Differential Privacy Function does not support GROUP BY modifiers [at 2:3]
+  COUNT(int64 GROUP BY int64 HAVING int64 > 1)
+  ^
+==
+
+# WHERE aggregate filtering does not work with aggregation threshold.
+[enabled_ast_rewrites=DEFAULTS,+AGGREGATION_THRESHOLD]
+SELECT WITH AGGREGATION_THRESHOLD
+OPTIONS (threshold = 50, privacy_unit_column = int64)
+  COUNT(int64 WHERE bool)
+from SimpleTypes;
+--
+ERROR: Aggregation Threshold Aggregation does not support aggregate functions with WHERE filter modifiers [at 3:3]
+  COUNT(int64 WHERE bool)
+  ^
+==
+
+# HAVING aggregate filtering does not work with aggregation threshold. Since
+# GROUP BY is checked first, the error message mentions GROUP BY.
+[enabled_ast_rewrites=DEFAULTS,+AGGREGATION_THRESHOLD]
+SELECT WITH AGGREGATION_THRESHOLD
+OPTIONS (threshold = 50, privacy_unit_column = int64)
+  COUNT(int64 GROUP BY int64 HAVING int64 > 1)
+from SimpleTypes;
+--
+ERROR: Aggregation Threshold Aggregation does not support aggregate functions with GROUP BY modifiers [at 3:3]
+  COUNT(int64 GROUP BY int64 HAVING int64 > 1)
+  ^
+==
+
+# ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter does not support WHERE in aggregate
+# functions.
+SELECT
+  ARRAY_AGG(int64 WHERE bool ORDER BY int64)
+FROM SimpleTypes
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, bool#7], table=SimpleTypes, column_index_list=[1, 6])
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-where_expr=
+              | +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+              +-order_by_item_list=
+                +-OrderByItem
+                  +-column_ref=
+                    +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(simpletypes_3.a_1
+    WHERE
+      simpletypes_3.a_2
+    ORDER BY simpletypes_3.a_1) AS a_4
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.bool AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.bool AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     ARRAY_AGG(simpletypes_3.a_1
+       WHERE
+         simpletypes_3.a_2
+       ORDER BY simpletypes_3.a_1) AS a_4;
+
+Rewrite ERROR: generic::unimplemented: Aggregate functions with a WHERE filter modifier are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
+==
+
+# ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter does not support WHERE in aggregate
+# functions.
+SELECT
+  ARRAY_AGG(int64 WHERE bool LIMIT 1)
+FROM SimpleTypes
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#20 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#20]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#20]
+        +-input_scan=
+        | +-TableScan(column_list=SimpleTypes.[int64#2, bool#7], table=SimpleTypes, column_index_list=[1, 6])
+        +-aggregate_list=
+          +-$agg1#20 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-where_expr=
+              | +-ColumnRef(type=BOOL, column=SimpleTypes.bool#7)
+              +-limit=
+                +-Literal(type=INT64, value=1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(simpletypes_3.a_1
+    WHERE
+      simpletypes_3.a_2
+    LIMIT 1) AS a_4
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1,
+      SimpleTypes.bool AS a_2
+    FROM
+      SimpleTypes
+  ) AS simpletypes_3;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1,
+     SimpleTypes.bool AS a_2
+|> AS simpletypes_3
+|> AGGREGATE
+     ARRAY_AGG(simpletypes_3.a_1
+       WHERE
+         simpletypes_3.a_2
+       LIMIT 1) AS a_4;
+
+Rewrite ERROR: generic::unimplemented: Aggregate functions with a WHERE filter modifier are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
+==
+
+# ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter does not support HAVING in aggregate
+# functions. Since GROUP BY is checked first, the error message mentions
+# GROUP BY.
+SELECT
+  ARRAY_AGG(int64 GROUP BY int64 HAVING int64 > 1 ORDER BY int64)
+FROM SimpleTypes
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#21 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#21]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#21]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#21 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#20)
+              +-order_by_item_list=
+              | +-OrderByItem
+              |   +-column_ref=
+              |     +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#20)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-having_expr=
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#20)
+                  +-Literal(type=INT64, value=1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(simpletypes_2.a_1
+    GROUP BY simpletypes_2.a_1
+    HAVING(simpletypes_2.a_1) > 1
+    ORDER BY simpletypes_2.a_1) AS a_3
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1
+    FROM
+      SimpleTypes
+  ) AS simpletypes_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1
+|> AS simpletypes_2
+|> AGGREGATE
+     ARRAY_AGG(simpletypes_2.a_1
+       GROUP BY simpletypes_2.a_1
+       HAVING(simpletypes_2.a_1) > 1
+       ORDER BY simpletypes_2.a_1) AS a_3;
+
+Rewrite ERROR: generic::unimplemented: Aggregate functions with GROUP BY modifiers are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter
+==
+
+# ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter does not support HAVING in aggregate
+# functions. Since GROUP BY is checked first, the error message mentions
+# GROUP BY.
+SELECT
+  ARRAY_AGG(int64 GROUP BY int64 HAVING int64 > 1 LIMIT 1)
+FROM SimpleTypes
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#21 AS `$col1` [ARRAY<INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#21]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$aggregate.$agg1#21]
+        +-input_scan=
+        | +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
+        +-aggregate_list=
+          +-$agg1#21 :=
+            +-AggregateFunctionCall(ZetaSQL:array_agg(INT64) -> ARRAY<INT64>)
+              +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#20)
+              +-limit=
+              | +-Literal(type=INT64, value=1)
+              +-group_by_list=
+              | +-$groupbymod#20 := ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+              +-having_expr=
+                +-FunctionCall(ZetaSQL:$greater(INT64, INT64) -> BOOL)
+                  +-ColumnRef(type=INT64, column=$group_by_list.$groupbymod#20)
+                  +-Literal(type=INT64, value=1)
+
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+SELECT
+  ARRAY_AGG(simpletypes_2.a_1
+    GROUP BY simpletypes_2.a_1
+    HAVING(simpletypes_2.a_1) > 1
+    LIMIT 1) AS a_3
+FROM
+  (
+    SELECT
+      SimpleTypes.int64 AS a_1
+    FROM
+      SimpleTypes
+  ) AS simpletypes_2;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+FROM
+  SimpleTypes
+|> SELECT
+     SimpleTypes.int64 AS a_1
+|> AS simpletypes_2
+|> AGGREGATE
+     ARRAY_AGG(simpletypes_2.a_1
+       GROUP BY simpletypes_2.a_1
+       HAVING(simpletypes_2.a_1) > 1
+       LIMIT 1) AS a_3;
+
+Rewrite ERROR: generic::unimplemented: Aggregate functions with GROUP BY modifiers are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter

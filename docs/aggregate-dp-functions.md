@@ -221,12 +221,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 38.5038356810269 |
  | pen      | 13.4725028762032 |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -241,13 +241,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 40               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 The following differentially private query gets the average number of each item
@@ -266,12 +266,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 38.5038356810269 |
  | pen      | 13.4725028762032 |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -286,13 +286,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 40               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 Note: For more information about when and when not to use
@@ -334,7 +334,7 @@ Returns the number of rows in the
 is an aggregation across a privacy unit column.
 
 This function must be used with the [`DIFFERENTIAL_PRIVACY` clause][dp-syntax]
-and can support the following argument:
+and can support the following arguments:
 
 + `contribution_bounds_per_group`: A named argument with a
   [contribution bound][dp-clamped-named].
@@ -363,12 +363,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -383,13 +383,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 The following differentially private query counts the number of requests for
@@ -408,12 +408,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -428,13 +428,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 Note: For more information about when and when not to use
@@ -488,12 +488,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -508,13 +508,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 The following differentially private query counts the number of requests made
@@ -533,12 +533,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -552,13 +552,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 Note: For more information about when and when not to use
@@ -633,13 +633,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
- /*----------+----------------------*
+ /*----------+----------------------+
   | item     | percentile_requested |
   +----------+----------------------+
   | pencil   | 72.00011444091797    |
   | scissors | 8.000175476074219    |
   | pen      | 23.001075744628906   |
-  *----------+----------------------*/
+  +----------+----------------------*/
 ```
 
 The following differentially private query gets the percentile of items
@@ -658,13 +658,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+----------------------*
+/*----------+----------------------+
  | item     | percentile_requested |
  +----------+----------------------+
  | pencil   | 72.00011444091797    |
  | scissors | 8.000175476074219    |
  | pen      | 23.001075744628906   |
- *----------+----------------------*/
+ +----------+----------------------*/
 ```
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
@@ -726,12 +726,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------*
+/*----------+-----------+
  | item     | quantity  |
  +----------+-----------+
  | pencil   | 143       |
  | pen      | 59        |
- *----------+-----------*/
+ +----------+-----------*/
 ```
 
 ```zetasql
@@ -746,13 +746,13 @@ FROM professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+----------*
+/*----------+----------+
  | item     | quantity |
  +----------+----------+
  | scissors | 8        |
  | pencil   | 144      |
  | pen      | 58       |
- *----------+----------*/
+ +----------+----------*/
 ```
 
 The following differentially private query gets the sum of items requested.
@@ -771,12 +771,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------*
+/*----------+-----------+
  | item     | quantity  |
  +----------+-----------+
  | pencil   | 143       |
  | pen      | 59        |
- *----------+-----------*/
+ +----------+-----------*/
 ```
 
 ```zetasql
@@ -791,13 +791,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+----------*
+/*----------+----------+
  | item     | quantity |
  +----------+----------+
  | scissors | 8        |
  | pencil   | 144      |
  | pen      | 58       |
- *----------+----------*/
+ +----------+----------*/
 ```
 
 Note: For more information about when and when not to use
@@ -871,13 +871,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations may be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | pop_variance    |
  +----------+-----------------+
  | pencil   | 642             |
  | pen      | 2.6666666666665 |
  | scissors | 2500            |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 The following differentially private query gets the
@@ -897,13 +897,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | pop_variance    |
  +----------+-----------------+
  | pencil   | 642             |
  | pen      | 2.6666666666665 |
  | scissors | 2500            |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 [dp-example-tables]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_tables
@@ -962,12 +962,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 38.5038356810269 |
  | pen      | 13.4725028762032 |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -982,13 +982,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 40               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -1049,12 +1049,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -1069,13 +1069,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -1124,12 +1124,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | pencil   | 5               |
  | pen      | 2               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 ```zetasql
@@ -1143,13 +1143,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | times_requested |
  +----------+-----------------+
  | scissors | 1               |
  | pencil   | 4               |
  | pen      | 3               |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -1217,13 +1217,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+----------------------*
+/*----------+----------------------+
  | item     | percentile_requested |
  +----------+----------------------+
  | pencil   | 72.00011444091797    |
  | scissors | 8.000175476074219    |
  | pen      | 23.001075744628906   |
- *----------+----------------------*/
+ +----------+----------------------*/
 ```
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
@@ -1284,12 +1284,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+----------------------------------------------------------------------*
+/*----------+----------------------------------------------------------------------+
  | item     | quantiles_requested                                                  |
  +----------+----------------------------------------------------------------------+
  | pen      | [6.409375,20.647684733072918,41.40625,67.30848524305556,99.80078125] |
  | pencil   | [6.849259,44.010416666666664,62.64204,65.83806818181819,98.59375]    |
- *----------+----------------------------------------------------------------------*/
+ +----------+----------------------------------------------------------------------*/
 ```
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
@@ -1348,13 +1348,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+------------------------*
+/*----------+------------------------+
  | item     | pop_standard_deviation |
  +----------+------------------------+
  | pencil   | 25.350871122442054     |
  | scissors | 50                     |
  | pen      | 2                      |
- *----------+------------------------*/
+ +----------+------------------------*/
 ```
 
 [dp-example-views]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#dp_example_views
@@ -1411,12 +1411,12 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------*
+/*----------+-----------+
  | item     | quantity  |
  +----------+-----------+
  | pencil   | 143       |
  | pen      | 59        |
- *----------+-----------*/
+ +----------+-----------*/
 ```
 
 ```zetasql
@@ -1431,13 +1431,13 @@ FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
 -- These results will not change when you run the query.
-/*----------+----------*
+/*----------+----------+
  | item     | quantity |
  +----------+----------+
  | scissors | 8        |
  | pencil   | 144      |
  | pen      | 58       |
- *----------+----------*/
+ +----------+----------*/
 ```
 
 Note: You can learn more about when and when not to use
@@ -1505,13 +1505,13 @@ GROUP BY item;
 
 -- These results will change each time you run the query.
 -- Smaller aggregations might be removed.
-/*----------+-----------------*
+/*----------+-----------------+
  | item     | pop_variance    |
  +----------+-----------------+
  | pencil   | 642             |
  | pen      | 2.6666666666665 |
  | scissors | 2500            |
- *----------+-----------------*/
+ +----------+-----------------*/
 ```
 
 [dp-clamp-explicit]: #dp_clamped_named
@@ -1586,13 +1586,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 72               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 The following anonymized query clamps each aggregate contribution for each
@@ -1614,13 +1614,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 72               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 #### Explicitly clamp values 
@@ -1699,13 +1699,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 40               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -1726,13 +1726,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 54               |
  | pencil   | 58               |
  | pen      | 51               |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 The following differentially private query clamps each aggregate contribution
@@ -1754,13 +1754,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 8                |
  | pencil   | 40               |
  | pen      | 18.5             |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 Notice what happens when most or all values fall outside of the clamped range.
@@ -1781,13 +1781,13 @@ SELECT WITH DIFFERENTIAL_PRIVACY
 FROM view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | scissors | 54               |
  | pencil   | 58               |
  | pen      | 51               |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 Note: For more information about when and when not to use

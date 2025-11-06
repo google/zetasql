@@ -192,12 +192,12 @@ output: the `SAFE.` prefix has no effect.
 SELECT SAFE.SUBSTR('foo', 0, -2) AS safe_output UNION ALL
 SELECT SAFE.SUBSTR('bar', 0, 2) AS safe_output;
 
-/*-------------*
+/*-------------+
  | safe_output |
  +-------------+
  | NULL        |
  | ba          |
- *-------------*/
+ +-------------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

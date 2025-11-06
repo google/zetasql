@@ -19,6 +19,7 @@
 #include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
+#include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
@@ -118,63 +119,77 @@ void GetRangeFunctions(TypeFactory* type_factory,
   static constexpr FunctionArgumentType::ArgumentCardinality OPTIONAL =
       FunctionArgumentType::OPTIONAL;
 
+  FunctionOptions range_options =
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_RANGE_TYPE);
   InsertFunction(functions, options, "range", Function::SCALAR,
                  {{
                      ARG_RANGE_TYPE_ANY_1,
                      {ARG_TYPE_ANY_1, ARG_TYPE_ANY_1},
                      FN_RANGE,
                  }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &RangeFunctionPreResolutionArgumentConstraint));
-  InsertFunction(functions, options, "range_is_start_unbounded",
-                 Function::SCALAR,
-                 {{
-                     bool_type,
-                     {ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_IS_START_UNBOUNDED,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
-  InsertFunction(functions, options, "range_is_end_unbounded", Function::SCALAR,
-                 {{
-                     bool_type,
-                     {ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_IS_END_UNBOUNDED,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
-  InsertFunction(functions, options, "range_start", Function::SCALAR,
-                 {{
-                     ARG_TYPE_ANY_1,
-                     {ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_START,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
-  InsertFunction(functions, options, "range_end", Function::SCALAR,
-                 {{
-                     ARG_TYPE_ANY_1,
-                     {ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_END,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
-  InsertFunction(functions, options, "range_overlaps", Function::SCALAR,
-                 {{
-                     bool_type,
-                     {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_OVERLAPS,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullTwoRangeInputs));
-  InsertFunction(functions, options, "range_intersect", Function::SCALAR,
-                 {{
-                     ARG_RANGE_TYPE_ANY_1,
-                     {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
-                     FN_RANGE_INTERSECT,
-                 }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+                 FunctionOptions(range_options)
+                     .set_pre_resolution_argument_constraint(
+                         &RangeFunctionPreResolutionArgumentConstraint));
+  InsertFunction(
+      functions, options, "range_is_start_unbounded", Function::SCALAR,
+      {{
+          bool_type,
+          {ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_IS_START_UNBOUNDED,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+  InsertFunction(
+      functions, options, "range_is_end_unbounded", Function::SCALAR,
+      {{
+          bool_type,
+          {ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_IS_END_UNBOUNDED,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+  InsertFunction(
+      functions, options, "range_start", Function::SCALAR,
+      {{
+          ARG_TYPE_ANY_1,
+          {ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_START,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+  InsertFunction(
+      functions, options, "range_end", Function::SCALAR,
+      {{
+          ARG_TYPE_ANY_1,
+          {ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_END,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+  InsertFunction(
+      functions, options, "range_overlaps", Function::SCALAR,
+      {{
+          bool_type,
+          {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_OVERLAPS,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullTwoRangeInputs));
+  InsertFunction(
+      functions, options, "range_intersect", Function::SCALAR,
+      {{
+          ARG_RANGE_TYPE_ANY_1,
+          {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
+          FN_RANGE_INTERSECT,
+      }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
   // Note that for GENERATE_RANGE_ARRAY we don't use any templates, since
   // depending on the element type in RANGE, the second, "step" argument will
   // have a different type as well.
@@ -210,22 +225,25 @@ void GetRangeFunctions(TypeFactory* type_factory,
            FunctionSignatureOptions().AddRequiredLanguageFeature(
                FEATURE_CIVIL_TIME),
        }},
-      FunctionOptions().set_pre_resolution_argument_constraint(
-          &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
 
-  InsertFunction(functions, options, "range_contains", Function::SCALAR,
-                 {{
-                      bool_type,
-                      {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
-                      FN_RANGE_CONTAINS_RANGE,
-                  },
-                  {
-                      bool_type,
-                      {ARG_RANGE_TYPE_ANY_1, ARG_TYPE_ANY_1},
-                      FN_RANGE_CONTAINS_ELEMENT,
-                  }},
-                 FunctionOptions().set_pre_resolution_argument_constraint(
-                     &PreResolutionArgConstraintForUntypedNullOneRangeInput));
+  InsertFunction(
+      functions, options, "range_contains", Function::SCALAR,
+      {{
+           bool_type,
+           {ARG_RANGE_TYPE_ANY_1, ARG_RANGE_TYPE_ANY_1},
+           FN_RANGE_CONTAINS_RANGE,
+       },
+       {
+           bool_type,
+           {ARG_RANGE_TYPE_ANY_1, ARG_TYPE_ANY_1},
+           FN_RANGE_CONTAINS_ELEMENT,
+       }},
+      FunctionOptions(range_options)
+          .set_pre_resolution_argument_constraint(
+              &PreResolutionArgConstraintForUntypedNullOneRangeInput));
 }
 
 }  // namespace zetasql

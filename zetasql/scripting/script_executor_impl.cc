@@ -1052,6 +1052,14 @@ absl::Status ScriptExecutorImpl::ExecuteForInStatement() {
         CurrentScript()->script_text(), for_stmt->query());
     // Placeholder value in case function exits early with error.
     for_loop_stack->push_back(nullptr);
+
+    // In dry runs, ExecuteQueryWithResult is not called. Instead, the
+    // validation is terminated early when a query result is required.
+    if (options_.dry_run()) {
+      ZETASQL_RETURN_IF_ERROR(
+          evaluator_->OnValidationTerminated(*this, for_stmt->query()));
+      return ExitProcedure(true).status();
+    }
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<EvaluatorTableIterator> iterator,
                      evaluator_->ExecuteQueryWithResult(*this, query_segment));
 
@@ -1276,9 +1284,9 @@ absl::Status ScriptExecutorImpl::CheckAndEvaluateProcedureArguments(
   ZETASQL_RETURN_IF_ERROR(
       CheckProcedureArgumentCount(call_statement, number_of_defined_arguments));
 
-  ZETASQL_ASSIGN_OR_RETURN(OutputArgumentMap unused_output_argument_map,
-                   VerifyOutputArgumentsAndBuildMap(
-                       procedure_definition, call_statement, id_string_pool));
+  ZETASQL_RETURN_IF_ERROR(VerifyOutputArgumentsAndBuildMap(
+                      procedure_definition, call_statement, id_string_pool)
+                      .status());
 
   // Procedures may be called with named arguments. In this case, any positional
   // arguments should appear before any named arguments. Named arguments may
@@ -1694,6 +1702,10 @@ absl::Status ScriptExecutorImpl::ExecuteDynamicStatement() {
     // During dry runs EvaluateScalarExpression will return null values for
     // complex expressions, thus we won't validate any further in dry run
     if (options_.dry_run()) {
+      // Call OnValidationTerminated to indicate the validation is terminated
+      // for the current statement. Although later statements are validated.
+      ZETASQL_RETURN_IF_ERROR(evaluator_->OnValidationTerminated(
+          *this, execute_immediate_statement->sql()));
       ZETASQL_RETURN_IF_ERROR(AdvancePastCurrentStatement(absl::OkStatus()));
       return absl::OkStatus();
     }
@@ -1814,6 +1826,66 @@ const ControlFlowNode* ScriptExecutorImpl::GetCurrentNode() const {
   return callstack_.back().current_node();
 }
 
+static std::string VariablesInScopeDebugString(
+    const ParsedScript& parsed_script,
+    const ParsedScript::VariableCreationMap& variables_in_scope) {
+  std::vector<std::string> entries;
+  for (const auto& [var_name, decl] : variables_in_scope) {
+    entries.push_back(
+        absl::StrCat(var_name.ToStringView(), ": ",
+                     decl->DebugString(parsed_script.script_text())));
+  }
+  std::sort(entries.begin(), entries.end());
+  return absl::StrCat("{", absl::StrJoin(entries, ", "), "}");
+}
+
+// Returns a string with additional debugging details to emit to help diagnose
+// "variable out of scope" errors
+static std::string VariableNotInScopeDebuggingDetails(
+    const ControlFlowNode& next_cfg_node, const VariableMap& new_variables,
+    const ParsedScript& parsed_script,
+    const ParsedScript::VariableCreationMap& variables_in_scope,
+    const VariableSet& predefined_variables) {
+  std::vector<std::string> new_variable_names;
+  new_variable_names.reserve(new_variables.size());
+  for (const auto& [name, value] : new_variables) {
+    new_variable_names.push_back(name.ToString());
+  }
+  std::sort(new_variable_names.begin(), new_variable_names.end());
+
+  std::vector<std::string> routine_args_names;
+  for (const auto& [name, type] : parsed_script.routine_arguments()) {
+    routine_args_names.push_back(name.ToString());
+  }
+  std::sort(routine_args_names.begin(), routine_args_names.end());
+
+  std::vector<std::string> predefined_variable_names;
+  predefined_variable_names.reserve(predefined_variables.size());
+  for (const auto& name : predefined_variables) {
+    predefined_variable_names.push_back(name.ToString());
+  }
+  std::sort(predefined_variable_names.begin(), predefined_variable_names.end());
+
+  std::string result;
+  absl::StrAppend(&result, "\n  next_cfg_node: ", next_cfg_node.DebugString(),
+                  "\n");
+  absl::StrAppend(&result, "  new_variables: {",
+                  absl::StrJoin(new_variable_names, ", "), "}\n");
+  absl::StrAppend(&result, "  parsed_script->IsProcedure(): ",
+                  parsed_script.IsProcedure(), "\n");
+  absl::StrAppend(&result, "  parsed_script->routine_arguments names: {",
+                  absl::StrJoin(routine_args_names, ", "), "}\n");
+  absl::StrAppend(&result, "  predefined_variables names: {",
+                  absl::StrJoin(predefined_variable_names, ", "), "}\n");
+  absl::StrAppend(
+      &result, "  variables_in_scope: ",
+      VariablesInScopeDebugString(parsed_script, variables_in_scope), "\n");
+  absl::StrAppend(
+      &result, "  script AST:\n",
+      parsed_script.script()->DebugString(parsed_script.script_text()));
+  return result;
+}
+
 absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
     const ControlFlowNode* next_cfg_node, const VariableMap& new_variables,
     const ParsedScript& parsed_script) const {
@@ -1853,7 +1925,10 @@ absl::Status ScriptExecutorImpl::ValidateVariablesOnSetState(
       type_at_creation = zetasql_base::EraseKeyReturnValuePtr(&arguments, var_name);
     } else if (!predefined_variable_names_.contains(var_name)) {
       ZETASQL_RET_CHECK_FAIL() << "ScriptExecutorImpl::SetState(): Variable "
-                       << var_name.ToString() << " not in scope";
+                       << var_name.ToString() << " not in scope: "
+                       << VariableNotInScopeDebuggingDetails(
+                              *next_cfg_node, new_variables, parsed_script,
+                              variables_in_scope, predefined_variable_names_);
     }
     // Skip check when we don't know the type of the variable up front. This
     // applies for variables which automatically infer their types from the
@@ -2506,6 +2581,8 @@ absl::Status ScriptExecutorImpl::AdvanceInternal(
                   ->location()
                   .start()
                   .GetByteOffset()) {
+        ZETASQL_RETURN_IF_ERROR(evaluator_->OnValidationTerminated(
+            *this, callstack_.back().current_node()->ast_node()));
         return ExitProcedure(true).status();
       }
     }
@@ -2535,8 +2612,9 @@ absl::Status ScriptExecutorImpl::AdvancePastCurrentCondition(
 
   // In dry runs, any conditional branching terminates validation of the script.
   if (options_.dry_run()) {
-    ZETASQL_RETURN_IF_ERROR(ExitProcedure(true).status());
-    return absl::OkStatus();
+    ZETASQL_RETURN_IF_ERROR(evaluator_->OnValidationTerminated(
+        *this, callstack_.back().current_node()->ast_node()));
+    return ExitProcedure(true).status();
   }
 
   return AdvanceInternal(*condition_value

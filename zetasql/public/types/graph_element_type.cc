@@ -449,16 +449,22 @@ void GraphElementType::ClearValueContent(const ValueContent& value) const {
 
 absl::HashState GraphElementType::HashValueContent(
     const ValueContent& value, absl::HashState state) const {
-  return absl::HashState::combine(
-      absl::HashState::Create(&state), *this->graph_reference_->path_string,
-      GetGraphElementContainer(value)->GetIdentifier());
+  const internal::GraphElementContainer* container =
+      GetGraphElementContainer(value);
+  state = absl::HashState::combine(std::move(state),
+                                   *this->graph_reference_->path_string,
+                                   container->GetIdentifier());
+  return state;
 }
 
 bool GraphElementType::ValueContentEquals(
     const ValueContent& x, const ValueContent& y,
     const ValueEqualityCheckOptions& options) const {
-  if (GetGraphElementContainer(x)->GetIdentifier() !=
-      GetGraphElementContainer(y)->GetIdentifier()) {
+  const internal::GraphElementContainer* x_container =
+      GetGraphElementContainer(x);
+  const internal::GraphElementContainer* y_container =
+      GetGraphElementContainer(y);
+  if (x_container->GetIdentifier() != y_container->GetIdentifier()) {
     return false;
   }
 

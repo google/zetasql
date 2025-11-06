@@ -17,6 +17,7 @@
 
 package com.google.zetasql;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
@@ -25,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.zetasql.SimplePropertyGraphProtos.SimpleGraphElementTableProto;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /** A concrete implementation of the {@link GraphNodeTable} interface. */

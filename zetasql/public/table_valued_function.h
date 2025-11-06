@@ -84,7 +84,7 @@ using TVFPostResolutionArgumentConstraintsCallback = std::function<absl::Status(
 // and returns the computed output type for TVF call. New types should be
 // allocated in the provided TypeFactory.
 using TVFComputeResultTypeCallback =
-    std::function<absl::StatusOr<TVFSignature*>(
+    std::function<absl::StatusOr<std::unique_ptr<TVFSignature>>(
         Catalog*, TypeFactory*, const FunctionSignature&,
         const std::vector<TVFInputArgumentType>&, const AnalyzerOptions&)>;
 
@@ -92,7 +92,7 @@ using TVFComputeResultTypeCallback =
 // The setter methods here return a reference to *self so options can be
 // constructed inline, and chained if desired.
 struct TableValuedFunctionOptions {
-  TableValuedFunctionOptions() {}
+  TableValuedFunctionOptions() = default;
 
   static absl::Status Deserialize(
       const TableValuedFunctionOptionsProto& proto,
@@ -183,23 +183,29 @@ struct TableValuedFunctionOptions {
 //
 // In contrast, each TVF call:
 //
-// * accepts scalar or relation arguments,
-// * has a single signature specifying the types of input arguments,
+// * accepts scalar or TVF specific input arguments (relation, model,
+//   connection, descriptor, graph),
 // * returns a stream of rows,
 // * has an output table schema (column names and types, or a value table)
 //   computed by a method in this class, and not described in the signature.
 //
+// Similar to Functions, TVFs also have a list of signatures which specify the
+// number and types of input arguments that each signature accepts.
+//
 // To resolve a TVF call, the resolver:
 //
-// (1) gets the signature (currently, only one signature is supported)
-// (2) resolves all input arguments as values or as relations based on the
-//     signature
+// (1) finds the matching signature. Currently only a single matching signature
+//     is supported. If multiple signatures match the provided input arguments,
+//     an internal error is returned.
+// (2) resolves all input arguments based on the signature
 // (3) prepares a TableValuedFunction::InputArgumentList from the resolved input
 //     arguments
 // (4) calls TableValuedFunction::Resolve, passing the input arguments, to get
 //     a TableValuedFunctionCall object with the output schema for the TVF call
 // (5) fills the output name list from the column names in the output schema
 // (6) returns a new ResolvedTVFScan with the resolved arguments as children
+// TODO: b/447515225 - Update this comment once finding the closest matching
+// TVF signature is supported.
 class TableValuedFunction {
  public:
   // The SQL SECURITY specified when the function was created.
@@ -274,7 +280,7 @@ class TableValuedFunction {
 
   TableValuedFunction(const TableValuedFunction&) = delete;
   TableValuedFunction& operator=(const TableValuedFunction&) = delete;
-  virtual ~TableValuedFunction() {}
+  virtual ~TableValuedFunction() = default;
 
   // Returns the name of this TVF.
   const std::string& Name() const { return function_name_path_.back(); }
@@ -284,19 +290,26 @@ class TableValuedFunction {
         ((include_group && !group_.empty()) ? absl::StrCat(group_, ":") : ""),
         absl::StrJoin(function_name_path_, "."));
   }
+
   // Returns an external 'SQL' name for the table valued function, for use in
   // error messages and anywhere else appropriate.
-  std::string SQLName() const {
+  std::string SQLName(
+      bool enable_case_conversion_for_non_builtins = true) const {
     std::string name;
     if (IsZetaSQLBuiltin()) {
       name = FullName(/*include_group=*/false);
+      return this->tvf_options_.uses_upper_case_sql_name
+                 ? absl::AsciiStrToUpper(name)
+                 : name;
     } else {
       name = FullName();
+      return enable_case_conversion_for_non_builtins &&
+                     this->tvf_options_.uses_upper_case_sql_name
+                 ? absl::AsciiStrToUpper(name)
+                 : name;
     }
-    return this->tvf_options_.uses_upper_case_sql_name
-               ? absl::AsciiStrToUpper(name)
-               : name;
   }
+
   const std::vector<std::string>& function_name_path() const {
     return function_name_path_;
   }
@@ -332,9 +345,8 @@ class TableValuedFunction {
   const FunctionSignature* GetSignature(int64_t idx) const;
 
   // Returns user facing text (to be used in error messages) listing function
-  // signatures.  Note that there is no way to create table function signatures
-  // that are deprecated or have unsupported types, so this returns user facing
-  // text for all signatures.
+  // signatures. Signatures are hidden from this list if they are internal,
+  // deprecated, explicitly hidden, or unsupported according to LanguageOptions.
   virtual std::string GetSupportedSignaturesUserFacingText(
       const LanguageOptions& language_options,
       bool print_template_and_name_details) const;
@@ -478,6 +490,9 @@ class TableValuedFunction {
 
   const TableValuedFunctionOptions& tvf_options() const { return tvf_options_; }
 
+  // Returns non-const reference to the tvf options.
+  TableValuedFunctionOptions& mutable_tvf_options() { return tvf_options_; }
+
   void set_sql_security(ResolvedCreateStatementEnums::SqlSecurity security) {
     sql_security_ = security;
   }
@@ -559,7 +574,6 @@ class TableValuedFunction {
   const std::string group_;
 
   // The signatures describe the input arguments that this TVF accepts.
-  // Currently, only one signature is supported.
   std::vector<FunctionSignature> signatures_;
 
   // The AnonymizationInfo related to a TVF. See
@@ -979,7 +993,7 @@ class TVFSignature {
 
   TVFSignature(const TVFSignature&) = delete;
   TVFSignature& operator=(const TVFSignature&) = delete;
-  virtual ~TVFSignature() {}
+  virtual ~TVFSignature() = default;
 
   const std::vector<TVFInputArgumentType>& input_arguments() const {
     return input_arguments_;
@@ -1105,7 +1119,7 @@ class FixedOutputSchemaTVF : public TableValuedFunction {
 
   FixedOutputSchemaTVF(const FixedOutputSchemaTVF&) = delete;
   FixedOutputSchemaTVF& operator=(const FixedOutputSchemaTVF&) = delete;
-  ~FixedOutputSchemaTVF() override {}
+  ~FixedOutputSchemaTVF() override = default;
 
   const TVFRelation& result_schema() const { return result_schema_; }
 
@@ -1169,7 +1183,7 @@ class ForwardInputSchemaToOutputSchemaTVF : public TableValuedFunction {
       const ForwardInputSchemaToOutputSchemaTVF&) = delete;
   ForwardInputSchemaToOutputSchemaTVF& operator=(
       const ForwardInputSchemaToOutputSchemaTVF&) = delete;
-  ~ForwardInputSchemaToOutputSchemaTVF() override {}
+  ~ForwardInputSchemaToOutputSchemaTVF() override = default;
 
   absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
                          TableValuedFunctionProto* proto) const override;
@@ -1230,7 +1244,7 @@ class ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF
       const ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF&) = delete;
   ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF& operator=(
       const ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF&) = delete;
-  ~ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF() override {}
+  ~ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF() override = default;
 
   absl::Status Resolve(
       const AnalyzerOptions* analyzer_options,

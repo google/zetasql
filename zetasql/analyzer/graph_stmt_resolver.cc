@@ -542,7 +542,7 @@ std::unique_ptr<const ResolvedElement> GetResolvedElementWithLocation(
 
 absl::StatusOr<absl::string_view> GetAstNodeSql(const ASTNode* node,
                                                 absl::string_view sql) {
-  const ParseLocationRange& ast_query_range = node->GetParseLocationRange();
+  const ParseLocationRange& ast_query_range = node->location();
   ZETASQL_RET_CHECK_GE(sql.length(), ast_query_range.end().GetByteOffset()) << sql;
   return absl::ClippedSubstr(sql, ast_query_range.start().GetByteOffset(),
                              ast_query_range.end().GetByteOffset() -
@@ -692,7 +692,7 @@ GraphStmtResolver::ResolveGraphPropertyList(
             .set_property_declaration_name(std::move(property_decl_name))
             .Build());
     property_defs.push_back(GetResolvedElementWithLocation(
-        std::move(property_def), property->GetParseLocationRange()));
+        std::move(property_def), property->location()));
   }
   return property_defs;
 }
@@ -766,7 +766,7 @@ GraphStmtResolver::ResolveGraphPropertiesAllColumns(
             .set_sql(ToIdentifierLiteral(col_name))
             .Build());
     property_defs.push_back(GetResolvedElementWithLocation(
-        std::move(property_def), ast_location->GetParseLocationRange()));
+        std::move(property_def), ast_location->location()));
   }
   return property_defs;
 }
@@ -849,8 +849,8 @@ GraphStmtResolver::ResolveLabelAndProperties(
                            std::move(property_declaration_names))
                        .Build());
 
-  label = GetResolvedElementWithLocation(
-      std::move(label), ast_label_and_properties->GetParseLocationRange());
+  label = GetResolvedElementWithLocation(std::move(label),
+                                         ast_label_and_properties->location());
   absl::c_move(property_defs, std::back_inserter(output_property_defs));
 
   // Validates label.
@@ -875,6 +875,7 @@ GraphStmtResolver::ResolveBaseTable(
       /*has_explicit_alias=*/false,
       /*alias_location=*/input_table_name, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, resolver_.empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"graph query",
       /*remaining_names=*/nullptr, &resolved_table_scan,
       /*output_name_list=*/&table_scan_name_list,
       /*output_column_name_list=*/&input_table_scan_name_list,

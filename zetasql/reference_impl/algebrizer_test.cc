@@ -696,13 +696,13 @@ TEST_F(AlgebrizerTestBase, TableScanAsIterator) {
                        algebrizer_->AlgebrizeScan(table_scan.get()));
   EXPECT_EQ(algebrized_scan->DebugString(),
             "EvaluatorTableScanOp(\n"
-            "+-col_int32#0\n"
-            "+-col_uint32#1\n"
-            "+-col_int64#2\n"
-            "+-col_uint64#3\n"
-            "+-col_string#4\n"
-            "+-col_bool#5\n"
-            "+-col_double#6\n"
+            "+-col_int32\n"
+            "+-col_uint32\n"
+            "+-col_int64\n"
+            "+-col_uint64\n"
+            "+-col_string\n"
+            "+-col_bool\n"
+            "+-col_double\n"
             "+-table: table_all_types)");
 
   // Another test, this time just scanning two columns and providing an alias.
@@ -718,8 +718,8 @@ TEST_F(AlgebrizerTestBase, TableScanAsIterator) {
       algebrizer_->AlgebrizeScan(two_column_scan.get()));
   EXPECT_EQ(algebrized_two_column_scan->DebugString(),
             "EvaluatorTableScanOp(\n"
-            "+-col_int32#0\n"
-            "+-col_uint32#1\n"
+            "+-col_int32\n"
+            "+-col_uint32\n"
             "+-table: table_all_types\n"
             "+-alias: table_all_types_alias)");
 
@@ -2244,10 +2244,10 @@ TEST_F(StatementAlgebrizerTest, TVF) {
 
   FixedOutputSchemaTVF tvf(
       {"tvf_no_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            tvf_output_schema,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), /*context_ptr=*/nullptr),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             tvf_output_schema,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), /*context_ptr=*/nullptr)},
       tvf_output_schema);
 
   ResolvedColumn o1(1, IdString::MakeGlobal("tvf_no_args"),
@@ -2419,8 +2419,8 @@ TEST_F(BarrierScanAlgebrizerTest, NoFilterPushdownForFilterScans) {
             "FilterOp(\n"
             "+-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
             "+-input: EvaluatorTableScanOp(\n"
-            "  +-col1#0\n"
-            "  +-col2#1\n"
+            "  +-col1\n"
+            "  +-col2\n"
             "  +-InListColumnFilterArg($col1, column_idx: 0, elements: "
             "(ConstExpr(Int64(1))))\n"
             "  +-table: table))");
@@ -2447,8 +2447,8 @@ TEST_F(BarrierScanAlgebrizerTest, NoFilterPushdownForFilterScans) {
             "+-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
             "+-input: BarrierScanOp(\n"
             "  +-input: EvaluatorTableScanOp(\n"
-            "    +-col1#0\n"
-            "    +-col2#1\n"
+            "    +-col1\n"
+            "    +-col2\n"
             "    +-table: table)))");
 }
 
@@ -2487,8 +2487,8 @@ TEST_F(BarrierScanAlgebrizerTest, FilterPushdownAllowedInsideBarrierScan) {
             "  +-input: FilterOp(\n"
             "    +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
             "    +-input: EvaluatorTableScanOp(\n"
-            "      +-col1#0\n"
-            "      +-col2#1\n"
+            "      +-col1\n"
+            "      +-col2\n"
             "      +-InListColumnFilterArg($col1, column_idx: 0, elements: "
             "(ConstExpr(Int64(1))))\n"
             "      +-table: table))))");
@@ -2530,16 +2530,16 @@ TEST_F(BarrierScanAlgebrizerTest, FilterPushdownNotAllowedJoinScan) {
             "+-left_input: FilterOp(\n"
             "| +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
             "| +-input: EvaluatorTableScanOp(\n"
-            "|   +-col1#0\n"
-            "|   +-col2#1\n"
+            "|   +-col1\n"
+            "|   +-col2\n"
             "|   +-InListColumnFilterArg($col1, column_idx: 0, elements: "
             "(ConstExpr(Int64(1))))\n"
             "|   +-table: table)),\n"
             "+-right_input: FilterOp(\n"
             "  +-condition: Equal(DerefExpr(col3), ConstExpr(Int64(2))),\n"
             "  +-input: EvaluatorTableScanOp(\n"
-            "    +-col3#0\n"
-            "    +-col4#1\n"
+            "    +-col3\n"
+            "    +-col4\n"
             "    +-InListColumnFilterArg($col3, column_idx: 0, elements: "
             "(ConstExpr(Int64(2))))\n"
             "    +-table: table2)))");
@@ -2583,15 +2583,15 @@ TEST_F(BarrierScanAlgebrizerTest, FilterPushdownNotAllowedJoinScan) {
             "| +-condition: Equal(DerefExpr(col1), ConstExpr(Int64(1))),\n"
             "| +-input: BarrierScanOp(\n"
             "|   +-input: EvaluatorTableScanOp(\n"
-            "|     +-col1#0\n"
-            "|     +-col2#1\n"
+            "|     +-col1\n"
+            "|     +-col2\n"
             "|     +-table: table))),\n"
             "+-right_input: FilterOp(\n"
             "  +-condition: Equal(DerefExpr(col3), ConstExpr(Int64(2))),\n"
             "  +-input: BarrierScanOp(\n"
             "    +-input: EvaluatorTableScanOp(\n"
-            "      +-col3#0\n"
-            "      +-col4#1\n"
+            "      +-col3\n"
+            "      +-col4\n"
             "      +-table: table2))))");
 }
 

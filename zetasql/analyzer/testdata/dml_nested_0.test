@@ -907,7 +907,8 @@ UpdateStmt
                     +-Literal(type=INT64, value=1)
 ==
 
-# Nested UPDATE that attempts to write to the offset.
+# Nested UPDATE that attempts to write to the offset. The offset is not in scope
+# on the LHS of a SET assignment.
 [language_features=NONE,{{+NESTED_UPDATE_DELETE_WITH_OFFSET|+NESTED_UPDATE_DELETE_WITH_OFFSET,+CORRELATED_REFS_IN_NESTED_DML}}]
 UPDATE TestTable SET
   (UPDATE KitchenSink.repeated_int64_val WITH OFFSET{{| offset}}
@@ -944,6 +945,71 @@ WHERE true
 ERROR: Duplicate OFFSET alias foo in nested UPDATE [at 2:58]
   (UPDATE KitchenSink.repeated_int64_val foo WITH OFFSET foo
                                                          ^
+==
+
+# Nested UPDATE with non-default offset conflicting with the target name.
+[language_features=NONE,{{+NESTED_UPDATE_DELETE_WITH_OFFSET|+NESTED_UPDATE_DELETE_WITH_OFFSET,+CORRELATED_REFS_IN_NESTED_DML}}]
+UPDATE TestTable SET
+  (UPDATE KitchenSink.repeated_int64_val WITH OFFSET repeated_int64_val
+   SET repeated_int64_val = repeated_int64_val + 1
+   WHERE repeated_int64_val = 0)
+WHERE true
+--
+ERROR: Duplicate OFFSET alias repeated_int64_val in nested UPDATE [at 2:54]
+  (UPDATE KitchenSink.repeated_int64_val WITH OFFSET repeated_int64_val
+                                                     ^
+==
+
+# Nested UPDATE with non-default offset conflicting with a target field.
+# TODO: b/444251276 - This should probably be an error: In the SET clause,
+# nested_int64 refers to the field on the RHS, and the offset on the LHS.
+[language_features=NONE,{{+NESTED_UPDATE_DELETE_WITH_OFFSET|+NESTED_UPDATE_DELETE_WITH_OFFSET,+CORRELATED_REFS_IN_NESTED_DML}}]
+UPDATE TestTable SET
+  (UPDATE KitchenSink.nested_repeated_value WITH OFFSET nested_int64
+   SET nested_int64 = nested_int64 + 1
+   WHERE nested_int64 = 0)
+WHERE true
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
++-column_access_list=READ_WRITE
++-where_expr=
+| +-Literal(type=BOOL, value=true)
++-update_item_list=
+  +-UpdateItem
+    +-target=
+    | +-GetProtoField
+    |   +-type=ARRAY<PROTO<zetasql_test__.KitchenSinkPB.Nested>>
+    |   +-expr=
+    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |   +-field_descriptor=nested_repeated_value
+    |   +-default_value=[]
+    +-element_column=
+    | +-ColumnHolder(column=$array.nested_repeated_value#4)
+    +-update_list=
+      +-UpdateStmt
+        +-array_offset_column=
+        | +-ColumnHolder(column=$array.nested_int64#5)
+        +-where_expr=
+        | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+        |   +-ColumnRef(type=INT64, column=$array.nested_int64#5)
+        |   +-Literal(type=INT64, value=0)
+        +-update_item_list=
+          +-UpdateItem
+            +-target=
+            | +-GetProtoField
+            |   +-type=INT64
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB.Nested>, column=$array.nested_repeated_value#4)
+            |   +-field_descriptor=nested_int64
+            |   +-default_value=88
+            +-set_value=
+              +-DMLValue
+                +-value=
+                  +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+                    +-ColumnRef(type=INT64, column=$array.nested_int64#5)
+                    +-Literal(type=INT64, value=1)
 ==
 
 # Nested UPDATE that reuses the target/offset aliases of an enclosing nested

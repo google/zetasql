@@ -562,13 +562,13 @@ VALUES ('washer', 20),
        ('oven', 5)
 THEN RETURN *, quantity * 10 AS new_quantity;
 
-/*---------+----------+--------------------+--------------*
+/*---------+----------+--------------------+--------------+
  | product | quantity | supply_constrained | new_quantity |
  +---------+----------+--------------------+--------------+
  | washer  | 20       | false              | 200          |
  | dryer   | 30       | false              | 300          |
  | oven    | 10       | false              | 50           |
- *---------+----------+--------------------+--------------*/
+ +---------+----------+--------------------+--------------*/
 ```
 
 The following query tries to insert two rows into a table, but ignores a
@@ -581,11 +581,11 @@ VALUES ('desk', 40),
        ('desk', 45)
 THEN RETURN WITH ACTION * EXCEPT(supply_constrained);
 
-/*----------+----------+--------*
+/*----------+----------+--------+
  | product  | quantity | ACTION |
  +----------+----------+--------+
  | desk     | 40       | INSERT |
- *----------+----------+--------*/
+ +----------+----------+--------*/
 ```
 
 The following query tries to insert or update a row into a table. It uses
@@ -597,11 +597,11 @@ INSERT OR UPDATE Inventory (product, quantity)
 VALUES ('oven', 100)
 THEN RETURN WITH ACTION product, quantity * 10 AS new_quantity;
 
-/*---------+--------------+--------*
+/*---------+--------------+--------+
  | product | new_quantity | ACTION |
  +---------+--------------+--------+
  | oven    | 1000         | UPDATE |
- *---------+--------------+--------*/
+ +---------+--------------+--------*/
 ```
 
 ### `INSERT` examples
@@ -751,11 +751,11 @@ DELETE FROM Inventory
 WHERE product = 'washer'
 THEN RETURN *;
 
-/*---------+----------+--------------------*
+/*---------+----------+--------------------+
  | product | quantity | supply_constrained |
  +---------+----------+--------------------+
  | washer  | 20       | false              |
- *---------+----------+--------------------*/
+ +---------+----------+--------------------*/
 ```
 
 ## `UPDATE` statement
@@ -859,7 +859,7 @@ Before:
 
 ```zetasql
 -- Inventory
-/*-------------------+----------+--------------------*
+/*-------------------+----------+--------------------+
  |      product      | quantity | supply_constrained |
  +-------------------+----------+--------------------+
  | dishwasher        |       30 |               NULL |
@@ -869,22 +869,22 @@ Before:
  | oven              |        5 |               NULL |
  | refrigerator      |       10 |               NULL |
  | top load washer   |       10 |               NULL |
- *-------------------+----------+--------------------*/
+ +-------------------+----------+--------------------*/
 
 -- NewArrivals
-/*-----------------+----------+--------------*
+/*-----------------+----------+--------------+
  |     product     | quantity |  warehouse   |
  +-----------------+----------+--------------+
  | dryer           |      200 | warehouse #2 |
  | oven            |      300 | warehouse #3 |
  | top load washer |      100 | warehouse #1 |
- *-----------------+----------+--------------*/
+ +-----------------+----------+--------------*/
 ```
 
 After:
 
 ```zetasql
-/*-------------------+----------+--------------------*
+/*-------------------+----------+--------------------+
  |      product      | quantity | supply_constrained |
  +-------------------+----------+--------------------+
  | dishwasher        |       30 |               NULL |
@@ -894,7 +894,7 @@ After:
  | oven              |      305 |              false |
  | refrigerator      |       10 |               NULL |
  | top load washer   |      110 |              false |
- *-------------------+----------+--------------------*/
+ +-------------------+----------+--------------------*/
 ```
 
 ### `WHERE` keyword
@@ -1430,17 +1430,17 @@ These are the tables before you run the query:
 
 ```zetasql
 -- NewArrivals
-/*-----------------+----------+--------------*
+/*-----------------+----------+--------------+
  |     product     | quantity |  warehouse   |
  +-----------------+----------+--------------+
  | dryer           |       20 | warehouse #2 |
  | oven            |       30 | warehouse #3 |
  | refrigerator    |       25 | warehouse #2 |
  | top load washer |       10 | warehouse #1 |
- *-----------------+----------+--------------*/
+ +-----------------+----------+--------------*/
 
 --Inventory
-/*-------------------+----------*
+/*-------------------+----------+
  |      product      | quantity |
  +-------------------+----------+
  | dishwasher        |       30 |
@@ -1449,14 +1449,14 @@ These are the tables before you run the query:
  | microwave         |       20 |
  | oven              |        5 |
  | top load washer   |       10 |
- *-------------------+----------*/
+ +-------------------+----------*/
 ```
 
 This is the `Inventory` table after you run the query:
 
 ```zetasql
 --Inventory
-/*-------------------+----------*
+/*-------------------+----------+
  |      product      | quantity |
  +-------------------+----------+
  | dishwasher        |       30 |
@@ -1466,7 +1466,7 @@ This is the `Inventory` table after you run the query:
  | oven              |       35 |
  | refrigerator      |       25 |
  | top load washer   |       20 |
- *-------------------+----------*/
+ +-------------------+----------*/
 ```
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->

@@ -38,6 +38,7 @@
 #include "zetasql/analyzer/rewriters/registration.h"
 #include "zetasql/analyzer/rewriters/sql_function_inliner.h"
 #include "zetasql/analyzer/rewriters/sql_view_inliner.h"
+#include "zetasql/analyzer/rewriters/subpipeline_stmt_rewriter.h"
 #include "zetasql/analyzer/rewriters/typeof_function_rewriter.h"
 #include "zetasql/analyzer/rewriters/unpivot_rewriter.h"
 #include "zetasql/analyzer/rewriters/update_constructor_rewriter.h"
@@ -57,6 +58,11 @@ void RegisterBuiltinRewriters() {
     // rewrites are applicable. If there are, the rewriters are run again in the
     // order they are registered. The rewriters are applied until there is no
     // applicable rewrite.
+
+    // This is a top-level statement transformation affecting only the
+    // outermost nodes, so run it first.
+    r.Register(ResolvedASTRewrite::REWRITE_SUBPIPELINE_STMT,
+               GetSubpipelineStmtRewriter());
 
     // Functioning inlining runs first so that other rewriters can apply to
     // the function bodies that are inserted by this rule.

@@ -22,14 +22,12 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
 #include "zetasql/proto/function.pb.h"
-#include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type_deserializer.h"
 #include "absl/strings/str_join.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -65,9 +63,8 @@ class Procedure {
   static absl::StatusOr<std::unique_ptr<Procedure>> Deserialize(
       const ProcedureProto& proto, const TypeDeserializer& type_deserializer);
 
-  absl::Status Serialize(
-      FileDescriptorSetMap* file_descriptor_set_map,
-      ProcedureProto* proto) const;
+  absl::Status Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                         ProcedureProto* proto) const;
 
   // Returns a relevant (customizable) user facing text (to be used in error
   // message) for procedure signature. For example:

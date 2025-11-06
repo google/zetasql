@@ -109,7 +109,7 @@ QueryStmt
           +-DifferentialPrivacyAggregateScan
             +-column_list=[$aggregate.$agg1#3]
             +-input_scan=
-            | +-WithRefScan(column_list=[with_scan.$col1#2], with_query_name="with_scan")
+            | +-WithRefScan(parse_location=119-128, column_list=[with_scan.$col1#2], with_query_name="with_scan")
             +-aggregate_list=
               +-$agg1#3 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -160,7 +160,7 @@ QueryStmt
             |   +-parse_location=150-166
             |   +-column_list=[t1.$col1#14]
             |   +-input_scan=
-            |     +-WithRefScan(column_list=[t1.$col1#14], with_query_name="t1")
+            |     +-WithRefScan(parse_location=164-166, column_list=[t1.$col1#14], with_query_name="t1")
             +-aggregate_list=
               +-$agg1#15 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -431,7 +431,7 @@ QueryStmt
     |     +-DifferentialPrivacyAggregateScan
     |       +-column_list=[$aggregate.$agg1#20]
     |       +-input_scan=
-    |       | +-WithRefScan(column_list=t1.[int64#18, uid#19], with_query_name="t1")
+    |       | +-WithRefScan(parse_location=185-187, column_list=t1.[int64#18, uid#19], with_query_name="t1")
     |       +-aggregate_list=
     |         +-$agg1#20 :=
     |           +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -445,7 +445,7 @@ with recursive t1 as (
   (select int64+@_p0_INT64, uid from t1 where @_p1_BOOL))
 select with differential_privacy count(*) from t1;
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH DIFFERENTIAL_PRIVACY from clause: ResolvedRecursiveScan
+Rewrite ERROR: Unsupported scan type inside of DIFFERENTIAL_PRIVACY clause: ResolvedRecursiveScan
 ==
 
 # Recursive with clauses with differential_privacy inside the WITH entry
@@ -642,7 +642,7 @@ QueryStmt
     | +-ProjectScan
     |   +-column_list=t1.[int64#19, uid#20]
     |   +-input_scan=
-    |     +-WithRefScan(column_list=t1.[int64#19, uid#20], with_query_name="t1")
+    |     +-WithRefScan(parse_location=195-197, column_list=t1.[int64#19, uid#20], with_query_name="t1")
     +-recursive=TRUE
 [REPLACED_LITERALS]
 with recursive t1 as (
@@ -651,7 +651,7 @@ with recursive t1 as (
   (select with differential_privacy SUM(int64) as int64, @_p0_INT64 as uid from t1 where @_p1_BOOL))
 select * from t1;
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH DIFFERENTIAL_PRIVACY from clause: ResolvedRecursiveRefScan [at 4:4]
+Rewrite ERROR: Unsupported scan type inside of DIFFERENTIAL_PRIVACY clause: ResolvedRecursiveRefScan [at 4:4]
   (select with differential_privacy SUM(int64) as int64, 1 as uid from t1 whe...
    ^
 ==
@@ -699,7 +699,7 @@ QueryStmt
           +-DifferentialPrivacyAggregateScan
             +-column_list=[$aggregate.$agg1#17]
             +-input_scan=
-            | +-WithRefScan(column_list=t.[uid#15, $col2#16], with_query_name="t")
+            | +-WithRefScan(parse_location=192-193, column_list=t.[uid#15, $col2#16], with_query_name="t")
             +-aggregate_list=
               +-$agg1#17 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -1207,7 +1207,7 @@ QueryStmt
             |   +-parse_location=118-128
             |   +-column_list=t1.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24]
             |   +-left_scan=
-            |   | +-WithRefScan(column_list=t1.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t1")
+            |   | +-WithRefScan(parse_location=115-117, column_list=t1.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t1")
             |   +-right_scan=
             |     +-TableScan(parse_location=129-160, table=SimpleTypesWithAnonymizationUid, alias="t2")
             +-aggregate_list=
@@ -1559,9 +1559,9 @@ QueryStmt
             |   +-parse_location=178-188
             |   +-column_list=[t1.int32#25, t1.int64#26, t1.uint32#27, t1.uint64#28, t1.string#29, t1.bytes#30, t1.bool#31, t1.float#32, t1.double#33, t1.date#34, t1.uid#35, t1.numeric#36, t2.int32#37, t2.int64#38, t2.uint32#39, t2.uint64#40, t2.string#41, t2.bytes#42, t2.bool#43, t2.float#44, t2.double#45, t2.date#46, t2.uid#47, t2.numeric#48]
             |   +-left_scan=
-            |   | +-WithRefScan(column_list=t1.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, uid#35, numeric#36], with_query_name="t1")
+            |   | +-WithRefScan(parse_location=175-177, column_list=t1.[int32#25, int64#26, uint32#27, uint64#28, string#29, bytes#30, bool#31, float#32, double#33, date#34, uid#35, numeric#36], with_query_name="t1")
             |   +-right_scan=
-            |     +-WithRefScan(column_list=t2.[int32#37, int64#38, uint32#39, uint64#40, string#41, bytes#42, bool#43, float#44, double#45, date#46, uid#47, numeric#48], with_query_name="t2")
+            |     +-WithRefScan(parse_location=189-191, column_list=t2.[int32#37, int64#38, uint32#39, uint64#40, string#41, bytes#42, bool#43, float#44, double#45, date#46, uid#47, numeric#48], with_query_name="t2")
             +-aggregate_list=
               +-count#49 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2354,7 +2354,7 @@ QueryStmt
         |     +-ProjectScan
         |       +-column_list=t1.[int32#26, int64#27, uint32#28, uint64#29, string#30, bytes#31, bool#32, float#33, double#34, date#35, uid#36, numeric#37]
         |       +-input_scan=
-        |         +-WithRefScan(column_list=t1.[int32#26, int64#27, uint32#28, uint64#29, string#30, bytes#31, bool#32, float#33, double#34, date#35, uid#36, numeric#37], with_query_name="t1")
+        |         +-WithRefScan(parse_location=231-233, column_list=t1.[int32#26, int64#27, uint32#28, uint64#29, string#30, bytes#31, bool#32, float#33, double#34, date#35, uid#36, numeric#37], with_query_name="t1")
         +-aggregate_list=
           +-$agg1#38 :=
             +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2418,7 +2418,7 @@ QueryStmt
           +-DifferentialPrivacyAggregateScan
             +-column_list=[$aggregate.aggregation_count#15]
             +-input_scan=
-            | +-WithRefScan(column_list=[t.int64#14], with_query_name="t")
+            | +-WithRefScan(parse_location=202-203, column_list=[t.int64#14], with_query_name="t")
             +-aggregate_list=
             | +-aggregation_count#15 :=
             |   +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2476,7 +2476,7 @@ QueryStmt
           +-DifferentialPrivacyAggregateScan
             +-column_list=[$aggregate.anon_count#25]
             +-input_scan=
-            | +-WithRefScan(column_list=t.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t")
+            | +-WithRefScan(parse_location=171-172, column_list=t.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t")
             +-aggregate_list=
               +-anon_count#25 :=
                 +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2514,7 +2514,7 @@ QueryStmt
             | +-AggregateScan
             |   +-column_list=[$aggregate.anon_count_partial#27, $group_by.$uid#28]
             |   +-input_scan=
-            |   | +-WithRefScan(column_list=t.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t")
+            |   | +-WithRefScan(parse_location=171-172, column_list=t.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="t")
             |   +-group_by_list=
             |   | +-$uid#28 := ColumnRef(type=INT64, column=t.uid#23)
             |   +-aggregate_list=
@@ -2568,7 +2568,7 @@ QueryStmt
     |         +-DifferentialPrivacyAggregateScan
     |           +-column_list=[$aggregate.$agg1#25]
     |           +-input_scan=
-    |           | +-WithRefScan(column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
+    |           | +-WithRefScan(parse_location=196-201, column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
     |           +-aggregate_list=
     |             +-$agg1#25 :=
     |               +-AggregateFunctionCall(ZetaSQL:$differential_privacy_count_star(optional(1) STRUCT<INT64, INT64> contribution_bounds_per_group) -> INT64)
@@ -2578,7 +2578,7 @@ QueryStmt
       +-ProjectScan
         +-column_list=[second.$col1#26]
         +-input_scan=
-          +-WithRefScan(column_list=[second.$col1#26], with_query_name="second")
+          +-WithRefScan(parse_location=220-226, column_list=[second.$col1#26], with_query_name="second")
 [REPLACED_LITERALS]
 \# Test SELECT WITH DIFFERENTIAL_PRIVACY in a CTE.
 WITH
@@ -2623,7 +2623,7 @@ QueryStmt
     |           | +-AggregateScan
     |           |   +-column_list=[$aggregate.$agg1_partial#28, $group_by.$uid#29]
     |           |   +-input_scan=
-    |           |   | +-WithRefScan(column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
+    |           |   | +-WithRefScan(parse_location=196-201, column_list=first.[int32#13, int64#14, uint32#15, uint64#16, string#17, bytes#18, bool#19, float#20, double#21, date#22, uid#23, numeric#24], with_query_name="first")
     |           |   +-group_by_list=
     |           |   | +-$uid#29 := ColumnRef(type=INT64, column=first.uid#23)
     |           |   +-aggregate_list=
@@ -2643,4 +2643,4 @@ QueryStmt
       +-ProjectScan
         +-column_list=[second.$col1#26]
         +-input_scan=
-          +-WithRefScan(column_list=[second.$col1#26], with_query_name="second")
+          +-WithRefScan(parse_location=220-226, column_list=[second.$col1#26], with_query_name="second")

@@ -44,7 +44,7 @@ public class JniChannelProvider implements ClientChannelProvider {
     }
 
     String arch = System.getProperty("os.arch");
-    if (!("x86_64".equals(arch) || "amd64".equals(arch))) {
+    if (!(arch.equals("x86_64") || arch.equals("amd64") || arch.equals("aarch64"))) {
       throw new RuntimeException("Unsupported os.arch");
     }
 

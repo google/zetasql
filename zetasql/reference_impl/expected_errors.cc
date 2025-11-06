@@ -36,6 +36,11 @@ ABSL_FLAG(
     "Add expected error for multi-level aggregates in order by and limit in "
     "aggregate rewriter.");
 
+ABSL_FLAG(
+    bool, add_error_for_agg_filtering_in_order_by_and_limit_agg_rewriter, false,
+    "Add expected error for multi-level aggregates in order by and limit in "
+    "aggregate rewriter.");
+
 namespace zetasql {
 
 std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
@@ -199,6 +204,18 @@ std::unique_ptr<MatcherCollection<absl::Status>> ReferenceExpectedErrorMatcher(
         absl::StatusCode::kUnimplemented,
         "Aggregate functions with GROUP BY modifiers are not supported in "
         "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"));
+  }
+
+  if (absl::GetFlag(
+          FLAGS_add_error_for_agg_filtering_in_order_by_and_limit_agg_rewriter)) {
+    error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+        absl::StatusCode::kUnimplemented,
+        "Aggregate functions with a WHERE filter modifier are not supported in "
+        "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"));
+    error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+        absl::StatusCode::kUnimplemented,
+        "Aggregate functions with a HAVING filter modifier are not supported "
+        "in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"));
   }
 
   // TODO: Reference implementation does not support TOKENLIST

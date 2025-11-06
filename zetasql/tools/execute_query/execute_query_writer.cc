@@ -125,4 +125,11 @@ absl::Status ExecuteQueryStreamWriter::ExecutedExpression(
   return absl::OkStatus();
 }
 
+void ExecuteQueryStreamWriter::FlushStatement(bool at_end,
+                                              std::string error_msg) {
+  if (!error_msg.empty()) {
+    stream_ << "ERROR: " << error_msg << "\n";
+  }
+}
+
 }  // namespace zetasql

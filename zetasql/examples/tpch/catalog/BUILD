@@ -126,5 +126,9 @@ cc_test(
         "//zetasql/public:catalog",
         "//zetasql/public:evaluator_table_iterator",
         "//zetasql/public:simple_catalog",
+        "//zetasql/public/types",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
     ],
 )

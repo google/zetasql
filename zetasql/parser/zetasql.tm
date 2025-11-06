@@ -169,11 +169,6 @@ cs_embed_star         = /({cs_not_star}*({cs_star}+{cs_not_star_or_slash})*)*/
 cs_comment_begin      = /{cs_start}{cs_embed_star}{cs_star}*/
 cs_comment            = /{cs_start}{cs_embed_star}{cs_star}+{cs_slash}/
 
-/* Requiring a newline at the end of dash_coment and pound_comment does not
-   cause an error even if the comment comes in the last line of a query,
-   thanks to the newline sentinel input (See:
-   https://github.com/google/zetasql/blob/master/zetasql/parser/flex_tokenizer.h?l=128).
-*/
 /* Dash comments using -- */
 dash_comment          = /\-\-[^\r\n]*(\r|\n|\r\n)?/
 /* # comment ignores anything from # to the end of the line. */
@@ -212,8 +207,7 @@ BACKSLASH: /\\/ // Only for lenient macro expansion
 // Script labels. This is set apart from IDENTIFIER for two reasons:
 // - Identifiers should still be disallowed at statement beginnings in all
 //   other cases.
-// - (Unreserved) Keywords don't need to be recognized as labels since
-//   flex_tokenizer.l takes care of that.
+// - (Unreserved) Keywords don't need to be recognized as labels.
 SCRIPT_LABEL {absl::string_view}:
 
 // Comments. They are only returned if the tokenizer is run in a special comment
@@ -282,7 +276,9 @@ RUN_PRECEDENCE:
 // --------
 //
 // To add a keyword:
-// 1. Add a rule to flex_tokenizer.l.
+// 1. Add a token rule in the ":: lexer" section of zetasql.tm. If the keyword
+//    is a reserved keyword, add the token rule to the "RESERVED_KW_START"
+//    section. Otherwise, add it to the "NONRESERVED_KW_START" section.
 // 2. Add the keyword to the array in keywords.cc, with the appropriate class.
 // 3. If the keyword can be used as an identifier, add it to the
 //    "keyword_as_identifier" production in the grammar.
@@ -506,13 +502,7 @@ KW_OPTIONS_IN_WITH_OPTIONS:
 
 // A special token to indicate that an integer or floating point literal is
 // immediately followed by an identifier without space, for example 123abc.
-//
-// This token is only used by the lookahead_transformer under the `kTokenizer`
-// and `kTokenizerPreserveComments` mode to prevent the callers of
-// GetParseTokens() to blindly inserting whitespaces between "123" and "abc".
-// For example, when formatting "SELECT 123abc", which is invalid, the formatted
-// SQL should not become "SELECT 123 abc", which is valid.
-INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE:
+ATTACHED_ALIAS:
 
 // The following two tokens will be converted into INTEGER_LITERAL by the
 // lookahead_transformer, and the parser should not use them directly.
@@ -1094,8 +1084,7 @@ catch_all: /./ -100 {
        script,
        sql_statement,
        standalone_expression,
-       standalone_type,
-       standalone_subpipeline;
+       standalone_type;
 
 semicolon_or_eoi:
     ";"
@@ -1138,13 +1127,6 @@ standalone_type:
     type
     {
       *ast_node_result = $type;
-    }
-;
-
-standalone_subpipeline:
-    subpipeline_no_parens ";"?
-    {
-      *ast_node_result = $subpipeline_no_parens;
     }
 ;
 
@@ -1271,16 +1253,51 @@ unterminated_script_statement {ASTNode*}:
 ;
 
 sql_statement_body {ASTNode*}:
+    sql_statement_body_no_pipe_suffix[stmt]
+  | sql_statement_body_maybe_pipe_suffix[stmt] pipe_and_pipe_operator*[pipe_ops]
+    {
+      if ($pipe_ops.empty()) {
+        $$ = $stmt;
+      } else if(language_options.LanguageFeatureEnabled(
+                    FEATURE_STATEMENT_WITH_PIPE_OPERATORS)) {
+        auto pipe_suffix =
+            MakeNode<ASTSubpipelineStatement>(@pipe_ops,
+                MakeNode<ASTSubpipeline>(@pipe_ops, $pipe_ops));
+        $$ = MakeNode<ASTStatementWithPipeOperators>(@$, $stmt, pipe_suffix);
+      } else {
+        return MakeSyntaxError(@pipe_ops,
+                   "Pipe operators are not supported on this statement");
+      }
+    }
+  ;
+
+sql_statement_body_no_pipe_suffix {ASTNode*}:
+  # These statements can include a query as a suffix so they can't take more
+  # pipe operators as an ASTStatementWithPipeOperators.
     query_statement
+  | subpipeline_statement
+  | create_external_table_function_statement
+  | create_external_table_statement
+  | create_model_statement
+  | create_table_function_statement
+  | create_table_statement
+  | create_view_statement
+  | explain_statement
+  | export_data_statement
+  | export_model_statement
+  #
+  # These statements can't possibly return a table, so accepting a pipe suffix
+  # doesn't make sense on them.  Anything that *might* return a table
+  # should go in `sql_statement_body_maybe_pipe_suffix` below.
+  #
   | alter_statement
+  | begin_statement
   | analyze_statement
   | assert_statement
   | aux_load_data_statement { $$ = $aux_load_data_statement; }
   | clone_data_statement
-  | dml_statement
   | merge_statement
   | truncate_statement
-  | begin_statement
   | set_statement
   | commit_statement
   | start_batch_statement
@@ -1295,39 +1312,48 @@ sql_statement_body {ASTNode*}:
   | create_privilege_restriction_statement
   | create_row_access_policy_statement
   | create_sequence_statement { $$ = $1; }
-  | create_external_table_statement
-  | create_external_table_function_statement
   | create_locality_group_statement
-  | create_model_statement
   | create_property_graph_statement
   | create_schema_statement
   | create_external_schema_statement
   | create_snapshot_statement
-  | create_table_function_statement
-  | create_table_statement
-  | create_view_statement
   | create_entity_statement
   | define_macro_statement
   | define_table_statement
-  | describe_statement
-  | execute_immediate
-  | explain_statement
-  | export_data_statement
-  | export_model_statement
   | export_metadata_statement
-  | gql_statement
   | grant_statement
   | rename_statement
   | revoke_statement
   | rollback_statement
-  | show_statement
   | drop_all_row_access_policies_statement
   | drop_statement
-  | call_statement
   | import_statement
   | module_statement
   | undrop_statement
+  # This should allow pipe suffixes but is currently excluded because this
+  # resolves as a ResolvedQueryStmt, so having an unresolved pipe suffix
+  # confuses the SQLBuilder and some analyzer tests.
+  | gql_statement
+  # This should allow pipe suffixes on DML statements with THEN RETURN but
+  # it's excluded for now because that causes parser conflicts.
+  | dml_statement
+;
+
+# This includes all statements which could potentially return a table, and
+# therefore allow pipe operator suffixes using ASTStatementWithPipeOperators
+# if FEATURE_STATEMENT_WITH_PIPE_OPERATORS is enabled.
+#
+# The statements are only valid when they return return exactly one output
+# table, but this isn't determined at parse time.
+# This must be checked later by whatever executes the statement, giving an
+# error if the initial statement does not return exactly one table.
+sql_statement_body_maybe_pipe_suffix {ASTNode*}:
+  # Keep in sync with `validator.cc` code checking which statements are allowed.
+    call_statement
+  | describe_statement
+  | execute_immediate
   | run_statement
+  | show_statement
 ;
 
 run_statement_arg {ASTNamedArgument*}: identifier[name] ("=" | "=>") string_literal[expr]
@@ -1417,6 +1443,13 @@ query_statement {ASTNode*}:
     query
     {
       $$ = MakeNode<ASTQueryStatement>(@$, $1);
+    }
+;
+
+subpipeline_statement {ASTNode*}:
+    subpipeline_no_parens
+    {
+      $$ = MakeNode<ASTSubpipelineStatement>(@$, $1);
     }
 ;
 
@@ -5899,6 +5932,14 @@ select_column_expr {ASTNode*}:
       auto* alias = MakeNode<ASTAlias>(@alias, $alias);
       $$ = MakeNode<ASTSelectColumn>(@$, $e, alias);
     }
+  | expression ATTACHED_ALIAS[token]
+    {
+      // This special token is for cases like 10K or 24h where we assume the
+      // user wanted to write `10 AS K` or `24 AS h` but forgot the space
+      // between the literal and the alias.
+      return MakeSyntaxError(
+          @token, "Syntax error: Missing whitespace between literal and alias");
+    }
 ;
 
 select_list_prefix_with_as_aliases {ASTNode*}:
@@ -7203,10 +7244,11 @@ graph_linear_query_operation {ASTNode*}:
 ;
 
 graph_set_operation_metadata {ASTNode*}:
-    query_set_operation_type all_or_distinct
+    opt_corresponding_outer_mode query_set_operation_type all_or_distinct
     {
       $$ = MakeNode<ASTSetOperationMetadata>(@$,
-                     $query_set_operation_type, $all_or_distinct
+                     $query_set_operation_type, $all_or_distinct,
+                     $opt_corresponding_outer_mode
                      );
     }
 ;
@@ -7246,9 +7288,11 @@ graph_operation_block {ASTGqlOperatorList*}:
 ;
 
 graph_pattern {ASTGraphPattern*}:
-    graph_path_pattern_list opt_where_clause
+    graph_path_pattern_list[path_list]
+    opt_where_clause[where_clause]
     {
-      $$ = ExtendNodeRight($1, $2);
+      $$ = WithLocation(ExtendNodeRight($path_list, $where_clause
+      ), @$);
     }
 ;
 
@@ -12044,6 +12088,7 @@ insert_statement {ASTInsertStatement*}:
       $$ = MakeNode<ASTInsertStatement>(@$, $target, $hint, $cols, source,
                                         on_conflict, $assert, $returning);
       $$->set_insert_mode($mode.value_or(ASTInsertStatement::DEFAULT_MODE));
+      $$->set_operator_keyword_location(@1);
     }
     # LINT.ThenChange(:insert_statement_in_pipe)
 ;
@@ -12067,6 +12112,7 @@ insert_statement_in_pipe_prefix {ASTInsertStatement*}:
       $$ = MakeNode<ASTInsertStatement>(@$, $target, $hint, $column_list,
                                         $on_conflict);
       $$->set_insert_mode($mode.value_or(ASTInsertStatement::DEFAULT_MODE));
+      $$->set_operator_keyword_location(@1);
     }
 ;
 
@@ -12123,6 +12169,7 @@ delete_statement {ASTNode*}:
     assert_rows_modified? returning_clause?
     {
       $$ = MakeNode<ASTDeleteStatement>(@$, $3, $hint, $5, $6, $7, $8, $9);
+      $$->set_operator_keyword_location(@1);
     }
 ;
 
@@ -12147,6 +12194,7 @@ update_statement {ASTNode*}:
     {
       auto* update_item_list = MakeNode<ASTUpdateItemList>(@update_item_list, $update_item_list);
       $$ = MakeNode<ASTUpdateStatement>(@$, $2, $hint, $4, $5, update_item_list, $8, $9, $10, $11);
+      $$->set_operator_keyword_location(@1);
     }
 ;
 
@@ -12335,6 +12383,7 @@ merge_statement_prefix {ASTNode*}:
   "USING" merge_source "ON" expression
     {
       $$ = MakeNode<ASTMergeStatement>(@$, $3, $4, $6, $8);
+      $$->set_operator_keyword_location(@1);
     }
 ;
 
@@ -13476,9 +13525,7 @@ next_statement_kind_without_hint {ASTNodeKind}:
     }
   | "|>"
     {
-      // For standalone subpipelines, we return AST_SUBPIPELINE because there's
-      // no ASTStatement kind to return.
-      $$ = ASTSubpipeline::kConcreteNodeKind;
+      $$ = ASTSubpipelineStatement::kConcreteNodeKind;
     }
 ;
 
@@ -13709,7 +13756,7 @@ create_sequence_statement {ASTCreateSequenceStatement*}:
   // O(n^2).
   int start_offset_ = 0;
 
-  friend class TextMapperTokenizer;
+  friend class ZetaSqlTokenizer;
 {{end}}
 
 {{- define "parserPrivateDecls" -}}

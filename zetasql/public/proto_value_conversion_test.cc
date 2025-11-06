@@ -612,7 +612,7 @@ TEST_P(ProtoValueConversionRangeRoundtripTest, Do) {
 
 class SimpleErrorCollector : public DescriptorPool::ErrorCollector {
  public:
-  SimpleErrorCollector() {}
+  SimpleErrorCollector() = default;
 
   void RecordError(absl::string_view filename, absl::string_view element_name,
                    const Message* descriptor, ErrorLocation location,

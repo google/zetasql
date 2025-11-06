@@ -35,8 +35,8 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -54,6 +54,7 @@ class AnalyticFunctionResolver;
 class Resolver;
 class SelectColumnStateList;
 struct ExprResolutionInfo;
+class LateralReferenceState;
 
 using ResolvedComputedColumnList = std::vector<const ResolvedComputedColumn*>;
 
@@ -89,6 +90,19 @@ enum class SelectForm {
   kGqlReturn,
   // An ASTSelect representing the graph query WITH operator.
   kGqlWith,
+};
+
+// These findings are tracked and shared in several places. Keeping them in one
+// structs avoids forgetting them in some places.
+struct ExprFindings {
+  // True if this expression contains an aggregation function.
+  bool has_aggregation = false;
+
+  // True if this expression contains an analytic function.
+  bool has_analytic = false;
+
+  // True if this expression contains a volatile function.
+  bool has_volatile = false;
 };
 
 struct GroupingSetInfo {
@@ -396,9 +410,64 @@ struct DotStarSourceExprInfo {
   // until the 2nd pass whether it'll be a pre- or post-grouping expression.
   std::unique_ptr<const ResolvedExpr> resolved_expr;
 
-  bool has_aggregation = false;
-  bool has_analytic = false;
-  bool has_volatile = false;
+  // Tracks information about lateral references, e.g. that this column is
+  // referenced from another SELECT column.
+  std::unique_ptr<LateralReferenceState> lateral_reference_state = nullptr;
+
+  // Findings about the source expression, e.g. `has_aggregation`,
+  // `has_volatile`, etc.
+  ExprFindings expr_findings;
+};
+
+// Encapsulates the necessary state related to lateral references for a given
+// SELECT column, such as the columns it references.
+// It provides helpers that expose only the necessary operations (e.g. pin
+// to pre-grouping context) and updates the information of all related columns
+// automatically.
+class LateralReferenceState {
+ public:
+  LateralReferenceState(
+      std::vector<SelectColumnState*> referenced_select_columns,
+      LateralReferenceState* dot_star_source_expr_info)
+      : referenced_select_columns_(std::move(referenced_select_columns)),
+        dot_star_source_expr_info_(dot_star_source_expr_info) {}
+
+  void MarkAsReferencedLaterally();
+  void PinToPreGroupingContext();
+  void PinToPostGroupingContext();
+
+  bool is_referenced_laterally() const { return is_referenced_laterally_; }
+
+  bool has_lateral_references() const {
+    return !referenced_select_columns_.empty();
+  }
+
+  bool is_pinned_to_pre_grouping_context() const {
+    return is_pinned_to_pre_grouping_context_;
+  }
+
+  bool IsInvolvedInLateralReferences() const {
+    return is_referenced_laterally_ || !referenced_select_columns_.empty();
+  }
+
+ private:
+  // Indicates whether this column is referenced by another SELECT list item or
+  // by the WHERE clause.
+  bool is_referenced_laterally_ = false;
+
+  // Indicates whether this column is referenced from a pre-grouping context,
+  // such as the WHERE clause, or from another SELECT column inside the
+  // argument of an aggregation, for example. Such column must be computed pre-
+  // grouping. This is set only through `PinToPreGroupingContext()`, which also
+  // automatically updates all columns it depends on also as required before
+  // grouping.
+  bool is_pinned_to_pre_grouping_context_ = false;
+  // Other select columns referenced from this one. This must be set before
+  // any methods are called on this object.
+  std::vector<SelectColumnState*> referenced_select_columns_;
+  // If this is a dot-star column, this pointer is set to the lateral reference
+  // state of the source expression, owned by the DotStarSourceExprInfo.
+  LateralReferenceState* dot_star_source_expr_info_ = nullptr;
 };
 
 // SelectColumnState contains state related to an expression in the
@@ -408,9 +477,9 @@ struct DotStarSourceExprInfo {
 struct SelectColumnState {
   explicit SelectColumnState(
       const ASTSelectColumn* ast_select_column, IdString alias_in,
-      bool is_explicit_in, bool has_aggregation_in, bool has_analytic_in,
-      bool has_volatile_in,
+      bool is_explicit_in, ExprFindings expr_findings_in,
       std::unique_ptr<const ResolvedExpr> resolved_expr_in,
+      std::vector<SelectColumnState*> columns_referenced_laterally,
       DotStarSourceExprInfo* dot_star_source_expr_info_in)
       : ast_select_column(ast_select_column),
         ast_expr(ast_select_column->expression()),
@@ -419,10 +488,14 @@ struct SelectColumnState {
         is_explicit(is_explicit_in),
         select_list_position(-1),
         resolved_expr(std::move(resolved_expr_in)),
-        has_aggregation(has_aggregation_in),
-        has_analytic(has_analytic_in),
-        has_volatile(has_volatile_in),
-        dot_star_source_expr_info(dot_star_source_expr_info_in) {}
+        expr_findings(expr_findings_in),
+        dot_star_source_expr_info(dot_star_source_expr_info_in) {
+    lateral_reference_state = std::make_unique<LateralReferenceState>(
+        std::move(columns_referenced_laterally),
+        dot_star_source_expr_info == nullptr
+            ? nullptr
+            : dot_star_source_expr_info->lateral_reference_state.get());
+  }
 
   SelectColumnState(const SelectColumnState&) = delete;
   SelectColumnState& operator=(const SelectColumnState&) = delete;
@@ -488,15 +561,10 @@ struct SelectColumnState {
   // Not owned.
   const ResolvedComputedColumn* resolved_computed_column = nullptr;
 
-  // True if this expression includes aggregation.  Select-list expressions
-  // that use aggregation cannot be referenced in GROUP BY.
-  bool has_aggregation = false;
-
-  // True if this expression includes analytic functions.
-  bool has_analytic = false;
-
-  // True if this expression includes any volatile function.
-  bool has_volatile = false;
+  // Findings such as `has_aggregation` and `has_volatile`.
+  // Select-list expressions that use aggregation cannot be referenced in GROUP
+  // BY.
+  ExprFindings expr_findings;
 
   // If true, this expression is used as a GROUP BY key.
   bool is_group_by_column = false;
@@ -524,6 +592,16 @@ struct SelectColumnState {
   // pass should process it only once.
   // This is owned by QueryResolutionInfo in the dedicated list.
   DotStarSourceExprInfo* dot_star_source_expr_info = nullptr;
+
+  // If set, indicates that this column is referenced by another SELECT list
+  // item or by the WHERE clause. If this column's expression is not a simple
+  // column reference, it is assigned a computed column on one of the
+  // "successive" lists.
+  std::unique_ptr<LateralReferenceState> lateral_reference_state;
+
+  // If true, this column is finalized and does not need to be resolved again
+  // in the second pass.
+  bool is_finalized = false;
 };
 
 // This class contains a SelectColumnState for each column in the SELECT list
@@ -543,8 +621,7 @@ class SelectColumnStateList {
   // that may raise an error. For more information, please see the beginning of
   // (broken link).
   void AddSelectColumn(const ASTSelectColumn* ast_select_column, IdString alias,
-                       bool is_explicit, bool has_aggregation,
-                       bool has_analytic, bool has_volatile,
+                       bool is_explicit, ExprFindings expr_findings,
                        std::unique_ptr<const ResolvedExpr> resolved_expr,
                        DotStarSourceExprInfo* dot_star_source_expr_info);
 
@@ -1030,6 +1107,21 @@ class QueryResolutionInfo {
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+  successive_select_list_columns_to_compute_before_aggregation() {
+    return &successive_select_list_columns_to_compute_before_aggregation_;
+  }
+
+  // Transfer ownership of
+  // successive_select_list_columns_to_compute_before_aggregation, clearing the
+  // internal storage.
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  release_successive_select_list_columns_to_compute_before_aggregation() {
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
+    successive_select_list_columns_to_compute_before_aggregation_.swap(tmp);
+    return tmp;
+  }
+
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
   columns_to_compute_after_aggregation() {
     return &columns_to_compute_after_aggregation_;
   }
@@ -1044,6 +1136,20 @@ class QueryResolutionInfo {
   }
 
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+  successive_columns_to_compute_after_aggregation() {
+    return &successive_columns_to_compute_after_aggregation_;
+  }
+
+  // Transfer ownership of successive_columns_to_compute_after_aggregation,
+  // clearing the internal storage.
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  release_successive_columns_to_compute_after_aggregation() {
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
+    successive_columns_to_compute_after_aggregation_.swap(tmp);
+    return tmp;
+  }
+
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
   columns_to_compute_after_analytic() {
     return &columns_to_compute_after_analytic_;
   }
@@ -1054,6 +1160,20 @@ class QueryResolutionInfo {
   release_columns_to_compute_after_analytic() {
     std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
     columns_to_compute_after_analytic_.swap(tmp);
+    return tmp;
+  }
+
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
+  successive_columns_to_compute_after_analytic() {
+    return &successive_columns_to_compute_after_analytic_;
+  }
+
+  // Transfer ownership of successive_columns_to_compute_after_analytic,
+  // clearing the internal storage.
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+  release_successive_columns_to_compute_after_analytic() {
+    std::vector<std::unique_ptr<const ResolvedComputedColumn>> tmp;
+    successive_columns_to_compute_after_analytic_.swap(tmp);
     return tmp;
   }
 
@@ -1112,10 +1232,10 @@ class QueryResolutionInfo {
   bool SelectFormAllowsAggregation() const;
   bool SelectFormAllowsAnalytic() const;
 
-  void set_select_with_mode(SelectWithMode select_with_mode) {
-    select_with_mode_ = select_with_mode;
+  void set_with_modifier_mode(WithModifierMode with_modifier_mode) {
+    with_modifier_mode_ = with_modifier_mode;
   }
-  SelectWithMode select_with_mode() const { return select_with_mode_; }
+  WithModifierMode with_modifier_mode() const { return with_modifier_mode_; }
 
   void set_has_having(bool has_having) { has_having_ = has_having; }
 
@@ -1178,6 +1298,19 @@ class QueryResolutionInfo {
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       select_list_columns_to_compute_before_aggregation_;
 
+  // Similar to `select_list_columns_to_compute_before_aggregation_`, but
+  // applies right before and in succession. Each such expression may reference
+  // prior columns in this same list, as each will sit on its own ProjectScan,
+  // successively. This is to ensure once-semantics.
+  //
+  // This list is the mechanism to handle lateral column references before
+  // aggregation, such as
+  //   SELECT a+rand() AS x, x+1 AS y1, x+2 AS y2
+  //   FROM t
+  //   WHERE x + y1 < y2
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      successive_select_list_columns_to_compute_before_aggregation_;
+
   // Columns that must be computed after the AggregateScan, but before the final
   // project for this SELECT.  Currently used for computing the dot-star source
   // expression after aggregation, but before the dot-star expansion.
@@ -1192,6 +1325,17 @@ class QueryResolutionInfo {
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       columns_to_compute_after_aggregation_;
 
+  // Similar to `columns_to_compute_after_aggregation_`, but apply right before
+  // and in succession. Each such expression may reference prior columns in this
+  // same list, as each will sit on its own ProjectScan, successively. This is
+  // to ensure once-semantics. `columns_to_compute_after_aggregation_` can
+  // reference any of these columns.
+  //
+  // This list is the mechanism to handle lateral column references such as
+  // SELECT SUM(x) - AVG(x) AS s, s + 1 AS s2 FROM ...
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      successive_columns_to_compute_after_aggregation_;
+
   // Columns that must be computed after the AnalyticScan, but before the final
   // project for this SELECT.  Currently used for computing the dot-star source
   // expression after analytic functions, but before the dot-star expansion.
@@ -1205,6 +1349,17 @@ class QueryResolutionInfo {
   // array element access must be computed before the dot-star can be expanded.
   std::vector<std::unique_ptr<const ResolvedComputedColumn>>
       columns_to_compute_after_analytic_;
+
+  // Similar to `columns_to_compute_after_analytic_`, but apply right before
+  // and in succession. Each such expression may reference prior columns in this
+  // same list, as each will sit on its own ProjectScan, successively. This is
+  // to ensure once-semantics. `columns_to_compute_after_analytic_` can
+  // reference any of these columns.
+  //
+  // This list is the mechanism to handle lateral column references such as
+  // SELECT ROW_NUMBER() OVER () AS w1, w1 + .. AS w2 FROM ...
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>>
+      successive_columns_to_compute_after_analytic_;
 
   // Stores information about dot-star source expressions for the 2nd pass
   // resolution.
@@ -1223,7 +1378,7 @@ class QueryResolutionInfo {
   SelectForm select_form_ = SelectForm::kClassic;
 
   // Select mode defined by SELECT WITH <identifier> clause.
-  SelectWithMode select_with_mode_ = SelectWithMode::NONE;
+  WithModifierMode with_modifier_mode_ = WithModifierMode::NONE;
 
   // HAVING information.
   bool has_having_ = false;

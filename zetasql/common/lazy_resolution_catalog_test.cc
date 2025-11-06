@@ -837,7 +837,7 @@ class LazyResolutionConstantNeedsEvaluationTest
     ABSL_CHECK_NE(constant_.get(), nullptr);
   }
 
-  ~LazyResolutionConstantNeedsEvaluationTest() override {}
+  ~LazyResolutionConstantNeedsEvaluationTest() override = default;
 
   std::unique_ptr<LazyResolutionConstant> constant_;
 };
@@ -918,9 +918,9 @@ TEST_F(LazyResolutionConstantNeedsEvaluationTest,
 // Tests for LazyResolutionConstant::status().
 class LazyResolutionConstantStatusTest : public LazyResolutionConstantTest {
  protected:
-  LazyResolutionConstantStatusTest() {}
+  LazyResolutionConstantStatusTest() = default;
 
-  ~LazyResolutionConstantStatusTest() override {}
+  ~LazyResolutionConstantStatusTest() override = default;
 
   std::unique_ptr<LazyResolutionConstant> constant_;
 };

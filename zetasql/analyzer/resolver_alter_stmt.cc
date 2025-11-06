@@ -1452,6 +1452,7 @@ absl::Status Resolver::ResolveAlterIndexStatement(
         /*has_explicit_alias=*/false,
         /*alias_location=*/table_path, /*hints=*/nullptr,
         /*for_system_time=*/nullptr, empty_name_scope_.get(),
+        /*read_as_row_type_error_kind=*/"ALTER INDEX",
         /*remaining_names=*/nullptr, &resolved_table_scan, &target_name_list,
         /*output_column_name_list=*/nullptr,
         resolved_columns_from_table_scans_));

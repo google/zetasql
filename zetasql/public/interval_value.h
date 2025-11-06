@@ -24,6 +24,7 @@
 #include "zetasql/common/multiprecision_int.h"
 #include "zetasql/public/functions/datetime.pb.h"
 #include "absl/base/macros.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/status_macros.h"
@@ -314,9 +315,9 @@ class IntervalValue final {
     // Merges the state with other SumAggregator instance's state.
     void MergeWith(const SumAggregator& other);
 
-    // Serialization and deserialization methods for NUMERIC values that are
+    // Serialization and deserialization methods for INTERVAL values that are
     // intended to be used to store them in protos. The encoding is variable in
-    // length with max size of 32 bytes. SerializeAndAppendToProtoBytes is
+    // length with max size of 56 bytes. SerializeAndAppendToProtoBytes is
     // typically more efficient due to fewer memory allocations.
     std::string SerializeAsProtoBytes() const;
     void SerializeAndAppendToProtoBytes(std::string* bytes) const;
@@ -347,6 +348,11 @@ class IntervalValue final {
   }
   static absl::StatusOr<IntervalValue> DeserializeFromBytes(
       absl::string_view bytes);
+
+  // Serialize and deserialize this interval value as an int128.
+  absl::int128 SerializeAsInt128();
+  static absl::StatusOr<IntervalValue> DeserializeFromInt128(
+      absl::int128 value);
 
   // Builds fully expanded string representation of interval.
   std::string ToString() const {

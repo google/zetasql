@@ -378,6 +378,10 @@ class DebugStrings {
     return resolvedCollations.stream().map(ResolvedCollation::debugString).collect(joining(","));
   }
 
+  static String toStringCommaSeparatedForColumn(ImmutableList<Column> columns) {
+    return columns.stream().map(DebugStrings::toStringImpl).collect(joining(", ", "[", "]"));
+  }
+
   // Functions for classes in the generated code with customized debugStrings. These functions
   // should only be called from the generated code in ResolvedNodes.java. The implementations are
   // nearly identical to the C++ implementations in

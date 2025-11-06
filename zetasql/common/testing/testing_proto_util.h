@@ -45,6 +45,13 @@ inline absl::Cord SerializePartialToCord(const google::protobuf::Message& pb) {
 inline std::unique_ptr<google::protobuf::compiler::DiskSourceTree>
 CreateProtoSourceTree() {
   auto source_tree = std::make_unique<google::protobuf::compiler::DiskSourceTree>();
+  // Adding external files to source tree. The external dependencies
+  // are located under canonical name folder. For bazel version < 8, the
+  // format is `module_name~` if there is only one version of the module.
+  //
+  // This should be updated to use rlocation() since canonical name is not a
+  // reliable API, according to
+  // https://bazel.build/versions/7.6.0/external/module#repository_names_and_strict_deps.
   for (std::string vproto :
        {"any_proto",
         "api_proto",
@@ -58,14 +65,15 @@ CreateProtoSourceTree() {
         "type_proto",
         "wrappers_proto"}) {
     source_tree->MapPath("",
-      zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_protobuf",
+      zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "protobuf~",
                              "src", "google", "protobuf", "_virtual_imports",
                              vproto));
   }
   source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_googleapis"));
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "googleapis~"));
   source_tree->MapPath(
-      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql"));
+      "", zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "_main"));
+  // clang-format on
   return source_tree;
 }
 

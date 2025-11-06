@@ -67,6 +67,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
@@ -387,7 +388,12 @@ absl::StatusOr<Value> DoMapEntryCast(const Value& from_value,
                                      const LanguageOptions& language_options,
                                      const Type* to_type,
                                      bool canonicalize_zero) {
+  ZETASQL_RET_CHECK(from_value.is_valid());
   ZETASQL_RET_CHECK(IsMapEntryCast(from_value.type(), to_type));
+
+  if (from_value.is_null()) {
+    return MakeSqlError() << "Cannot cast a NULL struct to a proto map entry";
+  }
 
   const ProtoType* to_proto_type = to_type->AsProto();
   TypeFactory type_factory;
@@ -1236,9 +1242,17 @@ absl::StatusOr<Value> CastContext::CastValue(
                << to_type->ShortTypeName(language_options().product_mode());
       }
       for (int i = 0; i < v_type->num_fields(); ++i) {
-        ZETASQL_ASSIGN_OR_RETURN(
-            casted_field_values[i],
-            CastValue(v.field(i), to_type->AsStruct()->field(i).type));
+        absl::StatusOr<Value> field_cast_result =
+            CastValue(v.field(i), to_type->AsStruct()->field(i).type);
+        if (!field_cast_result.ok()) {
+          const auto& field = to_type->AsStruct()->field(i);
+          return zetasql_base::StatusBuilder(field_cast_result.status()).SetPrepend()
+                 << "Error casting field "
+                 << (field.name.empty() ? absl::StrCat("at index ", i)
+                                        : absl::StrCat("'", field.name, "'"))
+                 << " in STRUCT: ";
+        }
+        casted_field_values[i] = std::move(field_cast_result.value());
       }
 
       return Value::Struct(to_type->AsStruct(), casted_field_values);
@@ -1298,8 +1312,14 @@ absl::StatusOr<Value> CastContext::CastValue(
         if (v.element(i).is_null()) {
           casted_elements[i] = Value::Null(to_element_type);
         } else {
-          ZETASQL_ASSIGN_OR_RETURN(casted_elements[i],
-                           CastValue(v.element(i), to_element_type));
+          absl::StatusOr<Value> element_cast_result =
+              CastValue(v.element(i), to_element_type);
+          if (!element_cast_result.ok()) {
+            return zetasql_base::StatusBuilder(element_cast_result.status())
+                       .SetPrepend()
+                   << "Error casting element at index " << i << " in ARRAY: ";
+          }
+          casted_elements[i] = std::move(element_cast_result.value());
         }
       }
       return InternalValue::ArrayChecked(to_type->AsArray(),
@@ -1421,14 +1441,17 @@ absl::StatusOr<Value> CastContext::CastValue(
       // compute the dynamic properties.
       const auto* from_graph_type = v.type()->AsGraphElement();
       if (!from_graph_type->is_dynamic() && !to_graph_type->is_dynamic()) {
-        return v.IsEdge()
-                   ? Value::MakeGraphEdge(
-                         to_graph_type, v.GetIdentifier(),
-                         labels_and_properties, v.GetDefinitionName(),
-                         v.GetSourceNodeIdentifier(), v.GetDestNodeIdentifier())
-                   : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
-                                          labels_and_properties,
-                                          v.GetDefinitionName());
+        return v.IsEdge() ? Value::MakeGraphEdge(
+                                to_graph_type, v.GetIdentifier(),
+                                labels_and_properties, v.GetDefinitionName(),
+                                v.GetSourceNodeIdentifier(),
+                                v.GetDestNodeIdentifier()
+                                )
+                          : Value::MakeGraphNode(
+                                to_graph_type, v.GetIdentifier(),
+                                labels_and_properties,
+                                v.GetDefinitionName()
+                            );
       }
       // Dynamic properties of the casted type are computed from the from type's
       // dynamic properties.
@@ -1456,10 +1479,12 @@ absl::StatusOr<Value> CastContext::CastValue(
                  ? Value::MakeGraphEdge(
                        to_graph_type, v.GetIdentifier(), labels_and_properties,
                        v.GetDefinitionName(), v.GetSourceNodeIdentifier(),
-                       v.GetDestNodeIdentifier())
+                       v.GetDestNodeIdentifier()
+                       )
                  : Value::MakeGraphNode(to_graph_type, v.GetIdentifier(),
                                         labels_and_properties,
-                                        v.GetDefinitionName());
+                                        v.GetDefinitionName()
+                   );
     }
     case FCT(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
       const GraphPathType* to_path_type = to_type->AsGraphPath();
@@ -1510,13 +1535,26 @@ absl::StatusOr<Value> CastContext::CastValue(
         if (k.is_null()) {
           casted_key = Value::Null(to_key_type);
         } else {
-          ZETASQL_ASSIGN_OR_RETURN(casted_key, CastValue(k, to_key_type));
+          absl::StatusOr<Value> key_cast_result = CastValue(k, to_key_type);
+          if (!key_cast_result.ok()) {
+            return zetasql_base::StatusBuilder(key_cast_result.status()).SetPrepend()
+                   << "Error casting key " << k.ShortDebugString()
+                   << " in MAP: ";
+          }
+          casted_key = std::move(key_cast_result.value());
         }
+
         Value casted_value;
         if (v.is_null()) {
           casted_value = Value::Null(to_value_type);
         } else {
-          ZETASQL_ASSIGN_OR_RETURN(casted_value, CastValue(v, to_value_type));
+          absl::StatusOr<Value> value_cast_result = CastValue(v, to_value_type);
+          if (!value_cast_result.ok()) {
+            return zetasql_base::StatusBuilder(value_cast_result.status()).SetPrepend()
+                   << "Error casting value for key " << k.ShortDebugString()
+                   << " in MAP: ";
+          }
+          casted_value = std::move(value_cast_result.value());
         }
         casted_entries.push_back(std::make_pair(casted_key, casted_value));
       }

@@ -26,11 +26,11 @@
 #include <vector>
 
 #include "zetasql/base/logging.h"
-#include "google/protobuf/descriptor.h"
-#include "zetasql/common/simple_evaluator_table_iterator.h"
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/constant.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/procedure.h"
 #include "zetasql/public/property_graph.h"
@@ -41,17 +41,20 @@
 #include "zetasql/public/types/type_deserializer.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "absl/base/attributes.h"
 #include "absl/base/macros.h"
 #include "absl/base/nullability.h"
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+#include "zetasql/base/case.h"
+#include "google/protobuf/descriptor.h"
 #include "zetasql/base/ret_check.h"
-#include "zetasql/base/status.h"
 
 namespace zetasql {
 
@@ -62,6 +65,7 @@ class SimpleColumnProto;
 class SimpleConnectionProto;
 class SimpleConstantProto;
 class SimpleModelProto;
+class SimpleSequenceProto;
 class SimpleTableProto;
 
 // SimpleCatalog is a concrete implementation of the Catalog interface.
@@ -215,6 +219,8 @@ class SimpleCatalog : public EnumerableCatalog {
   void AddSequence(absl::string_view name, const Sequence* sequence)
       ABSL_LOCKS_EXCLUDED(mutex_);
   void AddSequence(const Sequence* sequence) ABSL_LOCKS_EXCLUDED(mutex_);
+  bool AddOwnedSequenceIfNotPresent(std::unique_ptr<const Sequence> sequence)
+      ABSL_LOCKS_EXCLUDED(mutex_);
 
   // Types
   void AddType(absl::string_view name, const Type* type)
@@ -835,6 +841,7 @@ class SimpleTable : public Table {
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
   absl::Status AddColumn(const Column* column, bool is_owned);
+  absl::Status AddColumn(std::unique_ptr<const Column> column);
 
   // Set primary key with given column 0-based indices.
   //
@@ -879,6 +886,9 @@ class SimpleTable : public Table {
   // CAVEAT: This is not preserved by serialization/deserialization.  It is only
   // relevant to users of the evaluator API defined in public/evaluator.h.
   void SetContents(absl::Span<const std::vector<Value>> rows);
+
+  // Makes this table queryable as an empty table, returning zero rows.
+  void SetContentsEmpty() { SetContents({}); }
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
   CreateEvaluatorTableIterator(
@@ -984,7 +994,7 @@ class SimpleSQLView : public SQLView {
   };
 
   // Create a new SQLView object. The lifetime of 'query' must meet or
-  // exceed the liftime of the created SimpleSQLView object. SimpleSQLView does
+  // exceed the lifetime of the created SimpleSQLView object. SimpleSQLView does
   // not take ownership of 'query'.
   static absl::StatusOr<std::unique_ptr<SimpleSQLView>> Create(
       absl::string_view name, std::vector<NameAndType> columns,
@@ -1014,6 +1024,10 @@ class SimpleSQLView : public SQLView {
   const ResolvedScan* query_;
   std::vector<std::unique_ptr<const Column>> owned_columns_;
   absl::flat_hash_map<std::string, const Column*> columns_map_;
+  // TODO: b/450100045 - Remove once 'columns_map_' is case insensitive.
+  absl::flat_hash_set<std::string, zetasql_base::StringViewCaseHash,
+                      zetasql_base::StringViewCaseEqual>
+      column_names_;
 
   SimpleSQLView(absl::string_view name, SqlSecurity security,
                 bool is_value_table, const ResolvedScan* query)
@@ -1022,10 +1036,7 @@ class SimpleSQLView : public SQLView {
         is_value_table_(is_value_table),
         query_(query) {}
 
-  void AddColumn(std::unique_ptr<const Column> column) {
-    columns_map_[column->Name()] = column.get();
-    owned_columns_.emplace_back(std::move(column));
-  }
+  absl::Status AddColumn(std::unique_ptr<const Column> column);
 };
 
 // SimpleModel is a concrete implementation of the Model interface.
@@ -1065,10 +1076,12 @@ class SimpleModel : public Model {
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
   absl::Status AddInput(const Column* column, bool is_owned);
+  absl::Status AddInput(std::unique_ptr<const Column> column);
   // Add an output.
   // If is_owned is set to true but an error is returned, the column will be
   // deleted inside this function.
   absl::Status AddOutput(const Column* column, bool is_owned);
+  absl::Status AddOutput(std::unique_ptr<const Column> column);
 
   int64_t GetSerializationId() const override { return id_; }
 
@@ -1126,6 +1139,10 @@ class SimpleSequence : public Sequence {
   std::string Name() const override { return name_; }
   std::string FullName() const override { return name_; }
 
+  absl::Status Serialize(SimpleSequenceProto* proto) const;
+  static absl::StatusOr<std::unique_ptr<SimpleSequence>> Deserialize(
+      const SimpleSequenceProto& proto);
+
  private:
   const std::string name_;
 };
@@ -1151,8 +1168,9 @@ class SimpleColumn : public Column {
     // statement.
     bool can_update_unwritable_to_default = false;
 
-    // An optional attribute for column expression;
+    // Optional attributes to add on the Column.
     std::optional<ExpressionAttributes> column_expression = std::nullopt;
+    std::optional<JoinColumnAttributes> join_column = std::nullopt;
   };
 
   // Constructor.
@@ -1206,6 +1224,9 @@ class SimpleColumn : public Column {
 
   std::optional<const ExpressionAttributes> GetExpression() const override {
     return attributes_.column_expression;
+  }
+  std::optional<const JoinColumnAttributes> GetJoinColumn() const override {
+    return attributes_.join_column;
   }
 
   // Serialize this column into protobuf, the provided map is used to store

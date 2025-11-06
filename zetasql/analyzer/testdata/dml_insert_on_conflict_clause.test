@@ -1,6 +1,6 @@
 # Tests for ON CONFLICT clause in INSERT DML
 
-[default language_features=MAXIMUM]
+[default language_features=MAXIMUM,-INSERT_ON_CONFLICT_CLAUSE]
 INSERT INTO KeyValue(Key) VALUES(1) ON CONFLICT DO NOTHING;
 --
 ERROR: ON CONFLICT is not supported [at 1:37]

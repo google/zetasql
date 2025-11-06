@@ -466,7 +466,7 @@ TEST(SetDescriptorPoolFromFlags, DescriptorPool) {
 static std::string TestDataDir() {
   return zetasql_base::JoinPath(
       absl::NullSafeStringView(getenv("TEST_SRCDIR")),
-      "com_google_zetasql/zetasql/tools/execute_query/testdata");
+      "_main/zetasql/tools/execute_query/testdata");
 }
 
 static void VerifyDataMatches(
@@ -794,8 +794,10 @@ TEST(ExecuteQuery, ExecuteError) {
   config.clear_tool_modes();
   config.add_tool_mode(ToolMode::kExecute);
   std::ostringstream output;
-  EXPECT_THAT(ExecuteQuery("select a", config, output),
-              StatusIs(absl::StatusCode::kInvalidArgument));
+  ZETASQL_EXPECT_OK(ExecuteQuery("select a", config, output));
+  EXPECT_THAT(
+      output.str(),
+      HasSubstr("ERROR: INVALID_ARGUMENT: Unrecognized name: a [at 1:8]"));
 }
 
 TEST(ExecuteQuery, RespectEvaluatorOptions) {
@@ -897,9 +899,8 @@ TEST(ExecuteQuery, ExamineResolvedASTCallback) {
       });
 
   std::ostringstream output;
-  EXPECT_THAT(ExecuteQuery("select 1", config, output),
-              StatusIs(absl::StatusCode::kFailedPrecondition));
-  EXPECT_THAT(output.str(), IsEmpty());
+  ZETASQL_EXPECT_OK(ExecuteQuery("select 1", config, output));
+  EXPECT_THAT(output.str(), "ERROR: FAILED_PRECONDITION: \n");
 }
 
 TEST(ExecuteQuery, InitializeConfigReservesAllReservablesKeywords) {
@@ -923,9 +924,9 @@ TEST(SetLanguageOptionsFromFlags, SelectedCatalog_None) {
   ZETASQL_EXPECT_OK(ExecuteQuery("select sqrt(1)", config, output));
 
   // There are no tables to reference.
-  EXPECT_THAT(ExecuteQuery("select sqrt(1) from TestTable", config, output),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       MatchesRegex(".*Table not found.*")));
+  ZETASQL_EXPECT_OK(ExecuteQuery("select sqrt(1) from TestTable", config, output));
+  EXPECT_THAT(output.str(),
+              HasSubstr("ERROR: INVALID_ARGUMENT: Table not found: TestTable"));
 }
 
 TEST(SetLanguageOptionsFromFlags, SelectedCatalog_Sample) {
@@ -1029,9 +1030,11 @@ static void RunFileBasedTest(
 
 TEST(ExecuteQuery, FileBasedTest) {
   absl::FlagSaver fs;
+  absl::SetFlag(&FLAGS_descriptor_pool, "none");
+
   const std::string pattern =
       zetasql_base::JoinPath(::testing::SrcDir(),
-                     "com_google_zetasql/zetasql/tools/execute_query/"
+                     "_main/zetasql/tools/execute_query/"
                      "testdata/execute_query_tool.test");
 
   EXPECT_TRUE(file_based_test_driver::RunTestCasesFromFiles(pattern,

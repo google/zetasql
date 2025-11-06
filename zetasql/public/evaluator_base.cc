@@ -456,9 +456,10 @@ class Evaluator {
         evaluator_options_.max_value_byte_size;
     evaluation_options.max_intermediate_byte_size =
         evaluator_options_.max_intermediate_byte_size;
-    evaluation_options.return_all_rows_for_dml = false;
     evaluation_options.return_early_from_exists_subquery = true;
-
+    evaluation_options.return_all_rows_for_dml = false;
+    evaluation_options.return_all_insert_rows_insert_ignore_dml =
+        evaluator_options_.return_all_insert_rows_insert_ignore_dml;
     auto context = std::make_unique<EvaluationContext>(evaluation_options);
 
     context->SetClockAndClearCurrentTimestamp(evaluator_options_.clock);
@@ -1871,7 +1872,7 @@ absl::StatusOr<int> PreparedModifyBase::GetPositionalParameterCount() const {
   return evaluator_->GetPositionalParameterCount();
 }
 
-PreparedStatementBase::PreparedStatementBase(const std::string& sql,
+PreparedStatementBase::PreparedStatementBase(absl::string_view sql,
                                              const EvaluatorOptions& options)
     : evaluator_(new internal::Evaluator(sql, /*is_expr=*/false, options)) {}
 

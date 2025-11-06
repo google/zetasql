@@ -24,9 +24,9 @@
 
 #include "zetasql/base/arena.h"
 #include "zetasql/common/errors.h"
-#include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/macros/token_provider.h"
 #include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
@@ -82,7 +82,7 @@ absl::Status OverrideCurrentTokenLookback(
 // functions.
 using Location = ParseLocationRange;
 using DiagnosticOptions = macros::DiagnosticOptions;
-using FlexTokenProvider = macros::FlexTokenProvider;
+using TokenProvider = macros::TokenProvider;
 using MacroCatalog = macros::MacroCatalog;
 using MacroExpander = macros::MacroExpander;
 using MacroExpanderBase = macros::MacroExpanderBase;
@@ -405,8 +405,8 @@ static bool IsLiteralBeforeAdjacentUnquotedIdentifier(
 }
 
 // The token disambiguation rules are allowed to see a fixed-length sequence of
-// tokens produced by the lexical rules in flex_tokenzer.h and may change the
-// kind of `token` based on the kinds of the other tokens in the window.
+// tokens produced by the lexical rules and may change the kind of `token` based
+// on the kinds of the other tokens in the window.
 //
 // For now, the window available is:
 //   [token, Lookahead1()]
@@ -448,6 +448,10 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
         default:
           break;
       }
+      if (IsLiteralBeforeAdjacentUnquotedIdentifier(Lookback1(), lookback_1_,
+                                                    current_token_)) {
+        return Token::ATTACHED_ALIAS;
+      }
       switch (token) {
         case Token::KW_DEFINE_FOR_MACROS:
           return Token::KW_DEFINE;
@@ -461,14 +465,12 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
         case Token::DECIMAL_INTEGER_LITERAL:
         case Token::HEX_INTEGER_LITERAL:
           TransformIntegerLiteral();
-          return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
-        case Token::FLOATING_POINT_LITERAL:
-          return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
+          return current_token_->token.kind;
         case Token::DOT:
-          TransformDotSymbol();
-          return EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
+          return TransformDotSymbol();
         case Token::EXP_IN_FLOAT_NO_SIGN:
         case Token::STANDALONE_EXPONENT_SIGN:
+        case Token::IDENTIFIER:
           return Token::IDENTIFIER;
         default:
           return token;
@@ -518,10 +520,7 @@ Token LookaheadTransformer::ApplyTokenDisambiguation(
 
   if (IsLiteralBeforeAdjacentUnquotedIdentifier(Lookback1(), lookback_1_,
                                                 current_token_)) {
-    // TODO: b/334114221: We should report this error only when inside a
-    // select list.
-    return SetOverrideErrorAndReturnEof(
-        "Syntax error: Missing whitespace between literal and alias", location);
+    return Token::ATTACHED_ALIAS;
   }
 
   switch (Lookback1()) {
@@ -1012,7 +1011,7 @@ Token LookaheadTransformer::SetOverrideErrorAndReturnEof(
 namespace {
 class NoOpExpander : public MacroExpanderBase {
  public:
-  explicit NoOpExpander(std::unique_ptr<FlexTokenProvider> token_provider)
+  explicit NoOpExpander(std::unique_ptr<TokenProvider> token_provider)
       : token_provider_(std::move(token_provider)) {}
   absl::StatusOr<TokenWithLocation> GetNextToken() override {
     return token_provider_->ConsumeNextToken();
@@ -1022,7 +1021,7 @@ class NoOpExpander : public MacroExpanderBase {
   }
 
  private:
-  std::unique_ptr<FlexTokenProvider> token_provider_;
+  std::unique_ptr<TokenProvider> token_provider_;
 };
 }  // namespace
 
@@ -1117,11 +1116,9 @@ LookaheadTransformer::Create(
     const macros::MacroCatalog* macro_catalog, zetasql_base::UnsafeArena* arena,
     StackFrame::StackFrameFactory& stack_frame_factory) {
   // TODO: take the token_provider as an injected dependency.
-  auto token_provider = std::make_unique<FlexTokenProvider>(
+  auto token_provider = std::make_unique<TokenProvider>(
       filename, input, start_offset, /*end_offset=*/std::nullopt,
-      /*offset_in_original_input=*/0,
-      /*force_flex=*/
-      language_options.LanguageFeatureEnabled(FEATURE_FORCE_FLEX_LEXER));
+      /*offset_in_original_input=*/0);
 
   std::unique_ptr<MacroExpanderBase> macro_expander;
   if (macro_expansion_mode != MacroExpansionMode::kNone) {
@@ -1199,25 +1196,6 @@ void LookaheadTransformer::PopParserMode() {
   restore_modes_.pop();
 }
 
-bool LookaheadTransformer::Lookahead1IsRealEndOfInput() const {
-  if (lookahead_1_->token.kind != Token::EOI) {
-    return false;
-  }
-  if (!lookahead_1_->error.ok()) {
-    // If lookahead1 errors, the Token::EOI does not necessarily indicate
-    // the real end of file, so return false.
-    return false;
-  }
-  if (current_token_.has_value() && current_token_->token.kind == Token::EOI) {
-    // The current token is already YYEOF. If it does not have error, then the
-    // lookahead1 is not a real YYEOF because the input has already ended.
-    // Otherwise, we don't know whether the next token is the real end of
-    // the file or not. Return false in both cases.
-    return false;
-  }
-  return true;
-}
-
 absl::Status LookaheadTransformer::OverrideCurrentTokenLookback(
     Token new_token_kind) {
   ZETASQL_RET_CHECK(current_token_.has_value());
@@ -1239,30 +1217,6 @@ bool LookaheadTransformer::PopStateIfMatch(StateType target_state) {
 
 bool LookaheadTransformer::IsInTemplatedTypeState() const {
   return !state_stack_.empty() && state_stack_.top() == kInTemplatedType;
-}
-
-Token LookaheadTransformer::
-    EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable() {
-  ABSL_DCHECK(current_token_.has_value());
-  Token token = current_token_->token.kind;
-  if (token != Token::INTEGER_LITERAL &&
-      token != Token::FLOATING_POINT_LITERAL) {
-    return token;
-  }
-  // It's ok for inputs like "1.a" to stay two tokens, "1." and "a".
-  if (current_token_->token.text.back() == '.') {
-    return token;
-  }
-  // For example, emit a single token for "1.2abc" so that the callers
-  // of GetParseTokens do not blindly insert whitespaces between "1.2"
-  // and "abc", which changes the semantic meaning of the input.
-  if (IsKeywordOrUnquotedIdentifier(lookahead_1_->token) &&
-      IsAdjacentPrecedingToken(current_token_, lookahead_1_)) {
-    FuseLookahead1IntoCurrent(
-        Token::INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE);
-    return current_token_->token.kind;
-  }
-  return token;
 }
 
 }  // namespace parser

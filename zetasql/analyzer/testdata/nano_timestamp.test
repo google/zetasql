@@ -1,7 +1,7 @@
 # This test file only includes tests for the new TIMESTAMP literal (nano
 # precision).
 
-[default language_features=MAXIMUM,+TIMESTAMP_NANOS]
+[default language_features=MAXIMUM,+TIMESTAMP_NANOS,-TIMESTAMP_PICOS]
 [language_features=NONE,{{+TIMESTAMP_NANOS|}}]
 select timestamp, timestamp '2014-01-01 00:00:00.123456789' from SimpleTypes;
 --

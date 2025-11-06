@@ -301,9 +301,13 @@ Note: Syntax wrapped in double quotes (`""`) is required.
   [ <span class="var">graph_pattern_variable</span> ]
   [ <span class="var">is_label_condition</span> ]
   [ { <span class="var">where_clause</span> | <span class="var">property_filters</span> } ]
+  [ <span class="var">cost_expression</span> ]
 
 <span class="var">is_label_condition</span>:
   { IS | : } <span class="var">label_expression</span>
+
+<span class="var">cost_expression</span>:
+  COST <span class="var">expression</span>
 
 <span class="var">where_clause</span>:
   WHERE <span class="var">bool_expression</span>
@@ -377,9 +381,11 @@ An element pattern is either a node pattern or an edge pattern.
   ->                 -- Right abbreviated edge.
   ```
 + `pattern_filler`: A pattern filler represents specifications on the node or
-  edge pattern that you want to match. A pattern filler can optionally contain:
-  `graph_pattern_variable`, `is_label_condition`, and
-  `where_clause`. For example:
+  edge pattern that you want to match. A pattern filler can optionally contain
+  `graph_pattern_variable`, `is_label_condition`,
+  
+  `where_clause` or `property_filters`, and a cost expression
+  . For example:
 
   ```zetasql {.no-copy}
   (p:Person WHERE p.name = 'Kai')
@@ -445,6 +451,20 @@ An element pattern is either a node pattern or an edge pattern.
   ```zetasql {.no-copy}
   (s:Singer)-[has_friend:Knows]->
   (s2:Singer WHERE s2.singer_name = 'Mahan Lomond')
+  ```
++ `cost_expression`: An optional cost expression for an edge pattern,indicated
+  by `COST expression`. This expression is used with
+  the `ANY CHEAPEST` or `CHEAPEST k` path search prefixes.
+  The `expression` must evaluate to a
+  finite positive number. `COST` can be applied only to edge patterns.
+  For more information, see [Path search prefix][search-prefix].
+
+  **Example**
+
+  ```zetasql
+  GRAPH FinGraph
+  MATCH ANY CHEAPEST (a)-[e:Transfer COST e.amount]->{1,3}(b)
+  RETURN a.id, b.id
   ```
 
 <a id="property_filters"></a>
@@ -890,6 +910,8 @@ RETURN a.id AS a_id, a2.id AS a2_id
 [field-access-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
 
 [to-json-func]: https://github.com/google/zetasql/blob/master/docs/json_functions.md#to_json
+
+[search-prefix]: #search_prefix
 
 ## Subpath pattern 
 <a id="graph_subpaths"></a>
@@ -1435,6 +1457,10 @@ RETURN n.id
     ALL
     | ANY
     | ANY SHORTEST
+    | ANY <span class="var">k</span>
+    | SHORTEST <span class="var">k</span>
+    | ANY CHEAPEST
+    | CHEAPEST <span class="var">k</span>
   }
 </pre>
 
@@ -1445,25 +1471,61 @@ each data partition.
 
 #### Definitions
 
++ `k`: A non-negative integer literal or query parameter. If `k` is a negative
+  integer literal, a compile-time error is produced. If `k` is a query
+  parameter that's negative at runtime, a runtime error is produced.
 +   `ALL` (default) : Returns all paths matching the path pattern. This is the
     default value when no search prefix is specified.
 +   `ANY`: Returns any path matching the path pattern from each data partition.
 +   `ANY SHORTEST`: Returns a shortest path (the path with the least number of
     edges) matching the path pattern from each data partition. If there are more
     than one shortest paths per partition, returns any one of them.
++   `ANY k`: Returns any `k` paths matching the path pattern from each data
+    partition. If more than `k` paths exist per partition, returns any
+    `k` of the paths.
++   `SHORTEST k`: Returns `k` shortest paths (the paths with the least number of
+    edges) matching the path pattern from each data partition. If any
+    ties exist for the `k` shortest paths, returns any `k` of the paths.
++   `ANY CHEAPEST`: Returns one of the cheapest paths matching the path pattern
+    from each data partition. A cheapest path is one with the minimum total
+    cost, calculated from `COST` expressions on edges in the path.
+    If multiple cheapest paths exist per partition, returns any one of
+    the paths.
++   `CHEAPEST k`: Returns `k` cheapest paths matching the path pattern from
+    each data partition. A cheapest path is one with the minimum total cost,
+    calculated from `COST` expressions on edges in the path. If any
+    ties exist for the `k` cheapest paths, returns any `k` of the paths.
 
 #### Details
 
 The path search prefix first partitions the match results by their endpoints
 (the first and last nodes) then selects paths from each group.
 
-The `ANY` and `ANY SHORTEST` prefixes can return multiple paths, one
-for each distinct pair of endpoints.
+The path search prefixes other than `ALL` can return multiple paths, one
+or more for each distinct pair of endpoints.
 
-When using `ANY` or `ANY SHORTEST` prefixes in a path pattern, don't reuse
+When using prefixes other than `ALL` in a path pattern, don't reuse
 variables defined within that pattern elsewhere in the same `MATCH` statement,
 unless the variable represents an endpoint. Each prefix needs to operate
 independently on its associated path pattern.
+
+##### Path cost expression
+
+When you use the `ANY CHEAPEST` or `CHEAPEST k` parameter, edge patterns in the
+path expression can include a cost expression using `COST <expr>`. The total
+cost of a path is the sum of costs of edges that have `COST` expressions.
+
+To use `ANY CHEAPEST` or `CHEAPEST k` in a query:
+
++ At least one `COST` expression must be defined within the path pattern.
++ All quantified edge patterns within the path pattern must include a
+  `COST` expression.
++ The `COST` expression must be used only on edge patterns.
++ All variables used by `<expr>` must be local to the edge pattern.
++ `<expr>` must be a numeric type: `INT32`, `INT64`, `UINT32`, `UINT64`,
+  `FLOAT`, `DOUBLE`, `NUMERIC`, or `BIGNUMERIC`.
++ `<expr>` must evaluate to a finite positive number. `NULL`, zero, negative
+  values, `Inf`, and `NaN` produce a runtime error.
 
 #### Examples
 
@@ -1611,6 +1673,62 @@ MATCH ANY ((p:Person)->(f:Person)){1, 3},
 RETURN p.name
 ```
 
+The following query matches one of the cheapest paths between each pair of
+`[a, b]` based on transfer amount:
+
+```zetasql
+GRAPH FinGraph
+MATCH ANY CHEAPEST (a:Account)-[t:Transfers COST t.amount]->{1,3}(b:Account)
+LET total_cost = sum(t.amount)
+RETURN a.id AS a_id, b.id AS b_id, total_cost
+
+/*------+------+------------+
+ | a_id | b_id | total_cost |
+ +------+------+------------+
+ | 7    | 7    | 900        |
+ | 7    | 16   | 100        |
+ | 7    | 20   | 400        |
+ | 16   | 7    | 800        |
+ | 16   | 16   | 500        |
+ | 16   | 20   | 300        |
+ | 20   | 7    | 500        |
+ | 20   | 16   | 200        |
+ | 20   | 20   | 500        |
+ +------+------+------------*/
+```
+
+The following query matches up to two cheapest paths between each pair of
+`[a, b]` based on transfer amount:
+
+```zetasql
+GRAPH FinGraph
+MATCH CHEAPEST 2 (a:Account)-[t:Transfers COST t.amount]->{1,3}(b:Account)
+LET total_cost = sum(t.amount)
+RETURN a.id AS a_id, b.id AS b_id, total_cost
+
+/*------+------+------------+
+ | a_id | b_id | total_cost |
+ +------+------+------------+
+ | 7    | 7    | 900        |
+ | 7    | 7    | 1100       |
+ | 7    | 16   | 100        |
+ | 7    | 16   | 300        |
+ | 7    | 20   | 400        |
+ | 7    | 20   | 600        |
+ | 16   | 7    | 800        |
+ | 16   | 16   | 500        |
+ | 16   | 16   | 900        |
+ | 16   | 20   | 300        |
+ | 16   | 20   | 800        |
+ | 20   | 7    | 500        |
+ | 20   | 7    | 1000       |
+ | 20   | 16   | 200        |
+ | 20   | 16   | 600        |
+ | 20   | 20   | 500        |
+ | 20   | 20   | 900        |
+ +------+------+------------*/
+```
+
 [quantified-path-pattern]: #quantified_paths
 
 ## Path mode 
@@ -1693,7 +1811,7 @@ RETURN
   a1.id as account1_id, a2.id as account2_id,
   a3.id as account3_id
 
-/*-------------+-------------+-------------*
+/*-------------+-------------+-------------+
  | account1_id | account2_id | account3_id |
  +-------------+-------------+-------------+
  | 20          | 7           | 16          |
@@ -1718,7 +1836,7 @@ RETURN
   t1.id as transfer1_id, t2.id as transfer2_id,
   t3.id as transfer3_id
 
-/*--------------+--------------+--------------*
+/*--------------+--------------+--------------+
  | transfer1_id | transfer2_id | transfer3_id |
  +--------------+--------------+--------------+
  | 7            | 16           | 20           |

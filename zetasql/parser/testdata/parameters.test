@@ -263,7 +263,7 @@ FROM
 --
 ALTERNATION GROUP: @,3d
 --
-ERROR: Syntax error: Expected end of input but got "3d" [at 1:14]
+ERROR: Syntax error: Expected end of input but got integer literal "3" [at 1:14]
 select @ aId 3d t;
              ^
 --
@@ -305,7 +305,7 @@ FROM
 --
 ALTERNATION GROUP: @@,3d
 --
-ERROR: Syntax error: Expected end of input but got "3d" [at 1:15]
+ERROR: Syntax error: Expected end of input but got integer literal "3" [at 1:15]
 select @@ aId 3d t;
               ^
 ==
@@ -844,7 +844,7 @@ SELECT @1
 
 SELECT @1d
 --
-ERROR: Syntax error: Missing whitespace between literal and alias [at 1:10]
+ERROR: Syntax error: Unexpected "d" [at 1:10]
 SELECT @1d
          ^
 ==
@@ -904,7 +904,7 @@ SELECT @1.1
 
 SELECT @1.1d
 --
-ERROR: Syntax error: Expected integer literal but got "1.1d" [at 1:9]
+ERROR: Syntax error: Expected integer literal but got floating point literal "1.1" [at 1:9]
 SELECT @1.1d
         ^
 ==
@@ -939,7 +939,7 @@ SELECT @@1
 
 SELECT @@1d
 --
-ERROR: Syntax error: Unexpected "1d" [at 1:10]
+ERROR: Syntax error: Unexpected integer literal "1" [at 1:10]
 SELECT @@1d
          ^
 ==
@@ -1000,7 +1000,7 @@ SELECT @@1.1
 
 SELECT @@1.1d
 --
-ERROR: Syntax error: Unexpected "1.1d" [at 1:10]
+ERROR: Syntax error: Unexpected floating point literal "1.1" [at 1:10]
 SELECT @@1.1d
          ^
 ==

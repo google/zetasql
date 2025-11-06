@@ -405,6 +405,7 @@ enum class FunctionKind {
   kDateTrunc,
   kDateBucket,
   kLastDay,
+  kNextDay,
   kDatetimeAdd,
   kDatetimeSub,
   kDatetimeDiff,
@@ -510,6 +511,7 @@ enum class FunctionKind {
   kSha256,
   kSha512,
   kFarmFingerprint,
+  kHighwayFingerprint128,
 
   // Error function
   kError,
@@ -570,6 +572,7 @@ enum class FunctionKind {
   kMapGet,
   kMapSubscript,
   kMapSubscriptWithKey,
+  kMapSafeSubscriptWithKey,
   kMapContainsKey,
   kMapKeysSorted,
   kMapKeysUnsorted,
@@ -1755,6 +1758,14 @@ class DateTimeTruncFunction : public SimpleBuiltinScalarFunction {
 };
 
 class LastDayFunction : public SimpleBuiltinScalarFunction {
+ public:
+  using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
+  absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,
+                             absl::Span<const Value> args,
+                             EvaluationContext* context) const override;
+};
+
+class NextDayFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,

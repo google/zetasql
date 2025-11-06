@@ -40,8 +40,9 @@ static const size_t kMaxColumnListWidth = 80;
 // Quote names in the formatted output.
 // Empty string is used for missing names and shouldn't be quoted as ``.
 // Some special marker names with "<...>" also shouldn't get quoted.
-static std::string QuoteName(const std::string& name) {
-  if (name.empty() || name == "<unnamed>" || name == "<value>") return name;
+static std::string QuoteName(absl::string_view name) {
+  if (name.empty() || name == "<unnamed>" || name == "<value>")
+    return std::string(name);
   return ToIdentifierLiteral(name);
 }
 

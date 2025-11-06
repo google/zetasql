@@ -217,7 +217,8 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
   void CollectDebugStringFields(
       std::vector<DebugStringField>* fields) const {{node.override_or_final}};
  # if node.use_custom_debug_string
-  std::string GetNameForDebugString() const {{node.override_or_final}};
+  std::string GetNameForDebugString(
+      const DebugStringConfig& config) const {{node.override_or_final}};
  # endif
 
 # endif
@@ -792,9 +793,6 @@ inline std::unique_ptr<ResolvedJoinScan> MakeResolvedJoinScan(
       /*parameter_list=*/{}
     );
 }
-
-// TODO: b/428949919 - Remove aliases to ResolvedUpdateItemElement once all references are updated.
-using ResolvedUpdateArrayItem = ResolvedUpdateItemElement;
 
 }  // namespace zetasql
 

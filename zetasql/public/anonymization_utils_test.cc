@@ -797,6 +797,35 @@ TEST_F(FunctionEpsilonAssignerTest,
       StatusIs(absl::StatusCode::kOutOfRange, HasSubstr("overconsumption")));
 }
 
+// This test is reproducing a query that is not rewritten as in b/445224883. We
+// want to make sure that the internal error makes it clear that the query was
+// not rewritten. This is an issue on the engine side.
+TEST_F(FunctionEpsilonAssignerTest,
+       CreateFromScanWhenUsingMinPrivacyUnitsWithUnwrittenQueryReturnsOk) {
+  std::vector<std::unique_ptr<const ResolvedOption>> option_list;
+  option_list.emplace_back(MakeResolvedOption(
+      /*qualifier=*/"",
+      /*name=*/"epsilon", MakeResolvedLiteral(Value::Double(1.1))));
+  option_list.emplace_back(MakeResolvedOption(
+      /*qualifier=*/"",
+      /*name=*/"min_privacy_units_per_group",
+      MakeResolvedLiteral(Value::Int64(1))));
+  auto dp_scan_without_rewrite = MakeResolvedDifferentialPrivacyAggregateScan(
+      /*column_list=*/{},
+      /*input_scan=*/nullptr,
+      /*group_by_list=*/{},
+      /*aggregate_list=*/{},
+      /*grouping_set_list=*/{},
+      /*rollup_column_list=*/{},
+      /*group_selection_threshold_expr=*/nullptr,
+      /*option_list=*/std::move(option_list));
+
+  EXPECT_THAT(
+      FunctionEpsilonAssigner::CreateFromScan(dp_scan_without_rewrite.get()),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("not rewritten by the anonymization rewriter")));
+}
+
 TEST_F(FunctionEpsilonAssignerTest,
        GetGroupSelectionEpsilonReturnsValueFromOptions) {
   std::vector<std::unique_ptr<const ResolvedAggregateFunctionCall>>

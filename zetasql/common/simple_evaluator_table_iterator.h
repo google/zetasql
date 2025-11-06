@@ -55,7 +55,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
   // 'set_deadline_cb' is called when SetDeadline() is called.
   // 'clock' is used to enforce deadlines.
   SimpleEvaluatorTableIterator(
-      const std::vector<const Column*>& columns,
+      absl::Span<const Column* const> columns,
       const std::vector<std::shared_ptr<const std::vector<Value>>>&
           column_major_values,
       int64_t num_rows, const absl::Status& end_status,
@@ -63,7 +63,7 @@ class SimpleEvaluatorTableIterator : public EvaluatorTableIterator {
       const std::function<void()>& cancel_cb,
       const std::function<void(absl::Time)>& set_deadline_cb,
       zetasql_base::Clock* clock)
-      : columns_(columns),
+      : columns_(columns.begin(), columns.end()),
         end_status_(end_status),
         filter_column_idxs_(filter_column_idxs),
         cancel_cb_(cancel_cb),

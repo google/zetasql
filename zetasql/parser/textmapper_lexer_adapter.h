@@ -17,25 +17,20 @@
 #ifndef ZETASQL_PARSER_TEXTMAPPER_LEXER_ADAPTER_H_
 #define ZETASQL_PARSER_TEXTMAPPER_LEXER_ADAPTER_H_
 
-#include <algorithm>
 #include <cstdint>
 #include <deque>
 #include <memory>
-#include <utility>
 #include <vector>
 
 #include "zetasql/base/arena.h"
 #include "zetasql/parser/lookahead_transformer.h"
 #include "zetasql/parser/macros/macro_catalog.h"
-#include "zetasql/parser/macros/macro_expander.h"
 #include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/base/attributes.h"
-#include "zetasql/base/check.h"
-#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 
 namespace zetasql {
@@ -73,15 +68,25 @@ class TextMapperLexerAdapter {
     return 1;
   }
 
-  // Text returns the substring of the input corresponding to the last token.
+  // Returns the substring of the input corresponding to the last token.
   ABSL_MUST_USE_RESULT absl::string_view Text() const
       ABSL_ATTRIBUTE_LIFETIME_BOUND {
     return last_token_.text;
   }
 
-  ABSL_MUST_USE_RESULT const Location& LastTokenLocation() const {
+  // Returns the location of the last token.
+  ABSL_MUST_USE_RESULT const ParseLocationRange& LastTokenLocation() const
+      ABSL_ATTRIBUTE_LIFETIME_BOUND {
     return last_token_.location;
   }
+
+  // Returns the kind of the last token.
+  ABSL_MUST_USE_RESULT Token Last() const { return last_token_.kind; }
+
+  // Returns the location of token prior to the last token, or an empty location
+  // range if fewer than two tokens have been returned by Next().
+  ABSL_MUST_USE_RESULT ParseLocationRange LastLastTokenLocation() const;
+
   LookaheadTransformer& tokenizer() { return *tokenizer_; }
 
  private:

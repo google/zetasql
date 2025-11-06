@@ -425,19 +425,23 @@ std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
   return absl::StrCat(inputs[0], "[", inputs[1], "]");
 }
-std::string SubscriptWithKeyFunctionSQL(absl::Span<const std::string> inputs) {
+std::string SubscriptWithKeyFunctionSQL(bool safe,
+                                        absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[KEY(", inputs[1], ")]");
+  return absl::StrCat(inputs[0], "[", safe ? "SAFE_" : "", "KEY(", inputs[1],
+                      ")]");
 }
 std::string SubscriptWithOffsetFunctionSQL(
-    absl::Span<const std::string> inputs) {
+    bool safe, absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[OFFSET(", inputs[1], ")]");
+  return absl::StrCat(inputs[0], "[", safe ? "SAFE_" : "", "OFFSET(", inputs[1],
+                      ")]");
 }
 std::string SubscriptWithOrdinalFunctionSQL(
-    absl::Span<const std::string> inputs) {
+    bool safe, absl::Span<const std::string> inputs) {
   ABSL_DCHECK_EQ(inputs.size(), 2);
-  return absl::StrCat(inputs[0], "[ORDINAL(", inputs[1], ")]");
+  return absl::StrCat(inputs[0], "[", safe ? "SAFE_" : "", "ORDINAL(",
+                      inputs[1], ")]");
 }
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs) {

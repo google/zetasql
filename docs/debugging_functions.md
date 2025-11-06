@@ -107,12 +107,13 @@ FROM (
 -- Found unexpected value: baz
 ```
 
-In the following example, ZetaSQL may evaluate the `ERROR` function
-before or after the <nobr>`x > 0`</nobr> condition, because ZetaSQL
-generally provides no ordering guarantees between `WHERE` clause conditions and
-there are no special guarantees for the `ERROR` function.
+The following example demonstrates bad usage of the `ERROR` function. In this
+example, ZetaSQL might evaluate the `ERROR` function before or after
+the <nobr>`x > 0`</nobr> condition, because ZetaSQL doesn't guarantee
+ordering between `WHERE` clause conditions. Therefore, the results with the
+`ERROR` function might vary.
 
-```zetasql
+```zetasql{.bad}
 SELECT *
 FROM (SELECT -1 AS x)
 WHERE x > 0 AND ERROR('Example error');
@@ -177,11 +178,11 @@ In the following example, the query successfully evaluates `try_expression`.
 ```zetasql
 SELECT IFERROR('a', 'b') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | a      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, the query successfully evaluates the
@@ -190,11 +191,11 @@ In the following example, the query successfully evaluates the
 ```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(0)]), -1) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `IFERROR` catches an evaluation error in the
@@ -203,11 +204,11 @@ In the following example, `IFERROR` catches an evaluation error in the
 ```zetasql
 SELECT IFERROR(ERROR('a'), 'b') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | b      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `IFERROR` catches an evaluation error in the
@@ -216,11 +217,11 @@ In the following example, `IFERROR` catches an evaluation error in the
 ```zetasql
 SELECT IFERROR((SELECT [1,2,3][OFFSET(9)]), -1) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | -1     |
- *--------*/
+ +--------*/
 ```
 
 In the following query, the error is handled by the innermost `IFERROR`
@@ -229,11 +230,11 @@ operation, `IFERROR(ERROR('a'), 'b')`.
 ```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), 'b'), 'c') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | b      |
- *--------*/
+ +--------*/
 ```
 
 In the following query, the error is handled by the outermost `IFERROR`
@@ -242,11 +243,11 @@ operation, `IFERROR(..., 'c')`.
 ```zetasql
 SELECT IFERROR(IFERROR(ERROR('a'), ERROR('b')), 'c') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | c      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -255,11 +256,11 @@ passed in as the `try_expression` evaluates to a table, not a scalar value.
 ```zetasql
 SELECT IFERROR((SELECT e FROM UNNEST([1, 2]) AS e), 3) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 3      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `IFERROR` catches an evaluation error in `ERROR('a')`
@@ -306,31 +307,31 @@ In the following examples, `ISERROR` successfully evaluates `try_expression`.
 ```zetasql
 SELECT ISERROR('a') AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | false    |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT ISERROR(2/1) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | false    |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(0)])) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | false    |
- *----------*/
+ +----------*/
 ```
 
 In the following examples, `ISERROR` catches an evaluation error in
@@ -339,31 +340,31 @@ In the following examples, `ISERROR` catches an evaluation error in
 ```zetasql
 SELECT ISERROR(ERROR('a')) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | true     |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT ISERROR(2/0) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | true     |
- *----------*/
+ +----------*/
 ```
 
 ```zetasql
 SELECT ISERROR((SELECT [1,2,3][OFFSET(9)])) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | true     |
- *----------*/
+ +----------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -372,11 +373,11 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```zetasql
 SELECT ISERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS is_error
 
-/*----------*
+/*----------+
  | is_error |
  +----------+
  | true     |
- *----------*/
+ +----------*/
 ```
 
 ## `NULLIFERROR`
@@ -413,11 +414,11 @@ In the following example, `NULLIFERROR` successfully evaluates
 ```zetasql
 SELECT NULLIFERROR('a') AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | a      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `NULLIFERROR` successfully evaluates
@@ -426,11 +427,11 @@ the `try_expression` subquery.
 ```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(0)])) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 1      |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `NULLIFERROR` catches an evaluation error in
@@ -439,11 +440,11 @@ In the following example, `NULLIFERROR` catches an evaluation error in
 ```zetasql
 SELECT NULLIFERROR(ERROR('a')) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 In the following example, `NULLIFERROR` catches an evaluation error in
@@ -452,11 +453,11 @@ the `try_expression` subquery.
 ```zetasql
 SELECT NULLIFERROR((SELECT [1,2,3][OFFSET(9)])) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 
 In the following example, an evaluation error is produced because the subquery
@@ -465,10 +466,10 @@ passed in as `try_expression` evaluates to a table, not a scalar value.
 ```zetasql
 SELECT NULLIFERROR((SELECT e FROM UNNEST([1, 2]) AS e)) AS result
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | NULL   |
- *--------*/
+ +--------*/
 ```
 

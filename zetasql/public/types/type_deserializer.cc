@@ -146,17 +146,17 @@ absl::StatusOr<const Type*> TypeDeserializer::Deserialize(
 
     case TYPE_STRUCT: {
       std::vector<StructType::StructField> fields;
-      const StructType* struct_type;
-      for (int idx = 0; idx < type_proto.struct_type().field_size(); ++idx) {
-        const StructFieldProto& field_proto =
-            type_proto.struct_type().field(idx);
+      fields.reserve(type_proto.struct_type().field_size());
+      for (const StructFieldProto& field_proto :
+           type_proto.struct_type().field()) {
         ZETASQL_ASSIGN_OR_RETURN(const Type* field_type,
                          Deserialize(field_proto.field_type()));
-        StructType::StructField struct_field(field_proto.field_name(),
-                                             field_type);
-        fields.push_back(struct_field);
+        fields.emplace_back(std::string(field_proto.field_name()),
+                            field_type);
       }
-      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructType(fields, &struct_type));
+      const StructType* struct_type;
+      ZETASQL_RETURN_IF_ERROR(type_factory_->MakeStructTypeFromVector(std::move(fields),
+                                                              &struct_type));
       return struct_type;
     }
 

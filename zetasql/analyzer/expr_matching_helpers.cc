@@ -648,6 +648,10 @@ bool ContainsTableArrayNamePathWithFreeColumnRef(const ResolvedExpr* node,
     return ContainsTableArrayNamePathWithFreeColumnRef(
         node->GetAs<ResolvedGetJsonField>()->expr(), column_id);
   }
+  if (node->node_kind() == RESOLVED_GET_ROW_FIELD) {
+    return ContainsTableArrayNamePathWithFreeColumnRef(
+        node->GetAs<ResolvedGetRowField>()->expr(), column_id);
+  }
   return false;
 }
 

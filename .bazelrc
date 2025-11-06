@@ -14,14 +14,14 @@
 # limitations under the License.
 #
 
-# ZetaSQL requires c++17 support to match internal Google development
+# ZetaSQL requires c++20 support to match internal Google development
 # environments.
 # This is a special snowflake setting that bazel requires special handling for.
 
 # By default, we don't suppress any warnings, to get clang-specific warning
 # suppression you can invoke with --config=clang
-build:clang --action_env=BAZEL_CXXOPTS="-std=c++17"
-build:clang --cxxopt=-std=c++17
+build:clang --action_env=BAZEL_CXXOPTS="-std=c++20"
+build:clang --cxxopt=-std=c++20
 build:clang --cxxopt=-Wno-module-import-in-extern-c
 build:clang --cxxopt=-Wno-deprecated-declarations
 build:clang --cxxopt=-Wno-range-loop-analysis
@@ -40,8 +40,8 @@ build:clang --cxxopt=-Wno-macro-redefined
 build:clang --cxxopt=-Werror=undefined-internal
 # By default, we don't suppress any warnings, to get g++-specific warning
 # suppression you can invoke with --config=g++
-build:g++ --action_env=BAZEL_CXXOPTS="-std=c++17"
-build:g++ --cxxopt=-std=c++17
+build:g++ --action_env=BAZEL_CXXOPTS="-std=c++20"
+build:g++ --cxxopt=-std=c++20
 build:g++ --cxxopt=-Wno-sign-compare
 build:g++ --cxxopt=-Wno-switch
 build:g++ --cxxopt=-Wno-unused-function
@@ -55,10 +55,12 @@ build:g++ --cxxopt=-Wno-deprecated-declarations
 # For string_fortified
 build:g++ --cxxopt=-Wno-stringop-truncation
 
-# C++17 is required to build ZetaSQL, hence `-cxxopt=-std=c++17`. On MacOS
-# `--host_cxxopt=-std=c++17` is also needed.
-# "--enable_bzlmod=false" is required because grpc does not support bzlmod yet.
+# Specify the minimum supported version of macOS.
+build:darwin --cxxopt="-mmacosx-version-min=11.0"
+
+# C++20 is required to build ZetaSQL, hence `-cxxopt=-std=c++20`. On MacOS
+# `--host_cxxopt=-std=c++20` is also needed.
 # "--java_runtime_version=remotejdk_11": to make the build more hermetic.
-build --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11
-run --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11
-test --cxxopt=-std=c++17 --host_cxxopt=-std=c++17 --config=clang --enable_bzlmod=false --java_runtime_version=remotejdk_11
+build --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 --config=clang --java_runtime_version=remotejdk_11
+run --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 --config=clang --java_runtime_version=remotejdk_11
+test --cxxopt=-std=c++20 --host_cxxopt=-std=c++20 --config=clang --java_runtime_version=remotejdk_11

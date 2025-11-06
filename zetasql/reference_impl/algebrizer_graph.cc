@@ -189,18 +189,15 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> CreateGraphElementTableScan(
   // Make a new variable for each column.
   std::vector<VariableId> variables;
   variables.reserve(base_table.NumColumns());
-  std::vector<std::string> column_names;
-  column_names.reserve(base_table.NumColumns());
-  std::vector<int> column_idx_list;
-  column_idx_list.reserve(base_table.NumColumns());
+  std::vector<const Column*> table_column_list;
+  table_column_list.reserve(base_table.NumColumns());
 
   for (int i = 0; i < base_table.NumColumns(); ++i) {
     const Column* column = base_table.GetColumn(i);
-    column_names.push_back(column->Name());
     VariableId variable = variable_gen.GetNewVariableName(column->Name());
     variables.emplace_back(variable);
     output_variables_by_column[column] = variable;
-    column_idx_list.push_back(i);
+    table_column_list.push_back(column);
   }
 
   const std::string& table_name = base_table.Name();
@@ -239,8 +236,8 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> CreateGraphElementTableScan(
   } else {
     ZETASQL_ASSIGN_OR_RETURN(scan_op,
                      EvaluatorTableScanOp::Create(
-                         &base_table, table_name, column_idx_list, column_names,
-                         variables, /*and_filters=*/{}, /*read_time=*/nullptr));
+                         &base_table, table_name, table_column_list, variables,
+                         /*and_filters=*/{}, /*read_time=*/nullptr));
   }
 
   return FilterOutRowsWithNullValuedPks(&element_table, std::move(scan_op),
@@ -720,7 +717,10 @@ Algebrizer::AlgebrizeGraphPathScan(
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<RelationalOp> returning_op,
       AlgebrizeGraphPathPrimaryScan(graph_path_scan, active_conjuncts));
-  if (graph_path_scan->path_mode() != nullptr) {
+
+  // TODO: b/419598355 - Support path mode in quantified path scan locally.
+  if (graph_path_scan->quantifier() != nullptr &&
+      graph_path_scan->path_mode() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(
         returning_op,
         GraphPathModeOp::Create(graph_path_scan->path_mode()->path_mode(),
@@ -877,9 +877,14 @@ Algebrizer::AlgebrizeGraphPathPrimaryScan(
     ZETASQL_RET_CHECK(cost_type->IsNumerical());
   }
 
+  // Path mode is always WALK if not specified.
+  ResolvedGraphPathMode::PathMode path_mode = ResolvedGraphPathMode::WALK;
+  if (graph_path_scan->path_mode() != nullptr) {
+    path_mode = graph_path_scan->path_mode()->path_mode();
+  }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> graph_table_op,
                    GraphPathOp::Create(std::move(path_factor_ops), path,
-                                       path_type, cost, cost_type));
+                                       path_type, cost, cost_type, path_mode));
 
   ZETASQL_ASSIGN_OR_RETURN(auto algebrized_conjuncts,
                    AlgebrizeNonRedundantConjuncts(conjunct_infos));
@@ -1050,9 +1055,9 @@ Algebrizer::AlgebrizeGraphMakeElement(
                    AlgebrizeDynamicLabel(make_graph_element->dynamic_labels()));
   return NewGraphElementExpr::Create(
       element_type, make_graph_element->identifier()->element_table(),
-      std::move(key), std::move(properties),
-      std::move(dynamic_property_expr), std::move(dynamic_label_expr),
-      std::move(src_node_key), std::move(dest_node_key));
+      std::move(key), std::move(properties), std::move(dynamic_property_expr),
+      std::move(dynamic_label_expr), std::move(src_node_key),
+      std::move(dest_node_key));
 }
 
 absl::StatusOr<std::unique_ptr<GraphGetElementPropertyExpr>>

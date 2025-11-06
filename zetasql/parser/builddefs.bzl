@@ -23,9 +23,21 @@ def gen_parser_test(filename):
     """ Create a parser_test using queries in testdata/<filename>.  """
     name = "parser_" + filename.replace(".", "_")
     datafile = "testdata/" + filename
+
+    # Mark the huge alternations tests as "large" and exclude them from
+    # msan/asan, since they take forever and don't really add coverage in
+    # those modes.
+    if name.endswith("_alternations_test"):
+        size = "large"
+        tags = ["noasan", "nomsan"]
+    else:
+        size = "medium"
+        tags = []
+
     cc_test(
         name = name,
-        size = "large" if name.endswith("_alternations_test") else "medium",
+        size = size,
+        tags = tags,
         data = [datafile],
         deps = [":run_parser_test_lib"],
         args = ["--test_file=$(location " + datafile + ")"],

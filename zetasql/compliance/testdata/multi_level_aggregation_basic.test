@@ -131,3 +131,15 @@ ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[
     ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
   }
 ]
+==
+
+[required_features=MULTILEVEL_AGGREGATION]
+[name=multi_level_agg_count_star_inner_aggregate]
+SELECT
+  dept_id,
+  SUM(COUNT(*) GROUP BY job)
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2;
+--
+ARRAY<STRUCT<dept_id INT64, INT64>>[known order:{101, 3}, {102, 3}]

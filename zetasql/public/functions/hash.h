@@ -42,7 +42,7 @@ class Hasher {
   // Creates a new instance of the hasher for the given algorithm.
   static std::unique_ptr<Hasher> Create(Algorithm algorithm);
 
-  virtual ~Hasher() {}
+  virtual ~Hasher() = default;
 
   // Returns the hash of the input bytes. Calling this method concurrently
   // on the same object is not thread-safe.
@@ -52,6 +52,7 @@ class Hasher {
 // Computes the fingerprint of the input bytes using the farmhash::Fingerprint64
 // function from the FarmHash library (https://github.com/google/farmhash).
 int64_t FarmFingerprint(absl::string_view input);
+
 }  // namespace functions
 }  // namespace zetasql
 

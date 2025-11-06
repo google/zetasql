@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "zetasql/base/logging.h"
@@ -30,6 +31,7 @@
 #include "zetasql/common/reflection.pb.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/options.pb.h"
+#include "zetasql/public/parse_location.h"
 #include "zetasql/public/type.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "gtest/gtest_prod.h"
@@ -47,6 +49,9 @@ class ASTIdentifier;
 class ASTNode;
 class ASTPathExpression;
 class NameList;
+
+// Forward declaration.
+struct ExprResolutionInfo;
 
 using NameListPtr = std::shared_ptr<const NameList>;
 
@@ -242,6 +247,52 @@ class NamedColumn {
   IdStringSetCase excluded_field_names_;
 };
 
+// Indicates whether the current expression is being resolved in a pre- or
+// post-grouping context (or unknown).
+enum class ExprGroupingContext {
+  // TODO: should we add a separate default (or just use optional) and reserve
+  // this to the schrodinger column?
+  //
+  // The context may be unknown in the case of an expression that is a grouping
+  // constant, i.e., itself a grouping column or is functionally dependent on
+  // grouping columns) as it is available both before and after grouping.
+  // Subsequent lateral references from other select columns may pin it to
+  // either pre- or post-grouping.
+  // For example:
+  //     SELECT col+1 AS a
+  //     FROM t
+  //     GROUP BY a
+  kUnknown,
+
+  kPreGrouping,
+  kPostGrouping,
+};
+
+struct ColumnReferenceContext {
+  const ParseLocationPoint& location;
+  ExprGroupingContext grouping_context;
+};
+
+using ColumnReferenceCallback =
+    std::function<absl::StatusOr<ResolvedColumn>(ColumnReferenceContext)>;
+
+// Forward declaration.
+struct SelectColumnState;
+
+// Information needed for a column that gets assigned a ResolvedColumn only on
+// its first lateral reference, i.e., reference from another SELECT list expr
+// or in the WHERE clause. This is *NOT* related to JOIN LATERAL.
+struct DelayedColumnInfo {
+  // this callback is invoked if this column is ever accessed from another
+  // SELECT list column, or in the WHERE clause. This is used to isolate the
+  // target ResolvedExpr to be precomputed on a ProjectScan, and replacing it
+  // with a ResolvedColumnRef instead. This callback is called only once, and
+  // returns the assigned ResolvedColumn for the precomputed expression.
+  ColumnReferenceCallback precompute_callback;
+  // The SelectColumnState represented by this delayed NameTarget.
+  SelectColumnState* select_column_state = nullptr;
+};
+
 // A target that a name in a NameScope points at.
 //
 // A name can resolve to:
@@ -318,10 +369,18 @@ class NameTarget {
       : kind_(is_explicit ? EXPLICIT_COLUMN : IMPLICIT_COLUMN),
         column_(column) {}
 
+  // Construct a NameTarget for a delayed column, which gets assigned a
+  // ResolvedColumn only on its first lateral reference.
+  NameTarget(bool is_explicit, DelayedColumnInfo delayed_column_info)
+      : kind_(is_explicit ? EXPLICIT_COLUMN : IMPLICIT_COLUMN),
+        delayed_column_info_(std::move(delayed_column_info)) {}
+
   // Construct a FIELD_OF NameTarget pointing at a column, with a specific
   // FIELD_OF id.  For STRUCT fields, the field_id is the field index.
   // For PROTO fields, the field_id is the field tag number.
-  // Only used for kind==FIELD_OF.
+  // For ROW fields, field_id is just filled with -1.
+  // This constructor is only used for kind==FIELD_OF.
+  // The stored `field_id` is not currently used anywhere.
   NameTarget(const ResolvedColumn& column, int field_id)
       : kind_(FIELD_OF), column_(column), field_id_(field_id) {
   }
@@ -469,6 +528,20 @@ class NameTarget {
 
   std::string DebugString() const;
 
+  // Invoke this when the target is a column. This method is idempotent, i.e.,
+  // a NOOP if called before.
+  // REQUIRES: delayed_column_info_ must be set.
+  absl::Status SetupPrecomputedColumnIfNeeded(ColumnReferenceContext context);
+
+  // Should only be called after SetupPrecomputedColumnIfNeeded() has been
+  // called and all initialization is done.
+  const std::optional<DelayedColumnInfo>& delayed_column_info() const {
+    ABSL_DCHECK(IsColumn());
+    ABSL_DCHECK(!delayed_column_info_.has_value() ||
+           delayed_column_info_->precompute_callback == nullptr);
+    return delayed_column_info_;
+  }
+
  private:
   Kind kind_;
 
@@ -511,6 +584,10 @@ class NameTarget {
   // that are accessible from this target.
   ValidNamePathList valid_name_path_list_;
 
+  // If this column is a SELECT list column, this is the info needed to enable
+  // access in the WHERE clause, or other SELECT list columns.
+  // REQUIRES: If the value is set, IsColumn() must be true.
+  std::optional<DelayedColumnInfo> delayed_column_info_;
   // Copyable.
 };
 
@@ -578,7 +655,11 @@ class NameScope {
   // Make a NameScope with names from <name_list>.
   explicit NameScope(const NameList& name_list);
 
-  ~NameScope() = default;
+  ~NameScope() {
+    ABSL_DCHECK(lateral_column_reference_observers_.empty())
+        << "Lateral column reference observers must be cleared before "
+           "destructing the NameScope.";
+  }
 
   // Creates a new NameScope copied from the current NameScope, where
   // locally defined names are updated with new NameTargets.  The entries
@@ -653,9 +734,10 @@ class NameScope {
   //
   // The returned sets are ordered so the ones attached to child scopes come
   // before the ones attached to their parent scopes.
-  bool LookupName(
-      IdString name, NameTarget* found,
-      CorrelatedColumnsSetList* correlated_columns_sets = nullptr) const;
+  bool LookupName(IdString name, NameTarget* found,
+                  CorrelatedColumnsSetList* correlated_columns_sets = nullptr,
+                  const std::vector<ExprResolutionInfo*>**
+                      out_lateral_column_reference_observers = nullptr) const;
 
   // Similar to the previous <LookupName> function, but allows multi-part
   // names to be looked up, and takes a PathExpressionSpan as input instead.
@@ -706,6 +788,8 @@ class NameScope {
       CorrelatedColumnsSetList& correlated_columns_sets,
       int* num_names_consumed,
       std::optional<IdString>& out_referenced_pattern_variable,
+      const std::vector<ExprResolutionInfo*>*&
+          out_lateral_column_reference_observers,
       NameTarget* target_out) const;
 
   // Look up a name in this scope, and underlying scopes if necessary.
@@ -774,6 +858,17 @@ class NameScope {
   }
   bool allows_match_row_functions() const {
     return allows_match_row_functions_;
+  }
+
+  void PushLateralColumnReferenceObserver(
+      ExprResolutionInfo* expr_resolution_info) {
+    lateral_column_reference_observers_.push_back(expr_resolution_info);
+  }
+  void PopLateralColumnReferenceObserver(
+      ExprResolutionInfo* expr_resolution_info) {
+    ABSL_DCHECK(!lateral_column_reference_observers_.empty());
+    ABSL_DCHECK(expr_resolution_info == lateral_column_reference_observers_.back());
+    lateral_column_reference_observers_.pop_back();
   }
 
  private:
@@ -944,6 +1039,25 @@ class NameScope {
   // If this is true, `allows_match_number_function_` must also be true.
   bool allows_match_row_functions_ = false;
 
+  // Acts as a registry so that ExprResolutionInfo objects can subscribe to be
+  // notified when a lateral column from their namescopes is referenced from a
+  // subquery. This is needed to propagate properties such as
+  // `has_aggregation`, `has_analytic`, etc. To the subquery, the outer
+  // reference is just a constant, but the subquery expression itself needs to
+  // retain these properties. For example:
+  //   SELECT
+  //      MAX(x) AS agg,
+  //      (SELECT
+  //          (SELECT MIN(agg) AS inner2 FROM t3) AS inner1
+  //        FROM t2
+  //      ) AS a,                     # `a` is considered as `has_aggregation`
+  //      SUM(a) OVER() AS analytic   # No problem: agg in analytic
+  //      MIN(a)                      # Error: agg inside agg.
+  //   FROM t1;
+  // Note that we need to track the correct level, since `has_agg` propagates
+  // only to the expression on its same level.
+  std::vector<ExprResolutionInfo*> lateral_column_reference_observers_;
+
   State state_;
 
   // Accessors for fields inside the CopyOnWrite state_.
@@ -1063,6 +1177,11 @@ class NameList {
   // see the beginning of (broken link).
   absl::Status AddColumn(IdString name, const ResolvedColumn& column,
                          bool is_explicit);
+
+  // Adds a column for which an ID has not yet been allocated.
+  // Such a column gets allocated upon the first reference.
+  absl::Status AddDelayedColumn(IdString name, bool is_explicit,
+                                DelayedColumnInfo delayed_column_info);
 
   // Add a column that stores the value produced by a value table scan,
   // and also a range variable that can be used to reference rows from the scan.

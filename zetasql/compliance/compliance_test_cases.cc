@@ -22,6 +22,7 @@
 #include <iterator>
 #include <limits>
 #include <map>
+#include <memory>
 #include <set>
 #include <string>
 #include <string_view>
@@ -435,11 +436,25 @@ void CodebasedTestsEnvironment::SetUp() {
 
   ZETASQL_CHECK_OK(SQLTestBase::ValidateFirstColumnPrimaryKey(
       test_db, code_based_test_driver->GetSupportedLanguageOptions()));
-  ZETASQL_CHECK_OK(code_based_test_driver->CreateDatabase(test_db));
+
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_ASSERT_OK(SerializeTestDatabase(test_db, test_db_proto.get()));
+
+  absl::Status status = code_based_test_driver->CreateDatabase(*test_db_proto);
+  if (!status.ok()) {
+    if (status.code() == absl::StatusCode::kUnimplemented &&
+        status.message() ==
+            "Test driver does not support creating database from proto") {
+      ASSERT_FALSE(code_based_test_driver->IsReferenceImplementation());
+      ZETASQL_ASSERT_OK(code_based_test_driver->CreateDatabase(test_db));
+    } else {
+      ZETASQL_ASSERT_OK(status);
+    }
+  }
 
   code_based_reference_driver =
       ReferenceDriver::CreateFromTestDriver(code_based_test_driver).release();
-  ZETASQL_EXPECT_OK(code_based_reference_driver->CreateDatabase(test_db));
+  ZETASQL_EXPECT_OK(code_based_reference_driver->CreateDatabase(*test_db_proto));
 }
 
 void CodebasedTestsEnvironment::TearDown() {
@@ -2196,6 +2211,10 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestLastDayFunctions, 1) {
                          last_day);
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestNextDayFunctions, 1) {
+  RunFunctionCalls(Shard(GetFunctionTestsNextDay()));
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestAddMonthsFunctions, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsAddMonths()));
 }
@@ -3418,6 +3437,7 @@ TEST_F(ComplianceCodebasedTests, TestRecursiveProto) {
   const int kDepth = 20;
 
   zetasql_test__::RecursiveMessage message;
+  // TODO: jmorcos - Is this supposed to work with the static type factory?
   const ProtoType* proto_type =
       test_values::MakeProtoType(message.GetDescriptor());
 
@@ -3638,7 +3658,7 @@ class ComplianceFilebasedTests : public SQLTestBase {
     std::vector<std::string> test_filenames;
     std::string file_path =
         zetasql_base::JoinPath(absl::NullSafeStringView(getenv("TEST_SRCDIR")),
-                       "com_google_zetasql/zetasql/compliance/testdata",
+                       "_main/zetasql/compliance/testdata",
                        absl::GetFlag(FLAGS_file_pattern));
     ZETASQL_CHECK_OK(zetasql::internal::Match(file_path, &test_filenames));
     ABSL_CHECK(!test_filenames.empty()) << "No test files found at " << file_path;

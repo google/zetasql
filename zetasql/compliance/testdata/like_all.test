@@ -483,7 +483,97 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ==
 
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
-[name=like_all_string_constant_patterns_in_non_paranthesized_scalar_subquery]
+[name=like_all_subquery_with_nulls]
+SELECT
+  Value,
+  Value LIKE ALL (SELECT Pattern FROM UNNEST([NULL, 'Value1']) AS Pattern),
+  Value LIKE ALL (SELECT Pattern FROM UNNEST(['Value1', 'Value2', NULL]) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", NULL, false},
+  {"Value2", false, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_all_subquery_with_nulls]
+SELECT
+  Value,
+  Value NOT LIKE ALL (SELECT Pattern FROM UNNEST([NULL, 'Value1']) AS Pattern),
+  Value NOT LIKE ALL (SELECT Pattern FROM UNNEST(['Value1', 'Value2', NULL]) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, false},
+  {"Value2", NULL, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_all_subquery_with_bytes]
+SELECT
+  Value,
+  Value LIKE ALL (SELECT Pattern FROM UNNEST([b'Valu%1', b'V%lue1']) AS Pattern),
+  Value LIKE ALL (SELECT Pattern FROM UNNEST([b'%lue1', b'%lue2']) AS Pattern)
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {b"Value1", true, false},
+  {b"Value2", false, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_all_subquery_with_bytes]
+SELECT
+  Value,
+  Value NOT LIKE ALL (SELECT Pattern FROM UNNEST([b'Valu%1', b'V%lue1']) AS Pattern),
+  Value NOT LIKE ALL (SELECT Pattern FROM UNNEST([b'%lue1', b'%lue2']) AS Pattern)
+FROM KeyValueBytes ORDER BY Value;
+--
+ARRAY<STRUCT<Value BYTES, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {b"Value1", false, false},
+  {b"Value2", true, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_all_subquery_with_expressions]
+SELECT
+  Value,
+  Value LIKE ALL (SELECT CONCAT(Pattern, '%') FROM UNNEST(['Value', 'Val']) AS Pattern),
+  Value LIKE ALL (SELECT CONCAT(Pattern, '1') FROM UNNEST(['Value', 'Valu']) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", true, false},
+  {"Value2", true, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_all_subquery_with_expressions]
+SELECT
+  Value,
+  Value NOT LIKE ALL (SELECT CONCAT(Pattern, '%') FROM UNNEST(['Value', 'Val']) AS Pattern),
+  Value NOT LIKE ALL (SELECT CONCAT(Pattern, '1') FROM UNNEST(['Value', 'Valu']) AS Pattern)
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, false},
+  {"Value2", false, true}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=like_all_subquery_with_strings]
 # These subqueries need LIKE_ANY_SOME_ALL_SUBQUERY to be turned on.
 SELECT
   Value,
@@ -495,6 +585,21 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
   {NULL, NULL, NULL},
   {"Value1", true, true},
   {"Value2", false, false}
+]
+==
+
+[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
+[name=not_like_all_subquery_with_strings]
+SELECT
+  Value,
+  Value NOT LIKE ALL (SELECT 'Value1'),
+  Value NOT LIKE ALL (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
+FROM KeyValue ORDER BY Value;
+--
+ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
+  {NULL, NULL, NULL},
+  {"Value1", false, false},
+  {"Value2", true, true}
 ]
 ==
 
@@ -695,25 +800,6 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ]
 ==
 
-[required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_SUBQUERY]
-[name=not_like_all_with_patterns_in_non_paranthesized_scalar_subquery]
-# TODO: Like any/all subquery is current not using the new
-# implementation of 'not like any/all' operator which needs to be fixed
-# when subquery feature will be fully implemented. As of now, the subquery
-# variant of like any/all is not completely ready.
-SELECT
-  Value,
-  Value NOT LIKE ALL (SELECT 'Value1'),
-  Value NOT LIKE ALL (SELECT Value FROM KeyValue WHERE Value in ('Value1')),
-FROM KeyValue ORDER BY Value;
---
-ARRAY<STRUCT<Value STRING, BOOL, BOOL>>[known order:
-  {NULL, NULL, NULL},
-  {"Value1", true, true},
-  {"Value2", false, false}
-]
-==
-
 [required_features=ANNOTATION_FRAMEWORK,COLLATION_SUPPORT,LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
 [name=like_all_array_with_scalar_subquery_with_collation]
 SELECT
@@ -761,7 +847,7 @@ ARRAY<STRUCT<Value STRING, BOOL, BOOL, BOOL, BOOL, BOOL, BOOL>>[known order:
 ==
 
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
-[name=not_like_all_array_with_array_agg_function]
+[name=like_all_array_with_array_agg_function]
 SELECT
   'a' LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
   'a' LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),
@@ -775,7 +861,7 @@ ARRAY<STRUCT<BOOL, BOOL, BOOL, BOOL, BOOL>>[
 ==
 
 [required_features=LIKE_ANY_SOME_ALL,LIKE_ANY_SOME_ALL_ARRAY]
-[name=like_all_array_with_array_agg_function]
+[name=not_like_all_array_with_array_agg_function]
 SELECT
   'a' NOT LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['b', NULL]) x)),
   'a' NOT LIKE ALL UNNEST((SELECT ARRAY_AGG(x) FROM UNNEST(['a', NULL]) x)),

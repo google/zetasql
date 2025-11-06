@@ -1831,6 +1831,10 @@ bool Token::IsStringLiteral() const {
          GetValue().type_kind() == zetasql::TypeKind::TYPE_STRING;
 }
 
+bool Token::IsBytesLiteral() const {
+  return IsValue() && GetValue().type_kind() == zetasql::TypeKind::TYPE_BYTES;
+}
+
 bool Token::IsOpenAngleBracket() const {
   return Is(Type::OPEN_BRACKET) && GetKeyword() == "<";
 }

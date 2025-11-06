@@ -724,19 +724,59 @@ class SqlAggregateFunctionInlineVisitor : public ResolvedASTRewriteVisitor {
                              pre_aggregate_cols.end()) {}
   };
 
-  // Check to see if the function is a SQL-defined aggregate and return details
-  // required for inlining if so. Otherwise return std::nullopt to indicate the
-  // function is not SQL-defined. An error will be returned in case the function
-  // is SQL-defined but has a shape not supported by the inliner.
+  // Returns true if the function body is SQL-defined.
+  bool IsSqlDefined(const Function* function) {
+    return function->Is<SQLFunctionInterface>() ||
+           function->Is<TemplatedSQLFunction>();
+  }
+
+  // Returns true if the aggregate function `call` (or any of its nested
+  // aggregate functions) contain a nested SQL-defined function.
+  // Note that this does not check if `call` itself is a SQL-defined function;
+  // it just checks for the existence of a nested SQL-defined function within
+  // the aggregate function subtree.
+  absl::StatusOr<bool> ContainsNestedSqlDefinedFunction(
+      const ResolvedAggregateFunctionCall* call) {
+    for (const auto& nested_agg : call->group_by_aggregate_list()) {
+      ZETASQL_RET_CHECK(nested_agg->expr()->Is<ResolvedAggregateFunctionCall>());
+      const auto& nested_agg_call =
+          nested_agg->expr()->GetAs<ResolvedAggregateFunctionCall>();
+      if (IsSqlDefined(nested_agg_call->function())) {
+        return true;
+      }
+      ZETASQL_ASSIGN_OR_RETURN(bool contains_nested_sql_defined_function,
+                       ContainsNestedSqlDefinedFunction(nested_agg_call));
+      if (contains_nested_sql_defined_function) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // Check to see if the aggregate function (or one of its nested aggregate
+  // functions) is SQL-defined and return details required for inlining if so.
+  // Returns std::nullopt if no SQL-defined functions are found.
+  // Returns an error if the function (or one of its nested aggregate
+  // functions) requires inlining but has a shape not supported by the inliner.
   absl::StatusOr<std::optional<AggregateFnDetails>> IsInlineable(
       const ResolvedAggregateFunctionCall* call) {
     const Function* function = call->function();
-    if (!function->Is<SQLFunctionInterface>() &&
-        !function->Is<TemplatedSQLFunction>()) {
-      return std::nullopt;
-    }
     const ParseLocationRange* error_location =
         call->GetParseLocationRangeOrNULL();
+
+    // Check if any nested aggregate function is a SQL-defined function. The
+    // inliner does not currently support inlining nested UDAs.
+    ZETASQL_ASSIGN_OR_RETURN(bool contains_nested_sql_defined_function,
+                     ContainsNestedSqlDefinedFunction(call));
+    if (contains_nested_sql_defined_function) {
+      return MakeSqlErrorAtStart(error_location)
+             << "SQL function inliner cannot inline aggregate function "
+             << function->SQLName() << " with nested UDA";
+    }
+
+    if (!IsSqlDefined(function)) {
+      return std::nullopt;
+    }
     if (call->error_mode() == ResolvedFunctionCall::SAFE_ERROR_MODE) {
       // TODO: Support SAFE mode calls using IFERROR.
       return MakeSqlErrorAtStart(error_location)

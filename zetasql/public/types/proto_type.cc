@@ -67,8 +67,7 @@ ProtoType::ProtoType(const TypeFactory* factory,
   ABSL_CHECK(descriptor_ != nullptr);
 }
 
-ProtoType::~ProtoType() {
-}
+ProtoType::~ProtoType() = default;
 
 bool ProtoType::IsSupportedType(const LanguageOptions& language_options) const {
   return language_options.SupportsProtoTypes();

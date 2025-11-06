@@ -41,6 +41,7 @@
 #include "zetasql/public/types/array_type.h"
 #include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/range_type.h"
+#include "zetasql/public/types/row_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_parameters.h"
@@ -175,6 +176,7 @@ struct TypeKindInfo {
   // in their intersection.
   int specificity = 0;
 
+  // Result for Type::IsSimpleType.
   bool simple = false;
 };
 
@@ -371,6 +373,12 @@ constexpr TypeKindInfoList MakeTypeKindInfoList() {
       .specificity = 34,
       .simple = false,
   };
+  kinds[TYPE_ROW] = {
+      .name = "ROW",
+      .cost = 36,
+      .specificity = 36,
+      .simple = false,
+  };
 
   return kinds;
 }
@@ -417,7 +425,7 @@ TypeKind Type::ResolveBuiltinTypeNameToKindIfSimple(
 }
 
 std::string Type::TypeKindToString(TypeKind kind, ProductMode mode,
-                                   bool use_external_float32) {
+                                   bool use_external_float32_unused) {
   // Note that for types not externally supported we still want to produce
   // the internal names for them.  This is because during development
   // we want error messages to indicate what the unsupported type actually
@@ -427,8 +435,7 @@ std::string Type::TypeKindToString(TypeKind kind, ProductMode mode,
   if (ABSL_PREDICT_TRUE(info != nullptr)) {
     if (mode == PRODUCT_EXTERNAL && kind == TYPE_DOUBLE) {
       return "FLOAT64";
-    } else if (mode == PRODUCT_EXTERNAL && use_external_float32 &&
-               kind == TYPE_FLOAT) {
+    } else if (mode == PRODUCT_EXTERNAL && kind == TYPE_FLOAT) {
       return "FLOAT32";
     }
     return info->name;
@@ -508,8 +515,8 @@ absl::Status Type::SerializeToProtoAndFileDescriptors(
   FileDescriptorSetMap file_descriptor_set_map;
   if (file_descriptors != nullptr && !file_descriptors->empty()) {
     const google::protobuf::DescriptorPool* pool = (*file_descriptors->begin())->pool();
-    std::unique_ptr<FileDescriptorEntry> file_descriptor_entry(
-        new FileDescriptorEntry);
+    std::unique_ptr<FileDescriptorEntry> file_descriptor_entry =
+        std::make_unique<FileDescriptorEntry>();
     file_descriptor_entry->descriptor_set_index = 0;
     if (file_descriptor_set != nullptr) {
       file_descriptor_entry->file_descriptor_set.Swap(file_descriptor_set);
@@ -762,6 +769,11 @@ bool Type::SupportsReturning(const LanguageOptions& language_options,
         *type_description = "MEASURE";
       }
       return false;
+    case TYPE_ROW:
+      if (type_description != nullptr) {
+        *type_description = "ROW";
+      }
+      return false;
     default:
       return true;
   }
@@ -783,6 +795,20 @@ bool Type::HasFloatingPointFields() const {
   ABSL_LOG(ERROR)
       << "HasFloatingPointFields() should only be called for proto types";
   return false;
+}
+
+bool Type::IsArrayLike() const {
+  return IsArray() || (IsRow() && AsRow()->IsJoin());
+}
+
+absl::StatusOr<const Type*> Type::GetElementType() const {
+  if (IsArray()) {
+    return AsArray()->element_type();
+  } else if (IsRow() && AsRow()->IsJoin()) {
+    return AsRow()->element_type();
+  } else {
+    ZETASQL_RET_CHECK_FAIL() << "GetElementType called on " << DebugString();
+  }
 }
 
 absl::Status Type::TypeMismatchError(const ValueProto& value_proto) const {

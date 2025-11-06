@@ -31,6 +31,7 @@ filegroup(
         "map_type.h",
         "measure_type.h",
         "range_type.h",
+        "row_type.h",
         "simple_type.h",
         "simple_value.h",
         "struct_type.h",
@@ -52,6 +53,7 @@ cc_library(
         "map_type.cc",
         "measure_type.cc",
         "range_type.cc",
+        "row_type.cc",
         "simple_type.cc",
         "simple_value.cc",
         "struct_type.cc",
@@ -106,6 +108,7 @@ cc_library(
         "@com_google_absl//absl/container:node_hash_map",
         "@com_google_absl//absl/container:node_hash_set",
         "@com_google_absl//absl/hash",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/meta:type_traits",
         "@com_google_absl//absl/status",
@@ -118,6 +121,19 @@ cc_library(
         "@com_google_absl//absl/types:variant",
         "@com_google_protobuf//:protobuf",
     ],
+)
+
+# This includes parts of the ":type" library that include Catalog dependencies.
+# These are in a separate build target to avoid circular dependencies.
+# These methods are only needed in analyzer code that actually calls them.
+cc_library(
+    name = "type_with_catalog_impl",
+    srcs = ["row_type_with_catalog.cc"],
+    deps = [
+        ":type",
+        "//zetasql/public:catalog",
+    ],
+    alwayslink = 1,
 )
 
 cc_library(

@@ -354,7 +354,7 @@ ResolveGraphLabelExpr(
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unrecognized graph label node type";
   }
-  output->SetParseLocationRange(ast_graph_label_expr->GetParseLocationRange());
+  output->SetParseLocationRange(ast_graph_label_expr->location());
   return output;
 }
 

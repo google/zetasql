@@ -28,6 +28,7 @@
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/function.h"
+#include "zetasql/public/function_signature.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/numeric_value.h"
 #include "zetasql/public/options.pb.h"
@@ -57,10 +58,12 @@
 namespace zetasql {
 namespace {
 
+using ::zetasql::MakeResolvedTVFScan;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Not;
 using ::testing::SizeIs;
+using ::testing::UnorderedElementsAre;
 using ::testing::Values;
 using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
@@ -227,6 +230,104 @@ TEST(RewriteUtilsTest, SortUniqueColumnRefs) {
   EXPECT_EQ(column_refs[3]->column(), colc);
   EXPECT_FALSE(column_refs[2]->is_correlated());
   EXPECT_TRUE(column_refs[3]->is_correlated());
+}
+
+class GetCorrelatedColumnSetTest : public ::testing::Test {
+ public:
+  GetCorrelatedColumnSetTest()
+      : column_factory_(0, &sequence_),
+        col_a_(column_factory_.MakeCol("table", "a", types::Int64Type())),
+        col_b_(column_factory_.MakeCol("table", "b", types::Int64Type())),
+        col_c_(column_factory_.MakeCol("table", "c", types::Int64Type())) {}
+
+ protected:
+  zetasql_base::SequenceNumber sequence_;
+  ColumnFactory column_factory_;
+  ResolvedColumn col_a_;
+  ResolvedColumn col_b_;
+  ResolvedColumn col_c_;
+};
+
+TEST_F(GetCorrelatedColumnSetTest, NoColumnRefs) {
+  std::unique_ptr<const ResolvedScan> scan =
+      MakeResolvedSingleRowScan(/*column_list=*/{});
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto correlated_columns, GetCorrelatedColumnSet(*scan));
+  EXPECT_THAT(correlated_columns, IsEmpty());
+}
+
+TEST_F(GetCorrelatedColumnSetTest, OnlyUncorrelatedRefs) {
+  std::unique_ptr<const ResolvedExpr> ref1 =
+      MakeResolvedColumnRef(col_a_.type(), col_a_, /*is_correlated=*/false);
+  std::unique_ptr<const ResolvedExpr> ref2 =
+      MakeResolvedColumnRef(col_b_.type(), col_b_, /*is_correlated=*/false);
+
+  ResolvedColumn computed_col1 =
+      column_factory_.MakeCol("t", "x", col_a_.type());
+  ResolvedColumn computed_col2 =
+      column_factory_.MakeCol("t", "y", col_b_.type());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col1, std::move(ref1)));
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col2, std::move(ref2)));
+
+  auto project_scan = MakeResolvedProjectScan(
+      {computed_col1, computed_col2}, std::move(expr_list),
+      MakeResolvedSingleRowScan(/*column_list=*/{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto correlated_columns,
+                       GetCorrelatedColumnSet(*project_scan));
+  EXPECT_THAT(correlated_columns, IsEmpty());
+}
+
+TEST_F(GetCorrelatedColumnSetTest, OnlyCorrelatedRefs) {
+  std::unique_ptr<const ResolvedExpr> ref1 =
+      MakeResolvedColumnRef(col_a_.type(), col_a_, /*is_correlated=*/true);
+  std::unique_ptr<const ResolvedExpr> ref2 =
+      MakeResolvedColumnRef(col_b_.type(), col_b_, /*is_correlated=*/true);
+
+  ResolvedColumn computed_col1 =
+      column_factory_.MakeCol("t", "x", col_a_.type());
+  ResolvedColumn computed_col2 =
+      column_factory_.MakeCol("t", "y", col_b_.type());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col1, std::move(ref1)));
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col2, std::move(ref2)));
+
+  auto project_scan = MakeResolvedProjectScan(
+      {computed_col1, computed_col2}, std::move(expr_list),
+      MakeResolvedSingleRowScan(/*column_list=*/{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto correlated_columns,
+                       GetCorrelatedColumnSet(*project_scan));
+  EXPECT_THAT(correlated_columns, UnorderedElementsAre(col_a_, col_b_));
+}
+
+TEST_F(GetCorrelatedColumnSetTest, MixedCorrelatedAndUncorrelatedRefs) {
+  std::unique_ptr<const ResolvedExpr> ref1 =
+      MakeResolvedColumnRef(col_a_.type(), col_a_, /*is_correlated=*/true);
+  std::unique_ptr<const ResolvedExpr> ref2 =
+      MakeResolvedColumnRef(col_b_.type(), col_b_, /*is_correlated=*/false);
+
+  ResolvedColumn computed_col1 =
+      column_factory_.MakeCol("t", "x", col_a_.type());
+  ResolvedColumn computed_col2 =
+      column_factory_.MakeCol("t", "y", col_b_.type());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> expr_list;
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col1, std::move(ref1)));
+  expr_list.push_back(
+      MakeResolvedComputedColumn(computed_col2, std::move(ref2)));
+
+  auto project_scan = MakeResolvedProjectScan(
+      {computed_col1, computed_col2}, std::move(expr_list),
+      MakeResolvedSingleRowScan(/*column_list=*/{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto correlated_columns,
+                       GetCorrelatedColumnSet(*project_scan));
+  EXPECT_THAT(correlated_columns, UnorderedElementsAre(col_a_));
 }
 
 TEST(RewriteUtilsTest, SafePreconditionWithIferrorOverride) {
@@ -1645,6 +1746,7 @@ TEST_F(FunctionCallBuilderTest, ConcatStringWithCollation) {
                        fn_builder_.Concat(std::move(args)));
   EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
 FunctionCall(ZetaSQL:concat(STRING, repeated(2) STRING) -> STRING)
++-type_annotation_map={Collation:"und:ci"}
 +-FunctionCall(ZetaSQL:collate(STRING, STRING) -> STRING)
 | +-type_annotation_map={Collation:"und:ci"}
 | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
@@ -1936,97 +2038,6 @@ FunctionCall(ZetaSQL:$is_not_distinct_from(INT64, INT64) -> BOOL)
 )"));
 }
 
-class LikeAnyAllSubqueryScanBuilderTest
-    : public ::testing::TestWithParam<ResolvedSubqueryExpr::SubqueryType> {
- public:
-  LikeAnyAllSubqueryScanBuilderTest()
-      : column_factory_(10, &sequence_),
-        catalog_("subquery_scan_builder_catalog"),
-        scan_builder_(&analyzer_options_, &catalog_, &column_factory_,
-                      &type_factory_) {
-    analyzer_options_.mutable_language()->SetSupportsAllStatementKinds();
-    catalog_.AddBuiltinFunctions(
-        BuiltinFunctionOptions::AllReleasedFunctions());
-  }
-
-  zetasql_base::SequenceNumber sequence_;
-  ColumnFactory column_factory_;
-  AnalyzerOptions analyzer_options_;
-  TypeFactory type_factory_;
-  SimpleCatalog catalog_;
-  LikeAnyAllSubqueryScanBuilder scan_builder_;
-};
-
-TEST_P(LikeAnyAllSubqueryScanBuilderTest, BuildAggregateScan) {
-  ResolvedSubqueryExpr::SubqueryType subquery_type = GetParam();
-
-  std::unique_ptr<const AnalyzerOutput> analyzer_expression;
-  ZETASQL_ASSERT_OK(AnalyzeExpression("'a' IN (SELECT 'b')", analyzer_options_,
-                              &catalog_, &type_factory_, &analyzer_expression));
-
-  const ResolvedSubqueryExpr* subquery_expr =
-      analyzer_expression->resolved_expr()->GetAs<ResolvedSubqueryExpr>();
-  const ResolvedExpr* input_expr = subquery_expr->in_expr();
-  ASSERT_NE(input_expr, nullptr);
-  const ResolvedScan* expr_subquery = subquery_expr->subquery();
-  ASSERT_NE(expr_subquery, nullptr);
-
-  ColumnReplacementMap map;
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<ResolvedScan> subquery_scan,
-      CopyResolvedASTAndRemapColumns(*expr_subquery, column_factory_, map));
-  ASSERT_EQ(subquery_scan->column_list_size(), 1);
-
-  ResolvedColumn input_column =
-      column_factory_.MakeCol("input", "input_expr", input_expr->type());
-  ResolvedColumn subquery_column = subquery_scan->column_list(0);
-
-  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<ResolvedAggregateScan> aggregate_scan,
-                       scan_builder_.BuildAggregateScan(
-                           input_column, subquery_column,
-                           std::move(subquery_scan), subquery_type));
-
-  std::string logical_function;
-  if (subquery_type == ResolvedSubqueryExpr::LIKE_ANY) {
-    logical_function = "logical_or";
-  } else if (subquery_type == ResolvedSubqueryExpr::LIKE_ALL) {
-    logical_function = "logical_and";
-  }
-
-  // The ColumnFactory was instantiated with the highest allocated column ID as
-  // 10 to reflect that this scan is part of larger ResolvedAST with other
-  // columns. Here, the columns start at 11 because that is the column ID after
-  // that last column ID in the original ResolvedAST. The order of the column
-  // IDs is arbitrary and is set to match what the code does.
-  // This tests the DebugString of the newly created scan to check that the
-  // ResolvedAST matches the expected ResolvedAST.
-  // clang-format off
-  EXPECT_EQ(
-      aggregate_scan->DebugString(),
-      absl::StripLeadingAsciiWhitespace(absl::StrFormat(R"(
-AggregateScan
-+-column_list=aggregate.[like_agg_col#13, null_agg_col#14]
-+-input_scan=
-| +-ProjectScan
-|   +-column_list=[$expr_subquery.$col1#11]
-|   +-expr_list=
-|   | +-$col1#11 := Literal(type=STRING, value="b")
-|   +-input_scan=
-|     +-SingleRowScan
-+-aggregate_list=
-  +-like_agg_col#13 :=
-  | +-AggregateFunctionCall(ZetaSQL:%s(BOOL) -> BOOL)
-  |   +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
-  |     +-ColumnRef(type=STRING, column=input.input_expr#12, is_correlated=TRUE)
-  |     +-ColumnRef(type=STRING, column=$expr_subquery.$col1#11)
-  +-null_agg_col#14 :=
-    +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
-      +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
-        +-ColumnRef(type=STRING, column=$expr_subquery.$col1#11)
-)", logical_function)));
-  // clang-format on
-}
-
 TEST_F(FunctionCallBuilderTest, HllInitUnsupportedTypeTest) {
   auto column =
       MakeResolvedColumnRef(types::TimeType(), ResolvedColumn(), false);
@@ -2156,9 +2167,148 @@ FunctionCall(ZetaSQL:hll_count.extract(INT64) -> INT64)
 )"));
 }
 
-INSTANTIATE_TEST_SUITE_P(BuildAggregateScan, LikeAnyAllSubqueryScanBuilderTest,
-                         Values(ResolvedSubqueryExpr::LIKE_ANY,
-                                ResolvedSubqueryExpr::LIKE_ALL));
+class ValidateArgumentsDoNotContainCorrelationTest : public ::testing::Test {
+ protected:
+  ValidateArgumentsDoNotContainCorrelationTest()
+      : column_factory_(0, &pool_, &seq_), catalog_("test_catalog") {}
+
+  void SetUp() override {
+    catalog_.AddBuiltinFunctions(
+        BuiltinFunctionOptions::AllReleasedFunctions());
+    int64_type_ = type_factory_.get_int64();
+    bool_type_ = type_factory_.get_bool();
+
+    dummy_tvf_scan_ = MakeResolvedTVFScan(
+        /*column_list=*/{},
+        /*tvf=*/nullptr,
+        /*signature=*/nullptr,
+        /*argument_list=*/{},
+        /*column_index_list=*/{},
+        /*alias=*/"tvf1",
+        /*function_call_signature=*/nullptr);
+  }
+
+  TypeFactory type_factory_;
+  IdStringPool pool_;
+  zetasql_base::SequenceNumber seq_;
+  ColumnFactory column_factory_;
+  SimpleCatalog catalog_;
+  AnalyzerOptions analyzer_options_;
+  const Type* int64_type_;
+  const Type* bool_type_;
+  std::unique_ptr<ResolvedTVFScan> dummy_tvf_scan_;
+};
+
+TEST_F(ValidateArgumentsDoNotContainCorrelationTest,
+       ArgumentWithExternalCorrelation) {
+  // An argument that CONTAINS a correlated column reference to outside the
+  // expression. Conceptual SQL:
+  // ... MY_FUNC(..., outer_table.a, ...) ...
+  ResolvedColumn outer_column =
+      column_factory_.MakeCol("outer_table", "a", int64_type_);
+  auto correlated_expr =
+      MakeResolvedColumnRef(int64_type_, outer_column, /*is_correlated=*/true);
+
+  EXPECT_THAT(
+      ValidateArgumentsDoNotContainCorrelation(dummy_tvf_scan_.get(), "MY_FUNC",
+                                               {correlated_expr.get()}),
+      StatusIs(
+          absl::StatusCode::kUnimplemented,
+          HasSubstr(
+              "MY_FUNC arguments must not contain correlated references to "
+              "columns "
+              "defined outside the scope of the argument expression itself")));
+}
+
+TEST_F(ValidateArgumentsDoNotContainCorrelationTest,
+       ArgumentWithInternalCorrelation) {
+  // An argument containing a subquery with a correlated column reference,
+  // but the correlation is *within* the argument's expression, not external.
+  // Conceptual SQL:
+  // ... MY_FUNC(..., (SELECT y.b FROM y WHERE y.a = outer_table.a), ...) ...
+  // This is fine because the correlation is self-contained within the subquery.
+
+  ResolvedColumn y_a = column_factory_.MakeCol("y", "a", int64_type_);
+  ResolvedColumn y_b = column_factory_.MakeCol("y", "b", int64_type_);
+  ResolvedColumn inner_outer_a =
+      column_factory_.MakeCol("outer_table", "a", int64_type_);
+
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> parameter_list;
+  parameter_list.push_back(MakeResolvedColumnRef(int64_type_, inner_outer_a,
+                                                 /*is_correlated=*/false));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto filter_expr,
+      FunctionCallBuilder(analyzer_options_, catalog_, type_factory_)
+          .Equal(
+              MakeResolvedColumnRef(int64_type_, y_a, /*is_correlated=*/false),
+              MakeResolvedColumnRef(int64_type_, inner_outer_a,
+                                    /*is_correlated=*/true)));
+
+  auto subquery = MakeResolvedSubqueryExpr(
+      int64_type_, ResolvedSubqueryExpr::SCALAR,
+      /*parameter_list=*/std::move(parameter_list),
+      /*in_expr=*/nullptr,
+      MakeResolvedProjectScan(
+          {y_b}, {},
+          MakeResolvedFilterScan(
+              {y_a, y_b},
+              MakeResolvedTableScan({y_a, y_b}, /*table=*/nullptr,
+                                    /*for_system_time_expr=*/nullptr),
+              std::move(filter_expr))));
+
+  ZETASQL_EXPECT_OK(ValidateArgumentsDoNotContainCorrelation(
+      dummy_tvf_scan_.get(), "MY_FUNC", {subquery.get()}));
+}
+
+TEST_F(ValidateArgumentsDoNotContainCorrelationTest,
+       ArgumentsWithoutCorrelation) {
+  // Arguments that do NOT contain any externally correlated column refs.
+  // Conceptual SQL:
+  // ... MY_FUNC(..., local_table.b, 42, ...) ...
+  ResolvedColumn local_column =
+      column_factory_.MakeCol("local_table", "b", int64_type_);
+  auto non_correlated_expr =
+      MakeResolvedColumnRef(int64_type_, local_column, /*is_correlated=*/false);
+  auto literal_expr = MakeResolvedLiteral(Value::Int64(42));
+
+  ZETASQL_EXPECT_OK(ValidateArgumentsDoNotContainCorrelation(
+      dummy_tvf_scan_.get(), "MY_FUNC",
+      {non_correlated_expr.get(), literal_expr.get()}));
+}
+
+TEST_F(ValidateArgumentsDoNotContainCorrelationTest,
+       ArgumentWithNonCorrelatedFunctionCall) {
+  // Tests that a complex argument built using FunctionCallBuilder,
+  // containing various function calls and only non-externally-correlated
+  // column references, is correctly identified as not having external
+  // correlations. Conceptual SQL:
+  // ... MY_FUNC(..., local_table.b > 0 AND local_table.c < 0, ...) ...
+  ResolvedColumn col_b =
+      column_factory_.MakeCol("local_table", "b", int64_type_);
+  ResolvedColumn col_c =
+      column_factory_.MakeCol("local_table", "c", int64_type_);
+
+  FunctionCallBuilder fn_builder(analyzer_options_, catalog_, type_factory_);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto greater_expr,
+      fn_builder.Greater(MakeResolvedColumnRef(int64_type_, col_b, false),
+                         MakeResolvedLiteral(Value::Int64(0))));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      auto less_expr,
+      fn_builder.Less(MakeResolvedColumnRef(int64_type_, col_c, false),
+                      MakeResolvedLiteral(Value::Int64(0))));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> and_args;
+  and_args.push_back(std::move(greater_expr));
+  and_args.push_back(std::move(less_expr));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(auto expr, fn_builder.And(std::move(and_args)));
+
+  ZETASQL_EXPECT_OK(ValidateArgumentsDoNotContainCorrelation(dummy_tvf_scan_.get(),
+                                                     "MY_FUNC", {expr.get()}));
+}
 
 }  // namespace
 }  // namespace zetasql

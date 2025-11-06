@@ -21,6 +21,7 @@
 #include "google/protobuf/descriptor.h"
 #include "zetasql/common/errors.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/types/annotation.h"
 
 namespace zetasql {
 
@@ -33,6 +34,10 @@ static bool Equals(const std::string& str1, const std::string& str2) {
 
 static bool Equals(const Type* type1, const Type* type2) {
   return type1->Equals(type2);
+}
+
+static bool Equals(const AnnotationMap* map1, const AnnotationMap* map2) {
+  return AnnotationMap::Equals(map1, map2);
 }
 
 static bool Equals(const Constant* constant1, const Constant* constant2) {

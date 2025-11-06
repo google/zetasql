@@ -29,7 +29,7 @@
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/property_graph.h"
-#include "zetasql/public/select_with_mode.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "absl/status/statusor.h"
@@ -268,7 +268,7 @@ struct ExprResolutionInfo {
   // after DISTINCT.
   bool is_post_distinct() const;
 
-  SelectWithMode GetSelectWithMode() const;
+  WithModifierMode GetWithModifierMode() const;
 
   std::string DebugString() const;
 
@@ -312,19 +312,19 @@ struct ExprResolutionInfo {
   // Not owned.
   QueryResolutionInfo* const query_resolution_info = nullptr;
 
-  // True if this expression contains an aggregation function.
-  bool has_aggregation = false;
-
-  // True if this expression contains an analytic function.
-  bool has_analytic = false;
-
-  // True if this expression contains a volatile function.
-  bool has_volatile = false;
+  // Findings about this expression, e.g. `has_aggregation`, etc.
+  ExprFindings findings;
 
   // True if this expression should be resolved against post-grouping
   // columns.  Gets set to false when resolving arguments of aggregation
   // functions.
+  // TODO: Consider removing this field and rely on `grouping_context` instead.
   const bool use_post_grouping_columns = false;
+
+  // Whether the current expression is in a pre- or post-grouping context, or
+  // unknown.
+  ExprGroupingContext grouping_context = ExprGroupingContext::kUnknown;
+  std::vector<SelectColumnState*> columns_referenced_laterally;
 
   // The top-level AST expression being resolved in the current context. This
   // field is set only when resolving SELECT columns. Not owned.
@@ -368,6 +368,22 @@ struct ExprResolutionInfo {
   ExprResolutionInfo(ExprResolutionInfo* parent,
                      QueryResolutionInfo* new_query_resolution_info,
                      ExprResolutionInfoOptions options);
+
+  // Called only in the constructor.
+  void Subscribe(const NameScope* name_scope) {
+    if (name_scope != nullptr) {
+      const_cast<NameScope*>(name_scope)
+          ->PushLateralColumnReferenceObserver(this);
+    }
+  }
+
+  // Called only in the destructor.
+  void Unsubscribe(const NameScope* name_scope) {
+    if (name_scope != nullptr) {
+      const_cast<NameScope*>(name_scope)
+          ->PopLateralColumnReferenceObserver(this);
+    }
+  }
 };
 
 // Create a vector<const ASTNode*> from another container.

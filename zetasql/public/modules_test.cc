@@ -115,7 +115,7 @@ class FakeRemoteTvfFactory : public RemoteTvfFactory {
 
 class ModuleTest : public ::testing::Test {
  protected:
-  ModuleTest() {}
+  ModuleTest() = default;
   ModuleTest(const ModuleTest&) = delete;
   ModuleTest& operator=(const ModuleTest&) = delete;
 
@@ -174,7 +174,7 @@ class ModuleTest : public ::testing::Test {
       const std::vector<std::string>& module_name,
       const std::string* module_contents) {
     const std::string source_directory =
-        zetasql_base::JoinPath(::testing::SrcDir(), "com_google_zetasql");
+        zetasql_base::JoinPath(::testing::SrcDir(), "_main");
     auto fetcher = std::make_unique<testing::TestModuleContentsFetcher>(
         /*descriptor_pool=*/nullptr, source_directory);
     if (module_contents != nullptr) {
@@ -216,7 +216,7 @@ class ModuleTest : public ::testing::Test {
 
   absl::Status GetModuleContents(absl::string_view module_name,
                                  std::string* module_contents) const {
-    const std::string directory = "com_google_zetasql/zetasql/testdata/modules";
+    const std::string directory = "_main/zetasql/testdata/modules";
     const std::string extension = ".sqlm";
     return internal::GetContents(
         zetasql_base::JoinPath(::testing::SrcDir(), directory,
@@ -1778,9 +1778,9 @@ class MockConstantEvaluator : public ConstantEvaluator {
 class ConstantEvaluatorTest : public ModuleTest,
                               public ::testing::WithParamInterface<bool> {
  protected:
-  ConstantEvaluatorTest() {}
+  ConstantEvaluatorTest() = default;
 
-  ~ConstantEvaluatorTest() override {}
+  ~ConstantEvaluatorTest() override = default;
 
   std::string Iteration(size_t iteration) const {
     return absl::StrCat(" in iteration #", iteration);

@@ -260,12 +260,12 @@ void Function::RegisterDeserializer(const std::string& group_name,
                                 deserializer));
 }
 
-const std::string Function::FullName(bool include_group) const {
+std::string Function::FullName(bool include_group) const {
   return absl::StrCat((include_group ? absl::StrCat(group_, ":") : ""),
                       absl::StrJoin(function_name_path_, "."));
 }
 
-const std::string Function::SQLName() const {
+std::string Function::SQLName() const {
   std::string name;
   if (!function_options_.sql_name.empty()) {
     name = function_options_.sql_name;
@@ -284,7 +284,7 @@ const std::string Function::SQLName() const {
   return name;
 }
 
-const std::string Function::QualifiedSQLName(bool capitalize_qualifier) const {
+std::string Function::QualifiedSQLName(bool capitalize_qualifier) const {
   std::string qualifier;
   switch (mode_) {
     case Function::AGGREGATE:
@@ -478,34 +478,10 @@ std::string Function::GetSQL(std::vector<std::string> inputs,
     std::string sql = GetSQLCallback()(inputs);
 
     if (safe_call) {
-      // These internal function names are special-cased to switch to alternate
-      // names when called in safe mode.  e.g. OFFSET -> SAFE_OFFSET.
-      //
-      // These cases aren't reached for the built-in functions since those
-      // directly resolve to alternate functions like `$safe_array_at_offset`
-      // rather than showing up as SAFE calls.
-      //
-      // These cases are only reached when non-built-in overloads are added for
-      // the function names below, since those don't use alternate internal
-      // function names for the SAFE version. They show up as SAFE calls of
-      // the base function name, and their GetSQL() callback isn't aware of
-      // the SAFE mode.  So the rewrite happens here.
-      //
-      // See `analyzer/testdata/extended_subscript.test` and
-      // (broken link).
-      absl::string_view function_name = Name();
-      if (function_name == "$subscript_with_offset") {
-        RE2::Replace(&sql, R"re(\[\s*OFFSET\s*\()re", "[SAFE_OFFSET(");
-      } else if (function_name == "$subscript_with_key") {
-        RE2::Replace(&sql, R"re(\[\s*KEY\s*\()re", "[SAFE_KEY(");
-      } else if (function_name == "$subscript_with_ordinal") {
-        RE2::Replace(&sql, R"re(\[\s*ORDINAL\s*\()re", "[SAFE_ORDINAL(");
-      } else {
-        // By default, assume that we can use "SAFE." prefixes on the generated
-        // SQL to make a SAFE call, since the looks like a function call.
-        // Operators that don't support this shouldn't have SAFE calls.
-        sql = absl::StrCat("SAFE.", sql);
-      }
+      // By default, assume that we can use "SAFE." prefixes on the generated
+      // SQL to make a SAFE call, since the looks like a function call.
+      // Operators that don't support this shouldn't have SAFE calls.
+      sql = absl::StrCat("SAFE.", sql);
     }
 
     return sql;
@@ -576,7 +552,7 @@ absl::Status Function::CheckPostResolutionArgumentConstraints(
 }
 
 // static
-const std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
+std::string Function::GetGenericNoMatchingFunctionSignatureErrorMessage(
     absl::string_view qualified_function_name,
     absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
     absl::Span<const absl::string_view> argument_names,

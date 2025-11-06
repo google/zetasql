@@ -738,8 +738,9 @@ message UnregisterRequest {
 
 message GetBuiltinFunctionsResponse {
   repeated FunctionProto function = 1;
-  map<string, TypeProto> types = 2;
   // This implicitly requires the builtin descriptor pool for deserialization.
+  map<string, TypeProto> types = 2;
+  repeated TableValuedFunctionProto table_valued_function = 3;
 }
 
 message LanguageOptionsRequest {

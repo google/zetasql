@@ -117,7 +117,7 @@ SELECT
   ANON_COUNT(* GROUP BY int64)
 FROM SimpleTypes;
 --
-ERROR: ANON_COUNT(*) Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+ERROR: ANON_COUNT(*) Anonymization / Differential Privacy Function does not support GROUP BY modifiers [at 2:3]
   ANON_COUNT(* GROUP BY int64)
   ^
 ==
@@ -130,7 +130,7 @@ SELECT WITH ANONYMIZATION
   ANON_SUM(int64 GROUP BY int64)
 FROM SimpleTypesWithAnonymizationUid;
 --
-ERROR: ANON_SUM Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+ERROR: ANON_SUM Anonymization / Differential Privacy Function does not support GROUP BY modifiers [at 2:3]
   ANON_SUM(int64 GROUP BY int64)
   ^
 ==
@@ -182,7 +182,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY
   COUNT(int64 GROUP BY int64)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: COUNT Anonymization / Differential Privacy Function  does not support GROUP BY modifiers [at 2:3]
+ERROR: COUNT Anonymization / Differential Privacy Function does not support GROUP BY modifiers [at 2:3]
   COUNT(int64 GROUP BY int64)
   ^
 ==

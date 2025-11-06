@@ -30,6 +30,7 @@
 #include "zetasql/public/parse_location.h"
 #include "absl/status/status.h"
 #include "absl/strings/string_view.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
 #include "zetasql/base/status_builder.h"
 
@@ -131,9 +132,14 @@ absl::Status WrapNestedErrorStatus(const ASTNode* ast_location,
                                    absl::string_view error_message,
                                    const absl::Status& input_status,
                                    ErrorMessageMode error_source_mode) {
-  zetasql_base::StatusBuilder error_status_builder =
-      absl::IsInternal(input_status) ? zetasql_base::StatusBuilder(input_status)
-                                     : MakeSqlError();
+  ZETASQL_RET_CHECK(!input_status.ok());
+  // If the input status is an internal error or memory exhaustion, just return
+  // it because we don't have anything useful to add.
+  if (absl::IsInternal(input_status) ||
+      absl::IsResourceExhausted(input_status)) {
+    return input_status;
+  }
+  zetasql_base::StatusBuilder error_status_builder = MakeSqlError();
   absl::Status error_status =
       error_status_builder.AttachPayload(
           SetErrorSourcesFromStatus(MakeInternalErrorLocation(ast_location),

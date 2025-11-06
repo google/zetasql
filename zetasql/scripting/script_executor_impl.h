@@ -320,6 +320,7 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Completes execution of an EXECUTE IMMEDIATE statement containing an INTO
   // clause. This should only be called once a dynamic SQL stack frame has been
   // setup.
+  // This function is not called in dry run mode.
   absl::Status ExecuteDynamicIntoStatement(
       const ASTExecuteIntoClause* into_clause);
 

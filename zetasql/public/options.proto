@@ -115,7 +115,7 @@ message LanguageFeatureOptions {
 //
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
-// Next ID: 145
+// Next ID: 150
 enum LanguageFeature {
   // Aliases are allowed because we are including aliases for legacy feature
   // names that had version numbers (V_1_3) in the enum name. This means the
@@ -133,9 +133,9 @@ enum LanguageFeature {
   // TODO: Complete this migration and turn off allow_alias.
   option allow_alias = true;
 
-  reserved 4, 36 to 39, 44 to 46, 48, 54, 55, 74, 99, 108, 110, 124, 140, 13046,
-      14001, 14012, 14024, 14040, 14061, 14077, 14082, 14085, 999003, 999004,
-      999005;
+  reserved 4, 36 to 39, 44 to 46, 48, 54, 55, 74, 99, 108, 110, 124, 132, 140,
+      13046, 14001, 14012, 14024, 14040, 14061, 14077, 14082, 14085, 999003,
+      999004, 999005;
 
   // CROSS-VERSION FEATURES
   //
@@ -177,10 +177,9 @@ enum LanguageFeature {
 
   // TIMESTAMP_PICOS data type. (broken link).
   // If enabled, FEATURE_TIMESTAMP_NANOS must also be enabled.
-  FEATURE_TIMESTAMP_PICOS = 123
-      [(language_feature_options).in_development = true];
+  FEATURE_TIMESTAMP_PICOS = 123;
 
-  // If enabled, PARSE_TIMESTAMP() supports a signatures with named arguments
+  // If enabled, PARSE_TIMESTAMP() supports signatures with named arguments
   // for precision and timezone.
   FEATURE_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE = 14112
       [(language_feature_options).language_version = VERSION_1_4];
@@ -337,6 +336,10 @@ enum LanguageFeature {
   FEATURE_DIFFERENTIAL_PRIVACY_MIN_PRIVACY_UNITS_PER_GROUP = 104
       [(language_feature_options).in_development = true];
 
+  // Enables support for Vector Search TVF.
+  FEATURE_VECTOR_SEARCH_TVF = 146
+      [(language_feature_options).in_development = true];
+
   // Enables the differential privacy option group_selection_epsilon and the
   // named parameter epsilon on differential privacy aggregate functions. See
   // (broken link).
@@ -347,6 +350,31 @@ enum LanguageFeature {
   // (broken link).
   FEATURE_DIFFERENTIAL_PRIVACY_NESTED = 144
       [(language_feature_options).in_development = true];
+
+  // Enables the TUMBLE and HOP TVFs.
+  // Reference: (broken link)
+  // TODO: Remove this feature flag once TUMBLE and HOP TVFs are
+  // launched.
+  FEATURE_TUMBLE_HOP_TVFS = 147
+      [(language_feature_options).in_development = true];
+
+  // Enables the TUMBLE and HOP TVF signatures without the `timestamp_column`
+  // argument, for which the column used is an engine-defined implementation
+  // detail. Note that these signatures do not have Reference Implementation
+  // support or compliance tests.
+  // Reference: (broken link)
+  FEATURE_TUMBLE_HOP_TVFS_NO_TIMESTAMP_COL = 148 [(language_feature_options) = {
+    in_development: true,
+    ideally_enabled: false
+  }];
+
+  // Enables legacy behavior for CONCAT (||) operator where variadic operands
+  // will be analyzed into nested binary CONCAT function calls, instead of a
+  // single variadic CONCAT function call.
+  FEATURE_LEGACY_BINARY_CONCAT = 149 [(language_feature_options) = {
+    in_development: true,
+    ideally_enabled: false
+  }];
 
   // Enables SELECT WITH AGGREGATION_THRESHOLD syntax,
   // see: (broken link).
@@ -736,14 +764,12 @@ enum LanguageFeature {
   // Enables FORK pipe operator.
   // FORK is allowed only if SupportedStatementKinds includes
   // ResolvedGeneralizedQueryStmt.
-  // This is experimental.
-  FEATURE_PIPE_FORK = 128 [(language_feature_options).in_development = true];
+  FEATURE_PIPE_FORK = 128;
 
   // Enables TEE pipe operator.
   // TEE is allowed only if SupportedStatementKinds includes
   // ResolvedGeneralizedQueryStmt.
-  // This is experimental.
-  FEATURE_PIPE_TEE = 131 [(language_feature_options).in_development = true];
+  FEATURE_PIPE_TEE = 131;
 
   // Enables WITH pipe operator.
   FEATURE_PIPE_WITH = 135;
@@ -806,7 +832,7 @@ enum LanguageFeature {
   // external_source = "some_external_source")
   FEATURE_EXTERNAL_SCHEMA_DDL = 111;
 
-  // When an non-templated argument to a templated SQL function is a NULL or
+  // When a non-templated argument to a templated SQL function is a NULL or
   // empty array literal, it will be attached to the exact argument type in the
   // signature, if the feature is enabled. Otherwise, the NULL or empty array
   // argument will be passed as untyped.
@@ -860,17 +886,26 @@ enum LanguageFeature {
   FEATURE_TABLE_SYNTAX_RESOLVE_ARGUMENT_LAST = 127
       [(language_feature_options).ideally_enabled = false];
 
-  // Forces the use of the Flex lexer, even if the flag `use_textmapper_lexer`
-  // is true.
-  // TODO: b/322871843: Deprecate this feature once the migration is complete.
-  FEATURE_FORCE_FLEX_LEXER = 132
-      [(language_feature_options).ideally_enabled = false];
-
   // Disable validation that builtin rewriters refer only to builtin Catalog
   // objects.
   // See (broken link).
   FEATURE_DISABLE_VALIDATE_REWRITERS_REFER_TO_BUILTINS = 134
       [(language_feature_options).ideally_enabled = false];
+
+  // This enables pipe operator suffixes on most statements that could
+  // potentially return tables, including auxiliary statements where the
+  // output is not defined by ZetaSQL.
+  //
+  // The statements are parsed as ASTStatementWithPipeOperators and partially
+  // resolved in ResolvedStatementWithPipeOperators.  The engine running the
+  // statements must check if the initial statement produced an output table,
+  // and then analyze and run the pipe operator suffix against that table.
+  // See (broken link).
+  FEATURE_STATEMENT_WITH_PIPE_OPERATORS = 145 [
+    // This isn't enabled by default because it only works in engines
+    // (or script interpreters) that handle ResolvedStatementWithPipeOperators.
+    (language_feature_options).ideally_enabled = false
+  ];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -1528,6 +1563,14 @@ enum LanguageFeature {
       [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_SQL_GRAPH_CALL = 14100 [deprecated = true];
 
+  // REQUIRES: SQL_GRAPH feature to be enabled.
+  // Enables the column propagation mode for graph set operation.
+  // See (broken link):gql-full-union for more details.
+  FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE = 14120 [
+    (language_feature_options).language_version = VERSION_1_4,
+    (language_feature_options).in_development = true
+  ];
+
   // Enable support for remote models (e.g. CREATE MODEL ... REMOTE ...)
   // (broken link)
   FEATURE_REMOTE_MODEL = 14009
@@ -1886,10 +1929,8 @@ enum LanguageFeature {
   FEATURE_V_1_4_MULTILEVEL_AGGREGATION = 14058 [deprecated = true];
 
   // Enables individual filtering clauses for aggregate functions.
-  FEATURE_AGGREGATE_FILTERING = 14073 [
-    (language_feature_options).language_version = VERSION_1_4,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_AGGREGATE_FILTERING = 14073
+      [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_AGGREGATE_FILTERING = 14073 [deprecated = true];
 
   // Allow multiple fields of a oneof in REPLACE_FIELDS.
@@ -1932,10 +1973,8 @@ enum LanguageFeature {
       [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_MATCH_RECOGNIZE = 14068 [deprecated = true];
 
-  FEATURE_INSERT_ON_CONFLICT_CLAUSE = 14071 [
-    (language_feature_options).language_version = VERSION_1_4,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_INSERT_ON_CONFLICT_CLAUSE = 14071
+      [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_INSERT_ON_CONFLICT_CLAUSE = 14071 [deprecated = true];
 
   // Enables the following bitwise aggregate function signatures:
@@ -1981,8 +2020,7 @@ enum LanguageFeature {
   FEATURE_V_1_4_VIEWS_IN_MODULES = 14081 [deprecated = true];
 
   // Enables GROUP BY clause directly on a UDA function call.
-  FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS = 143
-      [(language_feature_options).in_development = true];
+  FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS = 143;
 
   // Enables additional signatures for the FROM_PROTO function to convert from a
   // Duration proto to a ZetaSQL Interval.
@@ -1991,7 +2029,7 @@ enum LanguageFeature {
       [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_FROM_AND_TO_PROTO_INTERVAL = 14083 [deprecated = true];
 
-  // Enables a simplified rewite of PIVOT that produces smaller resolved ASTs
+  // Enables a simplified rewrite of PIVOT that produces smaller resolved ASTs
   // without many subqueries.
   // TODO: Remove this flag and always generate simplified PIVOT
   // rewrite.
@@ -2029,10 +2067,8 @@ enum LanguageFeature {
   // Enables precision on the TIMESTAMP type, for example:
   //  CAST(col AS TIMESTAMP(3))
   // See (broken link).
-  FEATURE_TIMESTAMP_PRECISION = 14093 [
-    (language_feature_options).language_version = VERSION_1_4,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_TIMESTAMP_PRECISION = 14093
+      [(language_feature_options).language_version = VERSION_1_4];
   FEATURE_V_1_4_TIMESTAMP_PRECISION = 14093 [deprecated = true];
 
   FEATURE_TIMESTAMP_PRECISION_ANNOTATION = 14096 [
@@ -2129,6 +2165,26 @@ enum LanguageFeature {
   FEATURE_MATCH_MAKE_STRUCT_IN_GROUP_BY = 14116
       [(language_feature_options).language_version = VERSION_1_4];
 
+  // Enables the correct behavior where ARRAY constructor with an explicit type
+  // is supposed to enforce the target annotations, and not leak from its
+  // inputs.
+  FEATURE_ARRAY_CONSTRUCTOR_EXPLICIT_TYPE_ENFORCE_TARGET_ANNOTATIONS = 14117
+      [(language_feature_options).language_version = VERSION_1_4];
+
+  // Enables lateral column references to SELECT list columns in subsequent
+  // SELECT expressions, or in the WHERE clause.
+  FEATURE_LATERAL_COLUMN_REFERENCES = 14118 [
+    (language_feature_options).in_development = true,
+    (language_feature_options).ideally_enabled = false
+  ];
+
+  // Enable ROW type. See (broken link).
+  // This is experimental and not ready to use yet.
+  FEATURE_ROW_TYPE = 14119 [
+    (language_feature_options).language_version = VERSION_1_4,
+    (language_feature_options).in_development = true
+  ];
+
   // EXPERIMENTAL FEATURES -
   //    Do not add features in this section. Use the in_development annotation
   //    instead.
@@ -2172,7 +2228,7 @@ message ResolvedASTRewriteOptions {
 // We support these rewrites to allow syntactic improvements which generate new
 // node types to be quickly and easily available to engines without needing each
 // engine to implement support for the new node types.
-// Next ID: 39
+// Next ID: 40
 enum ResolvedASTRewrite {
   reserved 13, 15, 21;
 
@@ -2270,11 +2326,11 @@ enum ResolvedASTRewrite {
   // SAFE. mode calls are handled inside this rewriter, authors of the SQL
   // logic do not need to accommodate that.
   //
-  // NULL saturation (when an NULL argument causes the function result to be
+  // NULL saturation (when a NULL argument causes the function result to be
   // NULL) is *NOT* handled by the rewriter, so the SQL logic does need to
   // accommodate that.
-  // TODO: Declaratively configure NULL stauration behavior through
-  //     options to redunce the complexity of the SQL function implementations.
+  // TODO: Declaratively configure NULL saturation behavior through
+  //     options to reduce the complexity of the SQL function implementations.
   //
   // Function arguments are referenced by the name supplied to the function
   // signature in `FunctionArgumentTypeOptions`.
@@ -2402,6 +2458,10 @@ enum ResolvedASTRewrite {
   ];
 
   REWRITE_PIPE_DESCRIBE = 38 [(rewrite_options).default_enabled = true];
+
+  // Rewrite ResolvedSubpipelineStmt into ResolvedGeneralizedQueryStmt.
+  // Further rewrites will convert that to other simpler statement types.
+  REWRITE_SUBPIPELINE_STMT = 39 [(rewrite_options).default_enabled = true];
 
   // These are not real rewriters. They are just for unit testing.
   REWRITE_TEST_DEFAULT_DISABLED = 999991

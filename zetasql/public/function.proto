@@ -295,6 +295,7 @@ message FunctionEnums {
     FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF = 2;
     TEMPLATED_SQL_TVF = 3;
     FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS = 7;
+    BASIS_TVF = 8;
   }
 
   // This is an enumeration for how a function argument's collation should

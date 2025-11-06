@@ -55,6 +55,12 @@ absl::Status ExecuteQueryStreamProtobufWriter::log(absl::string_view message) {
   return absl::OkStatus();
 }
 
+void ExecuteQueryStreamProtobufWriter::FlushStatement(bool at_end,
+                                                      std::string error_msg) {
+  // TODO: Handle error messages for real. This is a no-op for now
+  // only to support some output for output_mode=textproto or json
+}
+
 absl::Status ExecuteQueryStreamProtobufWriter::executed(
     const ResolvedNode& ast, std::unique_ptr<EvaluatorTableIterator> iter) {
   // Use a new pool every time to not retain the generated proto descriptors

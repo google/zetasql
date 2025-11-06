@@ -45,15 +45,19 @@ struct ArrayGenTrait {
   static T ExtractStep(TStep in) { return in; }
   static absl::Status GenerateNextValue(T start, T cur, TStep step,
                                         size_t num_elements, T* out) {
-    // In the case of doubles we don't want to use the previous element,
-    // as it might accumulate more error.
-    // It will use: start + (num_elements*step)
     absl::Status status;
-    zetasql::functions::Multiply<T>(num_elements, step, out, &status);
-    if (!status.ok()) {
-      return status;
+    if constexpr (std::is_integral_v<TStep>) {
+      zetasql::functions::Add(cur, step, out, &status);
+    } else {
+      // In the case of doubles we don't want to use the previous element,
+      // as it might accumulate more error.
+      // It will use: start + (num_elements*step)
+      zetasql::functions::Multiply<T>(num_elements, step, out, &status);
+      if (!status.ok()) {
+        return status;
+      }
+      zetasql::functions::Add(start, *out, out, &status);
     }
-    zetasql::functions::Add(start, *out, out, &status);
     return status;
   }
 };

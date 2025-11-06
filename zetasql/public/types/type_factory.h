@@ -37,6 +37,7 @@
 #include "zetasql/public/types/graph_path_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
+#include "zetasql/public/types/row_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -58,6 +59,7 @@
 #include "google/protobuf/descriptor.h"
 
 namespace zetasql {
+class Column;
 class TypeFactory;
 }  // namespace zetasql
 
@@ -66,6 +68,7 @@ ABSL_DECLARE_FLAG(int32_t, zetasql_type_factory_nesting_depth_limit);
 namespace zetasql {
 
 class ValueTest;
+class Table;
 
 struct TypeFactoryOptions {
   // If this option is enabled, types allocated by a TypeFactory will not be
@@ -196,6 +199,30 @@ class TypeFactory : public TypeFactoryBase {
       std::vector<StructType::StructField> fields, const StructType** result);
   absl::Status MakeStructTypeFromVector(
       std::vector<StructType::StructField> fields, const Type** result);
+
+  // Make a ROW<Table> type (for a non-join RowType).
+  // The `table` must outlive this TypeFactory.
+  // `table->FullName()` must be passed as the second argument.
+  // This avoids a circular dependency with the Catalog headers.
+  absl::Status MakeRowType(const Table* table, const std::string& table_name,
+                           const RowType** result);
+  absl::Status MakeRowType(const Table* table, const std::string& table_name,
+                           const Type** result);
+
+  // Make a ROW<Table> or MULTIROW<Table> for a join RowType.
+  // All bound column arguments must be non-empty.
+  absl::Status MakeRowType(const Table* table, const std::string& table_name,
+                           bool multi_row,
+                           std::vector<const Column*> bound_columns,
+                           const Table* bound_source_table,
+                           std::vector<const Column*> bound_source_columns,
+                           const RowType** result);
+  absl::Status MakeRowType(const Table* table, const std::string& table_name,
+                           bool multi_row,
+                           std::vector<const Column*> bound_columns,
+                           const Table* bound_source_table,
+                           std::vector<const Column*> bound_source_columns,
+                           const Type** result);
 
   // Make a proto type.
   // The <descriptor> must outlive this TypeFactory.
@@ -411,7 +438,7 @@ class TypeFactory : public TypeFactoryBase {
   ABSL_DEPRECATED(
       "Use TypeDeserializer calling "
       "DeserializeFromSelfContainedProtoWithDistinctFiles to populate "
-      "DesciptorPools and Deserialize for type deserialization")
+      "DescriptorPools and Deserialize for type deserialization")
   absl::Status DeserializeFromSelfContainedProtoWithDistinctFiles(
       const TypeProto& type_proto,
       const std::vector<google::protobuf::DescriptorPool*>& pools, const Type** type);

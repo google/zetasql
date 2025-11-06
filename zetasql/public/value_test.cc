@@ -26,7 +26,6 @@
 #include <limits>
 #include <memory>
 #include <string>
-#include <string_view>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -446,11 +445,11 @@ TEST_F(ValueTest, FloatNull) {
   EXPECT_EQ("NULL", value.DebugString());
   EXPECT_EQ("Float(NULL)", value.FullDebugString());
   EXPECT_EQ("NULL", value.GetSQLLiteral());
-  EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL());
+  EXPECT_EQ("CAST(NULL AS FLOAT32)", value.GetSQL());
   EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL(PRODUCT_INTERNAL));
   EXPECT_EQ("CAST(NULL AS FLOAT)",
             value.GetSQL(PRODUCT_INTERNAL, /*use_external_float32=*/true));
-  EXPECT_EQ("CAST(NULL AS FLOAT)", value.GetSQL(PRODUCT_EXTERNAL));
+  EXPECT_EQ("CAST(NULL AS FLOAT32)", value.GetSQL(PRODUCT_EXTERNAL));
   EXPECT_EQ("CAST(NULL AS FLOAT32)",
             value.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
 }
@@ -477,7 +476,7 @@ TEST_F(ValueTest, FloatFormatting) {
   EXPECT_EQ(Value::Float(123.456).Format(/*print_top_level_type=*/false),
             "123.456");
   EXPECT_EQ(Value::Float(123.456).GetSQLLiteral(), "123.456");
-  EXPECT_EQ(Value::Float(123.456).GetSQL(), "CAST(123.456 AS FLOAT)");
+  EXPECT_EQ(Value::Float(123.456).GetSQL(), "CAST(123.456 AS FLOAT32)");
   EXPECT_EQ(Value::Float(123.456).GetSQL(PRODUCT_INTERNAL),
             "CAST(123.456 AS FLOAT)");
   EXPECT_EQ(Value::Float(123.456).GetSQL(PRODUCT_EXTERNAL,
@@ -1352,7 +1351,8 @@ TEST_F(ValueTest, HashCode) {
       Value::BigNumeric(BigNumericValue(int64_t{1001})),
       Value::BigNumeric(BigNumericValue(int64_t{1002})),
       Value::Json(JSONValue(int64_t{1})),
-      Value::UnvalidatedJsonString("\"value\""),
+      Value::UnvalidatedJsonString("value"),
+      Value::UnvalidatedJsonString("123"),
       TokenListFromToken("t1"),
       TokenListFromToken("t2"),
       // Enums of two different types.
@@ -1378,7 +1378,7 @@ TEST_F(ValueTest, HashCode) {
                          JSONValue(std::string("\"foo\"")),
                          JSONValue::ParseJSONString("{\"a\": 10}").value()}),
       values::UnvalidatedJsonStringArray({}),
-      values::UnvalidatedJsonStringArray({"1", "{\"a:\": \"foo\"}"}),
+      values::UnvalidatedJsonStringArray({"1", "{\"a:}", "foo"}),
 
       values::EmptyArray(array_enum_type),
       values::Array(array_enum_type, {values::Enum(enum_type, 0)}),
@@ -1469,6 +1469,32 @@ TEST_F(ValueTest, InvalidValue) {
   TestHashNotEqual(invalid, valid_null);
 }
 
+TEST_F(ValueTest, JsonValue) {
+  Value x_value = Value::Json(JSONValue(double{1.0}));
+  Value y_value = Value::Json(JSONValue(int64_t{1}));
+  EXPECT_TRUE(x_value.Equals(y_value));
+
+  // Invalid JSON values are not equal or less than to valid JSON values.
+  Value invalid_x_value = Value::UnvalidatedJsonString("invalid_x");
+  EXPECT_FALSE(invalid_x_value.Equals(x_value));
+  EXPECT_FALSE(x_value.Equals(invalid_x_value));
+  EXPECT_FALSE(invalid_x_value.LessThan(x_value));
+  EXPECT_FALSE(x_value.LessThan(invalid_x_value));
+
+  // Invalid JSON values are equal if they have the same raw string.
+  Value invalid_y_value = Value::UnvalidatedJsonString("invalid_y");
+  // Same as invalid_x_value.
+  Value invalid_x_value2 = Value::UnvalidatedJsonString("invalid_x");
+  EXPECT_FALSE(invalid_x_value.Equals(invalid_y_value));
+  EXPECT_FALSE(invalid_y_value.Equals(invalid_x_value));
+  EXPECT_TRUE(invalid_x_value.Equals(invalid_x_value2));
+  EXPECT_TRUE(invalid_x_value2.Equals(invalid_x_value));
+
+  // Invalid JSON values are not less than each other.
+  EXPECT_FALSE(invalid_x_value.LessThan(invalid_y_value));
+  EXPECT_FALSE(invalid_y_value.LessThan(invalid_x_value));
+}
+
 TEST_F(ValueTest, ConstructorTyping) {
   EXPECT_TRUE(Int32Type()->Equals(Value::Int32(-42).type()));
   EXPECT_TRUE(
@@ -1528,14 +1554,14 @@ TEST_F(ValueTest, CopyConstructor) {
   EXPECT_EQ(3.1415f, v6.float_value());
   EXPECT_EQ(3.1415f, v6.ToDouble());
   EXPECT_EQ("3.1415", v6.DebugString());
-  EXPECT_EQ("CAST(3.1415 AS FLOAT)", v6.GetSQL());
+  EXPECT_EQ("CAST(3.1415 AS FLOAT32)", v6.GetSQL());
   EXPECT_EQ("3.1415", v6.GetSQLLiteral());
 
   Value v6b = TestGetSQL(Value::Float(3.0f));
   EXPECT_EQ(3.0f, v6b.float_value());
   EXPECT_EQ(3.0, v6b.ToDouble());
   EXPECT_EQ("3", v6b.DebugString());
-  EXPECT_EQ("CAST(3 AS FLOAT)", v6b.GetSQL());
+  EXPECT_EQ("CAST(3 AS FLOAT32)", v6b.GetSQL());
   EXPECT_EQ("3.0", v6b.GetSQLLiteral());
 
   Value v7 = TestGetSQL(Value::Double(2.7182818284590451));
@@ -2162,8 +2188,8 @@ TEST_F(ValueTest, FloatArray) {
       FloatArray({1.5, 2.5, std::numeric_limits<double>::quiet_NaN()}));
   EXPECT_EQ("[1.5, 2.5, nan]", v1.DebugString());
   EXPECT_EQ(
-      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
-      "CAST(\"nan\" AS FLOAT)]",
+      "ARRAY<FLOAT32>[CAST(1.5 AS FLOAT32), CAST(2.5 AS FLOAT32), "
+      "CAST(\"nan\" AS FLOAT32)]",
       v1.GetSQL());
   EXPECT_EQ(
       "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
@@ -2174,14 +2200,14 @@ TEST_F(ValueTest, FloatArray) {
       "CAST(\"nan\" AS FLOAT)]",
       v1.GetSQL(PRODUCT_INTERNAL, /*use_external_float32=*/true));
   EXPECT_EQ(
-      "ARRAY<FLOAT>[CAST(1.5 AS FLOAT), CAST(2.5 AS FLOAT), "
-      "CAST(\"nan\" AS FLOAT)]",
+      "ARRAY<FLOAT32>[CAST(1.5 AS FLOAT32), CAST(2.5 AS FLOAT32), "
+      "CAST(\"nan\" AS FLOAT32)]",
       v1.GetSQL(PRODUCT_EXTERNAL));
   EXPECT_EQ(
       "ARRAY<FLOAT32>[CAST(1.5 AS FLOAT32), CAST(2.5 AS FLOAT32), "
       "CAST(\"nan\" AS FLOAT32)]",
       v1.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
-  EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]", v1.GetSQLLiteral());
+  EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT32)]", v1.GetSQLLiteral());
   EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]",
             v1.GetSQLLiteral(PRODUCT_INTERNAL));
   EXPECT_EQ("[1.5, 2.5, CAST(\"nan\" AS FLOAT)]",
@@ -3307,6 +3333,7 @@ struct MapPrintingTestParam {
   std::string verbose_debug_string;
   std::string sql_string;
   std::string sql_literal_string;
+  std::vector<ProductMode> product_modes = {PRODUCT_INTERNAL, PRODUCT_EXTERNAL};
 };
 
 class MapPrintingTest : public ::testing::TestWithParam<MapPrintingTestParam> {
@@ -3321,10 +3348,11 @@ TEST_P(MapPrintingTest, MapPrinting) {
   EXPECT_EQ(map.Format(/*print_top_level_type=*/false), test_case.debug_string);
   EXPECT_EQ(map.Format(/*print_top_level_type=*/true),
             test_case.verbose_debug_string);
-  EXPECT_EQ(map.GetSQL(PRODUCT_INTERNAL), test_case.sql_string);
-  EXPECT_EQ(map.GetSQL(PRODUCT_EXTERNAL), test_case.sql_string);
-  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_INTERNAL), test_case.sql_literal_string);
-  EXPECT_EQ(map.GetSQLLiteral(PRODUCT_EXTERNAL), test_case.sql_literal_string);
+
+  for (ProductMode product_mode : test_case.product_modes) {
+    EXPECT_EQ(map.GetSQL(product_mode), test_case.sql_string);
+    EXPECT_EQ(map.GetSQLLiteral(product_mode), test_case.sql_literal_string);
+  }
 
   TestGetSQL(map);
 }
@@ -3352,6 +3380,21 @@ INSTANTIATE_TEST_SUITE_P(
                 R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, INT64>>[(CAST(NULL AS FLOAT), 2), (CAST("nan" AS FLOAT), CAST(NULL AS INT64))]))",
             .sql_literal_string =
                 R"(MAP_FROM_ARRAY([(NULL, 2), (CAST("nan" AS FLOAT), NULL)]))",
+            .product_modes = {PRODUCT_INTERNAL},
+        },
+        {
+            .value = test_values::Map(
+                {{Value::NullFloat(), Value::Int64(2)},
+                 {Value::Float(std::numeric_limits<float>::quiet_NaN()),
+                  Value::NullInt64()}}),
+            .debug_string = "{NULL: 2, nan: NULL}",
+            .verbose_debug_string =
+                "Map{Float(NULL): Int64(2), Float(nan): Int64(NULL)}",
+            .sql_string =
+                R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, INT64>>[(CAST(NULL AS FLOAT32), 2), (CAST("nan" AS FLOAT32), CAST(NULL AS INT64))]))",
+            .sql_literal_string =
+                R"(MAP_FROM_ARRAY([(NULL, 2), (CAST("nan" AS FLOAT32), NULL)]))",
+            .product_modes = {PRODUCT_EXTERNAL},
         },
         {
             .value = test_values::Map({
@@ -3422,7 +3465,7 @@ TEST(MapPrintingTest, InternalExternalProductModeDiffers) {
       R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, DOUBLE>>[(CAST(1.1 AS FLOAT), CAST(NULL AS DOUBLE)), (CAST(2.2 AS FLOAT), CAST("inf" AS DOUBLE))]))");
   EXPECT_EQ(
       map.GetSQL(PRODUCT_EXTERNAL),
-      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, FLOAT64>>[(CAST(1.1 AS FLOAT), CAST(NULL AS FLOAT64)), (CAST(2.2 AS FLOAT), CAST("inf" AS FLOAT64))]))");
+      R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, FLOAT64>>[(CAST(1.1 AS FLOAT32), CAST(NULL AS FLOAT64)), (CAST(2.2 AS FLOAT32), CAST("inf" AS FLOAT64))]))");
   EXPECT_EQ(
       map.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true),
       R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, FLOAT64>>[(CAST(1.1 AS FLOAT32), CAST(NULL AS FLOAT64)), (CAST(2.2 AS FLOAT32), CAST("inf" AS FLOAT64))]))");
@@ -3465,8 +3508,8 @@ TEST_F(ValueTest, NaN) {
   EXPECT_EQ("nan", double_nan.DebugString());
   EXPECT_EQ("Float(nan)", float_nan.FullDebugString());
   EXPECT_EQ("Double(nan)", double_nan.FullDebugString());
-  EXPECT_EQ("CAST(\"nan\" AS FLOAT)", float_nan.GetSQL());
-  EXPECT_EQ("CAST(\"nan\" AS FLOAT)", float_nan.GetSQL(PRODUCT_EXTERNAL));
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)", float_nan.GetSQL());
+  EXPECT_EQ("CAST(\"nan\" AS FLOAT32)", float_nan.GetSQL(PRODUCT_EXTERNAL));
   EXPECT_EQ("CAST(\"nan\" AS FLOAT32)",
             float_nan.GetSQL(PRODUCT_EXTERNAL, /*use_external_float32=*/true));
   EXPECT_EQ("CAST(\"nan\" AS FLOAT64)", double_nan.GetSQL(PRODUCT_EXTERNAL));
@@ -5442,23 +5485,27 @@ TEST_F(ValueTest, PhysicalByteSize) {
   const std::string kDefinitionName = "ElementTable";
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value node =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value node,
       GraphNode({"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
-                {kLabel}, kDefinitionName);
-  EXPECT_EQ(node.physical_byte_size(),
-            absl::c_accumulate(
-                node.property_values(),
-                sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
-                    sizeof(Value::GraphElementValue) +
-                    sizeof(Value::TypedList) + node.GetIdentifier().length() +
-                    kLabel.length() + kDefinitionName.length(),
-                [](int size, const auto& property) {
-                  return size + property.physical_byte_size();
-                }));
+                {kLabel}, kDefinitionName));
+  EXPECT_EQ(
+      node.physical_byte_size(),
+      absl::c_accumulate(
+          node.property_values(),
+          sizeof(Value) + sizeof(internal::ValueContentOrderedListRef) +
+              sizeof(Value::GraphElementValue) + sizeof(Value::TypedList) +
+              node.GetIdentifier().length() + kLabel.length() +
+              kDefinitionName.length()
+          ,
+          [](int size, const auto& property) {
+            return size + property.physical_byte_size();
+          }));
 
-  const Value edge =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      Value edge,
       GraphEdge({"graph_nanme"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
-                {kLabel}, kDefinitionName, "src_node_id", "dst_node_id");
+                {kLabel}, kDefinitionName, "src_node_id", "dst_node_id"));
   EXPECT_EQ(edge.physical_byte_size(),
             absl::c_accumulate(
                 edge.property_values(),
@@ -5467,7 +5514,8 @@ TEST_F(ValueTest, PhysicalByteSize) {
                     sizeof(Value::TypedList) + edge.GetIdentifier().length() +
                     edge.GetSourceNodeIdentifier().length() +
                     edge.GetDestNodeIdentifier().length() + kLabel.length() +
-                    kDefinitionName.length(),
+                    kDefinitionName.length()
+                ,
                 [](int size, const auto& property) {
                   return size + property.physical_byte_size();
                 }));
@@ -5619,13 +5667,13 @@ TEST_F(ValueTest, Serialize) {
   SerializeDeserialize(Value::Json(JSONValue()));
   SerializeDeserialize(Value::Json(JSONValue(int64_t{1})));
   SerializeDeserialize(Value::Json(JSONValue(int64_t{-1})));
-  SerializeDeserialize(Value::UnvalidatedJsonString("\"value\""));
+  SerializeDeserialize(Value::UnvalidatedJsonString("value"));
 
   SerializeDeserialize(EmptyArray(types::JsonArrayType()));
   SerializeDeserialize(
       Array({Value::NullJson(), Value::Json(JSONValue(int64_t{-1})),
              Value::Json(JSONValue(int64_t{1})),
-             Value::UnvalidatedJsonString("{\"key\": true}")}));
+             Value::UnvalidatedJsonString("value")}));
 
   SerializeDeserialize(NullString());
   SerializeDeserialize(String("Hello, world!"));

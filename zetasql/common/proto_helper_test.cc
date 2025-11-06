@@ -45,7 +45,7 @@ using ::zetasql_base::testing::StatusIs;
 class MultiFileErrorCollector
     : public google::protobuf::compiler::MultiFileErrorCollector {
  public:
-  MultiFileErrorCollector() {}
+  MultiFileErrorCollector() = default;
   MultiFileErrorCollector(const MultiFileErrorCollector&) = delete;
   MultiFileErrorCollector& operator=(const MultiFileErrorCollector&) = delete;
   void RecordError(absl::string_view filename, int line, int column,

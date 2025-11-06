@@ -10,7 +10,7 @@
 # workaround this by disabling java support for now. This should be removed
 # once the serialization/deserialization is implemented.
 [default no_java]
-[default language_features=MAXIMUM,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT]
+[default language_features=MAXIMUM,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT,+AGGREGATE_FILTERING]
 [default enabled_ast_rewrites=DEFAULTS,+MEASURE_TYPE]
 [default no_run_sqlbuilder]
 [default no_java]
@@ -443,7 +443,7 @@ SELECT AGG(measure_sum_quantity HAVING MAX key) FROM MeasureTable_SingleKey;
 
 SELECT AGG(measure_sum_quantity GROUP BY key) FROM MeasureTable_SingleKey;
 --
-ERROR: AGG Function  does not support GROUP BY modifiers [at 1:8]
+ERROR: AGG Function does not support GROUP BY modifiers [at 1:8]
 SELECT AGG(measure_sum_quantity GROUP BY key) FROM MeasureTable_SingleKey;
        ^
 ==
@@ -531,6 +531,7 @@ SELECT AGG(measure_count_star) FROM MeasureTable_NoRowIdentity;
 ==
 
 # Measure table row identity columns must be groupable.
+[language_features=MAXIMUM,+AGGREGATE_FILTERING,-JSON_TYPE_COMPARISON]
 SELECT AGG(measure_count_star) FROM MeasureTable_NonGroupableRowIdentity;
 --
 ERROR: Table MeasureTable_NonGroupableRowIdentity has row identity column json_col with type JSON which is not groupable. [at 1:37]
@@ -538,6 +539,9 @@ SELECT AGG(measure_count_star) FROM MeasureTable_NonGroupableRowIdentity;
                                     ^
 ==
 
+[language_features=MAXIMUM,-AGGREGATE_FILTERING]
+# Measures cannot propagate through OUTER JOINs when aggregate filtering is not
+# enabled.
 SELECT 1
 FROM (
   SELECT
@@ -548,23 +552,66 @@ FROM (
 --
 ALTERNATION GROUP: LEFT
 --
-ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through LEFT JOIN [at 6:3]
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through LEFT JOIN [at 8:3]
   LEFT JOIN MeasureTable_SingleKey AS T2 USING (key)
   ^
 --
 ALTERNATION GROUP: RIGHT
 --
-ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through RIGHT JOIN [at 6:3]
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through RIGHT JOIN [at 8:3]
   RIGHT JOIN MeasureTable_SingleKey AS T2 USING (key)
   ^
 --
 ALTERNATION GROUP: FULL
 --
-ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through FULL JOIN [at 6:3]
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through FULL JOIN [at 8:3]
   FULL JOIN MeasureTable_SingleKey AS T2 USING (key)
   ^
 ==
 
+[language_features=MAXIMUM,-AGGREGATE_FILTERING]
+# Measures cannot propagate through an OUTER JOIN against an ArrayScan when
+# aggregate filtering is not enabled.
+SELECT 1
+FROM (
+  SELECT
+    T1.measure_sum_quantity,
+  FROM MeasureTable_SingleKey AS T1
+  LEFT JOIN UNNEST([1]) AS T2
+)
+--
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through LEFT JOIN [at 8:13]
+  LEFT JOIN UNNEST([1]) AS T2
+            ^
+==
+
+[language_features=MAXIMUM,-AGGREGATE_FILTERING]
+# Measures cannot propagate through an OUTER JOIN against an ArrayScan when
+# aggregate filtering is not enabled.
+SELECT 1
+FROM (
+  SELECT
+    T1.measure_sum_quantity,
+  FROM MeasureTable_SingleKey AS T1
+  {{RIGHT|FULL}} JOIN UNNEST([1]) AS T2 ON (true)
+)
+--
+ALTERNATION GROUP: RIGHT
+--
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through RIGHT JOIN [at 8:3]
+  RIGHT JOIN UNNEST([1]) AS T2 ON (true)
+  ^
+--
+ALTERNATION GROUP: FULL
+--
+ERROR: Column measure_count_star of type MEASURE<INT64> cannot propagate through FULL JOIN [at 8:3]
+  FULL JOIN UNNEST([1]) AS T2 ON (true)
+  ^
+==
+
+# Measures cannot propagate through OUTER JOINs when aggregate filtering is not
+# enabled.
+[language_features=MAXIMUM,-AGGREGATE_FILTERING]
 WITH T1 AS (SELECT (SELECT measure_sum_quantity FROM MeasureTable_SingleKey LIMIT 1)),
      T2 AS (SELECT (SELECT measure_sum_quantity FROM MeasureTable_SingleKey LIMIT 1))
 SELECT 1
@@ -854,11 +901,13 @@ ERROR: Pseudo-column measure_count_star of type MEASURE<INT64> cannot propagate 
 ^
 ==
 
-# Measure pseudo columns cannot propagate past LEFT/RIGHT/FULL JOINs
+# Measure pseudo columns cannot propagate past OUTER JOINs when aggregate
+# filtering is not enabled.
+[language_features=MAXIMUM,-AGGREGATE_FILTERING]
 SELECT 1
 FROM (
   SELECT
-    T1.measure_sum_quantity,
+    T1.measure_count_star,
   FROM MeasureTable_WithPseudoColumns AS T1
   {{LEFT|RIGHT|FULL}} JOIN MeasureTable_SingleKey AS T2 USING (key)
 )
@@ -1194,3 +1243,49 @@ QueryStmt
 
 
 Rewrite ERROR: generic::unimplemented: Measure type rewriter does not support LATERAL joins that emit measure columns
+==
+
+# Without FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS, measures with UDA are not supported.
+[language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT]
+[no_expect_error_location]
+SELECT
+  key,
+  AGG(measure_uda_sum_price)
+FROM MeasureTable_WithUdas GROUP BY key;
+--
+ERROR: Measure expression for column measure_uda_sum_price must not reference UDA; found: SumOfAggregateArgs
+==
+
+# The SQL Function inliner cannot inline UDAs with GROUP BY modifiers.
+# If an expanded measure references a UDA, then the corresponding rewritten
+# ResolvedAST will contain a UDA with a GROUP BY modifier,
+# which the SQL Function inliner will fail to inline
+[language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT,+MULTILEVEL_AGGREGATION_ON_UDAS]
+[enabled_ast_rewrites=ALL,-WITH_EXPR]
+SELECT
+  key,
+  AGG(measure_uda_sum_price)
+FROM MeasureTable_WithUdas GROUP BY key;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.key#9 AS key [INT64]
+| +-$aggregate.$agg1#8 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#9, $aggregate.$agg1#8]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.key#9, $aggregate.$agg1#8]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_WithUdas.[key#1, measure_uda_sum_price#5], table=MeasureTable_WithUdas, column_index_list=[0, 4])
+        +-group_by_list=
+        | +-key#9 := ColumnRef(type=INT64, column=MeasureTable_WithUdas.key#1)
+        +-aggregate_list=
+          +-$agg1#8 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_WithUdas.measure_uda_sum_price#5)
+
+
+Rewrite ERROR: SQL function inliner cannot inline aggregate function Lazy_resolution_function:SumOfAggregateArgs with GROUP BY modifier

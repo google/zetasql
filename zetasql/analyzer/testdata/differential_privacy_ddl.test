@@ -1,4 +1,4 @@
-[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS,+TEMPLATE_FUNCTIONS,+CREATE_TABLE_FUNCTION]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 
 CREATE MODEL foo_model AS
@@ -213,7 +213,7 @@ CREATE TABLE FUNCTION foo_tvf(table_arg table<a int64>) AS
 SELECT WITH DIFFERENTIAL_PRIVACY count(*) AS count
 FROM table_arg;
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH DIFFERENTIAL_PRIVACY from clause: ResolvedRelationArgumentScan [at 3:6]
+Rewrite ERROR: Unsupported scan type inside of DIFFERENTIAL_PRIVACY clause: ResolvedRelationArgumentScan [at 3:6]
 FROM table_arg;
      ^
 --
@@ -348,7 +348,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=(e), delta=(d))
     count(*) AS count
 FROM table_arg
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH DIFFERENTIAL_PRIVACY from clause: ResolvedRelationArgumentScan [at 5:6]
+Rewrite ERROR: Unsupported scan type inside of DIFFERENTIAL_PRIVACY clause: ResolvedRelationArgumentScan [at 5:6]
 FROM table_arg
      ^
 --
@@ -437,7 +437,7 @@ SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS(epsilon=(e), delta=(d))
     count(*) AS count
 FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH DIFFERENTIAL_PRIVACY from clause: ResolvedRelationArgumentScan [at 5:6]
+Rewrite ERROR: Unsupported scan type inside of DIFFERENTIAL_PRIVACY clause: ResolvedRelationArgumentScan [at 5:6]
 FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
      ^
 --

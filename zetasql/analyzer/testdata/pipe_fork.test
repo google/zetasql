@@ -1916,3 +1916,72 @@ MultiStmt
               +-OutputSchema
                 +-output_column_list=
                   +-KeyValue.Value#2 AS value [STRING]
+==
+
+# A hint on the generalized statement propagates to the ResolvedMultiStmt.
+@{hint=1}
+FROM KeyValue
+|> FORK (|> SELECT value),
+        (|> SELECT key)
+--
+GeneralizedQueryStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-query=
+  +-PipeForkScan
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-subpipeline_list=
+      +-GeneralizedQuerySubpipeline
+      | +-subpipeline=
+      | | +-Subpipeline
+      | |   +-scan=
+      | |     +-ProjectScan
+      | |       +-column_list=[KeyValue.Value#2]
+      | |       +-input_scan=
+      | |         +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
+      | +-output_schema=
+      |   +-OutputSchema
+      |     +-output_column_list=
+      |       +-KeyValue.Value#2 AS value [STRING]
+      +-GeneralizedQuerySubpipeline
+        +-subpipeline=
+        | +-Subpipeline
+        |   +-scan=
+        |     +-ProjectScan
+        |       +-column_list=[KeyValue.Key#1]
+        |       +-input_scan=
+        |         +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
+        +-output_schema=
+          +-OutputSchema
+            +-output_column_list=
+              +-KeyValue.Key#1 AS key [INT64]
+
+
+[REWRITTEN AST]
+MultiStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-statement_list=
+  +-CreateWithEntryStmt
+  | +-with_entry=
+  |   +-WithEntry
+  |     +-with_query_name="$fork_cte_1"
+  |     +-with_subquery=
+  |       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+  +-QueryStmt
+  | +-output_column_list=
+  | | +-KeyValue.Value#2 AS value [STRING]
+  | +-query=
+  |   +-ProjectScan
+  |     +-column_list=[KeyValue.Value#2]
+  |     +-input_scan=
+  |       +-WithRefScan(column_list=KeyValue.[Key#1, Value#2], with_query_name="$fork_cte_1")
+  +-QueryStmt
+    +-output_column_list=
+    | +-KeyValue.Key#1 AS key [INT64]
+    +-query=
+      +-ProjectScan
+        +-column_list=[KeyValue.Key#1]
+        +-input_scan=
+          +-WithRefScan(column_list=KeyValue.[Key#1, Value#2], with_query_name="$fork_cte_1")

@@ -387,6 +387,23 @@ absl::StatusOr<IntervalValue> IntervalValue::DeserializeFromBytes(
   return interval;
 }
 
+absl::int128 IntervalValue::SerializeAsInt128() {
+  return absl::MakeInt128(micros_,
+                          (static_cast<uint64_t>(days_) << 32) | months_nanos_);
+}
+
+absl::StatusOr<IntervalValue> IntervalValue::DeserializeFromInt128(
+    absl::int128 value) {
+  IntervalValue interval;
+  interval.micros_ = absl::Int128High64(value);
+  interval.days_ = static_cast<int32_t>(absl::Int128Low64(value) >> 32);
+  interval.months_nanos_ = static_cast<uint32_t>(absl::Int128Low64(value));
+  ZETASQL_RETURN_IF_ERROR(ValidateMonths(interval.get_months()));
+  ZETASQL_RETURN_IF_ERROR(ValidateDays(interval.get_days()));
+  ZETASQL_RETURN_IF_ERROR(ValidateNanos(interval.get_nanos()));
+  return interval;
+}
+
 void IntervalValue::AppendToString(std::string* output) const {
   // Interval conversion to string always uses fully expanded form:
   // [<sign>]x-x [<sign>]x [<sign>]x:x:x[.ddd[ddd[ddd]]]

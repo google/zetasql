@@ -287,52 +287,183 @@ TEST(ConversionTest, ConversionMatchTest) {
   }
 }
 
+TEST(StructCastErrorTest, FieldSpecificError) {
+  const StructType* from_struct_type;
+  ZETASQL_ASSERT_OK(type_factory->MakeStructType(
+      {{"a", type_factory->get_string()}, {"b", type_factory->get_string()}},
+      &from_struct_type));
+  const Value from_value = Value::Struct(
+      from_struct_type, {Value::String("foo"), Value::String("bar")});
+
+  const StructType* to_struct_type;
+  ZETASQL_ASSERT_OK(type_factory->MakeStructType(
+      {{"a", type_factory->get_string()}, {"b", type_factory->get_int64()}},
+      &to_struct_type));
+
+  EXPECT_THAT(
+      CastValue(from_value, absl::UTCTimeZone(), LanguageOptions(),
+                to_struct_type),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr(
+                   "Error casting field 'b' in STRUCT: Bad int64 value: bar")));
+
+  const StructType* from_anon_struct_type;
+  ZETASQL_ASSERT_OK(type_factory->MakeStructType(
+      {StructType::StructField("", type_factory->get_string()),
+       StructType::StructField("", type_factory->get_string())},
+      &from_anon_struct_type));
+  const Value from_anon_value = Value::Struct(
+      from_anon_struct_type, {Value::String("foo"), Value::String("bar")});
+
+  const StructType* to_anon_struct_type;
+  ZETASQL_ASSERT_OK(type_factory->MakeStructType(
+      {StructType::StructField("", type_factory->get_string()),
+       StructType::StructField("", type_factory->get_int64())},
+      &to_anon_struct_type));
+
+  EXPECT_THAT(CastValue(from_anon_value, absl::UTCTimeZone(), LanguageOptions(),
+                        to_anon_struct_type),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Error casting field at index 1 in STRUCT: "
+                                 "Bad int64 value: bar")));
+}
+
+TEST(ArrayCastTest, StringToInt64) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_CAST_DIFFERENT_ARRAY_TYPES);
+
+  const ArrayType* from_type;
+  ZETASQL_ASSERT_OK(
+      type_factory->MakeArrayType(type_factory->get_string(), &from_type));
+  const Value from_value = Value::Array(
+      from_type, {Value::String("2"), Value::String("3"), Value::String("4")});
+
+  const ArrayType* to_type;
+  ZETASQL_ASSERT_OK(type_factory->MakeArrayType(type_factory->get_int64(), &to_type));
+
+  const Value expected_value = Value::Array(
+      to_type, {Value::Int64(2), Value::Int64(3), Value::Int64(4)});
+
+  EXPECT_THAT(
+      CastValue(from_value, absl::UTCTimeZone(), language_options, to_type),
+      IsOkAndHolds(expected_value));
+
+  const Value from_value_invalid = Value::Array(
+      from_type,
+      {Value::String("2"), Value::String("bad_val"), Value::String("4")});
+
+  EXPECT_THAT(CastValue(from_value_invalid, absl::UTCTimeZone(),
+                        language_options, to_type),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Error casting element at index 1 in ARRAY: "
+                                 "Bad int64 value: bad_val")));
+}
+
+TEST(MapCastErrorTest, KeyValueSpecificError) {
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_MAP_TYPE);
+
+  const Type* from_map_type;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      from_map_type,
+      type_factory->MakeMapType(type_factory->get_string(),
+                                type_factory->get_string(), language_options));
+
+  const Type* to_map_type;
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      to_map_type,
+      type_factory->MakeMapType(type_factory->get_int64(),
+                                type_factory->get_int64(), language_options));
+
+  // Error in key cast
+  const Value from_value_bad_key =
+      Value::MakeMap(from_map_type,
+                     {{Value::String("1"), Value::String("10")},
+                      {Value::String("bad_key"), Value::String("20")},
+                      {Value::String("3"), Value::String("30")}})
+          .value();
+
+  EXPECT_THAT(CastValue(from_value_bad_key, absl::UTCTimeZone(),
+                        language_options, to_map_type),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Error casting key \"bad_key\" in MAP: Bad "
+                                 "int64 value: bad_key")));
+
+  // Error in value cast
+  const Value from_value_bad_value =
+      Value::MakeMap(from_map_type,
+                     {{Value::String("1"), Value::String("10")},
+                      {Value::String("2"), Value::String("bad_value")},
+                      {Value::String("3"), Value::String("30")}})
+          .value();
+
+  EXPECT_THAT(CastValue(from_value_bad_value, absl::UTCTimeZone(),
+                        language_options, to_map_type),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Error casting value for key \"2\" in MAP: "
+                                 "Bad int64 value: bad_value")));
+}
+
 TEST(GraphCastTests, GraphElementTypeTest) {
-  const Value graph_node_no_properties = GraphNode(
-      {"graph_name"}, "id1", {}, {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_node_no_properties,
+                       GraphNode({"graph_name"}, "id1", {}, {"label1"},
+                                 "ElementTable", type_factory));
 
-  const Value graph_node_no_properties_different_label = GraphNode(
-      {"graph_name"}, "id2", {}, {"label2"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_node_no_properties_different_label,
+                       GraphNode({"graph_name"}, "id2", {}, {"label2"},
+                                 "ElementTable", type_factory));
 
-  const Value graph_node_no_properties_different_name = GraphNode(
-      {"graph_name"}, "id1", {}, {"label1"}, "NewElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_node_no_properties_different_name,
+                       GraphNode({"graph_name"}, "id1", {}, {"label1"},
+                                 "NewElementTable", type_factory));
 
-  const Value graph_node_a_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_b,
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
-                {"label1"}, "ElementTable", type_factory);
+                {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_node_a_null_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_null_b,
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::NullString()}, {"b", Value::Int32(1)}},
-                {"label1"}, "ElementTable", type_factory);
+                {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_node_a_null_b_null =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_null_b_null,
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
-                {"label1"}, "ElementTable", type_factory);
-  const Value graph_node_a_null_b_null_id2 =
+                {"label1"}, "ElementTable", type_factory));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_null_b_null_id2,
       GraphNode({"graph_name"}, "id2",
                 {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
-                {"label1"}, "ElementTable", type_factory);
+                {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_node_a_int_b = GraphNode(
-      {"graph_name"}, "id1", {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}},
-      {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_int_b,
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}}, {"label1"},
+                "ElementTable", type_factory));
 
-  const Value graph_node_b_c = GraphNode(
-      {"graph_name"}, "id1", {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}},
-      {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_b_c,
+      GraphNode({"graph_name"}, "id1",
+                {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}}, {"label1"},
+                "ElementTable", type_factory));
 
-  const Value graph_edge_a_b = GraphEdge(
-      {"graph_name"}, "id1",
-      {{"a", Value::String("v0")}, {"b", Value::Int32(1)}}, {"label2"},
-      "ElementTable", "src_node_id", "dst_node_id", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_edge_a_b,
+      GraphEdge({"graph_name"}, "id1",
+                {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
+                {"label2"}, "ElementTable", "src_node_id", "dst_node_id",
+                type_factory));
 
-  const Value different_graph_node_a_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value different_graph_node_a_b,
       GraphNode({"new_graph_name"}, "id1",
                 {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
-                {"label3"}, "ElementTable", type_factory);
+                {"label3"}, "ElementTable", type_factory));
 
   EXPECT_THAT(CastValue(graph_node_no_properties, absl::UTCTimeZone(),
                         LanguageOptions(), graph_node_a_b.type()),
@@ -411,10 +542,13 @@ class GraphElementValueCastTest
                     std::vector<Value::Property> properties,
                     absl::Span<const std::string> labels,
                     std::string definition_name) {
-    return IsNode() ? GraphNode(graph_reference, identifier, properties, labels,
-                                definition_name)
-                    : GraphEdge(graph_reference, identifier, properties, labels,
-                                definition_name, "src_node_id", "dst_node_id");
+    auto value =
+        IsNode() ? GraphNode(graph_reference, identifier, properties, labels,
+                             definition_name)
+                 : GraphEdge(graph_reference, identifier, properties, labels,
+                             definition_name, "src_node_id", "dst_node_id");
+    ZETASQL_CHECK_OK(value);
+    return *value;
   }
 
   absl::StatusOr<Value> MakeDynamicElement(
@@ -642,51 +776,62 @@ TEST_P(GraphElementValueCastTest,
 
 TEST(GraphCastTests, GraphPathTypeTest) {
   using test_values::MakeGraphPathType;
-  const Value graph_node_no_properties = GraphNode(
-      {"graph_name"}, "id1", {}, {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_node_no_properties,
+                       GraphNode({"graph_name"}, "id1", {}, {"label1"},
+                                 "ElementTable", type_factory));
 
-  const Value graph_node_no_properties_different_label = GraphNode(
-      {"graph_name"}, "id2", {}, {"label2"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_node_no_properties_different_label,
+                       GraphNode({"graph_name"}, "id2", {}, {"label2"},
+                                 "ElementTable", type_factory));
 
-  const Value graph_node_a_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_b,
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
-                {"label1"}, "ElementTable", type_factory);
+                {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_node_a_null_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_null_b,
       GraphNode({"graph_name"}, "id1",
                 {{"a", Value::NullString()}, {"b", Value::Int32(1)}},
-                {"label1"}, "ElementTable", type_factory);
+                {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_node_a_int_b = GraphNode(
-      {"graph_name"}, "id1", {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}},
-      {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_a_int_b,
+      GraphNode({"graph_name"}, "id1",
+                {{"a", Value::Int32(10)}, {"b", Value::Int32(1)}}, {"label1"},
+                "ElementTable", type_factory));
 
-  const Value graph_node_b_c = GraphNode(
-      {"graph_name"}, "id1", {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}},
-      {"label1"}, "ElementTable", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_node_b_c,
+      GraphNode({"graph_name"}, "id1",
+                {{"b", Value::Int32(1)}, {"c", Value::Int32(1)}}, {"label1"},
+                "ElementTable", type_factory));
 
-  const Value different_graph_node_no_properties =
-      GraphNode({"different_graph_name"}, "id1", {}, {"label1"}, "ElementTable",
-                type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value different_graph_node_no_properties,
+                       GraphNode({"different_graph_name"}, "id1", {},
+                                 {"label1"}, "ElementTable", type_factory));
 
-  const Value graph_edge_no_properties =
-      GraphEdge({"graph_name"}, "id1", {}, {"label2"}, "ElementTable", "id1",
-                "id2", type_factory);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value graph_edge_no_properties,
+                       GraphEdge({"graph_name"}, "id1", {}, {"label2"},
+                                 "ElementTable", "id1", "id2", type_factory));
 
-  const Value graph_edge_a_b =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_edge_a_b,
       GraphEdge({"graph_name"}, "id1",
                 {{"a", Value::String("v0")}, {"b", Value::Int32(1)}},
-                {"label2"}, "ElementTable", "id1", "id2", type_factory);
+                {"label2"}, "ElementTable", "id1", "id2", type_factory));
 
-  const Value graph_edge_a_null_b_null =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value graph_edge_a_null_b_null,
       GraphEdge({"graph_name"}, "id1",
                 {{"a", Value::NullString()}, {"b", Value::NullInt32()}},
-                {"label2"}, "ElementTable", "id1", "id2", type_factory);
+                {"label2"}, "ElementTable", "id1", "id2", type_factory));
 
-  const Value different_graph_edge_no_properties =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value different_graph_edge_no_properties,
       GraphEdge({"different_graph_name"}, "id1", {}, {"label1"}, "ElementTable",
-                "id1", "id2", type_factory);
+                "id1", "id2", type_factory));
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       Value path_node_empty_edge_a_b,

@@ -44,6 +44,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "zetasql/base/source_location.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status.h"
@@ -374,13 +375,22 @@ absl::Status MergeValueToProtoField(const Value& value,
       if (IsMicrosInt64Format(field, field_format)) {
         ZETASQL_ASSIGN_OR_RETURN(functions::TimestampScale scale,
                          FormatToScale(field_format));
+        // Truncate any sub-micros from the timestamp value.
+        auto [seconds, picos] =
+            value.ToUnixPicos().ToPicoTime().SecondsAndPicoseconds();
+        ZETASQL_ASSIGN_OR_RETURN(PicoTime truncated_pico_time,
+                         PicoTime::Create(absl::FromUnixSeconds(seconds),
+                                          picos - (picos % 1000)));
+        int64_t truncated_timestamp =
+            absl::ToUnixMicros(truncated_pico_time.ToAbslTime());
+
         int64_t converted_timestamp;
-        if (!functions::ConvertBetweenTimestamps(value.ToUnixMicros(),
+        if (!functions::ConvertBetweenTimestamps(truncated_timestamp,
                                                  functions::kMicroseconds,
                                                  scale, &converted_timestamp)
                  .ok()) {
           return ::zetasql_base::OutOfRangeErrorBuilder().LogError()
-                 << "Cannot encode timestamp: " << value.ToUnixMicros()
+                 << "Cannot encode timestamp: " << truncated_timestamp
                  << " with format: " << FieldFormat::Format_Name(field_format);
         }
 

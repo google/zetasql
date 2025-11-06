@@ -1087,11 +1087,11 @@ Supports the `SAFE.` prefix.
 ```zetasql
 SELECT CBRT(27) AS cube_root;
 
-/*--------------------*
+/*--------------------+
  | cube_root          |
  +--------------------+
  | 3.0000000000000004 |
- *--------------------*/
+ +--------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -1365,11 +1365,11 @@ are used to compute the cosine distance:
 ```zetasql
 SELECT COSINE_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
-/*----------*
+/*----------+
  | results  |
  +----------+
  | 0.016130 |
- *----------*/
+ +----------*/
 ```
 
 In the following example, sparse vectors are used to compute the
@@ -1380,11 +1380,11 @@ SELECT COSINE_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
 
- /*----------*
+ /*----------+
   | results  |
   +----------+
   | 0.016130 |
-  *----------*/
+  +----------*/
 ```
 
 The ordering of numeric values in a vector doesn't impact the results
@@ -1404,11 +1404,11 @@ SELECT COSINE_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results;
 ```
 
 ```zetasql
- /*----------*
+ /*----------+
   | results  |
   +----------+
   | 0.016130 |
-  *----------*/
+  +----------*/
 ```
 
 In the following example, the function can't compute cosine distance against
@@ -1497,11 +1497,11 @@ Supports the `SAFE.` prefix.
 ```zetasql
 SELECT COT(1) AS a, SAFE.COT(0) AS b;
 
-/*---------------------+------*
+/*---------------------+------+
  | a                   | b    |
  +---------------------+------+
  | 0.64209261593433065 | NULL |
- *---------------------+------*/
+ +---------------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -1559,11 +1559,11 @@ Supports the `SAFE.` prefix.
 ```zetasql
 SELECT COTH(1) AS a, SAFE.COTH(0) AS b;
 
-/*----------------+------*
+/*----------------+------+
  | a              | b    |
  +----------------+------+
  | 1.313035285499 | NULL |
- *----------------+------*/
+ +----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -1621,11 +1621,11 @@ Supports the `SAFE.` prefix.
 ```zetasql
 SELECT CSC(100) AS a, CSC(-1) AS b, SAFE.CSC(0) AS c;
 
-/*----------------+-----------------+------*
+/*----------------+-----------------+------+
  | a              | b               | c    |
  +----------------+-----------------+------+
  | -1.97485753142 | -1.188395105778 | NULL |
- *----------------+-----------------+------*/
+ +----------------+-----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -1683,11 +1683,11 @@ Supports the `SAFE.` prefix.
 ```zetasql
 SELECT CSCH(0.5) AS a, CSCH(-2) AS b, SAFE.CSCH(0) AS c;
 
-/*----------------+----------------+------*
+/*----------------+----------------+------+
  | a              | b              | c    |
  +----------------+----------------+------+
  | 1.919034751334 | -0.27572056477 | NULL |
- *----------------+----------------+------*/
+ +----------------+----------------+------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -1924,11 +1924,11 @@ are used to compute the Euclidean distance:
 ```zetasql
 SELECT EUCLIDEAN_DISTANCE([1.0, 2.0], [3.0, 4.0]) AS results;
 
-/*----------*
+/*----------+
  | results  |
  +----------+
  | 2.828    |
- *----------*/
+ +----------*/
 ```
 
 In the following example, sparse vectors are used to compute the
@@ -1939,11 +1939,11 @@ SELECT EUCLIDEAN_DISTANCE(
  [(1, 1.0), (2, 2.0)],
  [(2, 4.0), (1, 3.0)]) AS results;
 
- /*----------*
+ /*----------+
   | results  |
   +----------+
   | 2.828    |
-  *----------*/
+  +----------*/
 ```
 
 The ordering of magnitudes in a vector doesn't impact the results
@@ -1963,11 +1963,11 @@ SELECT EUCLIDEAN_DISTANCE([(1, 1.0), (2, 2.0)], [(1, 3.0), (2, 4.0)]) AS results
 ```
 
 ```zetasql
- /*----------*
+ /*----------+
   | results  |
   +----------+
   | 2.828    |
-  *----------*/
+  +----------*/
 ```
 
 Both non-sparse vectors must have the same
@@ -2102,7 +2102,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return Data Types**
 
@@ -2278,7 +2278,7 @@ the supertype must support ordering.
 
 This function supports specifying [collation][collation].
 
-[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md#collate_about
+[collation]: https://github.com/google/zetasql/blob/master/docs/collation-concepts.md
 
 **Return Data Types**
 
@@ -2545,11 +2545,11 @@ value.
 ```zetasql
 SELECT PI() AS pi
 
-/*--------------------*
+/*--------------------+
  | pi                 |
  +--------------------+
  | 3.1415926535897931 |
- *--------------------*/
+ +--------------------*/
 ```
 
 ## `PI_BIGNUMERIC`
@@ -2571,11 +2571,11 @@ Returns the mathematical constant `π` as a `BIGNUMERIC` value.
 ```zetasql
 SELECT PI_BIGNUMERIC() AS pi
 
-/*-----------------------------------------*
+/*-----------------------------------------+
  | pi                                      |
  +-----------------------------------------+
  | 3.1415926535897932384626433832795028842 |
- *-----------------------------------------*/
+ +-----------------------------------------*/
 ```
 
 ## `PI_NUMERIC`
@@ -2597,11 +2597,11 @@ Returns the mathematical constant `π` as a `NUMERIC` value.
 ```zetasql
 SELECT PI_NUMERIC() AS pi
 
-/*-------------*
+/*-------------+
  | pi          |
  +-------------+
  | 3.141592654 |
- *-------------*/
+ +-------------*/
 ```
 
 ## `POW`
@@ -2854,13 +2854,13 @@ SELECT RANGE_BUCKET(age, [10, 20, 30]) AS age_group, COUNT(*) AS count
 FROM students
 GROUP BY 1
 
-/*--------------+-------*
+/*--------------+-------+
  | age_group    | count |
  +--------------+-------+
  | 0            | 1     |
  | 2            | 2     |
  | 3            | 3     |
- *--------------+-------*/
+ +--------------+-------*/
 ```
 
 [data-type-properties]: https://github.com/google/zetasql/blob/master/docs/data-types.md#data_type_properties
@@ -3304,11 +3304,11 @@ that [coerces to `DOUBLE`][conversion-rules].
 ```zetasql
 SELECT SEC(100) AS a, SEC(-1) AS b;
 
-/*----------------+---------------*
+/*----------------+---------------+
  | a              | b             |
  +----------------+---------------+
  | 1.159663822905 | 1.85081571768 |
- *----------------+---------------*/
+ +----------------+---------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md
@@ -3362,11 +3362,11 @@ Never produces an error.
 ```zetasql
 SELECT SECH(0.5) AS a, SECH(-2) AS b, SECH(100) AS c;
 
-/*----------------+----------------+---------------------*
+/*----------------+----------------+---------------------+
  | a              | b              | c                   |
  +----------------+----------------+---------------------+
  | 0.88681888397  | 0.265802228834 | 7.4401519520417E-44 |
- *----------------+----------------+---------------------*/
+ +----------------+----------------+---------------------*/
 ```
 
 [conversion-rules]: https://github.com/google/zetasql/blob/master/docs/conversion_rules.md

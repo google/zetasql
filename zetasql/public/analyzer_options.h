@@ -271,6 +271,7 @@ class AnalyzerOptions {
       std::vector<std::pair<std::string, const Type*>>* pseudo_columns)>;
 
   AnalyzerOptions();
+  explicit AnalyzerOptions(LanguageOptions&& language_options);
   explicit AnalyzerOptions(const LanguageOptions& language_options);
   AnalyzerOptions(const AnalyzerOptions& options)
       : data_(std::make_unique<Data>(*options.data_)) {}
@@ -484,6 +485,22 @@ class AnalyzerOptions {
   void SetLookupExpressionColumnCallback(
       const LookupExpressionColumnCallback& lookup_expression_column_callback);
 
+  // Getter and setter for
+  // `suspend_lookup_expression_callback_when_resolving_templated_function`.
+  // When true, the lookup expression callback will be suspended when
+  // resolving templated functions.
+  void SetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(
+      bool value) {
+    data_
+        ->suspend_lookup_expression_callback_when_resolving_templated_function =
+        value;
+  }
+  bool GetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction()
+      const {
+    return data_
+        ->suspend_lookup_expression_callback_when_resolving_templated_function;
+  }
+
   // SetLookupCatalogColumnCallback is used to add a callback function to
   // resolve columns in the catalog. The columns referenced in the expressions
   // but not added in SetInScopeExpressionColumn will be resolved using this
@@ -538,6 +555,28 @@ class AnalyzerOptions {
   // statement.
   const DdlPseudoColumnsCallback& ddl_pseudo_columns_callback() const {
     return data_->ddl_pseudo_columns_callback;
+  }
+
+  // Set the input table to use when resolving a standalone subpipeline.
+  // This will only be used if ResolvedSubpipelineStmt is enabled and the
+  // statement starts with a pipe operator (with "|>").
+  // See (broken link).
+  //
+  // With no rewriters enabled, the output ResolvedSubpipelineStmt will
+  // contain a ResolvedTableScan for this table and then a subpipeline
+  // over that table.
+  //
+  // With default rewriters enabled, the statement becomes a ResolvedQueryStmt,
+  // or if certain features are enabled and used, a
+  // ResolvedGeneralizedQueryStatement. With REWRITE_GENERALIZED_QUERY_STMT,
+  // that will be rewritten to a ResolvedMultiStmt or a single statement like
+  // ResolvedQueryStmt or ResolvedInsertStmt.
+  void set_default_table_for_subpipeline_stmt(
+      const Table* /*absl_nullable*/ table) {
+    data_->default_table_for_subpipeline_stmt = table;
+  }
+  const Table* /*absl_nullable*/ default_table_for_subpipeline_stmt() const {
+    return data_->default_table_for_subpipeline_stmt;
   }
 
   void set_column_id_sequence_number(zetasql_base::SequenceNumber* sequence);
@@ -865,6 +904,9 @@ class AnalyzerOptions {
 
     // Callback function to resolve columns in standalone expressions.
     LookupExpressionCallback lookup_expression_callback = nullptr;
+
+    // Input table to use for ResolvedSubpipelineStmt.
+    const Table* /*absl_nullable*/ default_table_for_subpipeline_stmt = nullptr;
 
     // Callback function runs after the initial resolve, before any rewriters
     // run. This can be used for query validations before rewriters making

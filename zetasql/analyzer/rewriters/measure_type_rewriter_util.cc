@@ -330,16 +330,6 @@ absl::Status GrainScanInfo::MarkColumnAsReferencedByExpandableMeasure(
   return absl::OkStatus();
 }
 
-absl::btree_set<std::string> GrainScanInfo::GetRowIdentityColumnNames() const {
-  absl::btree_set<std::string> row_identity_column_names;
-  for (const auto& [column_name, column_to_project] : columns_to_project_) {
-    if (column_to_project.is_row_identity_column) {
-      row_identity_column_names.insert(column_name);
-    }
-  }
-  return row_identity_column_names;
-}
-
 // `GrainScanFinder` traverses the ResolvedAST twice to gather grain scan
 // information.
 //
@@ -1069,10 +1059,14 @@ class GrainScanRewriter : public ResolvedASTRewriteVisitor {
 class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
  public:
   MultiLevelAggregateRewriter(const Function* any_value_fn,
+                              FunctionCallBuilder& function_call_builder,
+                              const LanguageOptions& language_options,
                               ColumnFactory& column_factory,
                               ResolvedColumn struct_column,
                               bool struct_column_refs_are_correlated)
       : any_value_fn_(any_value_fn),
+        function_call_builder_(function_call_builder),
+        language_options_(language_options),
         column_factory_(column_factory),
         struct_column_(struct_column),
         struct_column_refs_are_correlated_(struct_column_refs_are_correlated) {
@@ -1117,16 +1111,25 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
   }
 
  protected:
+  absl::Status PreVisitResolvedAggregateFunctionCall(
+      const zetasql::ResolvedAggregateFunctionCall&) override {
+    aggregate_function_depth_++;
+    return absl::OkStatus();
+  }
+
   absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   PostVisitResolvedAggregateFunctionCall(
       std::unique_ptr<const ResolvedAggregateFunctionCall> node) override {
+    auto cleanup = absl::MakeCleanup([this] { aggregate_function_depth_--; });
     // If we are within a subquery, then we don't need to grain-lock the
     // aggregate function.
     if (subquery_depth_ > 0) {
       return node;
     }
-    // We only rewrite aggregate functions that have an empty
-    // `group_by_aggregate_list`.
+    // Inject the WHERE modifier to discard NULL STRUCT values.
+    ZETASQL_ASSIGN_OR_RETURN(node, MaybeInjectWhereModifier(std::move(node)));
+    // Only perform the ANY_VALUE multi-level aggregation rewrite for aggregate
+    // functions that have an empty `group_by_aggregate_list`.
     if (!node->group_by_aggregate_list().empty()) {
       return node;
     }
@@ -1139,8 +1142,9 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
       // `group_by_list` is not empty, but `group_by_aggregate_list` is empty.
       // This means that the aggregate function is a leaf node aggregate
       // function that only references grouping consts or correlated columns
-      // (e.g. SUM(1 GROUP BY e)). We don't need to grain-lock since the
-      // aggregate function is guaranteed to see exactly 1 row per group.
+      // (e.g. SUM(1 + e GROUP BY e)). We don't need to perform the ANY_VALUE
+      // multi-level aggregation rewrite since the aggregate function is
+      // guaranteed to see exactly 1 row per group.
       return node;
     }
 
@@ -1207,9 +1211,7 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
     ZETASQL_RET_CHECK(struct_column_.type()->IsStruct());
     ZETASQL_RET_CHECK(struct_column_.type()->AsStruct()->num_fields() == 2);
     std::unique_ptr<ResolvedColumnRef> struct_column_ref =
-        MakeResolvedColumnRef(
-            struct_column_.type(), struct_column_,
-            /*is_correlated=*/struct_column_refs_are_correlated_);
+        MakeStructColumnRef();
     ZETASQL_RET_CHECK(struct_column_ref->type()->IsStruct());
     ZETASQL_RET_CHECK(struct_column_ref->type()->AsStruct()->num_fields() == 2);
     const StructField& key_columns_field =
@@ -1253,8 +1255,47 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
   }
 
  private:
+  // Modify the aggregate function call to inject a WHERE modifier to discard
+  // NULL STRUCT values. NULL STRUCT values may be introduced if the measure
+  // propagates past OUTER JOINs. NULL STRUCT values represent invalid captured
+  // measure context / state and hence must be discarded.
+  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
+  MaybeInjectWhereModifier(
+      std::unique_ptr<const ResolvedAggregateFunctionCall> node) {
+    // If `aggregate_function_depth_` == 1 && subquery_depth_ == 0, then we are
+    // currently within a top-level aggregate function call, and a WHERE
+    // modifier should be injected to discard NULL struct column values. Only
+    // inject the WHERE modifier if the aggregate filtering is enabled.
+    if (aggregate_function_depth_ == 1 && subquery_depth_ == 0 &&
+        language_options_.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING)) {
+      // Measure validator should have already verified that there is no
+      // WHERE clause on the aggregate function call.
+      ZETASQL_RET_CHECK(node->where_expr() == nullptr);
+      ResolvedAggregateFunctionCallBuilder aggregate_function_call_builder =
+          ToBuilder(std::move(node));
+      ZETASQL_ASSIGN_OR_RETURN(auto struct_is_not_null,
+                       function_call_builder_.IsNotNull(MakeStructColumnRef()));
+      aggregate_function_call_builder.set_where_expr(
+          std::move(struct_is_not_null));
+      return std::move(aggregate_function_call_builder).Build();
+    }
+    return node;
+  }
+
+  std::unique_ptr<ResolvedColumnRef> MakeStructColumnRef() {
+    return MakeResolvedColumnRef(
+        struct_column_.type(), struct_column_,
+        /*is_correlated=*/struct_column_refs_are_correlated_);
+  }
+
   // A pointer to the `ANY_VALUE` function in the catalog used for the rewrite.
   const Function* any_value_fn_ = nullptr;
+  // Used to create new function calls for the rewrite.
+  FunctionCallBuilder& function_call_builder_;
+  // Used to determine if `FEATURE_AGGREGATE_FILTERING` is enabled.
+  // If enabled, then the rewrite will inject a WHERE modifier to discard
+  // NULL values for the special STRUCT-typed column.
+  const LanguageOptions& language_options_;
   // Used to create new columns.
   ColumnFactory& column_factory_;
   // The special STRUCT-typed column that contains the grouping keys needed for
@@ -1269,6 +1310,10 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
   // If `subquery_depth_` > 0, then we are currently within a subquery and
   // any aggregate functions should not be rewritten to grain-lock.
   uint64_t subquery_depth_ = 0;
+  // If `aggregate_function_depth_` == 1 && subquery_depth_ == 0, then we are
+  // currently within a top-level aggregate function call, and a WHERE modifier
+  // should be injected to discard NULL struct column values.
+  uint64_t aggregate_function_depth_ = 0;
   // Indicates whether references to `struct_column_` are correlated. This
   // is true when the measure column is being invoked in a correlated context;
   // e.g. AGG(correlated_reference_to_measure_column).
@@ -1462,10 +1507,12 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
   static absl::StatusOr<std::unique_ptr<const ResolvedNode>>
   ReplaceMeasureAggregateFunctions(
       std::unique_ptr<const ResolvedNode> input, const Function* any_value_fn,
-      ColumnFactory& column_factory,
+      FunctionCallBuilder& function_call_builder,
+      const LanguageOptions& language_options, ColumnFactory& column_factory,
       MeasureExpansionInfoMap& measure_expansion_info_map) {
-    return MeasuresAggregateFunctionReplacer(any_value_fn, column_factory,
-                                             measure_expansion_info_map)
+    return MeasuresAggregateFunctionReplacer(
+               any_value_fn, function_call_builder, language_options,
+               column_factory, measure_expansion_info_map)
         .VisitAll(std::move(input));
   }
 
@@ -1513,9 +1560,12 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
 
  private:
   explicit MeasuresAggregateFunctionReplacer(
-      const Function* any_value_fn, ColumnFactory& column_factory,
+      const Function* any_value_fn, FunctionCallBuilder& function_call_builder,
+      const LanguageOptions& language_options, ColumnFactory& column_factory,
       MeasureExpansionInfoMap& measure_expansion_info_map)
       : any_value_fn_(any_value_fn),
+        function_call_builder_(function_call_builder),
+        language_options_(language_options),
         column_factory_(column_factory),
         measure_expansion_info_map_(measure_expansion_info_map) {};
   MeasuresAggregateFunctionReplacer(const MeasuresAggregateFunctionReplacer&) =
@@ -1594,8 +1644,8 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
         // Rewrite the measure expression to use multi-level aggregation to
         // grain-lock and avoid overcounting.
         MultiLevelAggregateRewriter multi_level_aggregate_rewriter(
-            any_value_fn_, column_factory_,
-            measure_expansion_info.struct_column,
+            any_value_fn_, function_call_builder_, language_options_,
+            column_factory_, measure_expansion_info.struct_column,
             struct_column_refs_are_correlated);
         ZETASQL_ASSIGN_OR_RETURN(
             rewritten_measure_expr,
@@ -1628,6 +1678,8 @@ class MeasuresAggregateFunctionReplacer : public ResolvedASTRewriteVisitor {
   }
 
   const Function* any_value_fn_ = nullptr;
+  FunctionCallBuilder& function_call_builder_;
+  const LanguageOptions& language_options_;
   ColumnFactory& column_factory_;
   MeasureExpansionInfoMap& measure_expansion_info_map_;
   std::vector<absl::flat_hash_set<ResolvedColumn>>
@@ -2077,7 +2129,8 @@ class UnusedCorrelatedColumnPruner : public ResolvedASTDeepCopyVisitor {
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
     std::unique_ptr<const ResolvedNode> input,
     GrainScanInfoMap grain_scan_info_map, const Function* any_value_fn,
-    ColumnFactory& column_factory,
+    FunctionCallBuilder& function_call_builder,
+    const LanguageOptions& language_options, ColumnFactory& column_factory,
     MeasureExpansionInfoMap& measure_expansion_info_map) {
   // Rewrite grain scans to project any additional columns and layer a
   // ProjectScan over them to compute the `STRUCT` typed columns needed for
@@ -2097,8 +2150,8 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
   ZETASQL_ASSIGN_OR_RETURN(
       input,
       MeasuresAggregateFunctionReplacer::ReplaceMeasureAggregateFunctions(
-          std::move(input), any_value_fn, column_factory,
-          measure_expansion_info_map));
+          std::move(input), any_value_fn, function_call_builder,
+          language_options, column_factory, measure_expansion_info_map));
 
   // Remove any unused correlated columns from the subquery parameter lists.
   return UnusedCorrelatedColumnPruner::PruneUnusedCorrelatedColumns(

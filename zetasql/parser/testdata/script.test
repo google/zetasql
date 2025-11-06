@@ -456,7 +456,7 @@ END FOR ;
 # Currently hints before labeled statements are not supported in script mode.
 @1 L1 : BEGIN END;
 --
-ERROR: Syntax error: Unexpected identifier "L1" [at 1:4]
+ERROR: Syntax error: Unexpected "L1" [at 1:4]
 @1 L1 : BEGIN END;
    ^
 ==
@@ -466,7 +466,7 @@ ERROR: Syntax error: Unexpected identifier "L1" [at 1:4]
 SELECT 1
 END WHILE;
 --
-ERROR: Syntax error: Unexpected identifier "L1" [at 1:8]
+ERROR: Syntax error: Unexpected "L1" [at 1:8]
 @{a=1} L1 : WHILE TRUE DO
        ^
 ==
@@ -672,4 +672,12 @@ END REPEAT;
 --
 ERROR: Syntax error: Unexpected identifier "defm" [at 5:3]
   defm();
+  ^
+==
+
+# Repros b/445258698
+@2a
+--
+ERROR: Syntax error: Unexpected identifier "a" [at 1:3]
+@2a
   ^

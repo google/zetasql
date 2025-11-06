@@ -242,7 +242,7 @@ TEST(ExecuteQueryWebHandlerTest, TestCatalogUsed) {
                             "{{error}}{{result_executed_text}}"
                             "{{/statements}}"),
       result));
-  EXPECT_THAT(result, Eq("Object not found"));
+  EXPECT_THAT(result, Eq("INVALID_ARGUMENT: Object not found"));
 
   EXPECT_TRUE(HandleRequest(
       ExecuteQueryWebRequest({"execute"}, ExecuteQueryConfig::SqlMode::kQuery,
@@ -432,7 +432,7 @@ static void RunFileBasedTest(
 TEST(ExecuteQueryWebHandlerTest, FileBasedTest) {
   const std::string pattern =
       zetasql_base::JoinPath(::testing::SrcDir(),
-                     "com_google_zetasql/zetasql/tools/execute_query/"
+                     "_main/zetasql/tools/execute_query/"
                      "testdata/execute_query_web_handler.test");
 
   EXPECT_TRUE(file_based_test_driver::RunTestCasesFromFiles(pattern,

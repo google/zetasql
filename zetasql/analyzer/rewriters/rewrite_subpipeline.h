@@ -27,7 +27,7 @@ namespace zetasql {
 // Return the scan to compute a ResolvedSubpipeline with `input_scan`
 // stitched in to replace its ResolvedSubpipelineInputScan.
 absl::StatusOr<std::unique_ptr<const ResolvedScan>> RewriteSubpipelineToScan(
-    ResolvedSubpipeline* subpipeline,
+    std::unique_ptr<const ResolvedSubpipeline> subpipeline,
     std::unique_ptr<const ResolvedScan> input_scan);
 
 }  // namespace zetasql

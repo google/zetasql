@@ -34,7 +34,7 @@ namespace {
 // rewriters below.
 class Base : public Rewriter {
  public:
-  ~Base() override {}
+  ~Base() override = default;
 
   absl::StatusOr<std::unique_ptr<const ResolvedNode>> Rewrite(
       const AnalyzerOptions& options, const ResolvedNode& input,
@@ -50,11 +50,11 @@ class Base : public Rewriter {
 // object from the registry.
 class FakeAnonRewriter : public Base {
  public:
-  ~FakeAnonRewriter() override {}
+  ~FakeAnonRewriter() override = default;
 };
 class FakeBuiltinFunctionInlinerRewriter : public Base {
  public:
-  ~FakeBuiltinFunctionInlinerRewriter() override {}
+  ~FakeBuiltinFunctionInlinerRewriter() override = default;
 };
 
 TEST(RegistrationTest, Test) {

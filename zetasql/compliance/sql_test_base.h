@@ -143,6 +143,7 @@ struct QueryResultStats {
   int verified_graph_nonempty_result_count = 0;
   int verified_measure_aggregation_count = 0;
   int verified_measure_aggregation_nonempty_result_count = 0;
+  int skipped_for_non_determinism_count = 0;
 };
 
 class SQLTestBase : public ::testing::TestWithParam<std::string> {
@@ -255,7 +256,7 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       const absl::StatusOr<ComplianceTestCaseResult>& result,
       FloatMargin float_margin = kExactFloatMargin);
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
-      const std::string& result);
+      absl::string_view result);
   ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&> Returns(
       ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
           matcher);
@@ -286,10 +287,6 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
       const std::set<LanguageFeature>& forbidden_features,
       const Value& expected_value, const absl::Status& expected_status,
       const FloatMargin& float_margin = zetasql::kDefaultFloatMargin);
-
-  // Returns a Catalog that includes the tables specified in the active
-  // TestDatabase. Owned by the reference driver internal to this class.
-  SimpleCatalog* catalog() const;
 
   // Return the location string. Name is optional as it is defined only in
   // a *.test file for a statement.
@@ -524,13 +521,22 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Returns the minimum float margin to use for comparing
   // two ComplianceTestCaseResult so that result can be considered equal.
+  // If such a margin can be be found, `out_makes_equality_pass` will be set to
+  // true. Otherwise, it will be set to false to indicate that the equality
+  // still doesn't pass even with the last margin.
+  // The last margin is returned in all cases.
   FloatMargin GetFloatEqualityMargin(
       absl::StatusOr<ComplianceTestCaseResult> actual,
       absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits,
-      QueryResultStats* stats = nullptr);
+      bool& out_makes_equality_pass);
 
  protected:
   SQLTestBase();
+
+  ABSL_DEPRECATED(
+      "DO NOT USE THIS. USED ONLY FOR AN EXTERNAL LEGACY TEST"
+      "WHICH IS USING FAKE IN-MEMORY DESCRIPTORS")
+  virtual bool UseLeakyDescriptors() const { return false; };
 
   // Does not take ownership of the pointers. 'reference_driver' must be NULL if
   // and only if 'test_driver' is NULL.
@@ -574,7 +580,15 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   TypeFactory* table_type_factory();
 
   // Accessor for the type factory used for statement execution.
+  // This should be deleted and each driver should own and encapsulate its own
+  // type factory.
+  // Communication with SQLTestBase should be done based on the
+  // TestDatabaseProto.
   TypeFactory* execute_statement_type_factory() const {
+    TypeFactory* driver_type_factory = driver()->type_factory();
+    if (driver_type_factory != nullptr) {
+      return driver_type_factory;
+    }
     return execute_statement_type_factory_.get();
   }
 
@@ -901,6 +915,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   void AddCodeBasedLabels(std::vector<std::string> labels);
   void RemoveCodeBasedLabels(std::vector<std::string> labels);
 
+  // If true, database preparation statements are allowed to fail when run
+  // against the reference implementation. This is used to test handling of
+  // broken [prepare_database] statements and for test setup that may fail
+  // under certain modes like external.
+  bool AllowsFailedReferenceSetup() const;
+
   // Turns a string into an RE2 safe string. Used to generate names for
   // code-based statements. Names must be RE2 safe as known error list
   // processing uses RE2 regex to match names.
@@ -999,6 +1019,12 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
 
   // Parses the expected results and compares them against `test_result`
   void ParseAndCompareExpectedResults(TestResults& test_result);
+
+  // Adds tables with measure columns to `test_db` if the test case requires the
+  // FEATURE_ENABLE_MEASURES feature.
+  void MaybeAddMeasureTables(
+      const FilebasedSQLTestCaseOptions& test_case_options,
+      TestDatabase& test_db);
 
   static InternalValue::FormatValueContentOptions*
       format_value_content_options_;

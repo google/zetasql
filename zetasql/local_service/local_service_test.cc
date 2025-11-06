@@ -2347,7 +2347,7 @@ TEST_F(ZetaSqlLocalServiceImplTest, LenientFormatSqlWithCustomOptions) {
             response.sql());
 
   options->set_allow_invalid_tokens(true);
-  request.set_sql("1invalid-token");
+  request.set_sql("'invalid-token");
   ZETASQL_EXPECT_OK(LenientFormatSql(request, &response));
   options->set_allow_invalid_tokens(false);
   EXPECT_THAT(LenientFormatSql(request, &response), Not(IsOk()));

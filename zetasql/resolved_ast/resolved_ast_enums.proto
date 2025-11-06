@@ -37,6 +37,8 @@ message ResolvedSubqueryExprEnums {
     IN = 3;
     LIKE_ANY = 4;
     LIKE_ALL = 5;
+    NOT_LIKE_ANY = 6;
+    NOT_LIKE_ALL = 7;
   }
 }
 

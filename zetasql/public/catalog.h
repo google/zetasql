@@ -17,6 +17,7 @@
 #ifndef ZETASQL_PUBLIC_CATALOG_H_
 #define ZETASQL_PUBLIC_CATALOG_H_
 
+#include <any>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -30,6 +31,8 @@
 #include "zetasql/public/type.h"
 #include "absl/base/nullability.h"
 #include "absl/container/flat_hash_set.h"
+#include "zetasql/base/check.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
@@ -804,6 +807,9 @@ class Table {
   // Suitable for log messages, but not necessarily a valid SQL path expression.
   virtual std::string FullName() const = 0;
 
+  // List the columns on this table.
+  // With non-default ColumnListMode (lazy column modes), NumColumns is 0
+  // and GetColumn is not allowed.  Use ListLazyColumns instead.
   virtual int NumColumns() const = 0;
   virtual const Column* GetColumn(int i) const = 0;
 
@@ -833,12 +839,11 @@ class Table {
     return PrimaryKey();
   }
 
-  // This function returns nullptr for anonymous or duplicate column names.
-  // TODO: The Table interface allows anonymous and duplicate columns,
-  //                but the only way to access them is through GetColumn().
-  //                Add helper methods as needed, for instance to check if a
-  //                name is duplicate, or to fetch all columns associated with
-  //                a name, or fetch all anonymous columns, etc.
+  // Find a column by name, returning nullptr if not found.
+  // Also returns nullptr for anonymous (empty) or duplicate column names.
+  //
+  // With non-default ColumnListMode (lazy column modes), this won't
+  // find any columns.  Use FindLazyColumns instead.
   virtual const Column* FindColumnByName(const std::string& name) const = 0;
 
   // If true, this table is a value table, and should act like each row is a
@@ -869,6 +874,13 @@ class Table {
            << "Table " << FullName()
            << " does not support the API in evaluator.h";
   }
+  // Same as above but using a list of Columns (from this Table).
+  // This is the API called by the reference implementation, so if this is
+  // implemented, the method above doesn't need to be.
+  // This has a default implementation that calls the method above.
+  virtual absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluatorTableIteratorFromColumns(
+      absl::Span<const Column* const> column_list) const;
 
   // Returns AnonymizationInfo related to this table, if any.
   // For further details, see:
@@ -909,6 +921,115 @@ class Table {
   // e.g. TABLE<x INT64, y STRING> for tables with named columns
   //      TABLE<INT64, STRING> for tables with anonymous columns
   virtual std::string GetTableTypeName(ProductMode mode) const;
+
+  // Indicates how Columns can be looked up on this table.
+  //
+  // ColumnListMode affects metadata lookup semantics but doesn't affect
+  // table scan semantics.  Each table scan still runs independently, and
+  // could read different sets of columns.
+  //
+  // TODO In development, do not use yet.
+  enum class ColumnListMode {
+    // Default mode where the Columns are always known.
+    // NumColumns and GetColumn are supported.
+    DEFAULT,
+
+    // Lazy mode means Columns are not loaded by default. They can be looked up
+    // on demand and can also be listed on demand.
+    // NumColumns is 0 and FindColumnByName won't find anything.
+    LAZY,
+
+    // This mode means Columns are not loaded by default. They can be looked up
+    // on demand but cannot be listed.  (`SELECT *` will not be allowed.)
+    // NumColumns is 0 and FindColumnByName won't find anything.
+    // FindLazyColumns is supported.  ListLazyColumns gives an error.
+    FIND_ONLY,
+  };
+
+  virtual ColumnListMode GetColumnListMode() const {
+    return ColumnListMode::DEFAULT;
+  }
+
+  // True means this supports NumColumns, GetColumn, FindColumnByName.
+  bool HasColumnList() const {
+    return GetColumnListMode() == ColumnListMode::DEFAULT;
+  }
+  bool SupportsListLazyColumns() const {
+    return GetColumnListMode() != ColumnListMode::FIND_ONLY;
+  }
+
+  // This is a context object shared across all lazy column lookups for
+  // the same table scan in a query.  The resolver will create a context
+  // object correspodning to each ResolvedTableScan producing rows with this
+  // type, and pass that context object to each LazyColumn lookup method.
+  //
+  // Catalog implementations can optionally store state into this context.
+  // This is optional, and any use of this is implementation-defined.
+  //
+  // For example: This can be used to detect if "incompatible" columns are read
+  // from the same table scan.  This might produce an error like
+  // "Columns X and Y cannot be read from T at the same time because ...".
+  // Or it can be used when reading column X might affect the reported type of
+  // column Y.
+  using LazyColumnsTableScanContext = std::any;
+
+  // Look up Columns lazily.  This can be used instead of NumColumns and
+  // GetColumn and will also work for Tables with ColumnListMode LAZY, where
+  // columns aren't preloaded.
+  // This call could fail.
+  //
+  // The returned `Column*` objects are owned by the Table.
+  // It's assumed the Table may want to hold these in a mutable map so
+  // they can be returned again if looked up again.
+  //
+  // This does not modify visible state of this Table.
+  // Results for NumColumns, GetColumn, or FindColumnByName do not change.
+  //
+  // The `context` object is shared across all lazy-column lookups for the same
+  // table scan in a query.
+  //
+  // TODO In development, do not use yet.
+  virtual absl::StatusOr<std::vector<const Column*>> ListLazyColumns(
+      LazyColumnsTableScanContext* context,
+      const Catalog::FindOptions& options = Catalog::FindOptions()) const;
+
+  // Look up Columns lazily.  This can be used instead of FindColumnByName
+  // and will work for all Tables, including those with non-default
+  // ColumnListMode, where columns aren't preloaded.
+  // These lookups may fail, including with errors other than not-found.
+  //
+  // Since metadata lookups may be blocking, this allows looking up multiple
+  // Columns in the same call.
+  //
+  // The outer status indicates success or failure of the overall lookup.
+  // The inner result vector matches `column_names` size and has the lookup
+  // result for each `column_name`.  That can indicate a lookup failure for a
+  // particular column.  Not-found columns can be indicated with either
+  // NotFoundError (optionally with an error message) or nullptr.
+  //
+  // The returned `Column*` objects are owned by the Table.
+  // It's assumed the Table may want to hold these in a mutable map so
+  // they can be returned again if looked up again.
+  //
+  // This does not modify visible state of this Table.
+  // Results for NumColumns, GetColumn, or FindColumnByName do not change.
+  //
+  // The `context` object is shared across all lazy-column lookups for the same
+  // table scan in a query.
+  //
+  // TODO In development, do not use yet.
+  using FindLazyColumnsResult = std::vector<absl::StatusOr<const Column*>>;
+  virtual absl::StatusOr<FindLazyColumnsResult> FindLazyColumns(
+      const absl::Span<const std::string>& column_names,
+      LazyColumnsTableScanContext* context,
+      const Catalog::FindOptions& options = Catalog::FindOptions()) const;
+
+  // Helper to call FindLazyColumns for a single column.
+  // For not-found cases, this can return a nullptr or a NotFound error.
+  // NotFound errors can include a customized error message.
+  absl::StatusOr<const Column*> FindLazyColumn(
+      const std::string& column_name, LazyColumnsTableScanContext* context,
+      const Catalog::FindOptions& options = Catalog::FindOptions()) const;
 };
 
 // A Model object visible in a ZetaSQL query.
@@ -1064,6 +1185,46 @@ class Column {
     if (!expression.has_value()) return false;
     return expression->GetExpressionKind() ==
            ExpressionAttributes::ExpressionKind::MEASURE_EXPRESSION;
+  }
+
+  // This class defines the attributes of a join column.
+  // These are like columns representing a join through a foreign key.
+  // TODO Need serialization on this object in SimpleTable.
+  class JoinColumnAttributes {
+   public:
+    JoinColumnAttributes(std::vector<const Column*> source_columns,
+                         const Table* target_table,
+                         std::vector<const Column*> target_columns,
+                         bool is_multi)
+        : target_table_(target_table),
+          source_columns_(std::move(source_columns)),
+          target_columns_(std::move(target_columns)),
+          is_multi_(is_multi) {}
+
+    const std::vector<const Column*>& source_columns() const {
+      return source_columns_;
+    }
+
+    const Table* target_table() const { return target_table_; }
+    const std::vector<const Column*>& target_columns() const {
+      return target_columns_;
+    }
+
+    // True means traversing can give multiple rows, i.e. 1:N or M:N.
+    // False means traversing this join gives at most one row, i.e. 1:1 or N:1.
+    bool is_multi() const { return is_multi_; }
+
+   private:
+    const Table* target_table_;
+    const std::vector<const Column*> source_columns_;
+    const std::vector<const Column*> target_columns_;
+    const bool is_multi_;
+  };
+
+  // Returns JoinColumnAttributes if this column is a join column.
+  // It cannot also have GetExpression().
+  virtual std::optional<const JoinColumnAttributes> GetJoinColumn() const {
+    return std::nullopt;
   }
 
   // Returns whether or not this Column is a specific column interface or

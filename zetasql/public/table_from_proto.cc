@@ -33,8 +33,7 @@ namespace zetasql {
 
 TableFromProto::TableFromProto(absl::string_view name) : SimpleTable(name) {}
 
-TableFromProto::~TableFromProto() {
-}
+TableFromProto::~TableFromProto() = default;
 
 absl::Status TableFromProto::Init(const google::protobuf::Descriptor* descriptor,
                                   TypeFactory* type_factory,

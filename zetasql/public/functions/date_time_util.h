@@ -801,7 +801,7 @@ absl::Status TruncateDatetime(const DatetimeValue& datetime,
 // Possible values are YEAR, QUARTER, MONTH, WEEK or WEEK(MONDAY/SUNDAY etc..),
 // ISO_WEEK and ISO_YEAR.
 // When date_part is WEEK, users can use WEEK(<WEEKDAY>) to specify the starting
-// date of the week. For example, WEEK(MONDAY) means a week starts on MONDAY..
+// date of the week. For example, WEEK(MONDAY) means a week starts on MONDAY.
 // The rule is the same as the current ZetaSQL date_part.
 // For example:
 //  LastDayOfDate("2001-01-01", YEAR) -> "2001-12-31"
@@ -815,6 +815,21 @@ absl::Status LastDayOfDate(int32_t date, DateTimestampPart part,
 
 absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
                                DateTimestampPart part, int32_t* output);
+
+// Returns the DATE of the next day of the specified DATE or DATETIME.
+//
+// `dow` is the case-insensitive day of the week, or its three-letter
+// abbreviation, such as "Monday", "Mon", etc.
+//
+// If the date is already on the specified day of the week, then the result is
+// the date plus seven days.
+//
+//   NextDayOfDate('2025-09-30', 'Thursday') -> '2025-10-02'
+//   NextDayOfDate('2025-09-30', 'Tue') -> '2025-10-07'
+absl::Status NextDayOfDate(int32_t date, absl::string_view dow,
+                           int32_t* output);
+absl::Status NextDayOfDatetime(const DatetimeValue& datetime,
+                               absl::string_view dow, int32_t* output);
 
 // Adds or subtracts a specified number of months to a DATE or DATETIME.
 //

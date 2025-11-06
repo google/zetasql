@@ -72,10 +72,10 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
     int num_arguments = use_generic_arguments
                             ? node->generic_argument_list_size()
                             : node->argument_list_size();
-    ZETASQL_RET_CHECK_EQ(num_arguments, node->signature().arguments().size())
+    ZETASQL_RET_CHECK_EQ(num_arguments, node->signature().NumConcreteArguments())
         << "Number of arguments provided " << num_arguments
         << " does not match the number of arguments expected by the function "
-        << " signature " << node->signature().arguments().size();
+        << " signature " << node->signature().NumConcreteArguments();
 
     absl::flat_hash_map<std::string, const ResolvedInlineLambda*> lambdas;
     absl::flat_hash_map<std::string, const ResolvedExpr*> variables;
@@ -89,7 +89,7 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
         ZETASQL_ASSIGN_OR_RETURN(processed_lambdas.emplace_back(), ProcessNode(lambda));
 
         const FunctionArgumentTypeOptions& arg_options =
-            node->signature().arguments()[i].options();
+            node->signature().ConcreteArgument(i).options();
         ZETASQL_RETURN_IF_ERROR(ValidateFunctionArgumentTypeOptions(arg_options, i));
 
         const auto& [_, no_conflict] = lambdas.try_emplace(
@@ -109,7 +109,7 @@ class BuiltinFunctionInlinerVisitor : public ResolvedASTDeepCopyVisitor {
         ZETASQL_ASSIGN_OR_RETURN(processed_args.emplace_back(), ProcessNode(arg));
 
         const FunctionArgumentTypeOptions& arg_options =
-            node->signature().arguments()[i].options();
+            node->signature().ConcreteArgument(i).options();
         ZETASQL_RETURN_IF_ERROR(ValidateFunctionArgumentTypeOptions(arg_options, i));
 
         const auto& [_, no_conflict] = variables.try_emplace(

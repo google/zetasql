@@ -213,9 +213,9 @@ class TypeParameterValue {
                                  "with a non-special literal";
   }
 
-  const SimpleValue GetValue() const { return value_; }
-  const TypeParametersLiteral GetSpecialLiteral() const { return literal_; }
-  const bool IsSpecialLiteral() const { return literal_ != kNonSpecialLiteral; }
+  SimpleValue GetValue() const { return value_; }
+  TypeParametersLiteral GetSpecialLiteral() const { return literal_; }
+  bool IsSpecialLiteral() const { return literal_ != kNonSpecialLiteral; }
 
  private:
   SimpleValue value_;

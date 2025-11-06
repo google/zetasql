@@ -609,6 +609,20 @@ void StmtLayout::BreakOnMandatoryLineBreaks() {
           breakpoints.merge(whens);
           break;
         }
+      } else if (chunk.FirstToken().Is(
+                     Token::Type::CHAINED_METHOD_DOT_SEPARATOR) &&
+                 IsLineLengthOverLimit(line)) {
+        // If the line length is over the limit break the line before each
+        // method call in the chain.
+        const ChunkBlock* parent_block = chunk.ChunkBlock()->Parent();
+        // Find all chained method calls within the same parent block.
+        absl::btree_set<int> chained_calls =
+            ChunkPositions(*parent_block, line, [](const Chunk& chunk) {
+              return chunk.FirstToken().Is(
+                  Token::Type::CHAINED_METHOD_DOT_SEPARATOR);
+            });
+        breakpoints.merge(chained_calls);
+        break;
       } else if ((chunk.IsTopLevelWith() || chunk.FirstKeyword() == "WINDOW") &&
                  i + 1 < line.end) {
         // If there is more than one table in WITH clause (or more than one
@@ -1746,6 +1760,11 @@ bool StmtLayout::ShouldIncludeSiblings(const Line& line,
     return false;
   }
 
+  if (ChunkAt(break_point)
+          .FirstToken()
+          .Is(Token::Type::CHAINED_METHOD_DOT_SEPARATOR)) {
+    return true;
+  }
   if (ChunkAt(break_point).FirstKeyword() == ".") {
     return false;
   }

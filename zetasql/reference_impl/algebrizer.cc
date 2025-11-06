@@ -43,7 +43,6 @@
 #include "zetasql/public/sql_constant.h"
 #include "zetasql/public/types/measure_type.h"
 #include "zetasql/resolved_ast/column_factory.h"
-#include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
 #include "zetasql/common/measure_utils.h"
 #include "zetasql/common/thread_stack.h"
@@ -96,6 +95,7 @@
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "zetasql/resolved_ast/serialization.pb.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -531,13 +531,15 @@ namespace {
 // TODO: Can we unify FunctionSignatureId and FunctionKind?
 static const absl::flat_hash_map<int64_t, FunctionKind>&
 GetBuiltinFunctionSignatureIdToKindMap() {
-  static const zetasql_base::NoDestructor<absl::flat_hash_map<int64_t, FunctionKind>>
+  static const absl::NoDestructor<absl::flat_hash_map<int64_t, FunctionKind>>
       kBuiltinFunctionSignatureIdToKindMap(
           absl::flat_hash_map<int64_t, FunctionKind>({
               {FN_JSON_SUBSCRIPT_STRING, FunctionKind::kJsonSubscript},
               {FN_JSON_SUBSCRIPT_INT64, FunctionKind::kJsonSubscript},
               {FN_MAP_SUBSCRIPT, FunctionKind::kMapSubscript},
               {FN_MAP_SUBSCRIPT_WITH_KEY, FunctionKind::kMapSubscriptWithKey},
+              {FN_MAP_SAFE_SUBSCRIPT_WITH_KEY,
+               FunctionKind::kMapSafeSubscriptWithKey},
               {FN_MAP_REPLACE_KV_PAIRS, FunctionKind::kMapReplaceKeyValuePairs},
               {FN_MAP_REPLACE_K_REPEATED_V_LAMBDA,
                FunctionKind::kMapReplaceKeysAndLambda},
@@ -1769,6 +1771,38 @@ absl::StatusOr<std::unique_ptr<ScalarFunctionCallExpr>> CreateConjunction(
 
 }  // namespace
 
+absl::StatusOr<std::unique_ptr<ValueExpr>>
+Algebrizer::AlgebrizeAggregateWhereFilterExpr(
+    const ResolvedExpr* expr, std::unique_ptr<ValueExpr> filter) {
+  if (expr->Is<ResolvedAnalyticFunctionCall>() ||
+      expr->Is<ResolvedAggregateFunctionCall>()) {
+    const ResolvedExpr* where_expr =
+        expr->GetAs<ResolvedNonScalarFunctionCallBase>()->where_expr();
+    if (where_expr != nullptr) {
+      ZETASQL_ASSIGN_OR_RETURN(auto local_filter, AlgebrizeExpression(where_expr));
+      if (filter == nullptr) {
+        return local_filter;
+      } else {
+        return CreateConjunction(std::move(filter), std::move(local_filter),
+                                 language_options_);
+      }
+    }
+  }
+  return filter;
+}
+
+absl::StatusOr<std::unique_ptr<ValueExpr>>
+Algebrizer::AlgebrizeAggregateHavingFilterExpr(const ResolvedExpr* expr) {
+  if (expr->Is<ResolvedAggregateFunctionCall>()) {
+    const ResolvedAggregateFunctionCall* aggregate_func =
+        expr->GetAs<ResolvedAggregateFunctionCall>();
+    if (aggregate_func->having_expr() != nullptr) {
+      return AlgebrizeExpression(aggregate_func->having_expr());
+    }
+  }
+  return nullptr;
+}
+
 absl::StatusOr<std::unique_ptr<AggregateArg>>
 Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     const VariableId& variable,
@@ -1908,21 +1942,12 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
     }
   }
 
-  if (expr->Is<ResolvedAnalyticFunctionCall>() ||
-      expr->Is<ResolvedAggregateFunctionCall>()) {
-    const ResolvedExpr* where_expr =
-        expr->GetAs<ResolvedNonScalarFunctionCallBase>()->where_expr();
-    if (where_expr != nullptr) {
-      ZETASQL_ASSIGN_OR_RETURN(auto local_filter, AlgebrizeExpression(where_expr));
-      if (filter == nullptr) {
-        filter = std::move(local_filter);
-      } else {
-        ZETASQL_ASSIGN_OR_RETURN(filter, CreateConjunction(std::move(filter),
-                                                   std::move(local_filter),
-                                                   language_options_));
-      }
-    }
-  }
+  // Algebrize the WHERE filtering expression for the aggregate function call.
+  ZETASQL_ASSIGN_OR_RETURN(filter,
+                   AlgebrizeAggregateWhereFilterExpr(expr, std::move(filter)));
+  // Algebrize the HAVING filtering expression for the aggregate function call.
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ValueExpr> having_filter,
+                   AlgebrizeAggregateHavingFilterExpr(expr));
 
   std::unique_ptr<AggregateFunctionBody> function;
   const Type* type = aggregate_function->type();
@@ -1989,7 +2014,8 @@ Algebrizer::AlgebrizeAggregateFnWithAlgebrizedArguments(
       std::move(limit), std::move(group_rows_subquery),
       std::move(inner_grouping_keys), std::move(inner_aggregators),
       aggregate_function->error_mode(), std::move(filter),
-      aggregate_function->collation_list(), side_effects_variable);
+      std::move(having_filter), aggregate_function->collation_list(),
+      side_effects_variable);
 }
 
 absl::StatusOr<std::unique_ptr<NewStructExpr>> Algebrizer::MakeStruct(
@@ -2315,7 +2341,9 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeSubqueryExpr(
     }
     case ResolvedSubqueryExpr::IN:
     case ResolvedSubqueryExpr::LIKE_ANY:
-    case ResolvedSubqueryExpr::LIKE_ALL: {
+    case ResolvedSubqueryExpr::LIKE_ALL:
+    case ResolvedSubqueryExpr::NOT_LIKE_ANY:
+    case ResolvedSubqueryExpr::NOT_LIKE_ALL: {
       ZETASQL_RET_CHECK_EQ(1, scan->column_list().size());
       const VariableId haystack_var =
           column_to_variable_->GetVariableNameFromColumn(
@@ -2372,11 +2400,23 @@ absl::StatusOr<std::unique_ptr<ValueExpr>> Algebrizer::AlgebrizeInArray(
       std::move(haystack_rel), collation);
 }
 
-// Algebrizes (lhs [IN|LIKE ANY|LIKE ALL] haystack_rel) as follows:
+// Algebrizes (lhs [IN | LIKE ANY | LIKE ALL | NOT LIKE ANY | NOT LIKE ALL]
+// haystack_rel)
+//
+// The core logic is to transform the expression into:
 // LetOp{$_needle := lhs}(
 //   SingleValueExpr(_matches,
-//     AggregateOp{_matches := [OR_AGG|OR_AGG|AND_AGG](
-//          $_needle [=|LIKE|LIKE] $haystack)}(haystack_rel)))
+//     AggregateOp{_matches := AGG_FN( COMPARISON_EXPR )}(haystack_rel)))
+//
+// Where AGG_FN and COMPARISON_EXPR depend on the subquery_type:
+//
+// subquery_type   | AGG_FN   | COMPARISON_EXPR
+// ----------------|----------|----------------------------------
+// IN              | OR_AGG   | $_needle = $haystack
+// LIKE_ANY        | OR_AGG   | $_needle LIKE $haystack
+// LIKE_ALL        | AND_AGG  | $_needle LIKE $haystack
+// NOT_LIKE_ANY    | OR_AGG   | NOT ($_needle LIKE $haystack)
+// NOT_LIKE_ALL    | AND_AGG  | NOT ($_needle LIKE $haystack)
 absl::StatusOr<std::unique_ptr<ValueExpr>>
 Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
     std::unique_ptr<ValueExpr> lhs,
@@ -2385,6 +2425,7 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
     const ResolvedCollation& collation) {
   FunctionKind compare_fn;
   FunctionKind aggregate_fn;
+  bool negate_comparison = false;
   switch (subquery_type) {
     case ResolvedSubqueryExpr::IN:
       compare_fn = FunctionKind::kEqual;
@@ -2397,6 +2438,16 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
     case ResolvedSubqueryExpr::LIKE_ALL:
       compare_fn = FunctionKind::kLike;
       aggregate_fn = FunctionKind::kAndAgg;
+      break;
+    case ResolvedSubqueryExpr::NOT_LIKE_ANY:
+      compare_fn = FunctionKind::kLike;
+      aggregate_fn = FunctionKind::kOrAgg;
+      negate_comparison = true;
+      break;
+    case ResolvedSubqueryExpr::NOT_LIKE_ALL:
+      compare_fn = FunctionKind::kLike;
+      aggregate_fn = FunctionKind::kAndAgg;
+      negate_comparison = true;
       break;
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unexpected subquery_type: " << subquery_type;
@@ -2432,6 +2483,16 @@ Algebrizer::AlgebrizeInLikeAnyLikeAllRelation(
                        compare_fn, language_options_, BoolType(),
                        ConvertValueExprsToAlgebraArgs(std::move(equal_args)),
                        ResolvedFunctionCallBase::DEFAULT_ERROR_MODE));
+
+  if (negate_comparison) {
+    std::vector<std::unique_ptr<AlgebraArg>> not_args;
+    not_args.push_back(
+        std::make_unique<ExprArg>(std::move(equality_comparison)));
+    ZETASQL_ASSIGN_OR_RETURN(
+        equality_comparison,
+        BuiltinScalarFunction::CreateCall(FunctionKind::kNot, language_options_,
+                                          BoolType(), std::move(not_args)));
+  }
 
   std::vector<std::unique_ptr<ValueExpr>> agg_func_args;
   agg_func_args.push_back(std::move(equality_comparison));
@@ -3097,20 +3158,31 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeTableScan(
                                     table_scan->table()->IsValueTable(),
                                     std::move(table_as_array_expr));
   } else {
+    ZETASQL_RET_CHECK(!table_scan->read_as_row_type())
+        << "Reading table as ROW type not supported";
     const ResolvedColumnList& column_list = table_scan->column_list();
+    std::vector<const Column*> table_column_list =
+        table_scan->table_column_list();
     const std::vector<int>& column_idx_list = table_scan->column_index_list();
-    ZETASQL_RET_CHECK_EQ(column_list.size(), column_idx_list.size());
+    ZETASQL_RET_CHECK(column_idx_list.empty() || table_column_list.empty())
+        << "ResolvedTableScan has both column_index_list and table_column_list";
+    // If we had `column_index_list`, build `table_column_list` instead.
+    if (table_column_list.empty()) {
+      ZETASQL_RET_CHECK_EQ(column_list.size(), column_idx_list.size());
+      table_column_list.reserve(column_idx_list.size());
+      for (int column_idx : column_idx_list) {
+        table_column_list.push_back(table_scan->table()->GetColumn(column_idx));
+      }
+    }
+    ZETASQL_RET_CHECK_EQ(column_list.size(), table_column_list.size());
 
-    // Figure out the column names and variables.
-    std::vector<std::string> column_names;
-    column_names.reserve(column_list.size());
+    // Figure out the variables.
     std::vector<VariableId> variables;
     variables.reserve(column_list.size());
     TableScanColumnInfoMap column_info_map;
     column_info_map.reserve(column_list.size());
     for (int i = 0; i < column_list.size(); ++i) {
       const ResolvedColumn& column = column_list[i];
-      column_names.push_back(column.name());
       const VariableId variable =
           column_to_variable_->GetVariableNameFromColumn(column);
       variables.push_back(variable);
@@ -3134,8 +3206,8 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeTableScan(
     }
 
     return EvaluatorTableScanOp::Create(
-        table_scan->table(), table_scan->alias(), column_idx_list, column_names,
-        variables, std::move(and_filters), std::move(system_time_expr));
+        table_scan->table(), table_scan->alias(), table_column_list, variables,
+        std::move(and_filters), std::move(system_time_expr));
   }
 }
 
@@ -6408,113 +6480,159 @@ Algebrizer::AlgebrizeSubpipelineInputScan(
   return std::move(op);
 }
 
+#define ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(scan_type, method) \
+  [](Algebrizer* a, const ResolvedScan* s,                      \
+     std::vector<FilterConjunctInfo*>*) {                       \
+    return a->method(s->GetAs<scan_type>());                    \
+  }
+#define ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(scan_type, method) \
+  [](Algebrizer* a, const ResolvedScan* s,                   \
+     std::vector<FilterConjunctInfo*>* c) {                  \
+    return a->method(s->GetAs<scan_type>(), c);              \
+  }
+
 absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScanImpl(
     const ResolvedScan* scan,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
-  switch (scan->node_kind()) {
-    case RESOLVED_SINGLE_ROW_SCAN:
-      return AlgebrizeSingleRowScan();
-    case RESOLVED_TABLE_SCAN:
-      return AlgebrizeTableScan(scan->GetAs<ResolvedTableScan>(),
-                                active_conjuncts);
-    case RESOLVED_JOIN_SCAN:
-      return AlgebrizeJoinScan(scan->GetAs<ResolvedJoinScan>(),
-                               active_conjuncts);
-    case RESOLVED_ARRAY_SCAN:
-      return AlgebrizeArrayScan(scan->GetAs<ResolvedArrayScan>(),
-                                active_conjuncts);
-    case RESOLVED_FILTER_SCAN:
-      return AlgebrizeFilterScan(scan->GetAs<ResolvedFilterScan>(),
-                                 active_conjuncts);
-    case RESOLVED_SAMPLE_SCAN:
-      return AlgebrizeSampleScan(scan->GetAs<ResolvedSampleScan>(),
-                                 active_conjuncts);
-    case RESOLVED_AGGREGATE_SCAN:
-      return AlgebrizeAggregateScan(scan->GetAs<ResolvedAggregateScan>());
-    case RESOLVED_ANONYMIZED_AGGREGATE_SCAN:
-      return AlgebrizeAnonymizedAggregateScan(
-          scan->GetAs<ResolvedAnonymizedAggregateScan>());
-    case RESOLVED_DIFFERENTIAL_PRIVACY_AGGREGATE_SCAN:
-      return AlgebrizeDifferentialPrivacyAggregateScan(
-          scan->GetAs<ResolvedDifferentialPrivacyAggregateScan>());
-    case RESOLVED_AGGREGATION_THRESHOLD_AGGREGATE_SCAN:
-      return AlgebrizeAggregationThresholdAggregateScan(
-          scan->GetAs<ResolvedAggregationThresholdAggregateScan>());
-    case RESOLVED_SET_OPERATION_SCAN:
-      return AlgebrizeSetOperationScan(scan->GetAs<ResolvedSetOperationScan>());
-    case RESOLVED_PROJECT_SCAN:
-      return AlgebrizeProjectScan(scan->GetAs<ResolvedProjectScan>(),
-                                  active_conjuncts);
-    case RESOLVED_ORDER_BY_SCAN:
-      return AlgebrizeOrderByScan(scan->GetAs<ResolvedOrderByScan>(),
-                                  /*limit=*/nullptr, /*offset=*/nullptr);
-    case RESOLVED_LIMIT_OFFSET_SCAN:
-      return AlgebrizeLimitOffsetScan(scan->GetAs<ResolvedLimitOffsetScan>());
-    case RESOLVED_WITH_SCAN:
-      return AlgebrizeWithScan(scan->GetAs<ResolvedWithScan>());
-    case RESOLVED_WITH_REF_SCAN:
-      return AlgebrizeWithRefScan(scan->GetAs<ResolvedWithRefScan>());
-    case RESOLVED_ANALYTIC_SCAN:
-      return AlgebrizeAnalyticScan(scan->GetAs<ResolvedAnalyticScan>());
-    case RESOLVED_RECURSIVE_SCAN:
-      return AlgebrizeRecursiveScan(scan->GetAs<ResolvedRecursiveScan>());
-    case RESOLVED_RECURSIVE_REF_SCAN:
-      return AlgebrizeRecursiveRefScan(scan->GetAs<ResolvedRecursiveRefScan>());
-    case RESOLVED_PIVOT_SCAN:
-      return AlgebrizePivotScan(scan->GetAs<ResolvedPivotScan>());
-    case RESOLVED_UNPIVOT_SCAN:
-      return AlgebrizeUnpivotScan(scan->GetAs<ResolvedUnpivotScan>());
-    case RESOLVED_GROUP_ROWS_SCAN:
-      return AlgebrizeGroupRowsScan(scan->GetAs<ResolvedGroupRowsScan>());
-    case RESOLVED_TVFSCAN:
-      return AlgebrizeTvfScan(scan->GetAs<ResolvedTVFScan>());
-    case RESOLVED_MATCH_RECOGNIZE_SCAN:
-      return AlgebrizeMatchRecognizeScan(
-          scan->GetAs<ResolvedMatchRecognizeScan>());
-    case RESOLVED_PIPE_IF_SCAN:
-      return AlgebrizePipeIfScan(scan->GetAs<ResolvedPipeIfScan>());
-    case RESOLVED_SUBPIPELINE_INPUT_SCAN:
-      return AlgebrizeSubpipelineInputScan(
-          scan->GetAs<ResolvedSubpipelineInputScan>());
-    case RESOLVED_GRAPH_TABLE_SCAN:
-      return AlgebrizeGraphTableScan(scan->GetAs<ResolvedGraphTableScan>(),
-                                     active_conjuncts);
-    case RESOLVED_GRAPH_LINEAR_SCAN:
-      return AlgebrizeGraphLinearScan(scan->GetAs<ResolvedGraphLinearScan>(),
-                                      active_conjuncts);
-    case RESOLVED_GRAPH_REF_SCAN:
-      return AlgebrizeGraphRefScan(scan->GetAs<ResolvedGraphRefScan>());
-    case RESOLVED_GRAPH_SCAN:
-      return AlgebrizeGraphScan(scan->GetAs<ResolvedGraphScan>(),
-                                active_conjuncts);
-    case RESOLVED_GRAPH_PATH_SCAN:
-      return AlgebrizeGraphPathScan(scan->GetAs<ResolvedGraphPathScan>(),
-                                    active_conjuncts);
-    case RESOLVED_GRAPH_NODE_SCAN:
-    case RESOLVED_GRAPH_EDGE_SCAN:
-      return AlgebrizeGraphElementScan(scan->GetAs<ResolvedGraphElementScan>(),
-                                       active_conjuncts);
-    case RESOLVED_GRAPH_CALL_SCAN:
-      return AlgebrizeGraphCallScan(scan->GetAs<ResolvedGraphCallScan>(),
-                                    active_conjuncts);
-    case RESOLVED_ASSERT_SCAN:
-      return AlgebrizeAssertScan(scan->GetAs<ResolvedAssertScan>());
-    case RESOLVED_DESCRIBE_SCAN:
-      return AlgebrizeDescribeScan(scan->GetAs<ResolvedDescribeScan>());
-    case RESOLVED_STATIC_DESCRIBE_SCAN:
-      return AlgebrizeStaticDescribeScan(
-          scan->GetAs<ResolvedStaticDescribeScan>());
-    case RESOLVED_BARRIER_SCAN:
-      return AlgebrizeBarrierScan(scan->GetAs<ResolvedBarrierScan>());
-    case RESOLVED_RELATION_ARGUMENT_SCAN:
-      return AlgebrizeRelationArgumentScan(
-          scan->GetAs<ResolvedRelationArgumentScan>());
-    default:
-      return ::zetasql_base::UnimplementedErrorBuilder()
-             << "Unhandled node type algebrizing a scan: "
-             << scan->DebugString();
+  // We use a map of node kind to algebrizer function calls instead of a
+  // switch statement to prevent aggressive inlining in certain compilation
+  // modes, which could lead to out of stack errors. See b/447813193.
+  using AlgebrizeScanFunc =
+      std::function<absl::StatusOr<std::unique_ptr<RelationalOp>>(
+          Algebrizer*, const ResolvedScan*, std::vector<FilterConjunctInfo*>*)>;
+  static const absl::NoDestructor<absl::flat_hash_map<int, AlgebrizeScanFunc>>
+      kAlgebrizeScanMap([] {
+        absl::flat_hash_map<int, AlgebrizeScanFunc> map = {
+            {RESOLVED_SINGLE_ROW_SCAN,
+             [](Algebrizer* a, const ResolvedScan*,
+                std::vector<FilterConjunctInfo*>*) {
+               return a->AlgebrizeSingleRowScan();
+             }},
+            {RESOLVED_TABLE_SCAN, ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(
+                                      ResolvedTableScan, AlgebrizeTableScan)},
+            {RESOLVED_JOIN_SCAN, ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(
+                                     ResolvedJoinScan, AlgebrizeJoinScan)},
+            {RESOLVED_ARRAY_SCAN, ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(
+                                      ResolvedArrayScan, AlgebrizeArrayScan)},
+            {RESOLVED_FILTER_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedFilterScan,
+                                               AlgebrizeFilterScan)},
+            {RESOLVED_SAMPLE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedSampleScan,
+                                               AlgebrizeSampleScan)},
+            {RESOLVED_AGGREGATE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedAggregateScan,
+                                                  AlgebrizeAggregateScan)},
+            {RESOLVED_ANONYMIZED_AGGREGATE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                 ResolvedAnonymizedAggregateScan,
+                 AlgebrizeAnonymizedAggregateScan)},
+            {RESOLVED_DIFFERENTIAL_PRIVACY_AGGREGATE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                 ResolvedDifferentialPrivacyAggregateScan,
+                 AlgebrizeDifferentialPrivacyAggregateScan)},
+            {RESOLVED_AGGREGATION_THRESHOLD_AGGREGATE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                 ResolvedAggregationThresholdAggregateScan,
+                 AlgebrizeAggregationThresholdAggregateScan)},
+            {RESOLVED_SET_OPERATION_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedSetOperationScan,
+                                                  AlgebrizeSetOperationScan)},
+            {RESOLVED_PROJECT_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedProjectScan,
+                                               AlgebrizeProjectScan)},
+            {RESOLVED_ORDER_BY_SCAN,
+             [](Algebrizer* a, const ResolvedScan* s,
+                std::vector<FilterConjunctInfo*>*) {
+               return a->AlgebrizeOrderByScan(s->GetAs<ResolvedOrderByScan>(),
+                                              /*limit=*/nullptr,
+                                              /*offset=*/nullptr);
+             }},
+            {RESOLVED_LIMIT_OFFSET_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedLimitOffsetScan,
+                                                  AlgebrizeLimitOffsetScan)},
+            {RESOLVED_WITH_SCAN, ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                                     ResolvedWithScan, AlgebrizeWithScan)},
+            {RESOLVED_WITH_REF_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedWithRefScan,
+                                                  AlgebrizeWithRefScan)},
+            {RESOLVED_ANALYTIC_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedAnalyticScan,
+                                                  AlgebrizeAnalyticScan)},
+            {RESOLVED_RECURSIVE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedRecursiveScan,
+                                                  AlgebrizeRecursiveScan)},
+            {RESOLVED_RECURSIVE_REF_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedRecursiveRefScan,
+                                                  AlgebrizeRecursiveRefScan)},
+            {RESOLVED_PIVOT_SCAN, ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                                      ResolvedPivotScan, AlgebrizePivotScan)},
+            {RESOLVED_UNPIVOT_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedUnpivotScan,
+                                                  AlgebrizeUnpivotScan)},
+            {RESOLVED_GROUP_ROWS_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedGroupRowsScan,
+                                                  AlgebrizeGroupRowsScan)},
+            {RESOLVED_TVFSCAN, ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                                   ResolvedTVFScan, AlgebrizeTvfScan)},
+            {RESOLVED_MATCH_RECOGNIZE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedMatchRecognizeScan,
+                                                  AlgebrizeMatchRecognizeScan)},
+            {RESOLVED_PIPE_IF_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedPipeIfScan,
+                                                  AlgebrizePipeIfScan)},
+            {RESOLVED_SUBPIPELINE_INPUT_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                 ResolvedSubpipelineInputScan, AlgebrizeSubpipelineInputScan)},
+            {RESOLVED_GRAPH_TABLE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphTableScan,
+                                               AlgebrizeGraphTableScan)},
+            {RESOLVED_GRAPH_LINEAR_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphLinearScan,
+                                               AlgebrizeGraphLinearScan)},
+            {RESOLVED_GRAPH_REF_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedGraphRefScan,
+                                                  AlgebrizeGraphRefScan)},
+            {RESOLVED_GRAPH_SCAN, ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(
+                                      ResolvedGraphScan, AlgebrizeGraphScan)},
+            {RESOLVED_GRAPH_PATH_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphPathScan,
+                                               AlgebrizeGraphPathScan)},
+            {RESOLVED_GRAPH_NODE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphElementScan,
+                                               AlgebrizeGraphElementScan)},
+            {RESOLVED_GRAPH_EDGE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphElementScan,
+                                               AlgebrizeGraphElementScan)},
+            {RESOLVED_GRAPH_CALL_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS(ResolvedGraphCallScan,
+                                               AlgebrizeGraphCallScan)},
+            {RESOLVED_ASSERT_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedAssertScan,
+                                                  AlgebrizeAssertScan)},
+            {RESOLVED_DESCRIBE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedDescribeScan,
+                                                  AlgebrizeDescribeScan)},
+            {RESOLVED_STATIC_DESCRIBE_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedStaticDescribeScan,
+                                                  AlgebrizeStaticDescribeScan)},
+            {RESOLVED_BARRIER_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(ResolvedBarrierScan,
+                                                  AlgebrizeBarrierScan)},
+            {RESOLVED_RELATION_ARGUMENT_SCAN,
+             ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS(
+                 ResolvedRelationArgumentScan, AlgebrizeRelationArgumentScan)}};
+        return map;
+      }());
+  if (!kAlgebrizeScanMap->contains(scan->node_kind())) {
+    return ::zetasql_base::UnimplementedErrorBuilder()
+           << "Unhandled node type algebrizing a scan: " << scan->DebugString();
   }
+  return kAlgebrizeScanMap->at(scan->node_kind())(this, scan, active_conjuncts);
 }
+
+#undef ADD_SCAN_MAP_ENTRY_WITH_CONJUNCTS
+#undef ADD_SCAN_MAP_ENTRY_WITHOUT_CONJUNCTS
 
 // Algebrize a resolved scan operator.
 absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeScan(

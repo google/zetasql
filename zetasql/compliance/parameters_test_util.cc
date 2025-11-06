@@ -17,6 +17,7 @@
 #include "zetasql/compliance/parameters_test_util.h"
 
 #include <map>
+#include <memory>
 #include <string>
 
 #include "zetasql/compliance/test_driver.h"
@@ -34,18 +35,16 @@ namespace zetasql {
 
 absl::Status ParseTestFileParameters(absl::string_view param_string,
                                      ReferenceDriver* reference_driver,
-                                     TypeFactory* type_factory,
                                      std::map<std::string, Value>* parameters) {
   parameters->clear();
 
   const std::string sql = absl::StrCat("SELECT ", param_string);
 
   ReferenceDriver::ExecuteStatementAuxOutput aux_output;
-  ZETASQL_ASSIGN_OR_RETURN(
-      Value value,
-      reference_driver->ExecuteStatementForReferenceDriver(
-          sql, /*parameters=*/{}, ReferenceDriver::ExecuteStatementOptions(),
-          type_factory, aux_output));
+  ZETASQL_ASSIGN_OR_RETURN(Value value,
+                   reference_driver->ExecuteStatementForReferenceDriver(
+                       sql, /*parameters=*/{},
+                       ReferenceDriver::ExecuteStatementOptions(), aux_output));
   ZETASQL_RET_CHECK(aux_output.is_deterministic_output.value_or(false));
 
   // Expect the result is in Array[Struct{...}].
@@ -69,7 +68,7 @@ absl::Status ParseTestFileParameters(absl::string_view param_string,
 }
 
 TestFileParameterParser::TestFileParameterParser()
-    : reference_impl_(new ReferenceDriver), type_factory_(new TypeFactory) {}
+    : reference_impl_(new ReferenceDriver) {}
 
 TestFileParameterParser::~TestFileParameterParser() = default;
 
@@ -77,7 +76,10 @@ absl::Status TestFileParameterParser::Init(const TestDatabase& database) {
   initialized_ = true;
   LanguageOptions lang_options = reference_impl_->GetSupportedLanguageOptions();
   reference_impl_->SetLanguageOptions(lang_options);
-  return reference_impl_->CreateDatabase(database);
+
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_RETURN_IF_ERROR(SerializeTestDatabase(database, test_db_proto.get()));
+  return reference_impl_->CreateDatabase(*test_db_proto);
 }
 
 absl::Status TestFileParameterParser::Parse(
@@ -87,7 +89,7 @@ absl::Status TestFileParameterParser::Parse(
     ZETASQL_RETURN_IF_ERROR(Init(TestDatabase{}));
   }
   return ParseTestFileParameters(param_string, reference_impl_.get(),
-                                 type_factory_.get(), parameters);
+                                 parameters);
 }
 
 }  // namespace zetasql

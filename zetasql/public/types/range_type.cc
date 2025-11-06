@@ -93,7 +93,7 @@ RangeType::RangeType(const TypeFactoryBase* factory, const Type* element_type)
   // Also blocked in TypeFactory::MakeRangeType.
   ABSL_DCHECK(IsValidElementType(element_type_));
 }
-RangeType::~RangeType() {}
+RangeType::~RangeType() = default;
 
 bool RangeType::IsValidElementType(const Type* element_type) {
   // Range element types must be equatable and orderable.

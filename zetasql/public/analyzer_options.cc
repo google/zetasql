@@ -319,16 +319,19 @@ absl::Status AllowedHintsAndOptions::Serialize(
 
 AnalyzerOptions::AnalyzerOptions() : AnalyzerOptions(LanguageOptions()) {}
 
-AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
-    : data_(new Data{
-          .language_options = language_options,
-          .validate_resolved_ast =
-              absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
-          .error_message_stability = GetDefaultErrorMessageStability()}) {
+AnalyzerOptions::AnalyzerOptions(LanguageOptions&& language_options)
+    : data_(std::make_unique<Data>(
+          Data{.language_options = std::move(language_options),
+               .validate_resolved_ast =
+                   absl::GetFlag(FLAGS_zetasql_validate_resolved_ast),
+               .error_message_stability = GetDefaultErrorMessageStability()})) {
   ZETASQL_CHECK_OK(FindTimeZoneByName("America/Los_Angeles",  // Crash OK
                               &data_->default_timezone))
       << "Did you need to install the tzdata package?";
 }
+
+AnalyzerOptions::AnalyzerOptions(const LanguageOptions& language_options)
+    : AnalyzerOptions(LanguageOptions(language_options)) {}
 
 AnalyzerOptions::~AnalyzerOptions() = default;
 
@@ -406,7 +409,7 @@ absl::Status AnalyzerOptions::Deserialize(
     const Type* type;
     ZETASQL_RETURN_IF_ERROR(factory->DeserializeFromProtoUsingExistingPools(
         column.type(), pools, &type));
-    ddl_pseudo_columns.push_back(std::make_pair(column.name(), type));
+    ddl_pseudo_columns.emplace_back(column.name(), type);
   }
   result->SetDdlPseudoColumns(ddl_pseudo_columns);
 

@@ -7,7 +7,7 @@
 # ExpressionAttributesProto on columns. The Java serialization/deserialization
 # code needs to be updated to be aware of this field.
 [default no_java]
-[default language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT]
+[default language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT,+AGGREGATE_FILTERING]
 [default enabled_ast_rewrites=DEFAULTS,+MEASURE_TYPE]
 [default sql_builder_target_syntax_mode=standard]
 [default show_sqlbuilder_output]
@@ -137,6 +137,10 @@ QueryStmt
                   +-constituent_aggregate_1#24 :=
                   | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                   |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#25)
+                  |   +-where_expr=
+                  |   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                  |   |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                  |   |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>, column=WithTable.struct_for_measures_from_table_WithTable#22)
                   |   +-group_by_list=
                   |   | +-grain_lock_key#26 :=
                   |   |   +-GetStructField
@@ -159,6 +163,10 @@ QueryStmt
                   +-constituent_aggregate_1#27 :=
                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                       +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#28)
+                      +-where_expr=
+                      | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                      |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                      |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>, column=WithTable.struct_for_measures_from_table_WithTable#23)
                       +-group_by_list=
                       | +-grain_lock_key#29 :=
                       |   +-GetStructField
@@ -210,8 +218,12 @@ FROM
   (
     SELECT
       SUM(ANY_VALUE(withrefscan_7.a_5.referenced_columns.price)
+        WHERE
+          NOT((withrefscan_7.a_5) IS NULL)
         GROUP BY withrefscan_7.a_5.key_columns) AS a_9,
       SUM(ANY_VALUE(withrefscan_8.a_5.referenced_columns.price)
+        WHERE
+          NOT((withrefscan_8.a_5) IS NULL)
         GROUP BY withrefscan_8.a_5.key_columns) AS a_10
     FROM
       (
@@ -367,6 +379,10 @@ QueryStmt
                   +-constituent_aggregate_1#27 :=
                   | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                   |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#28)
+                  |   +-where_expr=
+                  |   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                  |   |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                  |   |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=WithTable.struct_for_measures_from_table_WithTable#25)
                   |   +-group_by_list=
                   |   | +-grain_lock_key#29 :=
                   |   |   +-GetStructField
@@ -389,6 +405,10 @@ QueryStmt
                   +-constituent_aggregate_1#30 :=
                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                       +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#31)
+                      +-where_expr=
+                      | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                      |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                      |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=WithTable.struct_for_measures_from_table_WithTable#26)
                       +-group_by_list=
                       | +-grain_lock_key#32 :=
                       |   +-GetStructField
@@ -446,8 +466,12 @@ FROM
   (
     SELECT
       SUM(ANY_VALUE(withrefscan_9.a_7.referenced_columns.price)
+        WHERE
+          NOT((withrefscan_9.a_7) IS NULL)
         GROUP BY withrefscan_9.a_7.key_columns) AS a_11,
       SUM(ANY_VALUE(withrefscan_10.a_7.referenced_columns.quantity)
+        WHERE
+          NOT((withrefscan_10.a_7) IS NULL)
         GROUP BY withrefscan_10.a_7.key_columns) AS a_12
     FROM
       (
@@ -628,6 +652,10 @@ QueryStmt
                   +-constituent_aggregate_1#30 :=
                   | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                   |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#31)
+                  |   +-where_expr=
+                  |   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                  |   |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                  |   |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=WithTable2.struct_for_measures_from_table_WithTable2#28)
                   |   +-group_by_list=
                   |   | +-grain_lock_key#32 :=
                   |   |   +-GetStructField
@@ -650,6 +678,10 @@ QueryStmt
                   +-constituent_aggregate_1#33 :=
                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                       +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#34)
+                      +-where_expr=
+                      | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                      |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+                      |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key INT64>>, column=WithTable2.struct_for_measures_from_table_WithTable2#29)
                       +-group_by_list=
                       | +-grain_lock_key#35 :=
                       |   +-GetStructField
@@ -715,8 +747,12 @@ FROM
   (
     SELECT
       SUM(ANY_VALUE(withrefscan_10.a_7.referenced_columns.price)
+        WHERE
+          NOT((withrefscan_10.a_7) IS NULL)
         GROUP BY withrefscan_10.a_7.key_columns) AS a_12,
       SUM(ANY_VALUE(withrefscan_11.a_7.referenced_columns.quantity)
+        WHERE
+          NOT((withrefscan_11.a_7) IS NULL)
         GROUP BY withrefscan_11.a_7.key_columns) AS a_13
     FROM
       (
@@ -910,6 +946,10 @@ QueryStmt
         |                   +-constituent_aggregate_1#28 :=
         |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
         |                       +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#29)
+        |                       +-where_expr=
+        |                       | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+        |                       |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>) -> BOOL)
+        |                       |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64>, key_columns STRUCT<key INT64>>, column=$subquery1.struct_for_measures_from_table_$subquery1#27)
         |                       +-group_by_list=
         |                       | +-grain_lock_key#30 :=
         |                       |   +-GetStructField
@@ -975,6 +1015,8 @@ SELECT
       (
         SELECT
           SUM(ANY_VALUE(projectscan_13.a_12.referenced_columns.price)
+            WHERE
+              NOT((projectscan_13.a_12) IS NULL)
             GROUP BY projectscan_13.a_12.key_columns) AS a_14
         FROM
           (

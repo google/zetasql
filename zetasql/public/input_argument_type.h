@@ -86,7 +86,7 @@ class InputArgumentType {
   // kResourceExhausted) or runtime error (kOutOfRange).
   explicit InputArgumentType(absl::StatusOr<Value> constant_value);
 
-  ~InputArgumentType() {}
+  ~InputArgumentType() = default;
 
   // This may return nullptr (such as for lambda).
   const Type* type() const { return type_; }
@@ -402,10 +402,10 @@ struct InputArgumentTypeLess {
 // supertyping prefers the type and field names from the leftmost argument.
 class InputArgumentTypeSet {
  public:
-  InputArgumentTypeSet() {}
+  InputArgumentTypeSet() = default;
   InputArgumentTypeSet(const InputArgumentTypeSet&) = delete;
   InputArgumentTypeSet& operator=(const InputArgumentTypeSet&) = delete;
-  ~InputArgumentTypeSet() {}
+  ~InputArgumentTypeSet() = default;
 
   const InputArgumentType* dominant_argument() const {
     return dominant_argument_.get();

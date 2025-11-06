@@ -164,7 +164,7 @@ TEST(ResolvedColumnTest, RestoreFrom) {
 }
 
 TEST(ResolvedColumnTest, ClassAndProtoSize) {
-  EXPECT_EQ(16, sizeof(ResolvedNode))
+  EXPECT_EQ(24, sizeof(ResolvedNode))
       << "The size of ResolvedNode class has changed, please also update the "
       << "proto and serialization code if you added/removed fields in it.";
   // sizeof(ResolvedColumn) is 56 bytes in debug mode, including 4 bytes of

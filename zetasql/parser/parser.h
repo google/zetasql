@@ -158,20 +158,18 @@ class ParserOptions {
 };
 
 // Output of a parse operation. The output parse tree can be accessed via
-// statement(), expression(), type(), or subpipeline(), depending on the
-// parse function that was called.
+// statement(), expression(), or type(), depending on the parse function that
+// was called.
 class ParserOutput {
  public:
-  using NodeVariantType =
+  ParserOutput(
+      std::shared_ptr<IdStringPool> id_string_pool,
+      std::shared_ptr<zetasql_base::UnsafeArena> arena,
+      std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
       std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
-                   std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>,
-                   std::unique_ptr<ASTSubpipeline>>;
-
-  ParserOutput(std::shared_ptr<IdStringPool> id_string_pool,
-               std::shared_ptr<zetasql_base::UnsafeArena> arena,
-               std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes,
-               NodeVariantType node, WarningSink warnings,
-               std::unique_ptr<ParserRuntimeInfo> info = nullptr);
+                   std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+          node,
+      WarningSink warnings, std::unique_ptr<ParserRuntimeInfo> info = nullptr);
   ParserOutput(const ParserOutput&) = delete;
   ParserOutput& operator=(const ParserOutput&) = delete;
   ~ParserOutput();
@@ -182,9 +180,6 @@ class ParserOutput {
   const ASTScript* script() const { return GetNodeAs<ASTScript>(); }
   const ASTType* type() const { return GetNodeAs<ASTType>(); }
   const ASTExpression* expression() const { return GetNodeAs<ASTExpression>(); }
-  const ASTSubpipeline* subpipeline() const {
-    return GetNodeAs<ASTSubpipeline>();
-  }
 
   const ASTNode* node() const {
     if (std::holds_alternative<std::unique_ptr<ASTStatement>>(node_)) {
@@ -198,9 +193,6 @@ class ParserOutput {
     }
     if (std::holds_alternative<std::unique_ptr<ASTExpression>>(node_)) {
       return expression();
-    }
-    if (std::holds_alternative<std::unique_ptr<ASTSubpipeline>>(node_)) {
-      return subpipeline();
     }
     return nullptr;
   }
@@ -239,8 +231,9 @@ class ParserOutput {
   // This vector owns the non-root nodes in the AST.
   std::vector<std::unique_ptr<ASTNode>> other_allocated_ast_nodes_;
 
-  // Holds the ASTNode in a typed std::variant.
-  NodeVariantType node_;
+  std::variant<std::unique_ptr<ASTStatement>, std::unique_ptr<ASTScript>,
+               std::unique_ptr<ASTType>, std::unique_ptr<ASTExpression>>
+      node_;
 
   WarningSink warnings_;
 
@@ -353,26 +346,6 @@ absl::Status ParseExpression(absl::string_view expression_string,
 absl::Status ParseExpression(const ParseResumeLocation& resume_location,
                              const ParserOptions& parser_options_in,
                              std::unique_ptr<ParserOutput>* output);
-
-// Parses <subpipeline_string> as a subpipeline (a sequence of pipe operators)
-// and returns the parser output in <output> upon success.
-// The AST can be retrieved from output->subpipeline().
-//
-// This can return errors annotated with an ErrorLocation payload that indicates
-// the input location of an error.
-//
-// Requires FEATURE_PIPES is enabled in LanguageOptions.
-// Empty subpipelines are not allowed.
-// A trailing semicolon is allowed.
-absl::Status ParseSubpipeline(absl::string_view subpipeline_string,
-                              const ParserOptions& parser_options_in,
-                              std::unique_ptr<ParserOutput>* output);
-// Similar to the previous function, but takes a ParseResumeLocation that
-// indicates the source string that contains the subpipeline, and the offset
-// into that string where parsing should start.
-absl::Status ParseSubpipeline(const ParseResumeLocation& resume_location,
-                              const ParserOptions& parser_options_in,
-                              std::unique_ptr<ParserOutput>* output);
 
 // Unparse a given AST back to a canonical SQL string and return it.
 // Works for any AST node.

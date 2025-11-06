@@ -403,16 +403,22 @@ absl::StatusOr<std::unique_ptr<ResolvedFunctionCall>> FunctionCallBuilder::If(
   const Function* if_fn = nullptr;
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("if", &if_fn));
   FunctionArgumentType condition_arg(condition->type(), 1);
+  condition_arg.set_original_kind(SignatureArgumentKind::ARG_TYPE_FIXED);
   FunctionArgumentType arg(then_case->type(), 1);
+  arg.set_original_kind(SignatureArgumentKind::ARG_TYPE_ANY_1);
   FunctionSignature if_signature(arg, {condition_arg, arg, arg}, FN_IF);
   const Type* result_type = then_case->type();
   std::vector<std::unique_ptr<const ResolvedExpr>> if_args(3);
   if_args[0] = std::move(condition);
   if_args[1] = std::move(then_case);
   if_args[2] = std::move(else_case);
-  return MakeResolvedFunctionCall(result_type, if_fn, if_signature,
-                                  std::move(if_args),
-                                  ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+  auto if_call = MakeResolvedFunctionCall(
+      result_type, if_fn, if_signature, std::move(if_args),
+      ResolvedFunctionCall::DEFAULT_ERROR_MODE);
+
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
+      /*error_node=*/nullptr, if_call.get()));
+  return if_call;
 }
 
 absl::StatusOr<std::unique_ptr<ResolvedScan>> ReplaceScanColumns(
@@ -502,15 +508,21 @@ FunctionCallBuilder::IfError(std::unique_ptr<const ResolvedExpr> try_expr,
   ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("iferror", &iferror_fn));
 
   FunctionArgumentType arg_type(try_expr->type(), 1);
+  arg_type.set_original_kind(SignatureArgumentKind::ARG_TYPE_ANY_1);
 
-  return ResolvedFunctionCallBuilder()
-      .set_type(arg_type.type())
-      .set_function(iferror_fn)
-      .set_signature({arg_type, {arg_type, arg_type}, FN_IFERROR})
-      .add_argument_list(std::move(try_expr))
-      .add_argument_list(std::move(handle_expr))
-      .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
-      .Build();
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto iferror_call,
+      ResolvedFunctionCallBuilder()
+          .set_type(arg_type.type())
+          .set_function(iferror_fn)
+          .set_signature({arg_type, {arg_type, arg_type}, FN_IFERROR})
+          .add_argument_list(std::move(try_expr))
+          .add_argument_list(std::move(handle_expr))
+          .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+          .BuildMutable());
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
+      /*error_node=*/nullptr, iferror_call.get()));
+  return iferror_call;
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
@@ -1174,21 +1186,24 @@ FunctionCallBuilder::Concat(
   FunctionArgumentType result_type(catalog_signature->result_type().type(),
                                    catalog_signature->result_type().options(),
                                    /*num_occurrences=*/1);
+  result_type.set_original_kind(SignatureArgumentKind::ARG_TYPE_FIXED);
   FunctionArgumentType first_arg(catalog_signature->argument(0).type(),
                                  catalog_signature->argument(0).options(),
                                  /*num_occurrences=*/1);
+  first_arg.set_original_kind(SignatureArgumentKind::ARG_TYPE_FIXED);
   // The 2nd arg is a repeated arg.
   FunctionArgumentType remaining_args(
       catalog_signature->argument(1).type(),
       catalog_signature->argument(1).options(),
       /*num_occurrences=*/static_cast<int>(elements.size()) - 1);
+  remaining_args.set_original_kind(SignatureArgumentKind::ARG_TYPE_FIXED);
 
   FunctionSignature concat_signature(result_type, {first_arg, remaining_args},
                                      catalog_signature->context_id(),
                                      catalog_signature->options());
 
   ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedFunctionCall> resolved_function,
+      std::unique_ptr<ResolvedFunctionCall> resolved_function,
       ResolvedFunctionCallBuilder()
           .set_type(catalog_signature->result_type().type())
           .set_function(concat_fn)
@@ -1196,7 +1211,9 @@ FunctionCallBuilder::Concat(
           .set_argument_list(std::move(elements))
           .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
           .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
-          .Build());
+          .BuildMutable());
+  ZETASQL_RETURN_IF_ERROR(annotation_propagator_.CheckAndPropagateAnnotations(
+      /*error_node=*/nullptr, resolved_function.get()));
   return resolved_function;
 }
 
@@ -1217,6 +1234,8 @@ FunctionCallBuilder::MakeNullIfEmptyArray(
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_non_empty,
                    GreaterOrEqual(std::move(array_length),
                                   MakeResolvedLiteral(Value::Int64(1))));
+  const AnnotationMap* output_annotation_map =
+      array_expr->type_annotation_map();
   return ResolvedWithExprBuilder()
       .add_assignment_list(ResolvedComputedColumnBuilder()
                                .set_column(out_column)
@@ -1226,6 +1245,7 @@ FunctionCallBuilder::MakeNullIfEmptyArray(
                                          /*is_correlated=*/false),
                    MakeResolvedLiteral(Value::Null(array_type))))
       .set_type(array_type)
+      .set_type_annotation_map(output_annotation_map)
       .Build();
 }
 
@@ -1616,7 +1636,9 @@ absl::StatusOr<const zetasql::Type*> GetCommonGraphElementSuperType(
                               /*is_literal_for_constness=*/true);
   types.Insert(arg_type1);
   types.Insert(arg_type2);
-  return coercer.GetCommonSuperType(types);
+  const Type* common_supertype = nullptr;
+  ZETASQL_RETURN_IF_ERROR(coercer.GetCommonSuperType(types, &common_supertype));
+  return common_supertype;
 }
 
 // Returns a cast of the given expr to the given type, or the expr itself if
@@ -2474,131 +2496,6 @@ absl::Status FunctionCallBuilder::GetBuiltinFunctionFromCatalog(
   return absl::OkStatus();
 }
 
-absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>>
-LikeAnyAllSubqueryScanBuilder::BuildAggregateScan(
-    ResolvedColumn& input_column, ResolvedColumn& subquery_column,
-    std::unique_ptr<const ResolvedScan> input_scan,
-    ResolvedSubqueryExpr::SubqueryType subquery_type) {
-  std::vector<std::unique_ptr<const ResolvedComputedColumn>> aggregate_list;
-  std::vector<ResolvedColumn> column_list;
-
-  // Create a LOGICAL_OR/AND(input LIKE pattern) function using ColumnRefs to
-  // the input and subquery columns, and add it as a column to the
-  // AggregateScan.
-  // Maps to:
-  // +-like_agg_col#3=AggregateFunctionCall(
-  //       LOGICAL_OR/AND(input_expr#1 LIKE pattern_col#2) -> BOOL)
-  //         // OR for ANY, AND for ALL
-  // in the ResolvedAST.
-  std::unique_ptr<ResolvedColumnRef> like_input_column_ref =
-      MakeResolvedColumnRef(input_column.type(), input_column,
-                            /*is_correlated=*/true);
-  std::unique_ptr<ResolvedColumnRef> subquery_column_ref_like =
-      MakeResolvedColumnRef(subquery_column.type(), subquery_column,
-                            /*is_correlated=*/false);
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> like_fn,
-                   fn_builder_.Like(std::move(like_input_column_ref),
-                                    std::move(subquery_column_ref_like)));
-  FunctionSignatureId context_id;
-  if (subquery_type == ResolvedSubqueryExpr::LIKE_ANY) {
-    context_id = FN_LOGICAL_OR;
-  } else if (subquery_type == ResolvedSubqueryExpr::LIKE_ALL) {
-    context_id = FN_LOGICAL_AND;
-  } else {
-    ZETASQL_RET_CHECK_FAIL()
-        << "Subquery type can only be LIKE_ANY or LIKE_ALL. Subquery type: "
-        << ResolvedSubqueryExprEnums_SubqueryType_Name(subquery_type);
-  }
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedAggregateFunctionCall>
-                       logical_operation_like_fn,
-                   AggregateLogicalOperation(context_id, std::move(like_fn)));
-  ResolvedColumn like_column =
-      column_factory_->MakeCol("aggregate", "like_agg_col", types::BoolType());
-  std::unique_ptr<ResolvedComputedColumn> like_computed_column =
-      MakeResolvedComputedColumn(like_column,
-                                 std::move(logical_operation_like_fn));
-  column_list.push_back(like_column);
-  aggregate_list.push_back(std::move(like_computed_column));
-
-  // Create a LOGICAL_OR(pattern IS NULL) function using ColumnRefs to the
-  // subquery column, and add it as a column to the AggregateScan.
-  // Maps to:
-  // +-null_agg_col#4=AggregateFunctionCall(
-  //       LOGICAL_OR(pattern_col#2 IS NULL) -> BOOL)
-  // in the ResolvedAST.
-  std::unique_ptr<ResolvedColumnRef> subquery_column_ref_contains_null =
-      MakeResolvedColumnRef(subquery_column.type(), subquery_column,
-                            /*is_correlated=*/false);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedExpr> is_null_fn,
-      fn_builder_.IsNull(std::move(subquery_column_ref_contains_null)));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedAggregateFunctionCall> contains_null_fn,
-      AggregateLogicalOperation(FN_LOGICAL_OR, std::move(is_null_fn)));
-  ResolvedColumn contains_null_column =
-      column_factory_->MakeCol("aggregate", "null_agg_col", types::BoolType());
-  std::unique_ptr<ResolvedComputedColumn> contains_null_computed_column =
-      MakeResolvedComputedColumn(contains_null_column,
-                                 std::move(contains_null_fn));
-  aggregate_list.push_back(std::move(contains_null_computed_column));
-  column_list.push_back(contains_null_column);
-
-  // Maps to:
-  // AggregateScan
-  //   +-input_scan=SubqueryScan  // User input subquery
-  //     +-pattern_col#2=subquery_column
-  //   +-like_agg_col#3=AggregateFunctionCall(
-  //         LOGICAL_OR/AND(input_expr#1 LIKE pattern_col#2) -> BOOL)
-  //           // OR for ANY, AND for ALL
-  //   +-null_agg_col#4=AggregateFunctionCall(
-  //         LOGICAL_OR(pattern_col#2 IS NULL) -> BOOL)
-  // in the ResolvedAST
-  return MakeResolvedAggregateScan(column_list, std::move(input_scan),
-                                   /*group_by_list=*/{},
-                                   std::move(aggregate_list),
-                                   /*grouping_set_list=*/{},
-                                   /*rollup_column_list=*/{},
-                                   /*grouping_call_list=*/{});
-}
-
-absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
-LikeAnyAllSubqueryScanBuilder::AggregateLogicalOperation(
-    FunctionSignatureId context_id,
-    std::unique_ptr<const ResolvedExpr> expression) {
-  ZETASQL_RET_CHECK_EQ(expression->type(), types::BoolType());
-
-  std::string logical_fn;
-  if (context_id == FN_LOGICAL_OR) {
-    logical_fn = "logical_or";
-  } else if (context_id == FN_LOGICAL_AND) {
-    logical_fn = "logical_and";
-  } else {
-    ZETASQL_RET_CHECK_FAIL() << "Function context_id did not match LOGICAL_OR or "
-                        "LOGICAL_AND. context_id: "
-                     << FunctionSignatureId_Name(context_id);
-  }
-
-  const Function* logical_operation_fn;
-  ZETASQL_RET_CHECK_OK(catalog_->FindFunction({logical_fn}, &logical_operation_fn,
-                                      analyzer_options_->find_options()))
-      << "Engine does not support " << logical_fn << " function";
-  ZETASQL_RET_CHECK(logical_operation_fn->IsZetaSQLBuiltin());
-  ZETASQL_RET_CHECK_NE(logical_operation_fn, nullptr);
-
-  FunctionSignature logical_operation_signature(
-      {types::BoolType(), 1}, {{types::BoolType(), 1}}, context_id);
-  std::vector<std::unique_ptr<const ResolvedExpr>> logical_operation_args;
-  logical_operation_args.push_back(std::move(expression));
-
-  return MakeResolvedAggregateFunctionCall(
-      types::BoolType(), logical_operation_fn, logical_operation_signature,
-      std::move(logical_operation_args),
-      ResolvedFunctionCallBaseEnums::DEFAULT_ERROR_MODE, /*distinct=*/false,
-      ResolvedNonScalarFunctionCallBaseEnums::DEFAULT_NULL_HANDLING,
-      /*having_modifier=*/nullptr, /*order_by_item_list=*/{},
-      /*limit=*/nullptr);
-}
-
 bool IsBuiltInFunctionIdEq(const ResolvedFunctionCallBase* const function_call,
                            FunctionSignatureId function_signature_id) {
   ABSL_DCHECK(function_call->function() != nullptr)
@@ -2669,6 +2566,26 @@ absl::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetCorrelatedColumnSet(
     column_set.insert(column);
   }
   return column_set;
+}
+
+absl::Status ValidateArgumentsDoNotContainCorrelation(
+    const ResolvedTVFScan* tvf_node, absl::string_view function_name,
+    absl::Span<const ResolvedExpr* /*absl_nonnull*/ const> expressions) {
+  for (const ResolvedExpr* expr : expressions) {
+    ZETASQL_RET_CHECK(expr != nullptr)
+        << "Expression in ValidateArgumentsDoNotContainCorrelation should not "
+           "be null";
+
+    ZETASQL_ASSIGN_OR_RETURN(absl::flat_hash_set<ResolvedColumn> correlated_columns,
+                     GetCorrelatedColumnSet(*expr));
+    if (!correlated_columns.empty()) {
+      return MakeUnimplementedErrorAtNode(tvf_node)
+             << function_name
+             << " arguments must not contain correlated references to columns "
+                "defined outside the scope of the argument expression itself";
+    }
+  }
+  return absl::OkStatus();
 }
 
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
@@ -2962,12 +2879,12 @@ class MaxColumnIdVisitor : public zetasql::ResolvedASTRewriteVisitor {
     return rewriter.get_max_column_id();
   }
 
-  absl::StatusOr<zetasql::ResolvedColumn> PostVisitResolvedColumn(
+  absl::Status PreVisitResolvedColumn(
       const zetasql::ResolvedColumn& column) override {
     if (column.column_id() > max_column_id_) {
       max_column_id_ = std::max(max_column_id_, column.column_id());
     }
-    return column;
+    return absl::OkStatus();
   }
 
   int get_max_column_id() { return max_column_id_; }
@@ -2994,10 +2911,10 @@ class ContainsResolvedColumnVisitor
     return rewriter.ContainsResolvedColumn();
   }
 
-  absl::StatusOr<zetasql::ResolvedColumn> PostVisitResolvedColumn(
+  absl::Status PreVisitResolvedColumn(
       const zetasql::ResolvedColumn& column) override {
     contains_resolved_column_ = true;
-    return column;
+    return absl::OkStatus();
   }
 
   bool ContainsResolvedColumn() { return contains_resolved_column_; }

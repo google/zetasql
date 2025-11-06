@@ -29,6 +29,7 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -122,16 +123,6 @@ class GrainScanInfo {
   absl::Status MarkColumnAsReferencedByExpandableMeasure(
       std::string column_name);
 
-  // Get the names of all row identity columns that need to be projected.
-  absl::btree_set<std::string> GetRowIdentityColumnNames() const;
-
-  absl::StatusOr<ColumnToProject> GetColumnToProject(
-      std::string column_name) const {
-    auto it = columns_to_project_.find(column_name);
-    ZETASQL_RET_CHECK(it != columns_to_project_.end());
-    return it->second;
-  }
-
   std::vector<ColumnToProject> GetAllColumnsToProject() const {
     std::vector<ColumnToProject> columns_to_project;
     for (const auto& [column_name, column_to_project] : columns_to_project_) {
@@ -154,8 +145,6 @@ class GrainScanInfo {
   std::unique_ptr<const ResolvedComputedColumn> ReleaseStructComputedColumn() {
     return std::move(struct_computed_column_);
   }
-
-  ColumnFactory& column_factory() const { return column_factory_; }
 
  private:
   GrainScanInfo(std::string scan_name, ColumnFactory& column_factory)
@@ -280,7 +269,8 @@ absl::Status PopulateStructColumnInfo(
 absl::StatusOr<std::unique_ptr<const ResolvedNode>> RewriteMeasures(
     std::unique_ptr<const ResolvedNode> input,
     GrainScanInfoMap grain_scan_info_map, const Function* any_value_fn,
-    ColumnFactory& column_factory,
+    FunctionCallBuilder& function_call_builder,
+    const LanguageOptions& language_options, ColumnFactory& column_factory,
     MeasureExpansionInfoMap& measure_expansion_info_map);
 
 }  // namespace zetasql

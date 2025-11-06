@@ -259,8 +259,10 @@ TEST(LanguageOptions, LanguageFeaturesVersionTagRangeIntegrity) {
         } else {
           EXPECT_THAT(version.features, Not(Contains(feature)));
         }
-        EXPECT_EQ(options.language_version(), version.version_num)
-            << "Bad version_num tag on enum " << name;
+        if (options.has_language_version()) {
+          EXPECT_EQ(options.language_version(), version.version_num)
+              << "Bad version_num tag on enum " << name;
+        }
       } else {
         if (found_version) {
           // Two features were in development when V 1.3 was "frozen".

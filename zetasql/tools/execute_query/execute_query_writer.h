@@ -20,6 +20,7 @@
 #include <iosfwd>
 #include <memory>
 #include <ostream>
+#include <string>
 
 #include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -99,6 +100,8 @@ class ExecuteQueryWriter {
     return absl::OkStatus();
   }
 
+  virtual void FlushStatement(bool at_end, std::string error_msg) = 0;
+
  protected:
   virtual absl::Status WriteOperationString(absl::string_view operation_name,
                                             absl::string_view str) {
@@ -131,6 +134,8 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
 
   absl::Status ExecutedExpression(const ResolvedNode& ast,
                                   const Value& value) override;
+
+  void FlushStatement(bool at_end, std::string error_msg) override;
 
  protected:
   absl::Status WriteOperationString(absl::string_view operation_name,

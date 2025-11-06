@@ -191,7 +191,7 @@ class ZetaSqlLocalServiceImpl {
 
   template <typename InternalStateT>
   absl::Status CreateAndPrepare(
-      const std::string& sql, const AnalyzerOptionsProto& options,
+      absl::string_view sql, const AnalyzerOptionsProto& options,
       std::shared_ptr<RegisteredCatalogState> catalog_state,
       std::vector<const google::protobuf::DescriptorPool*> pools,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids,

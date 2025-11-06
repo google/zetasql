@@ -139,7 +139,7 @@ const GraphElementType* InferGraphElementType(
 
 }  // namespace
 
-Value GraphNode(
+absl::StatusOr<Value> GraphNode(
     absl::Span<const std::string> graph_reference, absl::string_view identifier,
     absl::Span<const std::pair<std::string, Value>> static_properties,
     absl::Span<const std::string> static_labels,
@@ -151,13 +151,11 @@ Value GraphNode(
       .static_labels = {static_labels.begin(), static_labels.end()},
       .static_properties = {static_properties.begin(),
                             static_properties.end()}};
-  absl::StatusOr<Value> graph_element = Value::MakeGraphNode(
-      graph_element_type, identifier, labels_and_properties, definition_name);
-  ZETASQL_CHECK_OK(graph_element);  // Crash ok
-  return *graph_element;
+  return Value::MakeGraphNode(graph_element_type, identifier,
+                              labels_and_properties, definition_name);
 }
 
-Value GraphEdge(
+absl::StatusOr<Value> GraphEdge(
     absl::Span<const std::string> graph_reference, absl::string_view identifier,
     absl::Span<const std::pair<std::string, Value>> static_properties,
     absl::Span<const std::string> static_labels,
@@ -170,11 +168,9 @@ Value GraphEdge(
       .static_labels = {static_labels.begin(), static_labels.end()},
       .static_properties = {static_properties.begin(),
                             static_properties.end()}};
-  absl::StatusOr<Value> graph_element = Value::MakeGraphEdge(
-      graph_element_type, identifier, labels_and_properties, definition_name,
-      source_node_identifier, dest_node_identifier);
-  ZETASQL_CHECK_OK(graph_element);  // Crash ok
-  return *graph_element;
+  return Value::MakeGraphEdge(graph_element_type, identifier,
+                              labels_and_properties, definition_name,
+                              source_node_identifier, dest_node_identifier);
 }
 
 Value DynamicGraphNode(

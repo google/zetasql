@@ -266,6 +266,7 @@ cc_library(
         "//zetasql/base:check",
         "@com_google_absl//absl/log:die_if_null",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/random",
         "@com_google_absl//absl/random:distributions",
         "@com_google_absl//absl/status",
@@ -481,6 +482,7 @@ cc_library(
         "//zetasql/resolved_ast:serialization_cc_proto",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -599,6 +601,7 @@ cc_library(
         "//zetasql/scripting:type_aliases",
         "//zetasql/testing:test_value",
         "@com_google_absl//absl/algorithm:container",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -608,6 +611,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 
@@ -623,6 +627,8 @@ cc_library(
         ":reference_driver",
         ":rewrite_flags",
         "//zetasql/compliance:test_driver",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/flags:flag",
     ],
 )
@@ -641,6 +647,8 @@ zetasql_compliance_test(
     name = "reference_compliance_internal_test",
     size = "large",
     args = [
+        # Do not turn on features 'in_development' for this target;
+        # it affects compliance dashboard correctness.
         "--rewrites=minimal",
     ],
     known_error_files = [
@@ -661,6 +669,8 @@ zetasql_compliance_test(
     name = "reference_compliance_external_test",
     size = "large",
     args = [
+        # Do not turn on features 'in_development' for this target;
+        # it affects compliance dashboard correctness.
         "--rewrites=minimal",
         "--zetasql_reference_driver_default_external_mode",
     ],
@@ -1052,6 +1062,7 @@ cc_library(
         "//zetasql/public:catalog",
         "//zetasql/public:options_cc_proto",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",

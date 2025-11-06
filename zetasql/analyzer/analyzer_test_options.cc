@@ -42,7 +42,7 @@ namespace zetasql {
 const char* const kModeOption = "mode";
 const char* const kUseSharedIdSequence = "use_shared_column_id_sequence_number";
 const char* const kExpectErrorLocation = "expect_error_location";
-const char* const kAllowInternalError = "allow_internal_error_TODO_fix_this";
+const char* const kAllowInternalErrorTodoBug = "allow_internal_error_todo_bug";
 const char* const kAllowUndeclaredParameters = "allow_undeclared_parameters";
 const char* const kParameterMode = "parameter_mode";
 const char* const kPositionalParameters = "positional_parameter_types";
@@ -75,6 +75,8 @@ const char* const kAllowAggregateStandaloneExpression =
     "allow_aggregate_standalone_expression";
 const char* const kCoercedQueryOutputTypes = "coerced_query_output_types";
 const char* const kStatementContext = "statement_context";
+const char* const kDefaultTableForSubpipelineStmt =
+    "default_table_for_subpipeline_stmt";
 const char* const kProductMode = "product_mode";
 const char* const kUseHintsAllowlist = "use_hints_allowlist";
 const char* const kRunInJava = "java";
@@ -120,6 +122,8 @@ const char* const kSqlBuilderTargetSyntaxModePipe = "pipe";
 const char* const kSqlBuilderTargetSyntaxModeStandard = "standard";
 const char* const kSqlBuilderTargetSyntaxModeBoth = "both";
 const char* const kUseConstantEvaluator = "use_constant_evaluator";
+const char* const kTableForMeasureExprAnalysis =
+    "table_for_measure_expr_analysis";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -129,7 +133,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterString(kModeOption, "statement");
   test_case_options->RegisterBool(kUseSharedIdSequence, false);
   test_case_options->RegisterBool(kExpectErrorLocation, true);
-  test_case_options->RegisterBool(kAllowInternalError, false);
+  test_case_options->RegisterString(kAllowInternalErrorTodoBug, "");
   test_case_options->RegisterBool(kAllowUndeclaredParameters, false);
   test_case_options->RegisterString(kParameterMode, "named");
   test_case_options->RegisterString(kPositionalParameters, "");
@@ -159,6 +163,7 @@ void RegisterAnalyzerTestOptions(
                                     "`zetasql_test__.KitchenSinkPB`");
   test_case_options->RegisterString(kCoercedQueryOutputTypes, "");
   test_case_options->RegisterString(kStatementContext, "");
+  test_case_options->RegisterString(kDefaultTableForSubpipelineStmt, "");
   test_case_options->RegisterString(kProductMode, "");
   test_case_options->RegisterBool(kUseHintsAllowlist, false);
   test_case_options->RegisterBool(kRunInJava, true);
@@ -196,6 +201,7 @@ void RegisterAnalyzerTestOptions(
   test_case_options->RegisterString(kSqlBuilderTargetSyntaxMode,
                                     kSqlBuilderTargetSyntaxModeBoth);
   test_case_options->RegisterBool(kUseConstantEvaluator, false);
+  test_case_options->RegisterString(kTableForMeasureExprAnalysis, "");
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

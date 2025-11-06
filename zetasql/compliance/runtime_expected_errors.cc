@@ -106,6 +106,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "a fractional power"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange,
+      "Illegal conversion of non-finite floating point number to BIGNUMERIC"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
       "Negative BIGNUMERIC value cannot be raised to "
       "a fractional power"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -194,6 +197,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "(a NULL valued|an unset) proto"));
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Cannot set field of NULL"));
+  error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
+      absl::StatusCode::kOutOfRange,
+      "REPLACE_FIELDS() cannot be used on a proto with missing fields"));
 
   // Overflow errors
   //
@@ -692,6 +698,8 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kOutOfRange, "Graph cost expression must not be Inf"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kOutOfRange, "Graph cost expression must not be NaN"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "COST expression cannot be NULL literal"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -758,6 +766,12 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       absl::StatusCode::kUnimplemented,
       "Measure type rewriter does not support aggregating measures in a "
       "MATCH_RECOGNIZE scan"));
+
+  // TODO: b/350555383 - Support GROUP BY modifiers in the UDA inliner.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "SQL function inliner cannot inline aggregate function (.*) with GROUP "
+      "BY modifier"));
 
   // COLLATION related errors
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
@@ -865,8 +879,7 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusSubstringMatcher>(
       absl::StatusCode::kOutOfRange, "Invalid input to JSON_STRIP_NULLS"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
-      absl::StatusCode::kOutOfRange,
-      "Invalid input to JSON_ARRAY_(INSERT|APPEND)"));
+      absl::StatusCode::kOutOfRange, "Invalid input to JSON_ARRAY"));
   // The random query generator sometimes produces random string for certain
   // functions arguments, but not with required format, for example,
   // leading "$" is required for JSON PATH in JSON_SET function.
@@ -923,6 +936,11 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
       "ORDER BY argument is neither an aggregate function nor a grouping key"));
+
+  // GROUPING SETS expected errors.
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
+      "at most (.+) grouping sets are allowed"));
 
   return std::make_unique<MatcherCollection<absl::Status>>(
       matcher_name, std::move(error_matchers));

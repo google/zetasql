@@ -86,7 +86,7 @@ public final class DeserializationHelper extends AbstractDeserializationHelper {
 
   @Override
   TableValuedFunction deserialize(TableValuedFunctionRefProto proto) {
-    return checkNotNull(catalog.getTVFByName(proto.getName()));
+    return checkNotNull(catalog.getTvfByFullName(proto.getName()));
   }
 
   @Override

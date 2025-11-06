@@ -91,11 +91,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
-/*-----------------------------------------------*
+/*-----------------------------------------------+
  | result_map                                    |
  +-----------------------------------------------+
  | { key: 'A' value: 22 } { key: 'B' value: 11 } |
- *-----------------------------------------------*/
+ +-----------------------------------------------*/
 ```
 
 #### Use a protocol buffer map array 
@@ -149,11 +149,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 }" AS Item)) AS m;
 
-/*-----------------------*
+/*-----------------------+
  | result_map            |
  +-----------------------+
  | { key: "A" value: 6 } |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 ### Remove values from map fields 
@@ -177,11 +177,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 22 } purchased { key: 'B' value: 11 }" AS Item)) AS m;
 
-/*------------------------*
+/*------------------------+
  | result_map             |
  +------------------------+
  | { key: "B" value: 11 } |
- *------------------------*/
+ +------------------------*/
 ```
 
 ### Check if a map field contains a key 
@@ -205,11 +205,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*----------------*
+/*----------------+
  | key_is_present |
  +----------------+
  | FALSE          |
- *----------------*/
+ +----------------*/
 ```
 
 ## Query a protocol buffer 
@@ -394,11 +394,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*-----------*
+/*-----------+
  | map_value |
  +-----------+
  | 2         |
- *-----------*/
+ +-----------*/
 ```
 
 [Protocol buffer maps][proto-maps] are

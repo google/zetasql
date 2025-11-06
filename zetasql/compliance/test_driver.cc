@@ -21,6 +21,8 @@
 #include <utility>
 #include <vector>
 
+#include "zetasql/common/measure_analysis_utils.h"
+#include "zetasql/common/type_visitors.h"
 #include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/public/annotation.pb.h"
 #include "zetasql/public/options.pb.h"
@@ -33,6 +35,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/descriptor.h"
+#include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
 
@@ -62,6 +65,17 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
         t->mutable_contents()->mutable_type()));
     ZETASQL_RETURN_IF_ERROR(
         table.table_as_value.Serialize(t->mutable_contents()->mutable_value()));
+    for (const auto& measure_column_def : table.measure_column_defs) {
+      MeasureColumnDefProto* measure_col_def_proto =
+          t->mutable_measure_column_definitions()->Add();
+      measure_col_def_proto->set_name(measure_column_def.name);
+      measure_col_def_proto->set_expression(measure_column_def.expression);
+      measure_col_def_proto->set_is_pseudo_column(
+          measure_column_def.is_pseudo_column);
+    }
+    for (int row_identity_column_index : table.row_identity_columns) {
+      t->mutable_row_identity_column_indices()->Add(row_identity_column_index);
+    }
     const TestTableOptions& options = table.options;
 
     TestTableOptionsProto* options_proto = t->mutable_options();
@@ -102,13 +116,73 @@ absl::Status SerializeTestDatabase(const TestDatabase& database,
     graph->set_name(name);
     graph->set_create_stmt(create_stmt);
   }
+
+  for (const std::string& stmt : database.measure_function_defs) {
+    proto->add_measure_function_defs(stmt);
+  }
+
   return absl::OkStatus();
+}
+
+// Consolidates any descriptors in this type into the target pool & type
+// factory.
+class TypeConsolidator : public TypeRewriter {
+ public:
+  TypeConsolidator(const ::google::protobuf::DescriptorPool* descriptor_pool,
+                   TypeFactory* type_factory)
+      : TypeRewriter(*type_factory), descriptor_pool_(descriptor_pool) {}
+
+  absl::StatusOr<const Type*> Internalize(const Type* type) {
+    ZETASQL_ASSIGN_OR_RETURN(AnnotatedType annotated_type,
+                     Visit(AnnotatedType(type, /*annotation_map=*/nullptr)));
+    return annotated_type.type;
+  }
+
+  absl::StatusOr<AnnotatedType> PostVisit(
+      AnnotatedType annotated_type) override;
+
+ private:
+  const ::google::protobuf::DescriptorPool* descriptor_pool_;
+};
+
+// TODO: Should we care about descriptors used in builtins? Probably not coz we
+// only care about ptr equality only during the generation phase.
+absl::StatusOr<AnnotatedType> TypeConsolidator::PostVisit(
+    AnnotatedType annotated_type) {
+  const auto& [type, annotation_map] = annotated_type;
+  if (type->IsProto()) {
+    const auto* descriptor = type->AsProto()->descriptor();
+    ZETASQL_RET_CHECK(descriptor_pool_->FindFileByName(descriptor->file()->name()))
+        << "Filed to find file: " << descriptor->file()->name()
+        << " for message: " << descriptor->full_name();
+    descriptor =
+        descriptor_pool_->FindMessageTypeByName(descriptor->full_name());
+    ZETASQL_RET_CHECK(descriptor != nullptr)
+        << "Failed to load message: " << descriptor->full_name();
+
+    const ProtoType* proto_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory().MakeProtoType(descriptor, &proto_type));
+    return AnnotatedType(proto_type, annotation_map);
+  } else if (type->IsEnum()) {
+    const auto* enum_descriptor = type->AsEnum()->enum_descriptor();
+    ZETASQL_RET_CHECK(descriptor_pool_->FindFileByName(enum_descriptor->file()->name()))
+        << "Filed to find file: " << enum_descriptor->file()->name()
+        << " for enum: " << enum_descriptor->full_name();
+    enum_descriptor =
+        descriptor_pool_->FindEnumTypeByName(enum_descriptor->full_name());
+    ZETASQL_RET_CHECK(enum_descriptor != nullptr)
+        << "Failed to load enum: " << enum_descriptor->full_name();
+
+    const EnumType* enum_type;
+    ZETASQL_RETURN_IF_ERROR(type_factory().MakeEnumType(enum_descriptor, &enum_type));
+    return AnnotatedType(enum_type, annotation_map);
+  }
+  return annotated_type;
 }
 
 absl::StatusOr<TestDatabase> DeserializeTestDatabase(
     const TestDatabaseProto& proto, TypeFactory* type_factory,
-    const std::vector<google::protobuf::DescriptorPool*>& descriptor_pools,
-    std::vector<std::unique_ptr<const AnnotationMap>>& annotation_maps) {
+    const ::google::protobuf::DescriptorPool* descriptor_pool) {
   TestDatabase db;
   for (const std::string& proto_file : proto.proto_files()) {
     if (!db.proto_files.insert(proto_file).second) {
@@ -129,6 +203,9 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
              << "Duplicate enum name: " << enum_name;
     }
   }
+  for (const std::string& create_fn_stmt : proto.measure_function_defs()) {
+    db.measure_function_defs.push_back(create_fn_stmt);
+  }
   for (const TestTableProto& table_proto : proto.test_tables()) {
     auto [it, inserted] = db.tables.try_emplace(table_proto.name());
     if (!inserted) {
@@ -137,12 +214,40 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
     }
     TestTable& table = it->second;
     const Type* contents_type;
+    int num_pools = table_proto.contents().type().file_descriptor_set_size();
+    std::vector<std::unique_ptr<google::protobuf::DescriptorPool>> owned_descriptor_pools;
+    owned_descriptor_pools.reserve(num_pools);
+    std::vector<google::protobuf::DescriptorPool*> pools;
+    pools.reserve(num_pools);
+    for (int i = 0; i < num_pools; ++i) {
+      owned_descriptor_pools.push_back(
+          std::make_unique<google::protobuf::DescriptorPool>());
+      pools.push_back(owned_descriptor_pools.back().get());
+    }
     ZETASQL_RETURN_IF_ERROR(
         type_factory->DeserializeFromSelfContainedProtoWithDistinctFiles(
-            table_proto.contents().type(), descriptor_pools, &contents_type));
+            table_proto.contents().type(), pools, &contents_type));
+
+    ZETASQL_ASSIGN_OR_RETURN(contents_type,
+                     TypeConsolidator(descriptor_pool, type_factory)
+                         .Internalize(contents_type));
+
     ZETASQL_ASSIGN_OR_RETURN(
         table.table_as_value,
         Value::Deserialize(table_proto.contents().value(), contents_type));
+
+    for (const MeasureColumnDefProto& measure_col_def_proto :
+         table_proto.measure_column_definitions()) {
+      table.measure_column_defs.push_back(MeasureColumnDef{
+          .name = std::string(measure_col_def_proto.name()),
+          .expression = std::string(measure_col_def_proto.expression()),
+          .is_pseudo_column = measure_col_def_proto.is_pseudo_column(),
+      });
+    }
+    for (int row_identity_column_index :
+         table_proto.row_identity_column_indices()) {
+      table.row_identity_columns.push_back(row_identity_column_index);
+    }
 
     table.options.set_expected_table_size_range(
         static_cast<int>(table_proto.options().expected_table_size_min()),
@@ -163,10 +268,10 @@ absl::StatusOr<TestDatabase> DeserializeTestDatabase(
     std::vector<const AnnotationMap*> column_annotations;
     for (const AnnotationMapProto& annotation :
          table_proto.options().column_annotations()) {
-      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const AnnotationMap> annotation_map,
+      ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<AnnotationMap> annotation_map,
                        AnnotationMap::Deserialize(annotation));
-      column_annotations.push_back(annotation_map.get());
-      annotation_maps.push_back(std::move(annotation_map));
+      ZETASQL_ASSIGN_OR_RETURN(column_annotations.emplace_back(),
+                       type_factory->TakeOwnership(std::move(annotation_map)));
     }
     table.options.set_column_annotations(std::move(column_annotations));
   }

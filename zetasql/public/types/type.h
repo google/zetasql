@@ -63,6 +63,7 @@ class MapType;
 class MeasureType;
 class ProtoType;
 class RangeType;
+class RowType;
 class StructType;
 class Type;
 class TypeFactory;
@@ -164,6 +165,17 @@ class Type {
   bool IsGraphPath() const { return kind_ == TYPE_GRAPH_PATH; }
   bool IsMap() const { return kind_ == TYPE_MAP; }
 
+  bool IsRow() const { return kind_ == TYPE_ROW; }
+  virtual bool IsMultiRow() const { return false; }
+  virtual bool IsSingleRow() const { return false; }
+
+  // True for ARRAY and RowTypes with `IsJoin()` true.
+  bool IsArrayLike() const;
+
+  // Get the element type for types with `IsArrayLike()` true.
+  // Internal error for other types.
+  absl::StatusOr<const Type*> GetElementType() const;
+
   bool IsFloatingPoint() const { return IsFloat() || IsDouble(); }
   bool IsNumerical() const {
     switch (kind_) {
@@ -235,6 +247,7 @@ class Type {
   virtual const GraphPathType* AsGraphPath() const { return nullptr; }
   virtual const MapType* AsMap() const { return nullptr; }
   virtual const MeasureType* AsMeasure() const { return nullptr; }
+  virtual const RowType* AsRow() const { return nullptr; }
 
   // Returns true if the type supports grouping with respect to the
   // 'language_options'. E.g. struct type supports grouping if the
@@ -300,7 +313,7 @@ class Type {
     return true;
   }
 
-  // Returns true if the type supports can be returned from the top level
+  // Returns true if the type can be returned from the top level
   // of any query, function, or other surface boundary with respect to
   // 'language_options'. If the type is a compound type, also recursively
   // check its field types. Specifically, this includes:
@@ -500,6 +513,9 @@ class Type {
   // not valid to parse as SQL.
   // If <details> is true, then the description includes full proto descriptors.
   std::string DebugString(bool details = false) const;
+
+  // Returns type printed as capitalized string.
+  virtual std::string CapitalizedName() const = 0;
 
   // Adds capitalized type name to a given string.
   // TODO Remove this method and use DebugString instead.
@@ -779,9 +795,6 @@ class Type {
   // doesn't belong to the current type.
   absl::Status TypeMismatchError(const ValueProto& value_proto) const;
 
-  // Returns type printed as capitalized string.
-  virtual std::string CapitalizedName() const = 0;
-
  private:
   // Recursive implementation of SupportsGrouping, which returns in
   // "no_grouping_type" the contained type that made grouping unsupported.
@@ -810,6 +823,7 @@ class Type {
                                std::string* debug_string) const = 0;
 
   // Checks whether type has field of given name. Is called from HasField.
+  // `field_id` can be nullptr.
   virtual HasFieldResult HasFieldImpl(const std::string& name, int* field_id,
                                       bool include_pseudo_fields) const {
     return HAS_NO_FIELD;

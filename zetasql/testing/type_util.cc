@@ -26,6 +26,7 @@
 #include "google/type/latlng.pb.h"
 #include "google/type/timeofday.pb.h"
 #include "google/protobuf/descriptor.pb.h"
+#include "zetasql/compliance/test_util.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/types/type_factory.h"
@@ -34,7 +35,6 @@
 #include "zetasql/base/check.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
-#include "google/protobuf/compiler/importer.h"
 #include "google/protobuf/descriptor.h"
 
 namespace zetasql {
@@ -60,16 +60,32 @@ bool HasFloatingPointNumber(const zetasql::Type* type) {
 
 std::vector<const Type*> ZetaSqlComplexTestTypes(
     zetasql::TypeFactory* type_factory,
-    google::protobuf::compiler::Importer* importer) {
+    const google::protobuf::DescriptorPool* descriptor_pool) {
   for (const std::string& filepath : ZetaSqlTestProtoFilepaths()) {
-    importer->Import(filepath);
+    descriptor_pool->FindFileByName(filepath);
   }
 
   std::vector<const Type*> output;
 
+  // Builtin enums & protos should only use the generated pool.
+  for (const auto& [name, enum_descriptor] : GetBuiltinEnumDescriptors()) {
+    ZETASQL_CHECK_OK(
+        type_factory->MakeEnumType(enum_descriptor, &output.emplace_back()));
+  }
+  for (const auto& [name, proto_descriptor] : GetBuiltinProtoDescriptors()) {
+    ZETASQL_CHECK_OK(
+        type_factory->MakeProtoType(proto_descriptor, &output.emplace_back()));
+  }
+
   for (const std::string& proto_name : ZetaSqlRandomTestProtoNames()) {
+    // Protos from builtins are already loaded from the generated pool.
+    // But sadly, some external drivers still require those descriptors loaded
+    // as well.
+    // TODO: Skip the ones already loaded from the generated pool once all
+    // external drivers are updated to encapsulate their own type factory &
+    // pools.
     const google::protobuf::Descriptor* descriptor =
-        importer->pool()->FindMessageTypeByName(proto_name);
+        descriptor_pool->FindMessageTypeByName(proto_name);
     ABSL_CHECK(descriptor != nullptr)
         << "Cannot fine Proto Message Type: " << proto_name
         << ", available files: "
@@ -81,52 +97,15 @@ std::vector<const Type*> ZetaSqlComplexTestTypes(
   }
 
   for (const std::string& enum_name : ZetaSqlTestEnumNames()) {
+    // Enums from builtins are already loaded from the generated pool.
+    if (GetBuiltinEnumDescriptors().contains(enum_name)) {
+      continue;
+    }
     const google::protobuf::EnumDescriptor* descriptor =
-        importer->pool()->FindEnumTypeByName(enum_name);
+        descriptor_pool->FindEnumTypeByName(enum_name);
     ABSL_CHECK(descriptor != nullptr)
         << "Cannot fine Enum Type: " << enum_name << ", available files: "
         << absl::StrJoin(ZetaSqlTestProtoFilepaths(), ",");
-    const Type* enum_type;
-    ZETASQL_CHECK_OK(type_factory->MakeEnumType(descriptor, &enum_type));
-    output.push_back(enum_type);
-  }
-
-  const Type* struct_int64_type;
-  ZETASQL_CHECK_OK(type_factory->MakeStructType(
-      {{"int64_val", zetasql::types::Int64Type()}}, &struct_int64_type));
-  output.push_back(struct_int64_type);
-
-  return output;
-}
-
-std::vector<const Type*> ZetaSqlComplexTestTypes(
-    zetasql::TypeFactory* type_factory) {
-  std::vector<const Type*> output;
-  std::vector<const google::protobuf::Descriptor*> proto_descriptors = {
-      zetasql_test__::KitchenSinkPB::descriptor(),
-      google::protobuf::Duration::descriptor(),
-      google::protobuf::Timestamp::descriptor(),
-      google::type::Date::descriptor(),
-      google::type::TimeOfDay::descriptor(),
-      google::type::LatLng::descriptor(),
-      google::protobuf::DoubleValue::descriptor(),
-      google::protobuf::FloatValue::descriptor(),
-      google::protobuf::Int64Value::descriptor(),
-      google::protobuf::UInt64Value::descriptor(),
-      google::protobuf::Int32Value::descriptor(),
-      google::protobuf::UInt32Value::descriptor(),
-      google::protobuf::BoolValue::descriptor(),
-      google::protobuf::StringValue::descriptor(),
-      google::protobuf::BytesValue::descriptor()};
-  for (const auto& descriptor : proto_descriptors) {
-    const Type* proto_type;
-    ZETASQL_CHECK_OK(type_factory->MakeProtoType(descriptor, &proto_type));
-    output.push_back(proto_type);
-  }
-
-  std::vector<const google::protobuf::EnumDescriptor*> enum_descriptors = {
-      zetasql_test__::TestEnum_descriptor()};
-  for (const auto& descriptor : enum_descriptors) {
     const Type* enum_type;
     ZETASQL_CHECK_OK(type_factory->MakeEnumType(descriptor, &enum_type));
     output.push_back(enum_type);
@@ -208,8 +187,6 @@ std::vector<std::string> ZetaSqlRandomTestProtoNames() {
 }
 
 std::vector<std::string> ZetaSqlTestEnumNames() {
-  // `RoundingMode`, `ArrayFindMode`, `ArrayZipMode` fixes `Enum not found`
-  // error in RQG / RSG: b/293474126.
   return {"zetasql_test__.TestEnum", "zetasql_test__.AnotherTestEnum",
           "zetasql.functions.RoundingMode",
           "zetasql.functions.ArrayFindEnums.ArrayFindMode",

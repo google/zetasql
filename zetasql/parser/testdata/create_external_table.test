@@ -911,7 +911,7 @@ create external table projectid.datasetid.tablename(x int64)
 with connection 1_a.b.c
 options (x=f3)
 --
-ERROR: Syntax error: Unexpected "1_a" [at 2:17]
+ERROR: Syntax error: Unexpected integer literal "1" [at 2:17]
 with connection 1_a.b.c
                 ^
 

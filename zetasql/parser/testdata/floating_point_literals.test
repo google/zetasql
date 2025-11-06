@@ -494,7 +494,7 @@ SELECT 1.0x1E-1
 
 SELECT 1.0x1E0x1
 --
-ERROR: Syntax error: Expected end of input but got "0x1E0x1" [at 1:10]
+ERROR: Syntax error: Expected end of input but got integer literal "0x1E0" [at 1:10]
 SELECT 1.0x1E0x1
          ^
 ==
@@ -536,21 +536,21 @@ SELECT 0x1.1E-1
 
 SELECT 0x1.1E0x1
 --
-ERROR: Syntax error: Expected end of input but got ".1E0x1" [at 1:11]
+ERROR: Syntax error: Expected end of input but got floating point literal ".1" [at 1:11]
 SELECT 0x1.1E0x1
           ^
 ==
 
 SELECT 0x1.1E-0x1
 --
-ERROR: Syntax error: Expected end of input but got ".1E" [at 1:11]
+ERROR: Syntax error: Expected end of input but got floating point literal ".1" [at 1:11]
 SELECT 0x1.1E-0x1
           ^
 ==
 
 SELECT 0x1.1E+0x1
 --
-ERROR: Syntax error: Expected end of input but got ".1E" [at 1:11]
+ERROR: Syntax error: Expected end of input but got floating point literal ".1" [at 1:11]
 SELECT 0x1.1E+0x1
           ^
 ==
@@ -578,7 +578,7 @@ SELECT 0x1.0x1E-1
 
 SELECT 0x1.0x1E0x1
 --
-ERROR: Syntax error: Unexpected "0x1E0x1" [at 1:12]
+ERROR: Syntax error: Unexpected integer literal "0x1E0" [at 1:12]
 SELECT 0x1.0x1E0x1
            ^
 ==

@@ -1660,24 +1660,23 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
       // resolver of a function call to understand the call. All of the known
       // functions meets this requirement. Could be relaxed if the need arises.
       for (const auto& lambda_arg_type : arg.lambda().argument_types()) {
-        bool has_tempalted_args = false;
+        bool has_templated_args = false;
         bool is_related_to_previous_function_arg = false;
         for (int j = 0; j < arg_index; j++) {
           if (!lambda_arg_type.IsTemplated()) {
             continue;
           }
           templated_kind_used_by_lambda.insert(lambda_arg_type.kind());
-          has_tempalted_args = true;
+          has_templated_args = true;
           if (lambda_arg_type.TemplatedKindIsRelated(arguments()[j].kind())) {
             is_related_to_previous_function_arg = true;
           }
         }
-        if (has_tempalted_args && !is_related_to_previous_function_arg) {
+        if (has_templated_args && !is_related_to_previous_function_arg) {
           return MakeSqlError()
                  << "Templated argument of function-type argument type must "
-                    "match an "
-                    "argument type before the function-type argument. Function "
-                    "signature: "
+                    "match an argument type before the function-type argument. "
+                    "Function signature: "
                  << DebugString();
         }
       }
@@ -1685,10 +1684,8 @@ absl::Status FunctionSignature::IsValid(ProductMode product_mode) const {
       if (templated_kind_used_by_lambda.contains(arg.kind())) {
         return MakeSqlError()
                << "Templated argument kind used by function-type argument "
-                  "cannot be "
-                  "used by arguments to the right of the function-type using "
-                  "it. "
-                  "Kind: "
+                  "cannot be used by arguments to the right of the "
+                  "function-type using it. Kind: "
                << FunctionArgumentType::SignatureArgumentKindToString(
                       arg.kind())
                << " at index: " << arg_index;

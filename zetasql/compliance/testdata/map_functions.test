@@ -529,7 +529,7 @@ ARRAY<STRUCT<MAP<FLOAT, INT64>>>[{{2.5: 1, 3.5: 2}}]
 SELECT
   CAST(MAP_FROM_ARRAY([("1.0", 0), ("a", 1)]) AS MAP<FLOAT, INT64>);
 --
-ERROR: generic::out_of_range: Bad float value: a
+ERROR: generic::out_of_range: Error casting key "a" in MAP: Bad float value: a
 ==
 
 [name=cast_map_value_string_to_float_valid]
@@ -543,7 +543,7 @@ ARRAY<STRUCT<MAP<INT64, FLOAT>>>[{{1: 2.5, 2: 3.5}}]
 SELECT
   CAST(MAP_FROM_ARRAY([(0, "1.0"), (1, "a")]) AS MAP<INT64, FLOAT>);
 --
-ERROR: generic::out_of_range: Bad float value: a
+ERROR: generic::out_of_range: Error casting value for key 1 in MAP: Bad float value: a
 ==
 
 [name=cast_map_keys_string_to_float_values_date_to_string]
@@ -574,7 +574,7 @@ SELECT
     MAP_FROM_ARRAY([("a", MAP_FROM_ARRAY([(STRUCT("4a"), 1), (STRUCT("5"), 2)]))])
     AS MAP<STRING, MAP<STRUCT<INT64>, INT64>>);
 --
-ERROR: generic::out_of_range: Bad int64 value: 4a
+ERROR: generic::out_of_range: Error casting value for key "a" in MAP: Error casting key {"4a"} in MAP: Error casting field at index 0 in STRUCT: Bad int64 value: 4a
 ==
 
 [name=cast_map_null_to_null_different_types]
@@ -833,11 +833,31 @@ SELECT
 ERROR: generic::out_of_range: Key provided more than once as argument: NULL
 ==
 
+[name=map_insert_duplicate_nan_key_in_args]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([(0.0, 1)]), CAST('nan' AS DOUBLE), 2, CAST('nan' AS DOUBLE), 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: nan
+==
+
 [name=map_insert_or_replace_duplicate_null_key_in_args]
 SELECT
   MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2, CAST(NULL AS STRING), 2);
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_insert_or_replace_duplicate_nan_key_in_args]
+SELECT
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([(1.0, 1)]), CAST('nan' AS DOUBLE), 2, CAST('nan' AS DOUBLE), 2);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: nan
+==
+
+[name=map_insert_error_duplicate_key_in_args]
+SELECT MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', 2, 'c', 3, 'b', 4, 'd', 5, 'b', 6)
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "b"
 ==
 
 [name=map_replace]
@@ -863,6 +883,158 @@ ERROR: generic::out_of_range: Key does not exist in map: "c"
 SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 2, 'b', 3, 'a', 0);
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: "a"
+==
+
+[name=map_replace_error_duplicate_null_key_arg]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), NULL, 3, 'b', 4, NULL, 0);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_replace_error_duplicate_nan_key_arg]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 'a'), (0.0, 'b')]), CAST('nan' AS DOUBLE), 'c', 1.0, 'd', CAST('nan' AS DOUBLE), 'e');
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: nan
+==
+
+[name=map_replace_error_struct_key_missing]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([((1, 'a'), 1), ((3, 'c'), 3)]), (1, 'a'), 10, (2, 'b'), 20)
+--
+ERROR: generic::out_of_range: Key does not exist in map: {2, "b"}
+==
+
+[name=map_replace_error_null_key_missing]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), NULL, 2);
+--
+ERROR: generic::out_of_range: Key does not exist in map: NULL
+==
+
+[name=map_replace_error_nan_key_missing]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([(1.0, 1)]), CAST('nan' AS DOUBLE), 2)
+--
+ERROR: generic::out_of_range: Key does not exist in map: nan
+==
+
+
+[name=map_insert_error_nan_key_exists]
+SELECT MAP_INSERT(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1)]), CAST('nan' AS DOUBLE), 2);
+--
+ERROR: generic::out_of_range: Key already exists in map: nan
+==
+
+
+[name=map_modify_struct_key]
+[required_features=MAP_TYPE,GROUP_BY_STRUCT,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([((1, 'a'), 1), ((3, 'c'), 3)]), (2, 'b'), 2, (4, 'd'), 4) as map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([((1, 'a'), 1), ((3, 'c'), 3)]), (2, 'b'), 2, (1, 'a'), 10, (4, 'd'), 4) as map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([((1, 'a'), 1), ((2, 'b'), 2), ((3, 'c'), 3)]), (1, 'a'), 10, (2, 'b'), 20) as map_replace,
+  MAP_REPLACE(
+    MAP_FROM_ARRAY([((1, 'a'), 10), ((2, 'b'), 20), ((3, 'c'), 30), ((4, 'd'), 40)]),
+    (1, 'a'),
+    (3, 'c'),
+    v -> v + 1) as map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([((1, 'a'), 1), ((2, 'b'), 2), ((3, 'c'), 3), ((4, 'd'), 4), ((5, 'e'), 5)]), (1, 'a'), (3, 'c'), (5, 'e')) as map_delete
+--
+ARRAY<STRUCT<
+        map_insert MAP<STRUCT<INT64, STRING>, INT64>,
+        map_insert_or_replace MAP<STRUCT<INT64, STRING>, INT64>,
+        map_replace MAP<STRUCT<INT64, STRING>, INT64>,
+        map_replace_lambda MAP<STRUCT<INT64, STRING>, INT64>,
+        map_delete MAP<STRUCT<INT64, STRING>, INT64>
+      >>
+[{
+   {{1, "a"}: 1, {2, "b"}: 2, {3, "c"}: 3, {4, "d"}: 4},
+   {{1, "a"}: 10, {2, "b"}: 2, {3, "c"}: 3, {4, "d"}: 4},
+   {{1, "a"}: 10, {2, "b"}: 20, {3, "c"}: 3},
+   {{1, "a"}: 11, {2, "b"}: 20, {3, "c"}: 31, {4, "d"}: 40},
+   {{2, "b"}: 2, {4, "d"}: 4}
+ }]
+==
+
+[name=map_modify_inf_keys]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([(1.0, 0)]), CAST('inf' AS DOUBLE), 1, CAST('-inf' AS DOUBLE), 2) as map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([(CAST('inf' AS DOUBLE), 1), (1.0, 0)]), CAST('-inf' AS DOUBLE), 2, CAST('inf' AS DOUBLE), 3) as map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST('inf' AS DOUBLE), 1), (CAST('-inf' AS DOUBLE), 2), (1.0, 0)]), CAST('inf' AS DOUBLE), 3, CAST('-inf' AS DOUBLE), 4) as map_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST('inf' AS DOUBLE), 1), (CAST('-inf' AS DOUBLE), 2), (1.0, 0)]), CAST('inf' AS DOUBLE), CAST('-inf' AS DOUBLE), v -> v + 10) as map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([(CAST('inf' AS DOUBLE), 1), (CAST('-inf' AS DOUBLE), 2), (1.0, 0)]), CAST('inf' AS DOUBLE), CAST('-inf' AS DOUBLE)) as map_delete;
+--
+ARRAY<STRUCT<
+        map_insert MAP<DOUBLE, INT64>,
+        map_insert_or_replace MAP<DOUBLE, INT64>,
+        map_replace MAP<DOUBLE, INT64>,
+        map_replace_lambda MAP<DOUBLE, INT64>,
+        map_delete MAP<DOUBLE, INT64>
+      >>
+[{
+   {-inf: 2, 1: 0, inf: 1},
+   {-inf: 2, 1: 0, inf: 3},
+   {-inf: 4, 1: 0, inf: 3},
+   {-inf: 12, 1: 0, inf: 11},
+   {1: 0}
+ }]
+==
+
+[name=map_modify_nan_keys]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([(1.0, 0)]), CAST('nan' AS DOUBLE), 1) as map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1)]), CAST('nan' AS DOUBLE), 2, 1.0, 3) as map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1), (1.0, 2)]), CAST('nan' AS DOUBLE), 3, 1.0, 4) as map_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1), (1.0, 2)]), CAST('nan' AS DOUBLE), 1.0, v -> v + 10) as map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1), (1.0, 2), (2.0, 3)]), CAST('nan' AS DOUBLE), 2.0) as map_delete;
+--
+ARRAY<STRUCT<
+        map_insert MAP<DOUBLE, INT64>,
+        map_insert_or_replace MAP<DOUBLE, INT64>,
+        map_replace MAP<DOUBLE, INT64>,
+        map_replace_lambda MAP<DOUBLE, INT64>,
+        map_delete MAP<DOUBLE, INT64>
+      >>[
+  {{nan: 1, 1: 0}, {nan: 2, 1: 3}, {nan: 3, 1: 4}, {nan: 11, 1: 12}, {1: 2}}
+]
+==
+
+[name=map_modify_null_key]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 0)]), 'b', 1, NULL, 2) AS map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([(CAST(NULL AS STRING), 1), ('a', 2)]), NULL, 3, 'a', 4) AS map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST(NULL AS STRING), 1), ('a', 2)]), NULL, 3, 'a', 4) AS map_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([(CAST(NULL AS STRING), 1), ('a', 2)]), NULL, v -> v + 2) AS map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 0), ('b', 1), (CAST(NULL AS STRING), 2)]), 'a', NULL) AS map_delete
+--
+ARRAY<STRUCT<
+        map_insert MAP<STRING, INT64>,
+        map_insert_or_replace MAP<STRING, INT64>,
+        map_replace MAP<STRING, INT64>,
+        map_replace_lambda MAP<STRING, INT64>,
+        map_delete MAP<STRING, INT64>
+      >>
+[{
+   {NULL: 2, "a": 0, "b": 1},
+   {NULL: 3, "a": 4},
+   {NULL: 3, "a": 4},
+   {NULL: 3, "a": 2},
+   {"b": 1}
+ }]
+==
+
+[name=map_replace_lambda_nan_in_lambda_ops]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', CAST('nan' AS DOUBLE))]), 'a', v -> v + 1)
+--
+ARRAY<STRUCT<MAP<STRING, DOUBLE>>>[{{"a": nan}}]
+==
+
+[name=map_replace_lambda_inf_in_lambda_ops]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', CAST('inf' AS DOUBLE)), ('b', CAST('-inf' AS DOUBLE))]), 'a', 'b', v -> v * -2)
+--
+ARRAY<STRUCT<MAP<STRING, DOUBLE>>>[{{"a": -inf, "b": inf}}]
 ==
 
 [name=map_replace_null_map]
@@ -903,11 +1075,18 @@ ARRAY<STRUCT<
  }]
 ==
 
-[name=map_replace_lambda_error_duplicate_key_arg]
+[name=map_replace_lambda_error_duplicate_key_in_args]
 [required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
-SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'a', v -> v + 1);
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 0), ('c', 0), ('d', 0)]), 'a', 'c', 'a', 'd', 'a', v -> v + 1)
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: "a"
+==
+
+[name=map_replace_lambda_error_duplicate_key_in_args_with_case]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), CASE WHEN true THEN 'b' END, CASE WHEN true THEN 'b' ELSE 'c' END, v -> v+1);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: "b"
 ==
 
 [name=map_replace_lambda_error_duplicate_null_key_arg]
@@ -920,6 +1099,13 @@ SELECT
     v -> v);
 --
 ERROR: generic::out_of_range: Key provided more than once as argument: NULL
+==
+
+[name=map_replace_lambda_error_duplicate_nan_key_arg]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT MAP_REPLACE(MAP_FROM_ARRAY([(CAST('nan' AS DOUBLE), 1), (1.0, 2)]), CAST('nan' AS DOUBLE), 1.0, CAST('nan' AS DOUBLE), v -> v + 1);
+--
+ERROR: generic::out_of_range: Key provided more than once as argument: nan
 ==
 
 [name=map_replace_lambda_can_raise_user_error]
@@ -943,6 +1129,29 @@ SELECT MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'c', v -> v +
 ERROR: generic::out_of_range: Key does not exist in map: "c"
 ==
 
+[name=map_replace_lambda_many_keys]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_REPLACE(
+    MAP_FROM_ARRAY([
+      ('a', 1), ('b', 2), ('c', 3), ('d', 4), ('e', 5),
+      ('f', 6), ('g', 7), ('h', 8), ('i', 9), ('j', 10)
+    ]),
+    'a',
+    'c',
+    'e',
+    'g',
+    'i',
+    v -> v * 10
+  ) as five_elements_replaced;
+--
+ARRAY<STRUCT<five_elements_replaced MAP<STRING, INT64>>>[
+  {
+    {"a": 10, "b": 2, "c": 30, "d": 4, "e": 50, "f": 6, "g": 70, "h": 8, "i": 90, "j": 10}
+  }
+]
+==
+
 [name=map_modify_fns_null_map_duplicate_key_arg]
 [required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
 # All map modification functions should return NULL if the map is NULL, and this
@@ -951,14 +1160,61 @@ SELECT
   MAP_INSERT(NULL, 'b', 2, 'b', 3) as map_insert,
   MAP_INSERT_OR_REPLACE(NULL, 'b', 2, 'b', 3) as map_insert_or_replace,
   MAP_REPLACE(NULL, 'b', 2, 'b', 3) as map_replace,
-  MAP_REPLACE(CAST(NULL AS MAP<STRING, INT64>), 'b', 'b', v -> v) as map_replace_lambda;
+  MAP_REPLACE(CAST(NULL AS MAP<STRING, INT64>), 'b', 'b', v -> v) as map_replace_lambda,
+  MAP_DELETE(CAST(NULL AS MAP<STRING, INT64>), 'b', 'b') as map_delete;
 --
 ARRAY<STRUCT<
         map_insert MAP<STRING, INT64>,
         map_insert_or_replace MAP<STRING, INT64>,
         map_replace MAP<STRING, INT64>,
-        map_replace_lambda MAP<STRING, INT64>
-      >>[{NULL, NULL, NULL, NULL}]
+        map_replace_lambda MAP<STRING, INT64>,
+        map_delete MAP<STRING, INT64>
+      >>[{NULL, NULL, NULL, NULL, NULL}]
+==
+
+[name=map_modify_with_expression_arguments]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), CASE WHEN 1=1 THEN 'b' ELSE 'c' END, (SELECT 2)) as map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), CASE WHEN 1=1 THEN 'a' ELSE 'c' END, (SELECT 2)) as map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), CASE WHEN 1=1 THEN 'b' ELSE 'c' END, (SELECT 3)) as map_replace_kv,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), CASE WHEN 1=1 THEN 'b' ELSE 'c' END, v -> v + 1) as map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), CASE WHEN 1=1 THEN 'a' ELSE 'c' END, (SELECT 'b')) as map_delete;
+--
+ARRAY<STRUCT<
+        map_insert MAP<STRING, INT64>,
+        map_insert_or_replace MAP<STRING, INT64>,
+        map_replace_kv MAP<STRING, INT64>,
+        map_replace_lambda MAP<STRING, INT64>,
+        map_delete MAP<STRING, INT64>
+      >>[
+  {{"a": 1, "b": 2}, {"a": 2, "b": 2}, {"a": 1, "b": 3}, {"a": 1, "b": 3}, {}}
+]
+==
+
+[name=map_modify_arg_subquery_returning_null]
+[required_features=MAP_TYPE,INLINE_LAMBDA_ARGUMENT]
+SELECT
+  MAP_INSERT(MAP_FROM_ARRAY([('a', 1)]), 'b', (SELECT CAST(NULL AS INT64))) AS map_insert,
+  MAP_INSERT_OR_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', (SELECT CAST(NULL AS INT64)), 'b', (SELECT CAST(NULL AS INT64))) AS map_insert_or_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1)]), 'a', (SELECT CAST(NULL AS INT64))) AS map_replace,
+  MAP_REPLACE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), (SELECT CAST(NULL AS STRING)), v -> v + 1) AS map_replace_lambda,
+  MAP_DELETE(MAP_FROM_ARRAY([('a', 1), (NULL, 2)]), (SELECT CAST(NULL AS STRING))) AS map_delete;
+--
+ARRAY<STRUCT<
+        map_insert MAP<STRING, INT64>,
+        map_insert_or_replace MAP<STRING, INT64>,
+        map_replace MAP<STRING, INT64>,
+        map_replace_lambda MAP<STRING, INT64>,
+        map_delete MAP<STRING, INT64>
+      >>
+[{
+   {"a": 1, "b": NULL},
+   {"a": NULL, "b": NULL},
+   {"a": NULL},
+   {NULL: 3, "a": 1},
+   {"a": 1}
+ }]
 ==
 
 [name=map_delete]
@@ -989,7 +1245,7 @@ SELECT
   MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'b', 'a') as two_elements_two_deleted,
   MAP_DELETE(MAP_FROM_ARRAY([('a', 1), ('b', 2)]), 'a', 'x', 'x') as two_elements_one_deleted,
   MAP_DELETE(MAP_FROM_ARRAY([(NULL, 1)]), NULL, NULL) as null_deleted,
-  MAP_DELETE(MAP_FROM_ARRAY([('x', 1)]), NULL, NULL) as null_not_deleted,
+  MAP_DELETE(MAP_FROM_ARRAY([('x', 1)]), NULL, NULL) as null_not_deleted
 --
 ARRAY<STRUCT<
         two_elements_two_deleted MAP<STRING, INT64>,

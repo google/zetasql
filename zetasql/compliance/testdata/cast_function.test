@@ -1456,7 +1456,7 @@ ARRAY<STRUCT<INT64>>[{NULL}]
 [required_features=CAST_DIFFERENT_ARRAY_TYPES]
 select cast(["100", "abc"] as ARRAY<INT64>);
 --
-ERROR: generic::out_of_range: Bad int64 value: abc
+ERROR: generic::out_of_range: Error casting element at index 1 in ARRAY: Bad int64 value: abc
 ==
 
 [name=safe_cast_array_with_invalid_string_literals]

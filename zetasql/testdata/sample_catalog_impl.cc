@@ -31,6 +31,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_property_graph.h"
 #include "zetasql/common/measure_analysis_utils.h"
+#include "zetasql/common/simple_evaluator_table_iterator.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/annotation/collation.h"
@@ -99,9 +100,69 @@
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_builder.h"
 #include "zetasql/base/status_macros.h"
+#include "zetasql/base/clock.h"
+
+// The _UNLESS_DBG macros are a hack to make analyzer tests (and anything else
+// using SampleCatalog) work to some extent in dbg builds.
+//
+// In dbg builds, stack usage is excessively high, and tests have small stacks
+// by default, so out-of-stack errors are more common.  Some of the UDFs and
+// other definitions in SampleCatalog trigger them.  Without these macros, that
+// makes SampleCatalog construction ABSL_CHECK-fail, making all tests crash on
+// startup.  That makes it impossible to get stack traces with line numbers or
+// use a debugger.
+//
+// Where these _UNLESS_DBG macros are used, when we get an out-of-stack error
+// (in debug builds only), the error is sent to ABSL_LOG(ERROR) but SampleCatalog
+// construction continues.  We don't crash, we just omit the catalog definitions
+// that don't work.  That means most the tests can run, and mostly pass, and
+// debugging is possible.  Some tests will fail with a not-found error for the
+// entries that got skipped, and some fail with unrelated out-of-stack errors.
+//
+// This is only needed in dbg builds but this gets applied for fastbuild too
+// because the #ifdef symbols don't provide a way to distinguish those.
+// opt builds will use the normal error handling and continue to ABSL_CHECK-fail.
+//
+// The ignore-errors behavior happens only for ResolvedExhausted errors so this
+// will still ABSL_CHECK-fail if the definitions are actually bad, so it's still
+// easy to notice the bad definitions.
+#ifdef NDEBUG
+#define RETURN_IF_ERROR_UNLESS_DBG(expr) ZETASQL_RETURN_IF_ERROR((expr))
+#define CHECK_OK_UNLESS_DBG(expr) ZETASQL_CHECK_OK((expr))
+
+#else
+
+#define CHECK_OK_UNLESS_DBG(expr)                                          \
+  do {                                                                     \
+    absl::Status status = (expr);                                          \
+    if (!status.ok()) {                                                    \
+      if (absl::IsResourceExhausted(status)) {                             \
+        ABSL_LOG(ERROR) << "Failed while loading SampleCatalog but continuing " \
+                      "while running in a DEBUG build: "                   \
+                   << status;                                              \
+        return;                                                            \
+      } else {                                                             \
+        ZETASQL_CHECK_OK(status);                                                  \
+      }                                                                    \
+    }                                                                      \
+  } while (false)
+
+#define RETURN_IF_ERROR_UNLESS_DBG(expr)                                   \
+  do {                                                                     \
+    absl::Status status = (expr);                                          \
+    if (!status.ok()) {                                                    \
+      if (absl::IsResourceExhausted(status)) {                             \
+        ABSL_LOG(ERROR) << "Failed while loading SampleCatalog but continuing " \
+                      "while running in a DEBUG build: "                   \
+                   << status;                                              \
+      } else {                                                             \
+        return status;                                                     \
+      }                                                                    \
+    }                                                                      \
+  } while (false)
+#endif
 
 namespace zetasql {
-
 namespace {
 
 // A fluent builder for building FunctionArgumentType instances
@@ -281,6 +342,16 @@ static absl::StatusOr<const Type*> ComputeResultTypeCallbackForNullOfType(
   }
   // We could parse complex type names here too by calling the type analyzer.
   return type_factory->MakeSimpleType(type_kind);
+}
+
+static absl::StatusOr<const Type*>
+ComputeResultTypeCallbackForIntentionallyRetCheck(
+    Catalog* catalog, TypeFactory* type_factory, CycleDetector* cycle_detector,
+    const FunctionSignature& signature,
+    absl::Span<const InputArgumentType> arguments,
+    const AnalyzerOptions& analyzer_options) {
+  // This callback intentionally RET_CHECKs any time it's invoked.
+  ZETASQL_RET_CHECK_FAIL() << "Intentionally RET_CHECKing for test";
 }
 
 // A ComputeResultTypeCallback that looks for the 'type_name' argument from the
@@ -639,8 +710,9 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   catalog_->AddOwnedCatalog(ambiguous_has_descriptor_pool_catalog.release());
 
   // Add various kinds of objects to the catalog(s).
-  ZETASQL_RETURN_IF_ERROR(LoadTypes());
-  ZETASQL_RETURN_IF_ERROR(LoadTables());
+  // In debug builds, these skip over errors caused by out-of-stack failures.
+  RETURN_IF_ERROR_UNLESS_DBG(LoadTypes());
+  RETURN_IF_ERROR_UNLESS_DBG(LoadTables());
   LoadConnections();
   LoadSequences();
   LoadProtoTables();
@@ -649,7 +721,7 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadFunctions();
   LoadFunctions2();
   LoadAllRegisteredCatalogChanges();
-  LoadExtendedSubscriptFunctions();
+  RETURN_IF_ERROR_UNLESS_DBG(LoadExtendedSubscriptFunctions(language_options));
   LoadFunctionsWithDefaultArguments();
   LoadFunctionsWithStructArgs();
   LoadTemplatedSQLUDFs();
@@ -669,9 +741,9 @@ absl::Status SampleCatalogImpl::LoadCatalogImpl(
   LoadWellKnownLambdaArgFunctions();
   LoadContrivedLambdaArgFunctions();
   LoadSqlFunctions(language_options);
-  ZETASQL_RETURN_IF_ERROR(LoadMeasureTables());
+  RETURN_IF_ERROR_UNLESS_DBG(LoadMeasureTables());
   LoadNonTemplatedSqlTableValuedFunctions(language_options);
-  ZETASQL_RETURN_IF_ERROR(LoadAmlBasedPropertyGraphs());
+  RETURN_IF_ERROR_UNLESS_DBG(LoadAmlBasedPropertyGraphs());
   LoadMultiSrcDstEdgePropertyGraphs();
   LoadCompositeKeyPropertyGraphs();
   LoadPropertyGraphWithDynamicLabelAndProperties();
@@ -849,6 +921,110 @@ class SimpleTableWithReadTimeIgnored : public SimpleTable {
   }
 };
 
+// LazySimpleTable is a specialization of SimpleTable that uses
+// lazy column lookup modes.
+// In this implementation, the columns are actually preloaded in the
+// SimpleTable containers, but the default (non-lazy) methods don't return
+// them.  This is mainly suitable for testing.
+class LazySimpleTable : public SimpleTable {
+ public:
+  LazySimpleTable(absl::string_view name, ColumnListMode column_list_mode,
+                  absl::Span<const NameAndType> columns,
+                  int64_t serialization_id = 0)
+      : SimpleTable(name, columns, serialization_id),
+        column_list_mode_(column_list_mode) {}
+
+  ColumnListMode GetColumnListMode() const override {
+    return column_list_mode_;
+  }
+
+  int NumColumns() const override { return 0; }
+  const Column* GetColumn(int i) const override { return nullptr; }
+  const Column* FindColumnByName(const std::string& name) const override {
+    return nullptr;
+  }
+
+  absl::StatusOr<std::vector<const Column*>> ListLazyColumns(
+      LazyColumnsTableScanContext* context,
+      const Catalog::FindOptions& options) const override {
+    if (!SupportsListLazyColumns()) {
+      // Return the default error from the superclass.
+      return Table::ListLazyColumns(context, options);
+    }
+    std::vector<const Column*> result;
+    result.reserve(SimpleTable::NumColumns());
+    for (int i = 0; i < SimpleTable::NumColumns(); ++i) {
+      result.push_back(SimpleTable::GetColumn(i));
+    }
+    return result;
+  }
+
+  absl::StatusOr<FindLazyColumnsResult> FindLazyColumns(
+      const absl::Span<const std::string>& column_names,
+      LazyColumnsTableScanContext* context,
+      const Catalog::FindOptions& options) const override {
+    Table::FindLazyColumnsResult result;
+    for (const std::string& column_name : column_names) {
+      result.push_back(SimpleTable::FindColumnByName(column_name));
+    }
+    return result;
+  }
+
+  // Set contents, loading into `column_contents_`.
+  // Derived from SimpleTable SetContents and iterators, adapted to use
+  // a map keyed by Column* to store column values vectors.
+  void SetContents(absl::Span<const std::vector<Value>> rows) {
+    column_contents_.clear();
+
+    for (int i = 0; i < SimpleTable::NumColumns(); ++i) {
+      const Column* column = SimpleTable::GetColumn(i);
+      auto column_values = std::make_shared<std::vector<Value>>();
+      column_values->reserve(rows.size());
+      for (int j = 0; j < rows.size(); ++j) {
+        column_values->push_back(rows[j][i]);
+      }
+      column_contents_[column] = column_values;
+    }
+    num_rows_ = rows.size();
+  }
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluatorTableIterator(
+      absl::Span<const int> column_idxs) const override {
+    ZETASQL_RET_CHECK_FAIL()
+        << "LazySimpleTable does not support CreateEvaluatorTableIterator";
+  }
+
+  absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>>
+  CreateEvaluatorTableIteratorFromColumns(
+      absl::Span<const Column* const> columns) const override {
+    std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
+    column_values.reserve(columns.size());
+    for (const Column* column : columns) {
+      const auto* values = zetasql_base::FindOrNull(column_contents_, column);
+      ZETASQL_RET_CHECK(values != nullptr) << "Column " << column->FullName()
+                                   << " not found in table " << FullName();
+      column_values.push_back(*values);
+    }
+    return std::unique_ptr<EvaluatorTableIterator>(
+        new SimpleEvaluatorTableIterator(
+            columns, column_values, num_rows_,
+            /*end_status=*/absl::OkStatus(), /*filter_column_idxs=*/{},
+            /*cancel_cb=*/[]() {},
+            /*set_deadline_cb=*/[](absl::Time t) {}, zetasql_base::Clock::RealClock()));
+  }
+
+ private:
+  ColumnListMode column_list_mode_ = ColumnListMode::DEFAULT;
+
+  // Store contents set in SetContents.
+  // This is copied from the SimpleTable implementation but modified to use
+  // a map keyed by Column* since we can't reference columns by index.
+  absl::flat_hash_map<const Column*, std::shared_ptr<const std::vector<Value>>>
+      column_contents_;
+  int64_t num_rows_ = 0;
+};
+
 }  // namespace
 
 absl::Status SampleCatalogImpl::AddGeneratedColumnToTable(
@@ -881,14 +1057,29 @@ absl::Status SampleCatalogImpl::LoadTables() {
                 {"Value_1", types_->get_int64()}});
   AddOwnedTable(value_table);
 
-  SimpleTable* key_value_table = new SimpleTable(
-      "KeyValue",
-      {{"Key", types_->get_int64()}, {"Value", types_->get_string()}});
-  key_value_table->SetContents({{Value::Int64(1), Value::String("a")},
-                                {Value::Int64(2), Value::String("b")}});
+  const std::vector<SimpleTable::NameAndType> key_value_columns = {
+      {"Key", types_->get_int64()}, {"Value", types_->get_string()}};
+  const std::vector<std::vector<Value>> key_value_contents = {
+      {Value::Int64(1), Value::String("a")},
+      {Value::Int64(2), Value::String("b")}};
+
+  SimpleTable* key_value_table = new SimpleTable("KeyValue", key_value_columns);
+  key_value_table->SetContents(key_value_contents);
 
   AddOwnedTable(key_value_table);
   key_value_table_ = key_value_table;
+
+  // Copy of KeyValue with ColumnListMode::LAZY.
+  LazySimpleTable* key_value_lazy_table = new LazySimpleTable(
+      "KeyValueLazy", Table::ColumnListMode::LAZY, key_value_columns);
+  key_value_lazy_table->SetContents(key_value_contents);
+  AddOwnedTable(key_value_lazy_table);
+
+  // Copy of KeyValue with ColumnListMode::FIND_ONLY.
+  LazySimpleTable* key_value_find_only_table = new LazySimpleTable(
+      "KeyValueFindOnly", Table::ColumnListMode::FIND_ONLY, key_value_columns);
+  key_value_find_only_table->SetContents(key_value_contents);
+  AddOwnedTable(key_value_find_only_table);
 
   SimpleTable* multiple_columns_table =
       new SimpleTable("MultipleColumns", {{"int_a", types_->get_int64()},
@@ -898,6 +1089,19 @@ absl::Status SampleCatalogImpl::LoadTables() {
                                           {"int_c", types_->get_int64()},
                                           {"int_d", types_->get_int64()}});
   AddOwnedTable(multiple_columns_table);
+
+  SimpleTable* table_with_ts_column = new SimpleTable(
+      "TableWithTimestampColumn", {
+                                      {"ts_col", types_->get_timestamp()},
+                                  });
+  AddOwnedTable(table_with_ts_column);
+
+  SimpleTable* table_with_mixed_case_column = new SimpleTable(
+      "TableWithMixedCaseColumn", {
+                                      {"ts_col", types_->get_timestamp()},
+                                      {"MiXeD_cAsE", types_->get_string()},
+                                  });
+  AddOwnedTable(table_with_mixed_case_column);
 
   SimpleTable* key_value_with_primary_key_table = new SimpleTable(
       "KeyValueWithPrimaryKey",
@@ -1580,6 +1784,25 @@ absl::Status SampleCatalogImpl::LoadTables() {
                                 {{"å学", types_->get_int64()},
                                  {"ô", types_->get_string()},
                                  {"a", struct_with_unicode_column_table}}));
+
+  // Tables for vector_search.
+  SimpleTable* base_table =
+      new SimpleTable("base_table", {{"id", types_->get_int64()},
+                                     {"embedding", double_array_type_},
+                                     {"string_col", types_->get_string()}});
+  AddOwnedTable(base_table);
+
+  SimpleTable* query_table =
+      new SimpleTable("query_table", {{"id", types_->get_int64()},
+                                      {"query_embedding", double_array_type_},
+                                      {"embedding", double_array_type_}});
+  AddOwnedTable(query_table);
+
+  SimpleTable* base_table_wrong_type = new SimpleTable(
+      "base_table_wrong_type",
+      {{"id", types_->get_int64()}, {"embedding", string_array_type_}});
+  AddOwnedTable(base_table_wrong_type);
+
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
 
@@ -1660,6 +1883,8 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
       FEATURE_BITWISE_AGGREGATE_BYTES_SIGNATURES);
   analyzer_options.mutable_language()->EnableLanguageFeature(
       FEATURE_NAMED_ARGUMENTS);
+  analyzer_options.mutable_language()->EnableLanguageFeature(
+      FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS);
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_SingleKey",
@@ -1940,6 +2165,23 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
        {"measure_string_agg", "STRING_AGG(country, ',')"},
        {"measure_bit_and", "BIT_AND(CAST(country AS BYTES), mode => 'PAD')"},
        {"measure_aggregation_in_in_expr", "SUM(key) IN ((SELECT 1))"}},
+      /*is_value_table=*/false));
+
+  ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
+      analyzer_options, "MeasureTable_WithUdas",
+      {new SimpleColumn("MeasureTable_WithUdas", "key", types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithUdas", "country",
+                        types_->get_string()),
+       new SimpleColumn("MeasureTable_WithUdas", "quantity",
+                        types_->get_int64()),
+       new SimpleColumn("MeasureTable_WithUdas", "price", types_->get_int64())},
+      /*row_identity_column_indices=*/absl::flat_hash_set<int>{0},
+      /*measures=*/
+      {{"measure_uda_sum_price", "SumOfAggregateArgs(price)"},
+       {"measure_uda_sum_price_per_key",
+        "SumOfAggregateArgs(ANY_VALUE(price) GROUP BY key)"},
+       {"measure_uda_sum_max_price_per_country",
+        "SumOfAggregateArgs(MaxOfAggregateArgs(price) GROUP BY country)"}},
       /*is_value_table=*/false));
 
   return absl::OkStatus();
@@ -2400,23 +2642,25 @@ void SampleCatalogImpl::LoadNestedCatalogs() {
   int context_id = -1;
   nested_catalog->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"nested_catalog", "nested_tvf_one"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            single_key_col_schema,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kColumnNameKey, types::Int64Type()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id),
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              single_key_col_schema,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kColumnNameKey, types::Int64Type()}}),
+              /*extra_relation_input_columns_allowed=*/true)},
+          context_id)},
       single_key_col_schema));
   nested_nested_catalog->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"nested_catalog", "nested_nested_catalog", "nested_tvf_two"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            single_key_col_schema,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kColumnNameKey, types::Int64Type()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id),
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              single_key_col_schema,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kColumnNameKey, types::Int64Type()}}),
+              /*extra_relation_input_columns_allowed=*/true)},
+          context_id)},
       single_key_col_schema));
 
   // Load a nested catalog with a constant whose names conflict with a table
@@ -2557,7 +2801,8 @@ void SampleCatalogImpl::AddFunctionWithArgumentType(std::string type_name,
   catalog_->AddOwnedFunction(std::move(function));
 }
 
-void SampleCatalogImpl::LoadExtendedSubscriptFunctions() {
+absl::Status SampleCatalogImpl::LoadExtendedSubscriptFunctions(
+    const LanguageOptions& language_options) {
   // Add new signatures for '$subscript_with_offset' so we can do some
   // additional testing.  The signatures are:
   // 1) <string>[OFFSET(<int64>)]:
@@ -2565,22 +2810,42 @@ void SampleCatalogImpl::LoadExtendedSubscriptFunctions() {
   // 2) <string>[OFFSET(<string>)]:
   //    $subscript_with_offset(string, string) -> (string)
   const Function* subscript_offset_function;
-  ZETASQL_CHECK_OK(catalog_->GetFunction("$subscript_with_offset",
-                                 &subscript_offset_function));
-  ABSL_CHECK(subscript_offset_function != nullptr);
+  ZETASQL_RET_CHECK_OK(catalog_->GetFunction("$subscript_with_offset",
+                                     &subscript_offset_function));
+  ZETASQL_RET_CHECK(subscript_offset_function != nullptr);
   // If we ever update the builtin function implementation to actually include
   // a signature, then take a look at this code to see if it is still needed.
-  ABSL_CHECK_EQ(subscript_offset_function->NumSignatures(), 0);
+  ZETASQL_RET_CHECK_EQ(subscript_offset_function->NumSignatures(), 0);
   Function* mutable_subscript_offset_function =
       const_cast<Function*>(subscript_offset_function);
-  mutable_subscript_offset_function->AddSignature(
-      {types_->get_string(),
-       {types_->get_string(), types_->get_int64()},
-       /*context_id=*/-1});
-  mutable_subscript_offset_function->AddSignature(
-      {types_->get_string(),
-       {types_->get_string(), types_->get_string()},
-       /*context_id=*/-1});
+
+  FunctionSignature int64_on_string{types_->get_string(),
+                                    {types_->get_string(), types_->get_int64()},
+                                    /*context_id=*/-1};
+  FunctionSignature string_on_string{
+      types_->get_string(),
+      {types_->get_string(), types_->get_string()},
+      /*context_id=*/-1};
+
+  mutable_subscript_offset_function->AddSignature(int64_on_string);
+  mutable_subscript_offset_function->AddSignature(string_on_string);
+
+  if (language_options.LanguageFeatureEnabled(FEATURE_SAFE_FUNCTION_CALL)) {
+    // Same for the SAFE version:
+    const Function* safe_subscript_offset_function;
+    ZETASQL_RET_CHECK_OK(catalog_->GetFunction("$safe_subscript_with_offset",
+                                       &safe_subscript_offset_function));
+    ZETASQL_RET_CHECK(safe_subscript_offset_function != nullptr);
+    // If we ever update the builtin function implementation to actually include
+    // a signature, then take a look at this code to see if it is still needed.
+    ZETASQL_RET_CHECK_EQ(safe_subscript_offset_function->NumSignatures(), 0);
+    Function* mutable_safe_subscript_offset_function =
+        const_cast<Function*>(safe_subscript_offset_function);
+
+    mutable_safe_subscript_offset_function->AddSignature(int64_on_string);
+    mutable_safe_subscript_offset_function->AddSignature(string_on_string);
+  }
+  return absl::OkStatus();
 }
 
 const Function* SampleCatalogImpl::AddFunction(
@@ -3246,6 +3511,33 @@ RegisterForSampleCatalog fn_map_type_any_1_2_lambda_any_1_any_2_return_bool =
             FunctionArgumentType::Lambda({ARG_TYPE_ANY_1}, ARG_TYPE_ANY_2)},
            /*context_id=*/-1});
       catalog_->AddOwnedFunction(std::move(function));
+    });
+
+RegisterForSampleCatalog intentionally_ret_check =
+    RegisterForSampleCatalog([](zetasql::SimpleCatalog* catalog_) {
+      // During resolution, this function's result type callback will ZETASQL_RET_CHECK.
+      catalog_->AddOwnedFunction(new Function(
+          "intentionally_ret_check", "sample_functions", Function::SCALAR,
+          {{{types::Int64Type()}, {}, /*context_id=*/-1}},
+          FunctionOptions().set_compute_result_type_callback(
+              &ComputeResultTypeCallbackForIntentionallyRetCheck)));
+    });
+
+RegisterForSampleCatalog intentionally_ret_check_rewrite =
+    RegisterForSampleCatalog([](zetasql::SimpleCatalog* catalog_) {
+      // During rewrite, this function's rewrite SQL will cause the analyzer
+      // to ZETASQL_RET_CHECK.
+      catalog_->AddOwnedFunction(new Function(
+          "intentionally_ret_check_rewrite", "sample_functions",
+          Function::SCALAR,
+          {{{types::Int64Type()},
+            {},
+            /*context_id=*/-1,
+            FunctionSignatureOptions().set_rewrite_options(
+                FunctionSignatureRewriteOptions()
+                    .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                    .set_sql(R"sql(intentionally_ret_check())sql")
+                    .set_allowed_function_groups({"sample_functions"}))}}));
     });
 
 }  // namespace
@@ -4066,14 +4358,46 @@ void SampleCatalogImpl::LoadFunctions2() {
                   .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
                   .set_sql(R"sql(
               (
-               SELECT arg + x
+               SELECT z
                FROM
-                (SELECT 1 AS x) AS t1
-                CROSS JOIN LATERAL
-                (SELECT b FROM (
-                  SELECT (SELECT y + arg > x) AS b
-                  FROM (SELECT 1 AS y)
-                )) AS t2
+                (SELECT arg + x AS z      # Bury the lateral join in a subquery.
+                  FROM
+                  (SELECT 1 AS x) AS t1
+                  CROSS JOIN LATERAL
+                  (SELECT b FROM (
+                    SELECT (SELECT y + arg > x) AS b
+                    FROM (SELECT 1 AS y)
+                  )
+                )
+               ) AS t2
+              ))sql"))}},
+        FunctionOptions().set_supports_safe_error_mode(true));
+    catalog_->AddOwnedFunction(function);
+  }
+  // Function exercising LATERAL JOIN to a TVF rather than a subquery
+  {
+    // Built-in which is rewritten through a LATERAL join, to exercise the
+    // builtin function inliner.
+    auto* function = new Function(
+        "builtin_rewrites_to_lateral_join_with_tvf", "sample_functions",
+        Function::SCALAR,
+        {{types::Int64Type(),
+          {{types::Int64Type(), FunctionArgumentTypeOptions().set_argument_name(
+                                    "arg", kPositionalOrNamed)}},
+          /*context_id=*/-1,
+          FunctionSignatureOptions().set_rewrite_options(
+              FunctionSignatureRewriteOptions()
+                  .set_rewriter(REWRITE_BUILTIN_FUNCTION_INLINER)
+                  .set_sql(R"sql(
+              (
+               SELECT z
+               FROM
+                (SELECT arg + x AS z      # Bury the lateral join in a subquery.
+                  FROM
+                    (SELECT 1 AS x) AS t1
+                    CROSS JOIN LATERAL
+                    builtin_tvf_exactly_one_arg(t1.x + arg) AS t2
+                )
               ))sql"))}},
         FunctionOptions().set_supports_safe_error_mode(true));
     catalog_->AddOwnedFunction(function);
@@ -4529,7 +4853,7 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
 
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_named_default_args"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4556,11 +4880,11 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_default(values::Uint32(10086))},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_named_default_args_templated"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4587,11 +4911,11 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_default(values::String("abc"))},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_unnamed_default_args"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4612,11 +4936,11 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_default(values::Uint32(168))},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_unnamed_default_args_templated"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4636,12 +4960,12 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_default(values::Int32(-1))},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   // A TVF with a combined of named and unnamed optional arguments.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_unnamed_named"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4658,13 +4982,13 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_argument_name("o1", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL)},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   // A TVF with a combined of named and unnamed optional arguments plus a
   // default argument at last.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_optional_unnamed_named_default"},
-      FunctionSignature(
+      {FunctionSignature(
           /*result_type=*/ARG_TYPE_RELATION,
           /*arguments=*/
           {
@@ -4686,7 +5010,7 @@ void SampleCatalogImpl::LoadFunctionsWithDefaultArguments() {
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_default(values::Int32(314))},
           },
-          /*context_id=*/-1)));
+          /*context_id=*/-1)}));
 
   // A scalar function with both unnamed and named optional arguments.
   function = new Function(
@@ -7152,38 +7476,38 @@ void SampleCatalogImpl::LoadTableValuedFunctions1() {
   int context_id = 0;
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       output_schema_two_types));
 
   // Add a TVF that returns an empty output schema.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_empty_output_schema"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            empty_output_schema,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             empty_output_schema,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       empty_output_schema));
 
   // Add a TVF that takes no arguments and returns all POD types.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_args_return_all_pod_types"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_all_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_all_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       output_schema_all_types));
 
   // Add a TVF for each POD type that accepts exactly one argument of that type.
   for (const auto& kv : kArgumentsAllTypes) {
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {absl::StrCat("tvf_exactly_1_", kv.description, "_arg")},
-        FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                              output_schema_two_types,
-                              /*extra_relation_input_columns_allowed=*/false),
-                          {FunctionArgumentType(kv.type)}, context_id++),
+        {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                               output_schema_two_types,
+                               /*extra_relation_input_columns_allowed=*/false),
+                           {FunctionArgumentType(kv.type)}, context_id++)},
         output_schema_two_types));
   }
 
@@ -7191,11 +7515,11 @@ void SampleCatalogImpl::LoadTableValuedFunctions1() {
   for (int i = 2; i < 10; ++i) {
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {absl::StrCat("tvf_exactly_", i, "_int64_args")},
-        FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                              output_schema_two_types,
-                              /*extra_relation_input_columns_allowed=*/false),
-                          FunctionArgumentTypeList(i, types::Int64Type()),
-                          context_id++),
+        {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                               output_schema_two_types,
+                               /*extra_relation_input_columns_allowed=*/false),
+                           FunctionArgumentTypeList(i, types::Int64Type()),
+                           context_id++)},
         output_schema_two_types));
   }
 
@@ -7217,53 +7541,53 @@ void SampleCatalogImpl::LoadTableValuedFunctions1() {
        kSignatureArgumentKinds) {
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {absl::StrCat("tvf_exactly_one_", kv.first)},
-        FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                              output_schema_two_types,
-                              /*extra_relation_input_columns_allowed=*/false),
-                          {FunctionArgumentType(kv.second)}, context_id++),
+        {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                               output_schema_two_types,
+                               /*extra_relation_input_columns_allowed=*/false),
+                           {FunctionArgumentType(kv.second)}, context_id++)},
         output_schema_two_types));
   }
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_exactly_one_proto"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(proto_KitchenSinkPB_)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(proto_KitchenSinkPB_)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a repeating final argument of type int64.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_repeating_int64_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(types::Int64Type(),
-                                              FunctionArgumentType::REPEATED)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(types::Int64Type(),
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a repeating final argument of ARG_TYPE_ANY_1.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_repeating_any_one_type_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(ARG_TYPE_ANY_1,
-                                              FunctionArgumentType::REPEATED)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(ARG_TYPE_ANY_1,
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a repeating final argument of ARG_TYPE_ARBITRARY.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_repeating_arbitrary_type_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(ARG_TYPE_ARBITRARY,
-                                              FunctionArgumentType::REPEATED)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(ARG_TYPE_ARBITRARY,
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
       output_schema_two_types));
 
   // Stop here to avoid hitting lint limits for function length.
@@ -7310,33 +7634,33 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_arg_returning_fixed_output_with_pseudo_columns"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types_with_pseudo_columns,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types_with_pseudo_columns,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       output_schema_two_types_with_pseudo_columns));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_no_arg_returning_value_table_with_pseudo_columns"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_value_table_with_pseudo_columns,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        FunctionArgumentTypeList(), context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_value_table_with_pseudo_columns,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         FunctionArgumentTypeList(), context_id++)},
       output_schema_value_table_with_pseudo_columns));
 
   // Add a TVF with exactly one relation argument.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_with_fixed_output"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation()}, context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation()}, context_id++)},
       output_schema_two_types));
 
   // Add a TVF which always returns failure for argument constraint check.
   TVFPostResolutionArgumentConstraintsCallback tvf_argument_check =
       [](const FunctionSignature& signature,
-         const std::vector<TVFInputArgumentType>& arguments,
+         absl::Span<const TVFInputArgumentType> arguments,
          const LanguageOptions& language_options) {
         return absl::InvalidArgumentError(
             "Invalid argument, this TVF returns failure for argument "
@@ -7354,10 +7678,11 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
          const FunctionSignature& signature,
          const std::vector<TVFInputArgumentType>& actual_arguments,
          const AnalyzerOptions& analyzer_options) {
-        return new TVFSignature(actual_arguments,
-                                TVFRelation({TVFRelation::Column(
-                                    "col", type_factory->get_string())}),
-                                TVFSignatureOptions());
+        return std::make_unique<TVFSignature>(
+            actual_arguments,
+            TVFRelation(
+                {TVFRelation::Column("col", type_factory->get_string())}),
+            TVFSignatureOptions());
       };
   catalog_->AddOwnedTableValuedFunction(new TableValuedFunction(
       {"tvf_with_group_name"}, "Group",
@@ -7368,17 +7693,17 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_models_with_fixed_output"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               TVFRelation({{"label", types::DoubleType()}}),
               /*extra_relation_input_columns_allowed=*/false),
           {FunctionArgumentType::AnyModel(), FunctionArgumentType::AnyModel()},
-          context_id++),
+          context_id++)},
       TVFRelation({{"label", types::DoubleType()}})));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_one_model_arg_with_fixed_output"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               TVFRelation({{kTypeDouble, types::DoubleType()},
                            {kTypeString, types::StringType()}}),
@@ -7390,7 +7715,7 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                   /*extra_relation_input_columns_allowed=*/false),
               FunctionArgumentType::AnyModel(),
           },
-          context_id++),
+          context_id++)},
       TVFRelation({{kTypeDouble, types::DoubleType()},
                    {kTypeString, types::StringType()}})));
 
@@ -7398,161 +7723,162 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // be the same as the input schema.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_one_relation_arg_output_schema_is_input_schema"},
-      FunctionSignature(ARG_TYPE_RELATION,
-                        {FunctionArgumentType::AnyRelation()}, context_id++)));
+      {FunctionSignature(ARG_TYPE_RELATION,
+                         {FunctionArgumentType::AnyRelation()},
+                         context_id++)}));
 
   // Add a TVF with exactly one optional relation argument. The output schema is
   // set to be the same as the input schema.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_optional_relation_arg_return_int64_value_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_int64_value_table,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(ARG_TYPE_RELATION,
-                                              FunctionArgumentType::OPTIONAL)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_int64_value_table,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(ARG_TYPE_RELATION,
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id++)},
       output_schema_int64_value_table));
 
   // Add a TVF with one relation argument and one integer argument. The output
   // schema is set to be the same as the input schema of the relation argument.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_one_relation_arg_output_schema_is_input_schema_plus_int64_arg"},
-      FunctionSignature(ARG_TYPE_RELATION,
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType(types::Int64Type())},
-                        context_id++)));
+      {FunctionSignature(ARG_TYPE_RELATION,
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType(types::Int64Type())},
+                         context_id++)}));
 
   // Add one TVF with two relation arguments that forwards the schema of the
   // first relation argument to the output of the TVF.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_two_relation_args_output_schema_is_input_schema"},
-      FunctionSignature(ARG_TYPE_RELATION,
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType::AnyRelation()},
-                        context_id++)));
+      {FunctionSignature(ARG_TYPE_RELATION,
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType::AnyRelation()},
+                         context_id++)}));
 
   // Add one TVF with two relation arguments with the second one optional that
   // forwards the schema of the first relation argument to the output of the
   // TVF.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_two_relation_args_second_optional_output_schema_is_input_schema"},
-      FunctionSignature(ARG_TYPE_RELATION,
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType(ARG_TYPE_RELATION,
-                                              FunctionArgumentType::OPTIONAL)},
-                        context_id++)));
+      {FunctionSignature(ARG_TYPE_RELATION,
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType(ARG_TYPE_RELATION,
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id++)}));
 
   // Add one TVF with three arguments: The first one is required model; The
   // second is optional table; The third is optional struct.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_evaluation_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyModel(),
-                         FunctionArgumentType(ARG_TYPE_RELATION,
-                                              FunctionArgumentType::OPTIONAL),
-                         FunctionArgumentType(ARG_STRUCT_ANY,
-                                              FunctionArgumentType::OPTIONAL)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyModel(),
+                          FunctionArgumentType(ARG_TYPE_RELATION,
+                                               FunctionArgumentType::OPTIONAL),
+                          FunctionArgumentType(ARG_STRUCT_ANY,
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly two relation arguments.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relation_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType::AnyRelation()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType::AnyRelation()},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly two relation arguments that returns an int64 value
   // table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relation_args_return_int64_value_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_int64_value_table,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType::AnyRelation()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_int64_value_table,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType::AnyRelation()},
+                         context_id++)},
       output_schema_int64_value_table));
 
   // Add a TVF with exactly two relation arguments that returns a proto value
   // table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relation_args_return_proto_value_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_proto_value_table,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType::AnyRelation()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_proto_value_table,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType::AnyRelation()},
+                         context_id++)},
       output_schema_proto_value_table));
 
   // Add a TVF with exactly one argument of ARG_TYPE_RELATION and another
   // argument of type int64.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_int64_arg_one_relation_arg"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(types::Int64Type()),
-                         FunctionArgumentType::AnyRelation()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(types::Int64Type()),
+                          FunctionArgumentType::AnyRelation()},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one argument of ARG_TYPE_RELATION and another
   // argument of type int64.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_one_int64_arg"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType(types::Int64Type())},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType(types::Int64Type())},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument and repeating int64 arguments.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_repeating_int64_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType(types::Int64Type(),
-                                              FunctionArgumentType::REPEATED)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType(types::Int64Type(),
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with one relation argument and also a repeating final argument of
   // ARG_TYPE_ANY_1.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_repeating_any_one_type_args"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyRelation(),
-                         FunctionArgumentType(ARG_TYPE_ANY_1,
-                                              FunctionArgumentType::REPEATED)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyRelation(),
+                          FunctionArgumentType(ARG_TYPE_ANY_1,
+                                               FunctionArgumentType::REPEATED)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one int64 column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_int64_string_input_columns"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeInt64, types::Int64Type()},
-                                         {kTypeString, types::StringType()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeInt64, types::Int64Type()},
+                                          {kTypeString, types::StringType()}}),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
@@ -7560,19 +7886,19 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // in the input relation.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_only_int64_string_input_columns"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeInt64, types::Int64Type()},
-                                         {kTypeString, types::StringType()}}),
-                            /*extra_relation_input_columns_allowed=*/false)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeInt64, types::Int64Type()},
+                                          {kTypeString, types::StringType()}}),
+                             /*extra_relation_input_columns_allowed=*/false)},
+                         context_id++)},
       output_schema_two_types));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_only_int64_struct_int64_input_columns"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -7580,7 +7906,7 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
               TVFRelation({{kTypeInt64, types::Int64Type()},
                            {"struct_int64", struct_with_one_field_type_}}),
               /*extra_relation_input_columns_allowed=*/false)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two relation arguments, one with a required input schema of
@@ -7588,41 +7914,41 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // input schema of one date column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relation_args_uint64_string_and_date_string_input_columns"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                             TVFRelation({{kTypeUInt64, types::Uint64Type()},
-                                          {kTypeString, types::StringType()}}),
-                             /*extra_relation_input_columns_allowed=*/true),
-                         FunctionArgumentType::RelationWithSchema(
-                             TVFRelation({{kTypeDate, types::DateType()},
-                                          {kTypeString, types::StringType()}}),
-                             /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                              TVFRelation({{kTypeUInt64, types::Uint64Type()},
+                                           {kTypeString, types::StringType()}}),
+                              /*extra_relation_input_columns_allowed=*/true),
+                          FunctionArgumentType::RelationWithSchema(
+                              TVFRelation({{kTypeDate, types::DateType()},
+                                           {kTypeString, types::StringType()}}),
+                              /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF one relation argument with a required input schema of many
   // supported types.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_required_input_schema_many_types"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeBool, types_->get_bool()},
-                                         {kTypeBytes, types_->get_bytes()},
-                                         {kTypeDate, types_->get_date()},
-                                         {kTypeDouble, types_->get_double()},
-                                         {kTypeFloat, types_->get_float()},
-                                         {kTypeInt32, types_->get_int32()},
-                                         {kTypeInt64, types_->get_int64()},
-                                         {kTypeString, types_->get_string()},
-                                         {kTypeTime, types_->get_timestamp()},
-                                         {kTypeUInt32, types_->get_uint32()},
-                                         {kTypeUInt64, types_->get_uint64()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeBool, types_->get_bool()},
+                                          {kTypeBytes, types_->get_bytes()},
+                                          {kTypeDate, types_->get_date()},
+                                          {kTypeDouble, types_->get_double()},
+                                          {kTypeFloat, types_->get_float()},
+                                          {kTypeInt32, types_->get_int32()},
+                                          {kTypeInt64, types_->get_int64()},
+                                          {kTypeString, types_->get_string()},
+                                          {kTypeTime, types_->get_timestamp()},
+                                          {kTypeUInt32, types_->get_uint32()},
+                                          {kTypeUInt64, types_->get_uint64()}}),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   const std::string kMyEnum = "myenum";
@@ -7635,7 +7961,7 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // of one enum column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_one_enum_input_column"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -7644,28 +7970,28 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                   kMyEnum,
                   GetEnumType(zetasql_test__::TestEnum_descriptor()))}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one date column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_one_date_input_column"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
           {FunctionArgumentType::RelationWithSchema(
               TVFRelation({TVFRelation::Column(kMyDate, types_->get_date())}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of three int64 columns.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_three_int64_input_columns"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -7674,34 +8000,34 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                            TVFRelation::Column(kInt64b, types_->get_int64()),
                            TVFRelation::Column(kInt64c, types_->get_int64())}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one proto column value table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_input_proto_value_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation::ValueTable(GetProtoType(
-                                zetasql_test__::TestExtraPB::descriptor())),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation::ValueTable(GetProtoType(
+                                 zetasql_test__::TestExtraPB::descriptor())),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one int64 column value table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_int64_input_value_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation::ValueTable(types::Int64Type()),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation::ValueTable(types::Int64Type()),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
@@ -7709,17 +8035,17 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // output schema.
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_one_relation_arg_int64_input_value_table_forward_schema"},
-      FunctionSignature(ARG_TYPE_RELATION,
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation::ValueTable(types::Int64Type()),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++)));
+      {FunctionSignature(ARG_TYPE_RELATION,
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation::ValueTable(types::Int64Type()),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)}));
 
   // Add a TVF with exactly one relation argument with a fixed schema that
   // returns a proto value table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_return_proto_value_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_proto_value_table,
               /*extra_relation_input_columns_allowed=*/false),
@@ -7728,47 +8054,49 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                   {TVFRelation::Column(kTypeString, types_->get_string()),
                    TVFRelation::Column(kTypeInt64, types_->get_int64())}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_proto_value_table));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one int64 column, and extra input columns are allowed.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_key_input_column_extra_input_columns_allowed"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kColumnNameKey, types::Int64Type()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kColumnNameKey, types::Int64Type()}}),
+              /*extra_relation_input_columns_allowed=*/true)},
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one string column, and extra input columns are allowed.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_filename_input_column_extra_input_columns_allowed"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
           {FunctionArgumentType::RelationWithSchema(
               TVFRelation({{kColumnNameFilename, types::StringType()}}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one int64 column, and extra input columns are not allowed.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_key_input_column_extra_input_columns_banned"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kColumnNameKey, types::Int64Type()}}),
-                            /*extra_relation_input_columns_allowed=*/false)},
-                        context_id++),
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kColumnNameKey, types::Int64Type()}}),
+              /*extra_relation_input_columns_allowed=*/false)},
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
@@ -7777,20 +8105,20 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
   // coercion should coerce the provided column named "uint32" to type uint64.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_uint64_input_column_named_uint32"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeUInt32, types::Uint64Type()}}),
-                            /*extra_relation_input_columns_allowed=*/true)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeUInt32, types::Uint64Type()}}),
+                             /*extra_relation_input_columns_allowed=*/true)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument with a required input schema
   // of one int64 column and one string column.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_key_filename_input_columns"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -7798,7 +8126,7 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
               TVFRelation({{kColumnNameKey, types::Int64Type()},
                            {kColumnNameFilename, types::StringType()}}),
               /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF that takes two scalar named arguments.
@@ -7841,82 +8169,84 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_scalar_args"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_required_format_arg, named_required_date_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_required_format_arg, named_required_date_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with two named optional arguments.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_optional_scalar_args"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_optional_string_arg, named_optional_date_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_optional_string_arg, named_optional_date_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with one optional named "any table" relation argument.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_optional_any_relation_arg"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_optional_any_relation_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_optional_any_relation_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with one optional named "any table" relation argument and an
   // optional scalar argument.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_optional_any_relation_arg_optional_scalar_arg"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_optional_any_relation_arg, named_optional_string_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {named_optional_any_relation_arg, named_optional_string_arg},
+          /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with one required named "any table" relation argument.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_any_relation_arg"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_required_any_relation_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_required_any_relation_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with one named relation argument with a required schema.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_schema_relation_arg"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_required_schema_relation_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_required_schema_relation_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with one named relation argument with a value table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_required_value_table_relation_arg"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_required_value_table_relation_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {named_required_value_table_relation_arg},
+                         /*context_id=*/-1)},
       output_schema_two_types));
 
   // Add a TVF with a combination of named scalar and relation arguments.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_scalar_and_relation_args"},
-      {FunctionArgumentType::RelationWithSchema(
-           output_schema_two_types,
-           /*extra_relation_input_columns_allowed=*/false),
-       {named_required_format_arg, named_required_schema_relation_arg},
-       /*context_id=*/-1},
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {named_required_format_arg, named_required_schema_relation_arg},
+          /*context_id=*/-1)},
       output_schema_two_types));
   {
     // Add a TVF with relation arg + scalar arg + named lambda.
@@ -7932,11 +8262,11 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                                                         kNamedOnly));
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {"tvf_relation_arg_scalar_arg_named_lambda"},
-        {FunctionArgumentType::RelationWithSchema(
-             output_schema_two_types,
-             /*extra_relation_input_columns_allowed=*/false),
-         {relation_arg, scalar_arg, named_lambda_arg},
-         /*context_id=*/-1},
+        {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                               output_schema_two_types,
+                               /*extra_relation_input_columns_allowed=*/false),
+                           {relation_arg, scalar_arg, named_lambda_arg},
+                           /*context_id=*/-1)},
         output_schema_two_types));
 
     FunctionArgumentType scalar_arg_positional_must_be_not_null =
@@ -8004,22 +8334,23 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                     .set_array_element_must_support_grouping(true));
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {"tvf_positional_scalar_args_with_constraints"},
-        {FunctionArgumentType::RelationWithSchema(
-             output_schema_two_types,
-             /*extra_relation_input_columns_allowed=*/false),
-         {
-             scalar_arg_positional_must_be_not_null,
-             scalar_arg_positional_must_be_constant,
-             scalar_arg_positional_must_be_constant_expression,
-             scalar_arg_positional_must_support_equality,
-             scalar_arg_positional_must_support_ordering,
-             scalar_arg_positional_must_support_grouping,
-             scalar_arg_positional_array_element_must_support_equality,
-             scalar_arg_positional_array_element_must_support_ordering,
-             scalar_arg_positional_array_element_must_support_grouping,
-             scalar_arg_positional_must_be_not_null_with_default,
-         },
-         /*context_id=*/-1},
+        {FunctionSignature(
+            FunctionArgumentType::RelationWithSchema(
+                output_schema_two_types,
+                /*extra_relation_input_columns_allowed=*/false),
+            {
+                scalar_arg_positional_must_be_not_null,
+                scalar_arg_positional_must_be_constant,
+                scalar_arg_positional_must_be_constant_expression,
+                scalar_arg_positional_must_support_equality,
+                scalar_arg_positional_must_support_ordering,
+                scalar_arg_positional_must_support_grouping,
+                scalar_arg_positional_array_element_must_support_equality,
+                scalar_arg_positional_array_element_must_support_ordering,
+                scalar_arg_positional_array_element_must_support_grouping,
+                scalar_arg_positional_must_be_not_null_with_default,
+            },
+            /*context_id=*/-1)},
         output_schema_two_types));
 
     FunctionArgumentType scalar_arg_named_must_be_not_null =
@@ -8097,24 +8428,52 @@ void SampleCatalogImpl::LoadTableValuedFunctions2() {
                 .set_default(values::Double(3.14)));
     catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
         {"tvf_named_scalar_args_with_constraints"},
-        {FunctionArgumentType::RelationWithSchema(
-             output_schema_two_types,
-             /*extra_relation_input_columns_allowed=*/false),
-         {
-             scalar_arg_named_must_be_not_null,
-             scalar_arg_named_must_be_constant,
-             scalar_arg_named_must_be_constant_expression,
-             scalar_arg_named_must_support_equality,
-             scalar_arg_named_must_support_ordering,
-             scalar_arg_named_must_support_grouping,
-             scalar_arg_named_array_element_must_support_equality,
-             scalar_arg_named_array_element_must_support_ordering,
-             scalar_arg_named_array_element_must_support_grouping,
-             scalar_arg_named_must_be_not_null_with_default,
-         },
-         /*context_id=*/-1},
+        {FunctionSignature(
+            FunctionArgumentType::RelationWithSchema(
+                output_schema_two_types,
+                /*extra_relation_input_columns_allowed=*/false),
+            {
+                scalar_arg_named_must_be_not_null,
+                scalar_arg_named_must_be_constant,
+                scalar_arg_named_must_be_constant_expression,
+                scalar_arg_named_must_support_equality,
+                scalar_arg_named_must_support_ordering,
+                scalar_arg_named_must_support_grouping,
+                scalar_arg_named_array_element_must_support_equality,
+                scalar_arg_named_array_element_must_support_ordering,
+                scalar_arg_named_array_element_must_support_grouping,
+                scalar_arg_named_must_be_not_null_with_default,
+            },
+            /*context_id=*/-1)},
         output_schema_two_types));
   }
+
+  // TVFs which are in the ZetaSQL group (builtins).
+  catalog_->AddOwnedTableValuedFunction(new TableValuedFunction(
+      {"builtin_tvf_exactly_one_arg"}, Function::kZetaSQLFunctionGroupName,
+      {FunctionSignature(FunctionArgumentType::AnyRelation(),
+                         {types::Int64Type()}, context_id++)},
+      TableValuedFunctionOptions().set_compute_result_type_callback(
+          result_type_callback)));
+  TVFComputeResultTypeCallback result_type_callback_with_empty_relation =
+      [](Catalog* catalog, TypeFactory* type_factory,
+         const FunctionSignature& signature,
+         const std::vector<TVFInputArgumentType>& actual_arguments,
+         const AnalyzerOptions& analyzer_options) {
+        return std::make_unique<TVFSignature>(actual_arguments, TVFRelation({}),
+                                              TVFSignatureOptions());
+      };
+  catalog_->AddOwnedTableValuedFunction(new TableValuedFunction(
+      {"builtin_tvf_exactly_one_relation_arg"},
+      Function::kZetaSQLFunctionGroupName,
+      {FunctionSignature(
+          FunctionArgumentType::AnyRelation(),
+          {FunctionArgumentType(ARG_TYPE_RELATION,
+                                FunctionArgumentTypeOptions().set_argument_name(
+                                    "t", FunctionEnums::POSITIONAL_OR_NAMED))},
+          context_id++)},
+      TableValuedFunctionOptions().set_compute_result_type_callback(
+          result_type_callback_with_empty_relation)));
 }  // NOLINT(readability/fn_size)
 
 // Tests handling of optional relation arguments.
@@ -8177,7 +8536,7 @@ class TvfOptionalRelation : public FixedOutputSchemaTVF {
   explicit TvfOptionalRelation()
       : FixedOutputSchemaTVF(
             {R"(tvf_optional_relation)"},
-            FunctionSignature(
+            {FunctionSignature(
                 FunctionArgumentType::RelationWithSchema(
                     TVFRelation::ValueTable(types::Int64Type()),
                     /*extra_relation_input_columns_allowed=*/false),
@@ -8187,7 +8546,7 @@ class TvfOptionalRelation : public FixedOutputSchemaTVF {
                         TVFRelation::ValueTable(types::Int64Type()),
                         /*extra_relation_input_columns_allowed=*/true)
                         .set_cardinality(FunctionArgumentType::OPTIONAL))},
-                /*context_id=*/-1),
+                /*context_id=*/-1)},
             TVFRelation::ValueTable(types::Int64Type())) {}
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
@@ -8260,7 +8619,7 @@ class TvfOptionalArguments : public FixedOutputSchemaTVF {
   explicit TvfOptionalArguments()
       : FixedOutputSchemaTVF(
             {R"(tvf_optional_arguments)"},
-            FunctionSignature(
+            {FunctionSignature(
                 FunctionArgumentType::RelationWithSchema(
                     TVFRelation({{"value", types::Int64Type()}}),
                     /*extra_relation_input_columns_allowed=*/false),
@@ -8293,7 +8652,7 @@ class TvfOptionalArguments : public FixedOutputSchemaTVF {
                                 "steps", FunctionEnums::POSITIONAL_OR_NAMED)
                             .set_cardinality(FunctionArgumentType::OPTIONAL)),
                 },
-                /*context_id=*/-1),
+                /*context_id=*/-1)},
             TVFRelation(TVFRelation({{"y", types::DoubleType()}}))) {}
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
@@ -8415,7 +8774,7 @@ class TvfRepeatedArguments : public FixedOutputSchemaTVF {
   explicit TvfRepeatedArguments()
       : FixedOutputSchemaTVF(
             {R"(tvf_repeated_arguments)"},
-            FunctionSignature(
+            {FunctionSignature(
                 FunctionArgumentType::RelationWithSchema(
                     TVFRelation({{"key", types::StringType()},
                                  {"value", types::Int64Type()}}),
@@ -8426,7 +8785,7 @@ class TvfRepeatedArguments : public FixedOutputSchemaTVF {
                     FunctionArgumentType(types::Int64Type(),
                                          FunctionArgumentType::REPEATED),
                 },
-                /*context_id=*/-1),
+                /*context_id=*/-1)},
             TVFRelation({{"key", types::StringType()},
                          {"value", types::Int64Type()}})) {}
 
@@ -8519,7 +8878,7 @@ class TvfIncrementBy : public ForwardInputSchemaToOutputSchemaTVF {
   explicit TvfIncrementBy()
       : ForwardInputSchemaToOutputSchemaTVF(
             {R"(tvf_increment_by)"},
-            FunctionSignature(
+            {FunctionSignature(
                 ARG_TYPE_RELATION,
                 {FunctionArgumentType::AnyRelation(),
                  FunctionArgumentType(
@@ -8527,7 +8886,7 @@ class TvfIncrementBy : public ForwardInputSchemaToOutputSchemaTVF {
                      FunctionArgumentTypeOptions()
                          .set_cardinality(FunctionArgumentType::OPTIONAL)
                          .set_default(values::Int64(1)))},
-                /*context_id=*/-1)) {}
+                /*context_id=*/-1)}) {}
 
   absl::StatusOr<std::unique_ptr<EvaluatorTableIterator>> CreateEvaluator(
       std::vector<TvfEvaluatorArg> input_arguments,
@@ -8597,7 +8956,7 @@ class TvfSumAndDiff : public FixedOutputSchemaTVF {
   TvfSumAndDiff()
       : FixedOutputSchemaTVF(
             {R"(tvf_sum_diff)"},
-            FunctionSignature(
+            {FunctionSignature(
                 FunctionArgumentType::RelationWithSchema(
                     TVFRelation({{"sum", types::Int64Type()},
                                  {"diff", types::Int64Type()}}),
@@ -8606,7 +8965,7 @@ class TvfSumAndDiff : public FixedOutputSchemaTVF {
                     TVFRelation(
                         {{"a", types::Int64Type()}, {"b", types::Int64Type()}}),
                     /*extra_relation_input_columns_allowed=*/false)},
-                /*context_id=*/-1),
+                /*context_id=*/-1)},
             TVFRelation(
                 {{"sum", types::Int64Type()}, {"diff", types::Int64Type()}})) {}
 
@@ -8658,13 +9017,14 @@ void SampleCatalogImpl::LoadFunctionsWithStructArgs() {
   // A TVF with struct args.
   auto tvf = std::make_unique<FixedOutputSchemaTVF>(
       std::vector<std::string>{"tvf_named_struct_args"},
-      FunctionSignature{FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {named_struct_arg1, named_struct_arg2},
-                        /*context_id=*/-1},
+      std::vector<FunctionSignature>({FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {named_struct_arg1, named_struct_arg2},
+          /*context_id=*/-1)}),
       output_schema_two_types);
-  catalog_->AddOwnedTableValuedFunction(tvf.release());
+  catalog_->AddOwnedTableValuedFunction(std::move(tvf));
 
   auto function = std::make_unique<Function>(
       "fn_named_struct_args", "sample_functions", Function::SCALAR);
@@ -8681,8 +9041,8 @@ void SampleCatalogImpl::LoadTVFWithExtraColumns() {
   catalog_->AddOwnedTableValuedFunction(
       new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_columns"},
-          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
-                            context_id++),
+          {FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
+                             context_id++)},
           {TVFSchemaColumn("append_col_int64", types::Int64Type()),
            TVFSchemaColumn("append_col_int32", types::Int32Type()),
            TVFSchemaColumn("append_col_uint32", types::Uint32Type()),
@@ -8703,8 +9063,8 @@ void SampleCatalogImpl::LoadTVFWithExtraColumns() {
   catalog_->AddOwnedTableValuedFunction(
       new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_no_column"},
-          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
-                            context_id++),
+          {FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION},
+                             context_id++)},
           {}));
 
   const auto named_required_any_relation_arg = FunctionArgumentType(
@@ -8715,9 +9075,9 @@ void SampleCatalogImpl::LoadTVFWithExtraColumns() {
   catalog_->AddOwnedTableValuedFunction(
       new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_columns_any_relation_arg"},
-          FunctionSignature(ARG_TYPE_RELATION,
-                            {named_required_any_relation_arg},
-                            /*context_id=*/context_id++),
+          {FunctionSignature(ARG_TYPE_RELATION,
+                             {named_required_any_relation_arg},
+                             /*context_id=*/context_id++)},
           {TVFSchemaColumn("append_col_int32", types::Int32Type())}));
 }
 
@@ -8735,7 +9095,7 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
   // Add a TVF with a table parameter and a descriptor with -1 table offset.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_one_descriptor"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8743,14 +9103,14 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
                /*extra_relation_input_columns_allowed=*/true),
            FunctionArgumentType::AnyDescriptor()},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two table parameters, one descriptor with 0 table offset
   // and one descriptor with 1 table offset.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_relations_arg_two_descriptors_resolved_names"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8762,13 +9122,13 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                /*extra_relation_input_columns_allowed=*/true),
            FunctionArgumentType::AnyDescriptor(0),
            FunctionArgumentType::AnyDescriptor(1)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a table parameter and a descriptor with 0 table offset.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_relation_arg_one_descriptor_resolved_names"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8776,13 +9136,13 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
                /*extra_relation_input_columns_allowed=*/true),
            FunctionArgumentType::AnyDescriptor(0)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a descriptor with 1 table offset and a table parameter.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_descriptor_resolved_names_one_relation_arg"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8791,14 +9151,14 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64()),
                             TVFRelation::Column(kInt64b, types_->get_int64())}),
                /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a descriptor with 1 table offset and a table parameter with
   // ambiguous column naming problem.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8807,14 +9167,14 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64()),
                             TVFRelation::Column(kInt64b, types_->get_int64())}),
                /*extra_relation_input_columns_allowed=*/true)},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a descriptor with 1 table offset, a table parameter and a
   // descriptor with -1 table offset.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_descriptor_resolved_names_one_relation_arg_one_descriptor_arg"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8823,7 +9183,7 @@ void SampleCatalogImpl::LoadDescriptorTableValuedFunctions() {
                TVFRelation({TVFRelation::Column(kInt64a, types_->get_int64())}),
                /*extra_relation_input_columns_allowed=*/true),
            FunctionArgumentType::AnyDescriptor()},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 }
 
@@ -8832,33 +9192,34 @@ void SampleCatalogImpl::LoadConnectionTableValuedFunctions() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_connection_arg_with_fixed_output"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeString, types::StringType()}}),
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyConnection()}, context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeString, types::StringType()}}),
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyConnection()},
+                         context_id++)},
       TVFRelation({{kTypeString, types::StringType()}})));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_one_connection_one_string_arg_with_fixed_output"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeInt64, types::Int64Type()},
-                                         {kTypeString, types::StringType()}}),
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyConnection(),
-                         FunctionArgumentType(types::StringType())},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeInt64, types::Int64Type()},
+                                          {kTypeString, types::StringType()}}),
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyConnection(),
+                          FunctionArgumentType(types::StringType())},
+                         context_id++)},
       TVFRelation({{kTypeInt64, types::Int64Type()},
                    {kTypeString, types::StringType()}})));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_connections_with_fixed_output"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            TVFRelation({{kTypeDouble, types::DoubleType()},
-                                         {kTypeString, types::StringType()}}),
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyConnection(),
-                         FunctionArgumentType::AnyConnection()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             TVFRelation({{kTypeDouble, types::DoubleType()},
+                                          {kTypeString, types::StringType()}}),
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyConnection(),
+                          FunctionArgumentType::AnyConnection()},
+                         context_id++)},
       TVFRelation({{kTypeDouble, types::DoubleType()},
                    {kTypeString, types::StringType()}})));
 }
@@ -8884,7 +9245,7 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
   deprecation_warning_signature.SetAdditionalDeprecationWarnings(
       {CreateDeprecationWarning(/*id=*/11)});
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
-      {"tvf_deprecation_warning"}, deprecation_warning_signature,
+      {"tvf_deprecation_warning"}, {deprecation_warning_signature},
       output_schema_two_types));
 
   // Add a TVF that triggers two deprecation warnings with the same kind.
@@ -8898,7 +9259,7 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
        CreateDeprecationWarning(/*id=*/13)});
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_deprecation_warnings_same_kind"},
-      two_deprecation_warnings_same_kind_signature, output_schema_two_types));
+      {two_deprecation_warnings_same_kind_signature}, output_schema_two_types));
 
   // Add a TVF that triggers two deprecation warnings with different kinds.
   FunctionSignature two_deprecation_warnings_signature(
@@ -8911,7 +9272,7 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
        CreateDeprecationWarning(
            /*id=*/15, DeprecationWarning::DEPRECATED_FUNCTION_SIGNATURE)});
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
-      {"tvf_two_deprecation_warnings"}, two_deprecation_warnings_signature,
+      {"tvf_two_deprecation_warnings"}, {two_deprecation_warnings_signature},
       output_schema_two_types));
 
   // Add a TVF with exactly one relation argument. The output schema is set to
@@ -8923,13 +9284,13 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
       {CreateDeprecationWarning(/*id=*/16)});
   catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
       {"tvf_one_relation_arg_output_schema_is_input_schema_deprecation"},
-      forward_deprecation_signature));
+      {forward_deprecation_signature}));
 
   // Add a TVF with three arguments: The first one is required model; The
   // second is optional table; The third is named optional struct.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_optional_table_named_struct"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8941,14 +9302,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two arguments: The first is named optional struct. The
   // second is a named optional table;
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_struct_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8962,14 +9323,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("barfoo", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two arguments: The first is named optional struct. The
   // second is a named optional table;
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_named_proto_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -8983,14 +9344,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("barfoo", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required model; The
   // second is optional scalar; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_optional_scalar_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9002,14 +9363,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first two are optional scalars; The
   // third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_scalars_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9022,14 +9383,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required table; The
   // second is optional scalar; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_table_optional_scalar_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9041,14 +9402,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is optional table; The
   // second is optional scalar; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_table_optional_scalar_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9061,14 +9422,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required scalar; The
   // second is optional model; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_scalar_optional_model_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9079,14 +9440,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required scalar; The
   // second is optional model; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_scalar_optional_model_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9098,14 +9459,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is optional scalar; The
   // second is named optional table; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_scalar_named_tables"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9121,14 +9482,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("barfoo", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is optional scalar; The
   // second is named optional model; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_scalar_named_model_named_table"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9144,14 +9505,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("barfoo", kPositionalOrNamed)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with a required table, a named optional table, a mandatory
   // named table and a required mandatory named table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_required_named_optional_required_tables"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9172,29 +9533,29 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("table4", kNamedOnly)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required model; The
   // second is optional string; The third is named optional table.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_optional_string_optional_table"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType::AnyModel(),
-                         FunctionArgumentType(types::StringType(),
-                                              FunctionArgumentType::OPTIONAL),
-                         FunctionArgumentType(ARG_TYPE_RELATION,
-                                              FunctionArgumentType::OPTIONAL)},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType::AnyModel(),
+                          FunctionArgumentType(types::StringType(),
+                                               FunctionArgumentType::OPTIONAL),
+                          FunctionArgumentType(ARG_TYPE_RELATION,
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id++)},
       output_schema_two_types));
 
   // Add a TVF with three arguments: The first one is required model; The
   // second is optional table; The third is named optional string with default.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_model_optional_table_named_string_default"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9207,14 +9568,14 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                    .set_argument_name("foobar", kPositionalOrNamed)
                    .set_default(values::String("default"))
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two arguments: The first one is an optional table; The
   // second one is a named optional string with default.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_table_default_mandatory_string"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9226,13 +9587,13 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                    .set_argument_name("foobar", kNamedOnly)
                    .set_default(values::String("default"))
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   // Add a TVF with two table arguments which are both named-only.
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_two_named_only_tables"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema_two_types,
               /*extra_relation_input_columns_allowed=*/false),
@@ -9246,7 +9607,7 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
                FunctionArgumentTypeOptions()
                    .set_argument_name("table2", kNamedOnly)
                    .set_cardinality(FunctionArgumentType::OPTIONAL))},
-          context_id++),
+          context_id++)},
       output_schema_two_types));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
@@ -9259,11 +9620,11 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithDeprecationWarnings() {
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"bad_tvf_graph_not_first_argument"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema_two_types,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {types::Int64Type(), FunctionArgumentType::AnyGraph()},
-                        context_id++),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema_two_types,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {types::Int64Type(), FunctionArgumentType::AnyGraph()},
+                         context_id++)},
       output_schema_two_types));
 }
 
@@ -9407,10 +9768,9 @@ void SampleCatalogImpl::AddSqlDefinedTableFunctionFromCreate(
   AnalyzerOptions analyzer_options;
   analyzer_options.set_language(language);
   std::unique_ptr<const AnalyzerOutput> analyzer_output;
-  ZETASQL_CHECK_OK(AnalyzeStatement(create_table_function, analyzer_options,
-                            catalog_.get(), catalog_->type_factory(),
-                            &analyzer_output))
-      << "[" << create_table_function << "]";
+  CHECK_OK_UNLESS_DBG(AnalyzeStatement(create_table_function, analyzer_options,
+                                       catalog_.get(), catalog_->type_factory(),
+                                       &analyzer_output));
   const ResolvedStatement* resolved = analyzer_output->resolved_statement();
   ABSL_CHECK(resolved->Is<ResolvedCreateTableFunctionStmt>());
   const auto* resolved_create =
@@ -9419,7 +9779,8 @@ void SampleCatalogImpl::AddSqlDefinedTableFunctionFromCreate(
   std::unique_ptr<TableValuedFunction> function;
   if (resolved_create->query() != nullptr) {
     std::unique_ptr<SQLTableValuedFunction> sql_tvf;
-    ZETASQL_CHECK_OK(SQLTableValuedFunction::Create(resolved_create, &sql_tvf));
+    CHECK_OK_UNLESS_DBG(
+        SQLTableValuedFunction::Create(resolved_create, &sql_tvf));
     function = std::move(sql_tvf);
   } else {
     function = std::make_unique<TemplatedSQLTVF>(
@@ -9437,6 +9798,9 @@ void SampleCatalogImpl::AddSqlDefinedTableFunctionFromCreate(
 
 void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
     const LanguageOptions& language_options) {
+  LanguageOptions language_options_with_aggregate_filtering = language_options;
+  language_options_with_aggregate_filtering.EnableLanguageFeature(
+      FEATURE_AGGREGATE_FILTERING);
   AddSqlDefinedTableFunctionFromCreate(
       R"(CREATE TABLE FUNCTION NullarySelectWithUserId()
          AS SELECT 1 AS a, 2 AS b;)",
@@ -9707,6 +10071,22 @@ void SampleCatalogImpl::LoadNonTemplatedSqlTableValuedFunctions(
         AS SELECT t.key, t.Filename, t.RowId FROM table_with_pseudo_columns t;
       )sql",
       language_options);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+        CREATE TABLE FUNCTION no_arg_tvf_containing_filter_returns_one()
+        AS (
+          (SELECT COUNT(* WHERE x > 2) AS result FROM UNNEST([1,2,3]) AS x)
+        );
+      )sql",
+      language_options_with_aggregate_filtering);
+  AddSqlDefinedTableFunctionFromCreate(
+      R"sql(
+        CREATE TABLE FUNCTION templated_tvf_containing_filter_returns_one(unused ANY TABLE)
+        AS (
+          (SELECT COUNT(* WHERE x > 2) AS result FROM UNNEST([1,2,3]) AS x)
+        );
+      )sql",
+      language_options_with_aggregate_filtering);
   AddSqlDefinedTableFunctionFromCreate(
       R"sql(
           CREATE TABLE FUNCTION select_all_from_pseudo_columns_value_table(
@@ -10468,7 +10848,7 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithOptionalRelations() {
   int64_t context_id = 0;
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_relation_named_scalar"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema,
               /*extra_relation_input_columns_allowed=*/false),
@@ -10479,12 +10859,12 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithOptionalRelations() {
                FunctionArgumentTypeOptions()
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_argument_name("foobar", kNamedOnly))},
-          context_id),
+          context_id)},
       output_schema));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_relations_named_scalar"},
-      FunctionSignature(
+      {FunctionSignature(
           FunctionArgumentType::RelationWithSchema(
               output_schema,
               /*extra_relation_input_columns_allowed=*/false),
@@ -10497,19 +10877,19 @@ void SampleCatalogImpl::LoadTableValuedFunctionsWithOptionalRelations() {
                FunctionArgumentTypeOptions()
                    .set_cardinality(FunctionArgumentType::OPTIONAL)
                    .set_argument_name("foobar", kNamedOnly))},
-          context_id),
+          context_id)},
       output_schema));
 
   catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
       {"tvf_optional_relation_optional_scalar"},
-      FunctionSignature(FunctionArgumentType::RelationWithSchema(
-                            output_schema,
-                            /*extra_relation_input_columns_allowed=*/false),
-                        {FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
-                                              FunctionArgumentType::OPTIONAL),
-                         FunctionArgumentType(zetasql::types::StringType(),
-                                              FunctionArgumentType::OPTIONAL)},
-                        context_id),
+      {FunctionSignature(FunctionArgumentType::RelationWithSchema(
+                             output_schema,
+                             /*extra_relation_input_columns_allowed=*/false),
+                         {FunctionArgumentType(zetasql::ARG_TYPE_RELATION,
+                                               FunctionArgumentType::OPTIONAL),
+                          FunctionArgumentType(zetasql::types::StringType(),
+                                               FunctionArgumentType::OPTIONAL)},
+                         context_id)},
       output_schema));
 }
 
@@ -11081,6 +11461,7 @@ void SampleCatalogImpl::AddSqlDefinedFunctionFromCreate(
   language.EnableLanguageFeature(FEATURE_LIMIT_IN_AGGREGATE);
   language.EnableLanguageFeature(FEATURE_NULL_HANDLING_MODIFIER_IN_AGGREGATE);
   language.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION);
+  language.EnableLanguageFeature(FEATURE_AGGREGATE_FILTERING);
   language.EnableLanguageFeature(FEATURE_LATERAL_JOIN);
   language.EnableLanguageFeature(FEATURE_GROUP_BY_STRUCT);
   AnalyzerOptions analyzer_options;
@@ -11091,7 +11472,7 @@ void SampleCatalogImpl::AddSqlDefinedFunctionFromCreate(
   analyzer_options.enable_rewrite(REWRITE_INLINE_SQL_UDAS,
                                   inline_sql_functions);
   sql_object_artifacts_.emplace_back();
-  ZETASQL_CHECK_OK(AddFunctionFromCreateFunction(
+  CHECK_OK_UNLESS_DBG(AddFunctionFromCreateFunction(
       create_function, analyzer_options, /*allow_persistent_function=*/true,
       function_options, sql_object_artifacts_.back(), *catalog_, *catalog_));
 }
@@ -11175,6 +11556,15 @@ void SampleCatalogImpl::LoadScalarSqlFunctions(
         CREATE FUNCTION NestedNullaryWithMultilevelAgg()
         AS (
           NullaryWithMultilevelAgg() + NullaryWithMultilevelAgg()
+        );
+      )",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(
+        CREATE FUNCTION NullaryUdfContainingFilterReturnsZero()
+        AS (
+          (SELECT COUNT(* WHERE false) FROM UNNEST([1]))
         );
       )",
       language_options);
@@ -11304,6 +11694,19 @@ void SampleCatalogImpl::LoadScalarSqlFunctionTemplates(
             );
         )sql",
       language_options, /*inline_sql_functions=*/false);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+        CREATE FUNCTION TemplatedUdfExplicitReturnType(arg1 ANY TYPE, arg2 ANY TYPE)
+        RETURNS STRUCT<x STRING, y STRING> AS (
+          STRUCT(arg1, arg2)
+        );
+      )sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"(CREATE FUNCTION TemplatedUdfContainingFilterReturnsCount(arg ANY TYPE) AS ((SELECT COUNT(arg WHERE true) FROM UNNEST([1]))); )",
+      language_options);
 }
 
 void SampleCatalogImpl::LoadAggregateSqlFunctions(
@@ -11372,6 +11775,15 @@ void SampleCatalogImpl::LoadAggregateSqlFunctions(
         agg_arg INT64
       ) AS (
         SUM(agg_arg)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION MaxOfAggregateArgs(
+        agg_arg INT64
+      ) AS (
+        MAX(agg_arg)
       );)sql",
       language_options);
 
@@ -11582,6 +11994,20 @@ void SampleCatalogImpl::LoadAggregateSqlFunctions(
       R"sql(
       CREATE AGGREGATE FUNCTION UdaWithMultilevelAggNested(key INT64, value INT64) AS (
         SumOfValuesForDistinctKey(key, value) + COUNT(* GROUP BY key, value)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithWhereFilterModifier(arg1 INT64, arg2 INT64) AS (
+        SUM(arg1 WHERE arg1 > arg2)
+      );)sql",
+      language_options);
+
+  AddSqlDefinedFunctionFromCreate(
+      R"sql(
+      CREATE AGGREGATE FUNCTION UdaWithHavingFilterModifier(arg1 INT64, arg2 INT64) AS (
+        SUM(MAX(arg1) GROUP BY arg2 HAVING MIN(arg1) > 10)
       );)sql",
       language_options);
 

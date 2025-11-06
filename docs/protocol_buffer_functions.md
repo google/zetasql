@@ -140,12 +140,12 @@ SELECT
 FROM
   EnabledFeatures;
 
-/*-------------------------------------------------+-----------------+----------------------------+---------------------------*
+/*-------------------------------------------------+-----------------+----------------------------+---------------------------+
  | feature_enum_name                               | feature_enum_id | feature_is_ideally_enabled | feature_is_in_development |
  +-------------------------------------------------+-----------------+----------------------------+---------------------------+
  | FEATURE_TEST_IDEALLY_ENABLED_BUT_IN_DEVELOPMENT | 999991          | TRUE                       | TRUE                      |
  | FEATURE_TEST_IDEALLY_DISABLED                   | 999992          | FALSE                      | FALSE                     |
- *-------------------------------------------------+-----------------+----------------------------+---------------------------*/
+ +-------------------------------------------------+-----------------+----------------------------+---------------------------*/
 ```
 
 ## `EXTRACT` 
@@ -251,12 +251,12 @@ that contains a proto-typed column called `Album`.
 SELECT EXTRACT(FIELD(album_name) FROM album_col) AS name_of_album
 FROM AlbumList
 
-/*------------------*
+/*------------------+
  | name_of_album    |
  +------------------+
  | New Moon         |
  | Grit             |
- *------------------*/
+ +------------------*/
 ```
 
 A table called `AlbumList` contains a proto-typed column called `Chart`.
@@ -274,12 +274,12 @@ SELECT
   EXTRACT(FIELD(date) FROM chart_col) AS formatted_date
 FROM AlbumList
 
-/*----------+----------------*
+/*----------+----------------+
  | raw_date | formatted_date |
  +----------+----------------+
  | 16914    | 2016-04-23     |
  | 0        | 1970-01-01     |
- *----------+----------------*/
+ +----------+----------------*/
 ```
 
 The following example checks to see if release dates exist in a table called
@@ -289,12 +289,12 @@ The following example checks to see if release dates exist in a table called
 SELECT EXTRACT(HAS(date) FROM chart_col) AS has_release_date
 FROM AlbumList
 
-/*------------------*
+/*------------------+
  | has_release_date |
  +------------------+
  | TRUE             |
  | FALSE            |
- *------------------*/
+ +------------------*/
 ```
 
 The following example extracts the group name that's assigned to an artist in
@@ -306,12 +306,12 @@ exists inside the `Album` protocol buffer.
 SELECT EXTRACT(ONEOF_CASE(group_name) FROM album_col) AS artist_type
 FROM AlbumList;
 
-/*-------------*
+/*-------------+
  | artist_type |
  +-------------+
  | solo        |
  | band        |
- *-------------*/
+ +-------------*/
 ```
 
 [dot-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#field_access_operator
@@ -432,7 +432,7 @@ WITH
 SELECT *
 FROM MusicAwards
 
-/*---------------------------------------------------------*
+/*---------------------------------------------------------+
  | award_col                                               |
  +---------------------------------------------------------+
  | {                                                       |
@@ -446,7 +446,7 @@ FROM MusicAwards
  |   month: 12                                             |
  |   type { award_name: "Best Song" category: "Song" }     |
  | }                                                       |
- *---------------------------------------------------------*/
+ +---------------------------------------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year`
@@ -456,12 +456,12 @@ field.
 SELECT FILTER_FIELDS(award_col, +year) AS filtered_fields
 FROM MusicAwards
 
-/*-----------------*
+/*-----------------+
  | filtered_fields |
  +-----------------+
  | {year: 2001}    |
  | {year: 2001}    |
- *-----------------*/
+ +-----------------*/
 ```
 
 The following example returns protocol buffers that include all but the `type`
@@ -471,12 +471,12 @@ field.
 SELECT FILTER_FIELDS(award_col, -type) AS filtered_fields
 FROM MusicAwards
 
-/*------------------------*
+/*------------------------+
  | filtered_fields        |
  +------------------------+
  | {year: 2001 month: 9}  |
  | {year: 2001 month: 12} |
- *------------------------*/
+ +------------------------*/
 ```
 
 The following example returns protocol buffers that only include the `year` and
@@ -486,7 +486,7 @@ The following example returns protocol buffers that only include the `year` and
 SELECT FILTER_FIELDS(award_col, +year, +type.award_name) AS filtered_fields
 FROM MusicAwards
 
-/*--------------------------------------*
+/*--------------------------------------+
  | filtered_fields                      |
  +--------------------------------------+
  | {                                    |
@@ -498,7 +498,7 @@ FROM MusicAwards
  |   year: 2001                         |
  |   type { award_name: "Best Song" }   |
  | }                                    |
- *--------------------------------------*/
+ +--------------------------------------*/
 ```
 
 The following example returns the `year` and `type` fields, but excludes the
@@ -508,7 +508,7 @@ The following example returns the `year` and `type` fields, but excludes the
 SELECT FILTER_FIELDS(award_col, +year, +type, -type.award_name) AS filtered_fields
 FROM MusicAwards
 
-/*---------------------------------*
+/*---------------------------------+
  | filtered_fields                 |
  +---------------------------------+
  | {                               |
@@ -520,7 +520,7 @@ FROM MusicAwards
  |   year: 2001                    |
  |   type { category: "Song" }     |
  | }                               |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 The following example produces an error because `year` is a required field
@@ -556,7 +556,7 @@ SELECT FILTER_FIELDS(
   RESET_CLEARED_REQUIRED_FIELDS => TRUE) AS filtered_fields
 FROM MusicAwards;
 
-/*---------------------------------*
+/*---------------------------------+
  | filtered_fields                 |
  +---------------------------------+
  | {                               |
@@ -567,7 +567,7 @@ FROM MusicAwards;
  |   year: 0,                      |
  |   month: 12                     |
  | }                               |
- *---------------------------------*/
+ +---------------------------------*/
 ```
 
 [querying-proto-extensions]: https://github.com/google/zetasql/blob/master/docs/protocol-buffers.md#extensions
@@ -743,11 +743,11 @@ SELECT FROM_PROTO(
   )
 )
 
-/*------------*
+/*------------+
  | $col1      |
  +------------+
  | 2019-10-30 |
- *------------*/
+ +------------*/
 ```
 
 Pass in and return a `DATE` type.
@@ -755,11 +755,11 @@ Pass in and return a `DATE` type.
 ```zetasql
 SELECT FROM_PROTO(DATE '2019-10-30')
 
-/*------------*
+/*------------+
  | $col1      |
  +------------+
  | 2019-10-30 |
- *------------*/
+ +------------*/
 ```
 
 ## `PROTO_DEFAULT_IF_NULL`
@@ -810,11 +810,11 @@ message Book {
 This is the result if `book.country` evaluates to `Canada`.
 
 ```zetasql
-/*-----------------*
+/*-----------------+
  | origin          |
  +-----------------+
  | Canada          |
- *-----------------*/
+ +-----------------*/
 ```
 
 This is the result if `book` is `NULL`. Since `book` is `NULL`,
@@ -822,11 +822,11 @@ This is the result if `book` is `NULL`. Since `book` is `NULL`,
 default value for `country`.
 
 ```zetasql
-/*-----------------*
+/*-----------------+
  | origin          |
  +-----------------+
  | Unknown         |
- *-----------------*/
+ +-----------------*/
 ```
 
 ## `PROTO_MAP_CONTAINS_KEY`
@@ -874,11 +874,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 }" AS Item)) AS m;
 
-/*------------+------------*
+/*------------+------------+
  | contains_a | contains_b |
  +------------+------------+
  | TRUE       | FALSE      |
- *------------+------------*/
+ +------------+------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -940,11 +940,11 @@ SELECT
 FROM
   (SELECT AS VALUE CAST("purchased { key: 'A' value: 2 } purchased { key: 'B' value: 3}" AS Item)) AS m;
 
-/*---------------------------------------------*
+/*---------------------------------------------+
  | result_map                                  |
  +---------------------------------------------+
  | { key: 'B' value: 4 } { key: 'C' value: 6 } |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 [proto-map]: https://developers.google.com/protocol-buffers/docs/proto3#maps
@@ -1002,11 +1002,11 @@ SELECT REPLACE_FIELDS(
   11 AS details.chapters)
 AS proto;
 
-/*-----------------------------------------------------------------------------*
+/*-----------------------------------------------------------------------------+
  | proto                                                                       |
  +-----------------------------------------------------------------------------+
  |{title: "The Hummingbird II" details: {chapters: 11 }}                       |
- *-----------------------------------------------------------------------------*/
+ +-----------------------------------------------------------------------------*/
 ```
 
 The function can replace value of repeated fields.
@@ -1018,12 +1018,12 @@ SELECT REPLACE_FIELDS(
   ["A good read!", "Highly recommended."] AS reviews)
 AS proto;
 
-/*-----------------------------------------------------------------------------*
+/*-----------------------------------------------------------------------------+
  | proto                                                                       |
  +-----------------------------------------------------------------------------+
  |{title: "The Hummingbird" review: "A good read" review: "Highly recommended."|
  | details: {chapters: 10 }}                                                   |
- *-----------------------------------------------------------------------------*/
+ +-----------------------------------------------------------------------------*/
 ```
 
 The function can also set a field to `NULL`.
@@ -1035,11 +1035,11 @@ SELECT REPLACE_FIELDS(
   NULL AS details)
 AS proto;
 
-/*-----------------------------------------------------------------------------*
+/*-----------------------------------------------------------------------------+
  | proto                                                                       |
  +-----------------------------------------------------------------------------+
  |{title: "The Hummingbird" }                                                  |
- *-----------------------------------------------------------------------------*/
+ +-----------------------------------------------------------------------------*/
 ```
 
 ## `TO_PROTO`
@@ -1185,11 +1185,11 @@ Convert a `DATE` type into a `google.type.Date` type.
 ```zetasql
 SELECT TO_PROTO(DATE '2019-10-30')
 
-/*--------------------------------*
+/*--------------------------------+
  | $col1                          |
  +--------------------------------+
  | {year: 2019 month: 10 day: 30} |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 Pass in and return a `google.type.Date` type.
@@ -1203,10 +1203,10 @@ SELECT TO_PROTO(
   )
 )
 
-/*--------------------------------*
+/*--------------------------------+
  | $col1                          |
  +--------------------------------+
  | {year: 2019 month: 10 day: 30} |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 

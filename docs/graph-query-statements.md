@@ -37,6 +37,15 @@ GQL query based on the [syntax rules][gql_syntax].
 </tr>
 
 <tr>
+  <td><a href="#gql_call"><code>CALL</code> statement</a>
+</td>
+  <td>
+    Executes a table valued function (TVF) or
+    an inline subquery over the working table.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#gql_filter"><code>FILTER</code> statement</a>
 </td>
   <td>
@@ -240,6 +249,434 @@ RETURN
 
 [next]: https://github.com/google/zetasql/blob/master/docs/graph-query-statements.md#gql_next
 
+## `CALL` statement 
+<a id="gql_call"></a>
+
+Note: Syntax wrapped in double quotes (`""`) is required.
+
+<pre>
+[ OPTIONAL ] CALL [ PER () ] <span class="var">tvf_name</span> ( [ <span class="var">expression</span> [ , ... ] ] ) [ YIELD <span class="var">tvf_column</span> [ AS <span class="var">alias</span> ] [ , ... ] ]
+</pre>
+
+<pre>
+[ OPTIONAL ] CALL ( [ <span class="var">variable_name</span> [ , ... ] ] ) "{" <span class="var">subquery</span> "}"
+</pre>
+
+#### Description
+
+Executes a table valued function (TVF) or an
+inline subquery over the working table.
+
+#### Definitions
+
++   `OPTIONAL`: A clause that retains all rows, including rows for which the TVF
+    or subquery produces no output. Rows with no output return `NULL` values.
++   `PER ()`: A clause that executes the TVF once on the entire working table
+    instead of repeatedly on each row in the working table. You can't use the
+    `OPTIONAL` clause with the `PER ()` clause.
++   `tvf_name`: The name of the TVF to call.
++   `expression`: An expression to pass as an argument to the TVF. The
+    expression can also include variables from the current scope.
++   `YIELD`: A clause that you use only with named TVFs to select and
+    potentially rename output columns.
++   `tvf_column`: The output column to return from the named TVF.
++   `alias`: An optional alias to rename the yielded column in the working
+    table.
++   `variable_name`: A required, parenthesized list of variables from the outer
+    scope that are available to the subquery. You can also use an empty variable
+    list (`()`) for subqueries that don't reference any variables from the outer
+    scope. You can redeclare or *multiply-declare* only node or edge variables
+    from the outer scope to an inner scope path pattern of the subquery. With
+    multiply-declared node or edge variables, both the outer and inner scope
+    instances of the variable are equal. You can't multiply-declare other types
+    of variables. For a demonstration of variable usage in subqueries, see the
+    [inline subquery example][call-example-subquery].
++   `subquery`: A graph query enclosed in curly braces (`{}`) to execute. The
+    subquery can reference only variables from the outer scope that the variable
+    scope list includes. The subquery's `RETURN` statement defines the subquery
+    output.
+
+#### Details
+
+The `CALL` statement supports modular query design and the invocation of complex
+logic, such as graph algorithms, in a graph
+query.
+
+When calling a named TVF, you can use the optional `YIELD` clause to specify
+which output columns from the TVF to add to the current working table.
+If you omit the `YIELD` clause when calling a named TVF, all columns from the
+TVF result are included.
+
+When you use an inline subquery, you must use a variable scope list in
+parentheses `()` before the opening curly brace `{` of the subquery. The
+variable scope list specifies which variables from the outer query scope the
+subquery can access. An empty variable scope list `()` indicates that
+the subquery is self-contained and can't reference any variables from the outer
+scope. Inline subqueries don't use the `YIELD` clause
+because the subquery `RETURN` statement explicitly defines subquery output
+columns.
+
+The `OPTIONAL CALL` clause ensures that the input row still appears even if the
+`CALL` statement produces no results for a given input row. In such cases, the
+`CALL` statement adds `NULL` values to the columns where it produced no output.
+
+**Behavior of `CALL PER ()` statement**
+
+A bare `CALL` statement executes a TVF repeatedly for each row in the working
+table. By contrast, a `CALL PER()` statement executes a TVF only once on the
+entire working table, passing the working table as its first argument. This
+first argument must be declared as a `TABLE` type in the TVF signature.
+
+The `CALL PER()` statement allows the TVF to perform operations on the whole set
+of intermediate results, such as graph-wide algorithms. The TVF can access all
+columns of the input working table.
+
+The `CALL PER()` statement can be used with only named TVFs and doesn't support
+inline subqueries. The `CALL PER()` statement doesn't support the `OPTIONAL`
+clause.
+
+The working table resulting from a `CALL PER()` statement contains only the
+columns specified in the `YIELD` clause, or all columns from the TVF output if
+you omit `YIELD`. The `CALL PER()` statement doesn't carry over columns from the
+input working table. The number of rows in the working table might also change
+depending on the TVF's output cardinality.
+
+**Column-naming rules**
+
+Queries that use the `CALL` statement must maintain the following
+column-naming rules for uniqueness:
+
++   **Within the TVF or  subquery output:** The
+    columns returned by the TVF or  inline
+    subquery itself must have unique names. For a subquery, the `RETURN`
+    statement enforces name uniqueness. For a TVF, the TVF
+    definition inherently ensures name uniqueness.
++   **Combined output:** The final set of columns generated by the query
+    includes columns from the input table and columns added by the `CALL`
+    statement. All final columns must have unique names.
+    When you call a named TVF, you can use the `YIELD` clause with `AS` to
+    rename output columns and prevent naming conflicts. For
+    subqueries, ensure that the column names in the `RETURN` statement don't
+    conflict with existing columns in the outer scope.
+
+#### Examples
+
+Note: The examples in this section reference a property graph called
+[`FinGraph`][fin-graph].
+
+[fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
+
+**Example: Call a named TVF with `YIELD`**
+
+The following example calls a named TVF and uses the `YIELD` clause to rename a
+column. This example assumes a TVF `graph.neighbors(node)` exists.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person {Id: 1})
+CALL graph.neighbors(p) YIELD neighbor AS friend
+RETURN p.name AS person_name, friend.name AS friend_name;
+
+/*---------------------------+
+ | person_name | friend_name |
+ +---------------------------+
+ | Alex        | Dana        |
+ +---------------------------*/
+```
+
+<span id="call_example_subquery"></span>
+**Example: Call an inline subquery**
+
+The following example calls an inline subquery to find accounts owned by each
+matched person `p`. Multiple accounts for the same person are ordered by account
+ID.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)
+CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)
+  RETURN a.Id AS account_Id
+  ORDER BY account_Id
+  LIMIT 2
+}
+RETURN p.name AS person_name, account_Id
+ORDER BY person_name, account_Id;
+
+/*--------------------------+
+ | person_name | account_Id |
+ +--------------------------+
+ | Alex        | 16         |
+ | Dana        | 17         |
+ | Dana        | 20         |
+ | Lee         | 7          |
+ +--------------------------*/
+```
+
+Notice that the example declares the outer-scoped node variable `p` (`CALL (p)`)
+from the `MATCH (p:Person)` clause. This declaration enables the node variable
+to be redeclared or *multiply-declared* in a path pattern of the subquery. If
+the `CALL` statement doesn't declare the node variable `p`, then the redeclared
+variable `p` in the subquery is treated as a new variable, independent of the
+outer-scoped variable (not multiply-declared), and returns different results.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)  -- Outer-scoped variable `p`
+CALL () {  -- `p` not declared
+  MATCH (p)-[:Owns]->(a:Account)  -- Inner-scoped variable `p`, independent of outer-scoped `p`
+  RETURN a.Id AS account_Id
+  ORDER BY account_Id
+  LIMIT 2
+}
+RETURN p.name AS person_name, account_Id
+ORDER BY person_name, account_Id;
+
+-- Altered query results
+/*--------------------------+
+ | person_name | account_Id |
+ +--------------------------+
+ | Alex        |          7 |
+ | Alex        |         16 |
+ | Dana        |          7 |
+ | Dana        |         16 |
+ | Lee         |          7 |
+ | Lee         |         16 |
+ +--------------------------*/
+```
+
+Additionally, the following version of the query fails because the declared
+variable `Id` isn't a node or an edge variable. You can redeclare only node or
+edge variables in subqueries.
+
+```zetasql {.bad}
+GRAPH FinGraph
+MATCH (p:Person {Id:2})
+LET Id = p.Id
+CALL (Id) {  -- Non-node, non-edge variable `Id` declared
+  MATCH (p)-[:Owns]->(a:Account)
+  RETURN a.Id  -- Not allowed, outer-scoped `Id` isn't a node or edge variable, so you can't redeclare it.
+  ORDER BY a.Id
+  LIMIT 2
+}
+RETURN p.name AS person_name, Id;
+
+/*
+ERROR: generic::invalid_argument: Variable name: Id already exists [at 7:3]
+  RETURN a.Id
+*/
+```
+
+**Example: Call an inline subquery with aggregation**
+
+The following query calls an inline subquery that aggregates the number of
+accounts `a` for each matched person `p`:
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)
+CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)
+  RETURN count(a) AS num_accounts
+}
+RETURN p.name, num_accounts
+ORDER BY num_accounts DESC, p.name;
+
+/*-----------------------+
+ | name   | num_accounts |
+ +-----------------------+
+ | Dana   | 2            |
+ | Alex   | 1            |
+ | Lee    | 1            |
+ +-----------------------*/
+```
+
+**Example: Use `OPTIONAL` to include `NULL` row values**
+
+The following query finds the two most recent account transfers `t` for each
+person `p`. The `OPTIONAL` clause includes rows for which the TVF or subquery
+produces no output. Rows with no output return `NULL` values. Without the
+`OPTIONAL` clause, rows with no output are excluded from the results.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)
+OPTIONAL CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)-[t:Transfers]->()
+  RETURN a.Id AS account_id, t.amount AS transfer_amount, DATE(t.create_time) AS transfer_date
+  ORDER BY transfer_date DESC
+  LIMIT 2
+}
+RETURN p.name, account_id, transfer_amount, transfer_date
+ORDER BY p.name, transfer_date DESC;
+
+/*-------------------------------------------------------+
+ | name   | account_id | transfer_amount | transfer_date |
+ +-------------------------------------------------------+
+ | Alex   | NULL       | NULL            | NULL          |
+ | Alex   | 7          | 300             | 2020-08-29    |
+ | Dana   | 20         | 200             | 2020-10-17    |
+ | Dana   | 20         | 500             | 2020-10-04    |
+ | Lee    | 16         | 300             | 2020-09-25    |
+ +-------------------------------------------------------*/
+```
+
+**Example: Use `YIELD` to rename conflicting TVF column names**
+
+The following example uses the `YIELD` clause to rename the `Id` TVF column to
+`tvf_Id` to avoid conflicting with the person `Id` column.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person {Id: 1})
+CALL my_tvf(p) YIELD Id AS tvf_Id
+RETURN p.Id AS person_Id, tvf_Id;
+
+-- No returned results in this case
+```
+
+**Example: Use `RETURN` to rename conflicting subquery column names**
+
+The following query uses the `RETURN` alias in the subquery to avoid conflicting
+with the `p.Id` column.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person {Id: 1})
+CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)
+  RETURN a.Id AS account_Id
+}
+RETURN p.Id AS person_Id, account_Id;
+
+/*------------------------+
+ | person_Id | account_Id |
+ +------------------------+
+ | 1         | 16         |
+ +------------------------*/
+```
+
+**Example: Filter, order, and limit subquery results**
+
+The following query finds the top three largest transfers over 50 dollar amounts
+for each person.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)
+CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)-[t:Transfers]->()
+  WHERE t.amount > 50
+  RETURN a.Id AS account_id, t.amount
+  ORDER BY t.amount DESC
+  LIMIT 3
+}
+RETURN p.name, account_id, amount
+ORDER BY p.name, amount DESC;
+
+/*------------------------------+
+ | name   | account_id | amount |
+ +------------------------------+
+ | Alex   | NULL       | NULL   |
+ | Dana   | 17         | 80     |
+ | Dana   | 20         | 100    |
+ | Dana   | 17         | 60     |
+ | Lee    | 7          | 200    |
+ | Lee    | 7          | 150    |
+ +------------------------------*/
+```
+
+**Example: Use an empty scope list in a subquery**
+
+The following subquery counts all `Person` nodes. The `total_persons` value is
+the same for all output rows because the subquery in the `CALL ()` statement is
+empty and doesn't depend on any variables from the outer scope.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person)
+CALL () {
+  MATCH (n:Person)
+  RETURN count(n) AS total_persons
+}
+RETURN p.name, total_persons
+ORDER BY p.name;
+
+/*------------------------+
+ | name   | total_persons |
+ +------------------------+
+ | Alex   | 3             |
+ | Dana   | 3             |
+ | Lee    | 3             |
+ +------------------------*/
+```
+
+**Example: Call nested subqueries with variable scoping**
+
+The following query uses nested subqueries with scoped variables. The query
+finds the number of transfers for each account, but only for transfers to
+accounts owned by the original person `p`.
+
+```zetasql
+GRAPH FinGraph
+MATCH (p:Person {Id:2})
+CALL (p) {
+  MATCH (p)-[:Owns]->(a:Account)
+  OPTIONAL CALL (p, a) {
+    MATCH (a)-[t:Transfers]->(other:Account), (p)-[:Owns]->(other)
+    RETURN count(t) AS num_internal_transfers
+  }
+  RETURN a.Id AS account_Id, COALESCE(num_internal_transfers, 0) AS internal_transfers
+}
+RETURN p.name, account_Id, internal_transfers
+ORDER BY account_Id;
+
+/*------------------------------------------+
+ | name   | account_Id | internal_transfers |
+ +------------------------------------------+
+ | Dana   | 20         | 0                  |
+ +------------------------------------------*/
+```
+
+**Example: Call a named TVF on the entire working table with `PER ()`**
+
+The following query uses the `CALL PER()` statement to call a `PageRank` TVF on
+the entire working. The query takes the entire graph, including all nodes and
+edges from the input table, and returns a table with each element and its
+calculated `PageRank` score.
+
+```zetasql
+GRAPH FinGraph
+MATCH (n)
+RETURN n
+
+NEXT
+
+-- Assumes PageRank() is a built-in TVF that takes a TABLE of graph elements
+-- and returns the same table with an additional 'rank' column.
+CALL PER() PageRank() YIELD n, rank
+RETURN n.Id AS node_id, rank
+ORDER BY rank DESC
+LIMIT 5;
+
+/*-----------------+
+ | node_id | rank  |
+ +-----------------+
+ | 17      | 0.213 |
+ | 20      | 0.198 |
+ | 7       | 0.188 |
+ | 3       | 0.150 |
+ | 2       | 0.120 |
+ +-----------------*/
+```
+
+The previous example is a clear use case for the `CALL PER()` statement because
+a PageRank algorithm considers the entire graph structure (all nodes and edges
+in the working table) to compute ranks, instead of processing each row
+independently.
+
+[call-example-subquery]: #call_example_subquery
+
 ## `FILTER` statement 
 <a id="gql_filter"></a>
 
@@ -273,8 +710,8 @@ Note: The examples in this section reference a property graph called
 
 [fin-graph]: https://github.com/google/zetasql/blob/master/docs/graph-schema-statements.md#fin_graph
 
-In the following query, only people who were born before `1990-01-10`
-are included in the results table:
+In the following query, people with `Id = 1` are excluded from the
+results table:
 
 ```zetasql
 GRAPH FinGraph

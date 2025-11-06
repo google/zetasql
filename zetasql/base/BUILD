@@ -714,10 +714,14 @@ cc_library(
         "exactfloat.h",
     ],
     deps = [
-        ":base",
         "@boringssl//:crypto",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:fixed_array",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
+        "@com_google_absl//absl/numeric:bits",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -727,11 +731,13 @@ cc_test(
         "exactfloat_test.cc",
     ],
     deps = [
-        ":base",
         ":exactfloat",
         "//zetasql/base/testing:zetasql_gtest_main",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/log:absl_check",
+        "@com_google_absl//absl/log:absl_log",
     ],
 )
 
@@ -743,10 +749,8 @@ cc_test(
     ],
     shard_count = 4,
     deps = [
-        ":base",
         ":exactfloat",
         "//zetasql/base/testing:zetasql_gtest_main",
-        "@com_google_absl//absl/base",
     ],
 )
 

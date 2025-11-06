@@ -2,29 +2,37 @@
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
-# Working with collation 
-<a id="working_with_collation"></a>
+# Collation
 
-ZetaSQL supports collation. You can learn more about collation
-in this topic.
+ZetaSQL supports collation. Collation
+defines rules to sort and compare strings in certain
+[operations][collate-operations], such as conditional expressions, joins, and
+groupings.
 
-## About collation 
-<a id="collate_about"></a>
+By default, ZetaSQL sorts strings case-sensitively. This means that `a` and
+`A` are treated as different letters, and `Z` would come before `a`.
 
-Collation determines how strings are sorted and compared in
-[collation-supported operations][collate-operations]. If you would like to
-customize collation for a collation-supported operation, you must
-[assign a collation specification][collate-define] to at least one string
-in the operation. Some operations can't use collation, but can
-[pass collation through them][collate-propagate].
+**Example default sorting:** Apple, Zebra, apple
+
+By contrast, collation lets you sort and compare strings case-insensitively or
+according to specific language rules.
+
+**Example case-insensitive collation:** Apple, apple, Zebra
+
+To customize collation for a
+collation-supported operation, you typically [assign a collation
+specification][collate-define] to at least one string in the operation inputs.
+Some operations can't use collation, but can [propagate collation through
+them][collate-propagate].
+
+Collation is useful when you need fine-tuned control over how values are sorted,
+joined, or grouped in tables.
 
 ## Operations affected by collation 
 <a id="collate_operations"></a>
 
-When an operation is affected by collation, this means that the operation
-takes into consideration collation during the operation.
-These query operations are affected by collation when sorting and comparing
-strings:
+The following example query operations are affected by collation when
+sorting and comparing strings:
 
 | Operations                                                 |
 | ---------------------------------------------------------- |
@@ -68,13 +76,13 @@ FROM UNNEST([
 ]) AS character
 ORDER BY character
 
-/*-----------*
+/*-----------+
  | character |
  +-----------+
  | a         |
  | B         |
  | b         |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
@@ -87,19 +95,19 @@ FROM UNNEST([
 ]) AS character
 ORDER BY character
 
-/*-----------*
+/*-----------+
  | character |
  +-----------+
  | B         |
  | a         |
  | b         |
- *-----------*/
+ +-----------*/
 ```
 
 ### Functions 
 <a id="functions_propagation"></a>
 
-These functions let collation propagate through them:
+The following example functions propagate collation.
 
 | Function  | Notes
 | --------- | --------
@@ -150,7 +158,7 @@ These functions let collation propagate through them:
 ### Operators 
 <a id="operators_propagation"></a>
 
-These operators let collation propagate through them:
+The following example operators propagate collation.
 
 | Operator  | Notes
 | --------- | --------
@@ -163,7 +171,7 @@ These operators let collation propagate through them:
 ### Expressions 
 <a id="expressions_propagation"></a>
 
-These expressions let collation propagate through them:
+The following example expressions propagate collation.
 
 | Expression  | Notes
 | --------- | --------
@@ -179,7 +187,7 @@ These expressions let collation propagate through them:
 ## Where you can assign a collation specification 
 <a id="collate_define"></a>
 
-A [collation specification][collate-spec-details] can be assigned to these
+You can assign a [collation specification][collate-spec-details] to these
 collation-supported types:
 
 + A `STRING`
@@ -254,6 +262,8 @@ ORDER BY Place COLLATE "und:ci"
 ### DDL statements 
 <a id="collate_ddl"></a>
 
+You can assign a collation specification to the following DDL statements.
+
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
 | Location  | Support                          | Notes                                          |
@@ -279,6 +289,8 @@ ORDER BY Place COLLATE "und:ci"
 
 ### Data types 
 <a id="collate_data_types"></a>
+
+You can assign a collation specification to the following data types.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -306,12 +318,17 @@ to collation-supported expressions.
 ### Query statements 
 <a id="collate_query"></a>
 
+You can assign a collation specification to the following query statements.
+
 | Type             | Support                              |
 | ---------------- | ------------------------------------ |
 | Sorting          | [`ORDER BY` clause][order-by-clause] |
 
 ### Functions, operators, and conditional expressions 
 <a id="collate_funcs"></a>
+
+You can assign a collation specification to the following functions, operators,
+and conditional expressions.
 
 <!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
 
@@ -561,12 +578,12 @@ FROM UNNEST([
 ]) AS ids
 ORDER BY ids COLLATE 'en-us-u-kn-true'
 
-/*-------*
+/*-------+
  | ids   |
  +-------+
  | a1b   |
  | a12b  |
- *-------*/
+ +-------*/
 ```
 
 ```zetasql
@@ -577,12 +594,12 @@ FROM UNNEST([
 ]) AS ids
 ORDER BY ids COLLATE 'en-us-u-kn-false'
 
-/*-------*
+/*-------+
  | ids   |
  +-------+
  | a12b  |
  | a1b   |
- *-------*/
+ +-------*/
 ```
 
 Here are some commonly used extensions:
@@ -650,13 +667,13 @@ For a complete list and in depth technical details, consult
   ]) AS fruit
   ORDER BY fruit
 
- /*---------*
+ /*---------+
   | fruit   |
   +---------+
   | orange1 |
   | orange2 |
   | orange3 |
-  *---------*/
+  +---------*/
   ```
 + Ordering _may_ change. The Unicode specification of the `und` collation can
   change occasionally, which can affect sorting

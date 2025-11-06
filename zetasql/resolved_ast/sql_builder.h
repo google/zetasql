@@ -596,6 +596,8 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedGetStructField* node) override;
   absl::Status VisitResolvedGetJsonField(
       const ResolvedGetJsonField* node) override;
+  absl::Status VisitResolvedGetRowField(
+      const ResolvedGetRowField* node) override;
   absl::Status VisitResolvedOrderByItem(
       const ResolvedOrderByItem* node) override;
   absl::Status VisitResolvedComputedColumn(
@@ -696,6 +698,10 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedSubpipeline* node) override;
   absl::Status VisitResolvedSubpipelineInputScan(
       const ResolvedSubpipelineInputScan* node) override;
+  absl::Status VisitResolvedSubpipelineStmt(
+      const ResolvedSubpipelineStmt* node) override;
+  absl::Status VisitResolvedStatementWithPipeOperatorsStmt(
+      const ResolvedStatementWithPipeOperatorsStmt* node) override;
 
   // Visit methods for analytic functions related nodes.
   absl::Status VisitResolvedAnalyticFunctionGroup(
@@ -1556,6 +1562,16 @@ class GqlReturnOpSQLBuilder : public SQLBuilder {
   // Only set to true if the current visit is under a GQL subquery context.
   bool is_subquery_context_ = false;
 };
+
+// Returns true if the array constructor should print the explicit type, which
+// is always the case except when MEASURE or graph types are present because
+// the type is not possible to express in SQL.
+// In those cases, the array constructor needs to be implicit, but we need to
+// make sure there's at least one element to force the correct type.
+// Otherwise, we end up with ARRAY[] which is untyped and gets resolved as
+// ARRAY<INT64>[], instead of the original type.
+absl::StatusOr<bool> ShouldArrayCtorPrintExplicitType(
+    const ResolvedFunctionCall* node);
 
 }  // namespace zetasql
 

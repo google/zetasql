@@ -56,6 +56,7 @@ message GraphElementTableProto {
 
   // Names of the columns that are part of the element key. At least one.
   repeated string key_columns = 6;
+
   // Cross-references to the `name` field in `GraphElementLabelProto`.
   repeated string label_names = 7;
   repeated GraphPropertyDefinitionProto property_definitions = 8;

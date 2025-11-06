@@ -379,6 +379,10 @@ absl::Status TypeToProtoConverter::MakeFieldDescriptor(
       // TODO: Implement proto type conversion for Map.
       return absl::UnimplementedError(
           "Proto type conversion for Map is not yet implemented.");
+    case TYPE_ROW:
+      // TODO: Implement proto type conversion for Row.
+      return absl::UnimplementedError(
+          "Proto type conversion for ROW is not yet implemented.");
     case __TypeKind__switch_must_have_a_default__:
     case TYPE_UNKNOWN:
       break;  // Error generated below.

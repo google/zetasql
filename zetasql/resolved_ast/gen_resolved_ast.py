@@ -671,8 +671,8 @@ def Field(
       'is_node_ptr': is_node_type and not vector,
       'is_node_vector': is_node_type and vector,
       'is_enum_vector': is_enum and vector,
-      'is_resolved_column': ctype == SCALAR_RESOLVED_COLUMN and not vector,
       'is_resolved_column_vector': ctype == SCALAR_RESOLVED_COLUMN and vector,
+      'include_scalar_rewriter': ctype in [SCALAR_RESOLVED_COLUMN, SCALAR_TYPE],
       'is_move_only': is_move_only,
       'is_not_ignorable': ignorable == NOT_IGNORABLE,
       'is_ignorable_default': is_ignorable_default,
@@ -690,7 +690,7 @@ def Field(
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 308
+NEXT_NODE_TAG_ID = 315
 
 
 def GetTempTagId():
@@ -1106,8 +1106,14 @@ class TreeGenerator(object):
     def LinkifyNodeNames(text):
       # Escape the text which may include strings like std::vector<xxx>,
       # and Markup the output to not be escaped further.
+      def LinkSafe(match):
+        # The replacement string is explicitly marked as safe HTML
+        return markupsafe.Markup(
+            f'<a href="#{match.group(1)}">{match.group(1)}</a>'
+        )
+
       text = markupsafe.escape(text)
-      text = linkify_re.sub(r'<a href="#\1">\1</a>', text)
+      text = linkify_re.sub(LinkSafe, text)
       text = fix_linkify_re1.sub(r'\1y', text)  # Suffix "ies" -> "y"
       text = fix_linkify_re2.sub(r'\1', text)   # Suffix "s" -> ""
       text = markupsafe.Markup(text)
@@ -2392,6 +2398,21 @@ def main(unused_argv):
   )
 
   gen.AddNode(
+      name='ResolvedGetRowField',
+      tag_id=314,
+      parent='ResolvedExpr',
+      comment="""
+      Read a field from a ROW type.
+      `expr` must have ROW<T> type, and `column` must be a Column of that Table.
+      The output type is that Column's type.
+              """,
+      fields=[
+          Field('expr', 'ResolvedExpr', tag_id=2),
+          Field('column', SCALAR_COLUMN, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
       name='ResolvedFlatten',
       tag_id=149,
       parent='ResolvedExpr',
@@ -2967,9 +2988,11 @@ value.
       FOR SYSTEM_TIME AS OF clause. The expression is expected to be constant
       and no columns are visible to it.
 
-      <column_index_list> This list matches 1-1 with the <column_list>, and
-      identifies the ordinal of the corresponding column in the <table>'s
-      column list.
+      The columns to read are specified with one of <column_index_list> or
+      <table_column_list>.  Only one can be set.
+      The list that's present matches 1:1 with the <column_list>, and
+      identifies which of <table>'s Columns to read into each ResolvedColumn.
+      <table_column_list> is only used if FEATURE_ROW_TYPE is enabled.
 
       If provided, <alias> refers to an explicit alias which was used to
       reference a Table in the user query. If the Table was given an implicitly
@@ -3013,6 +3036,43 @@ value.
               is_constructor_arg=False,
               tag_id=6,
               ignorable=IGNORABLE_DEFAULT,
+          ),
+          Field(
+              'read_as_row_type',
+              SCALAR_BOOL,
+              tag_id=7,
+              ignorable=IGNORABLE_DEFAULT,
+              is_constructor_arg=False,
+              comment="""
+              If true, this table is being read as a ROW-typed value table.
+              `column_index_list` must be unset.
+              `column_list` can contain at most one column.  If present, the
+              column must have ROW<T> type, matching `table`.
+
+              This is used when FEATURE_ROW_TYPE is enabled and the Table has a
+              non-default GetColumnListMode setting.
+
+              See (broken link).
+              """,
+          ),
+          Field(
+              'table_column_list',
+              SCALAR_COLUMN,
+              tag_id=8,
+              ignorable=IGNORABLE_DEFAULT,
+              vector=True,
+              is_constructor_arg=False,
+              to_string_method='ToStringCommaSeparated',
+              java_to_string_method='toStringCommaSeparatedForColumn',
+              comment="""
+              This is the list of `Column`s from this `Table` to read.
+
+              `column_list` will match 1:1 positionally with this list.
+              `column_index_list` will not be set.
+
+              Currently, this is only used when FEATURE_ROW_TYPE is enabled
+              and the rewriter introduces a TableScan using this.
+              """,
           ),
       ],
   )
@@ -3095,6 +3155,11 @@ value.
       Scan one or more (N) array values produced by evaluating N expressions,
       merging them positionally. Without FEATURE_MULTIWAY_UNNEST, it must
       be exactly one array (N=1).
+
+      `array_expr_list` can have one or more expressions with ARRAY type
+      or one expression with a join RowType (with `IsJoin()` true).
+      When it's a RowType, `array_expr_list` can only have one item
+      and `array_offset_column` is not allowed.
 
       If `input_scan` is NULL, this produces one row for each array offset.
       This can occur when using syntax:
@@ -3677,11 +3742,11 @@ value.
       comment="""
       Apply a set operation (specified by <op_type>) on two or more input scans.
 
-      <scan_list> will have at least two elements.
+      <input_item_list> will have at least two elements.
 
       <column_list> is a set of new ResolvedColumns created by this scan.
       Each input ResolvedSetOperationItem has an <output_column_list> which
-      matches 1:1 with <column_list> and specifies how the input <scan>'s
+      matches 1:1 with <column_list> and specifies how the input item's
       columns map into the final <column_list>.
 
       - Results of {UNION, INTERSECT, EXCEPT} ALL can include duplicate rows.
@@ -4605,7 +4670,7 @@ value.
                       temporary solution to handle omitted named arguments. This
                       is subject to change by upcoming CLs).
 
-      <column_index_list> This list matches 1-1 with the <column_list>, and
+      <column_index_list> This list matches 1:1 with the <column_list>, and
       identifies the index of the corresponding column in the <signature>'s
       result relation column list.
 
@@ -4822,6 +4887,30 @@ value.
       ExplainStatement.
               """,
       fields=[Field('statement', 'ResolvedStatement', tag_id=2)],
+  )
+
+  gen.AddNode(
+      name='ResolvedStatementWithPipeOperatorsStmt',
+      tag_id=310,
+      parent='ResolvedStatement',
+      comment="""
+      A statement with an unanalyzed pipe operator suffix.
+      See (broken link).
+
+      The query engine needs to analyze or run the initial statement
+      (which could have engine-defined output), and then analyze
+      `suffix_subpipeline_sql` to determine if that suffix is valid for the
+      returned table.
+
+      If `statement` doesn't return exactly one table, the suffix is invalid.
+
+      Only ResolvedStatement kinds that could return a table are allowed.
+      The currently supported list is in `zetasql.tm` and `validator.cc`.
+              """,
+      fields=[
+          Field('statement', 'ResolvedStatement', tag_id=2),
+          Field('suffix_subpipeline_sql', SCALAR_STRING, tag_id=3),
+      ],
   )
 
   gen.AddNode(
@@ -7386,26 +7475,6 @@ value.
                       """,
           ),
       ],
-      # TODO: b/428949919 - Remove once all callers are migrated.
-      extra_defs="""
-      ABSL_DEPRECATED("Use `update_item_element_list()` instead")
-      inline const
-      std::vector<std::unique_ptr<const ResolvedUpdateItemElement>>&
-      array_update_list() const {
-        return update_item_element_list();
-      }
-      ABSL_DEPRECATED("Use `update_item_element_list_size()` instead")
-      inline const size_t
-      array_update_list_size() const {
-        return update_item_element_list_size();
-      }
-      ABSL_DEPRECATED("Use `add_update_item_element_list()` instead")
-      inline void
-      add_array_update_list(
-           std::unique_ptr<const ResolvedUpdateItemElement> item) {
-        add_update_item_element_list(std::move(item));
-      }
-      """,
   )
 
   gen.AddNode(
@@ -7437,13 +7506,6 @@ value.
                       """,
           ),
       ],
-      # TODO: b/428949919 - Remove once all callers are migrated.
-      extra_defs="""
-      ABSL_DEPRECATED("Use `subscript()` instead")
-       inline const ResolvedExpr* offset() const {
-         return subscript();
-       }
-      """,
   )
 
   gen.AddNode(
@@ -11368,6 +11430,7 @@ ResolvedArgumentRef(y)
       When <optional> is true and <input_scan> exists, LEFT OUTER JOIN semantics
       mentioned in (broken link):optional-match would be applied to <input_scan> and
       scan produced from <graph pattern>.
+
       """,
       fields=[
           Field(
@@ -11748,7 +11811,7 @@ ResolvedArgumentRef(y)
       Constructs a graph element.
 
       `type` is always a GraphElementType.
-      `identifier` uniquely identifies a graph element in the graph.
+      `identifier` uniquely identify a graph element in the graph.
       `label_list` contains all static labels.
       `property_list` contains all static properties and their definitions.
       `dynamic_labels` is an expression that can be evaluated to a STRING or
@@ -12518,6 +12581,42 @@ ResolvedArgumentRef(y)
       input table.
       """,
       fields=[],
+  )
+
+  gen.AddNode(
+      name='ResolvedSubpipelineStmt',
+      tag_id=308,
+      parent='ResolvedStatement',
+      comment="""
+      This represents a standalone subpipeline resolved as a statement.
+      See (broken link) and (broken link).
+
+      The analyzer will only generate this if it's included in SupportedStatements
+      and `default_table_for_subpipeline_stmt` is set in AnalyzerOptions.
+
+      The default rewriters will replace this with a ResolvedStatement that
+      inlines the ResolvedTableScan.  It'll be ResolvedQueryStmt for most queries.
+      Other statement types are possible if ResolvedGeneralizedQueryStmt
+      features are enabled.
+
+      `table_scan` is a ResolvedTableScan representing the input table for
+      the subpipeline (which comes from `default_table_for_subpipeline_stmt`).
+      This assigns ResolvedColumns for the input.
+
+      `subpipeline` is the subpipeline running over that table.
+
+      `output_schema` is the final output schema for the subpipeline.
+      This can be null if the subpipeline ends with a terminal operator
+      that doesn't return a table.
+
+      SQLBuilder output does not include `table_scan` since it's mainly
+      a placeholder representing the input table from the Analyze options.
+      """,
+      fields=[
+          Field('table_scan', 'ResolvedTableScan', tag_id=2),
+          Field('subpipeline', 'ResolvedSubpipeline', tag_id=3),
+          Field('output_schema', 'ResolvedOutputSchema', tag_id=4),
+      ],
   )
 
   gen.AddNode(

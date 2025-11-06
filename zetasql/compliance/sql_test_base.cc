@@ -52,6 +52,7 @@
 #include "zetasql/compliance/sql_test_filebased_options.h"
 #include "zetasql/compliance/test_database_catalog.h"
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/compliance/test_driver.pb.h"
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
@@ -1063,10 +1064,11 @@ std::string SQLTestBase::GenerateFailureReport(const std::string& expected,
 FloatMargin SQLTestBase::GetFloatEqualityMargin(
     absl::StatusOr<ComplianceTestCaseResult> actual,
     absl::StatusOr<ComplianceTestCaseResult> expected, int max_ulp_bits,
-    QueryResultStats* stats) {
+    bool& out_makes_equality_pass) {
   FloatMargin expanded_float_margin = kDefaultFloatMargin;
   int ulp_bits = 0;
   ::testing::StringMatchResultListener listener;
+  out_makes_equality_pass = false;
   while (true) {
     expanded_float_margin = FloatMargin::UlpMargin(ulp_bits);
 
@@ -1076,9 +1078,7 @@ FloatMargin SQLTestBase::GetFloatEqualityMargin(
     // file to see all unsuccessful tries.
     if (ReturnsCheckOnly(actual, expanded_float_margin)
             .MatchAndExplain(expected, &listener)) {
-      if (stats != nullptr) {
-        stats->verified_count += 1;
-      }
+      out_makes_equality_pass = true;
       break;
     }
 
@@ -1159,7 +1159,7 @@ SQLTestBase::ReturnsCheckOnly(
 }
 
 ::testing::Matcher<const absl::StatusOr<ComplianceTestCaseResult>&>
-SQLTestBase::Returns(const std::string& result) {
+SQLTestBase::Returns(absl::string_view result) {
   return ::testing::MakeMatcher(
       new KnownErrorFilter<absl::StatusOr<ComplianceTestCaseResult>>(
           this, absl::OkStatus(), ReturnsString(result)));
@@ -1414,6 +1414,10 @@ static void ExtractComplianceLabelsFromResolvedAST(
                            product_external_analyze_status.ok() &&
                            !*product_external_uses_unsupported_type;
   const ResolvedStatement* statement = nullptr;
+  auto add_labels_from = [&](const AnalyzerOutput& output) {
+    auto labels = output.analyzer_output_properties().feature_labels();
+    compliance_labels.insert(labels.begin(), labels.end());
+  };
   if (!internal_compiles && !external_compiles) {
     compliance_labels.emplace(kNoCompileLabel);
     if (require_resolver_success) {
@@ -1439,12 +1443,15 @@ static void ExtractComplianceLabelsFromResolvedAST(
     compliance_labels.emplace(kProductModeInternalAndExternalLabel);
     // This is an arbitrary choice.
     statement = product_internal_analyzer_out->resolved_statement();
+    add_labels_from(*product_internal_analyzer_out);
   } else if (internal_compiles && !external_compiles) {
     compliance_labels.emplace(kProductModeInternalLabel);
     statement = product_internal_analyzer_out->resolved_statement();
+    add_labels_from(*product_internal_analyzer_out);
   } else if (!internal_compiles && external_compiles) {
     compliance_labels.emplace(kProductModeExternalLabel);
     statement = product_external_analyzer_out->resolved_statement();
+    add_labels_from(*product_external_analyzer_out);
   } else {
     ABSL_LOG(FATAL) << "Unreachable";
   }
@@ -1495,7 +1502,7 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
   EXPECT_FALSE(full_name_.empty());
   ExtractComplianceLabelsFromResolvedAST(
       sql, params, require_resolver_success, full_name_,
-      execute_statement_type_factory(), reference_driver(), required_features,
+      reference_driver()->type_factory(), reference_driver(), required_features,
       forbidden_features, GetCodeBasedLabels(), compliance_labels_);
 
   if (IsVerifyingGoldens()) {
@@ -1576,13 +1583,11 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
     // Only run once. Use reference engine to check result. We don't compare
     // the reference engine output against QueryParamsWithResult::results()
     // because it isn't clear what feature set to use.
-    TypeFactory type_factory;
     sql_ = sql;  // To supply a const std::string&
     ReferenceDriver::ExecuteStatementAuxOutput aux_output;
     absl::StatusOr<Value> reference_result =
         reference_driver()->ExecuteStatementForReferenceDriver(
-            sql_, params, GetExecuteStatementOptions(), &type_factory,
-            aux_output);
+            sql_, params, GetExecuteStatementOptions(), aux_output);
     if (aux_output.uses_unsupported_type.value_or(false)) {
       stats_->RecordComplianceTestsLabelsProto(
           full_name_, sql_, parameters_, location_,
@@ -1598,17 +1603,20 @@ void SQLTestBase::RunSQLOnFeaturesAndValidateResult(
   }
 }
 
-SimpleCatalog* SQLTestBase::catalog() const {
-  return reference_driver()->catalog();
-}
-
 static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
   LanguageOptions options;
   // For test setup (e.g., PrepareTable) always use PRODUCT_INTERNAL mode, since
   // a lot of test tables use internal types, and failure is non recoverable.
   options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
   // Enable all possible language features.
-  options.EnableMaximumLanguageFeaturesForDevelopment();
+  // We deliberately do not enable language features in development, since it
+  // may result in the generation of UDFs that rely on development features
+  // which are not enabled by test drivers.
+  options.EnableMaximumLanguageFeatures();
+  // Required for some CREATE TABLE statements in file based tests, remove this
+  // when type-linked language features are enabled by default.
+  options.EnableLanguageFeature(FEATURE_COLLATION_SUPPORT);
+  options.EnableLanguageFeature(FEATURE_MAP_TYPE);
   // Allow CREATE TABLE AS SELECT in [prepare_database] statements.
   options.AddSupportedStatementKind(RESOLVED_CREATE_TABLE_AS_SELECT_STMT);
   options.AddSupportedStatementKind(RESOLVED_CREATE_CONSTANT_STMT);
@@ -1618,8 +1626,11 @@ static std::unique_ptr<ReferenceDriver> CreateTestSetupDriver() {
 
   auto driver = std::make_unique<ReferenceDriver>(options);
   // Create an empty database so that we can later load protos and enums.
-  ZETASQL_CHECK_OK(driver->CreateDatabase(TestDatabase{}));
-
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  auto serialize_status =
+      SerializeTestDatabase(TestDatabase{}, test_db_proto.get());
+  ZETASQL_DCHECK_OK(serialize_status);
+  ZETASQL_CHECK_OK(driver->CreateDatabase(*test_db_proto));
   return driver;
 }
 
@@ -1669,8 +1680,28 @@ SQLTestBase::options() {
 absl::Status SQLTestBase::CreateDatabase(const TestDatabase& test_db) {
   ZETASQL_RETURN_IF_ERROR(ValidateFirstColumnPrimaryKey(
       test_db, driver()->GetSupportedLanguageOptions()));
-  ZETASQL_RETURN_IF_ERROR(driver()->CreateDatabase(test_db));
-  ZETASQL_RETURN_IF_ERROR(reference_driver()->CreateDatabase(test_db));
+
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  ZETASQL_RETURN_IF_ERROR(SerializeTestDatabase(test_db, test_db_proto.get()));
+
+  absl::Status create_db_status = driver()->CreateDatabase(*test_db_proto);
+  if (!create_db_status.ok()) {
+    if (create_db_status.code() == absl::StatusCode::kUnimplemented &&
+        create_db_status.message() ==
+            "Test driver does not support creating database from proto") {
+      // Temporary fallback to the in-memory overload, until external
+      // drivers are all migrated to read from the proto.
+      ZETASQL_RETURN_IF_ERROR(driver()->CreateDatabase(test_db));
+    } else {
+      return create_db_status;
+    }
+  }
+  if (UseLeakyDescriptors()) {
+    ZETASQL_RETURN_IF_ERROR(
+        reference_driver()->CreateDatabaseWithLeakyDescriptors(test_db));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(reference_driver()->CreateDatabase(*test_db_proto));
+  }
   return absl::OkStatus();
 }
 
@@ -1711,8 +1742,7 @@ SQLTestBase::ExecuteStatementReferenceDriver(
   }
   return ToValueIfSingleResult(
       reference_driver()->ExecuteGeneralizedStatementForReferenceDriver(
-          sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), aux_output,
+          sql_, parameters_, GetExecuteStatementOptions(), aux_output,
           /*database=*/test_db.get()));
 }
 
@@ -1753,8 +1783,7 @@ SQLTestBase::TestResults SQLTestBase::ExecuteTestCase() {
       is_deterministic_output = true;
       ReferenceDriver::ExecuteScriptAuxOutput aux_output;
       result = reference_driver()->ExecuteScriptForReferenceDriver(
-          sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), aux_output);
+          sql_, parameters_, GetExecuteStatementOptions(), aux_output);
       is_deterministic_output = aux_output.is_deterministic_output;
     } else {
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
@@ -1944,14 +1973,17 @@ void SQLTestBase::StepPrepareTimeZoneProtosEnums() {
   }
 }
 
+bool SQLTestBase::AllowsFailedReferenceSetup() const {
+  return test_case_options_->name() == kSkipFailedReferenceSetup;
+}
+
 absl::Status SQLTestBase::AddConstants(
     absl::Span<const std::string> create_constant_stmts, bool cache_stmts) {
-  bool is_testing_test_framework =
-      test_case_options_->name() == kSkipFailedReferenceSetup;
   absl::Status reference_status =
       reference_driver()->AddSqlConstants(create_constant_stmts);
-  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
-      << reference_status;
+  if (!AllowsFailedReferenceSetup()) {
+    ZETASQL_RETURN_IF_ERROR(reference_status);
+  }
   absl::Status driver_status = driver()->AddSqlConstants(create_constant_stmts);
   if (!driver_status.ok()) {
     // We don't want to fail the test because of a database setup failure.
@@ -1969,12 +2001,11 @@ absl::Status SQLTestBase::AddConstants(
 
 absl::Status SQLTestBase::AddViews(
     absl::Span<const std::string> create_view_stmts, bool cache_stmts) {
-  bool is_testing_test_framework =
-      test_case_options_->name() == kSkipFailedReferenceSetup;
   absl::Status reference_status =
       reference_driver()->AddViews(create_view_stmts);
-  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
-      << reference_status;
+  if (!AllowsFailedReferenceSetup()) {
+    ZETASQL_RETURN_IF_ERROR(reference_status);
+  }
   absl::Status driver_status = driver()->AddViews(create_view_stmts);
   if (!driver_status.ok()) {
     // We don't want to fail the test because of a database setup failure.
@@ -1992,12 +2023,11 @@ absl::Status SQLTestBase::AddViews(
 
 absl::Status SQLTestBase::AddFunctions(
     absl::Span<const std::string> create_function_stmts, bool cache_stmts) {
-  bool is_testing_test_framework =
-      test_case_options_->name() == kSkipFailedReferenceSetup;
   absl::Status reference_status =
       reference_driver()->AddSqlUdfs(create_function_stmts);
-  ZETASQL_RET_CHECK_NE(reference_status.ok(), is_testing_test_framework)
-      << reference_status;
+  if (!AllowsFailedReferenceSetup()) {
+    ZETASQL_RETURN_IF_ERROR(reference_status);
+  }
   absl::Status driver_status = driver()->AddSqlUdfs(create_function_stmts);
   if (!driver_status.ok()) {
     // We don't want to fail the test because of a database setup failure.
@@ -2017,8 +2047,11 @@ void SQLTestBase::AddTVF() {
   // Setup catalog with current test_db_ as property graph creation will be
   // based on existing tables.
   TypeFactory type_factory;
-  TestDatabaseCatalog test_catalog(&type_factory);
-  CheckCancellation(test_catalog.SetTestDatabase(test_db_),
+  TestDatabaseCatalog test_catalog;
+  auto test_db_proto = std::make_unique<TestDatabaseProto>();
+  CheckCancellation(SerializeTestDatabase(test_db_, test_db_proto.get()),
+                    "Failed to serialize test database");
+  CheckCancellation(test_catalog.SetTestDatabase(*test_db_proto),
                     "Failed to set test database before TVF creation");
 
   LanguageOptions lang_options;
@@ -2112,9 +2145,12 @@ void SQLTestBase::StepPrepareDatabase() {
     TypeFactory type_factory;
     // Setup catalog with current test_db_ as property graph creation will be
     // based on existing tables.
-    TestDatabaseCatalog test_catalog(&type_factory);
+    TestDatabaseCatalog test_catalog;
+    auto test_db_proto = std::make_unique<TestDatabaseProto>();
+    CheckCancellation(SerializeTestDatabase(test_db_, test_db_proto.get()),
+                      "Failed to serialize test database");
     CheckCancellation(
-        test_catalog.SetTestDatabase(test_db_),
+        test_catalog.SetTestDatabase(*test_db_proto),
         "Failed to set test database before property graph creation");
     LanguageOptions lang_options;
     lang_options.set_product_mode(zetasql::ProductMode::PRODUCT_INTERNAL);
@@ -2174,7 +2210,7 @@ void SQLTestBase::StepPrepareDatabase() {
         test_setup_driver_
             ->ExecuteStatementForReferenceDriver(
                 sql_, parameters_, ReferenceDriver::ExecuteStatementOptions(),
-                table_type_factory(), aux_output, &test_db_)
+                aux_output, &test_db_)
             .status(),
         "Failed to create table");
     if (statement_workflow_ == CANCELLED) return;
@@ -2306,7 +2342,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     EXPECT_FALSE(full_name_.empty()) << sql_;
     ExtractComplianceLabelsFromResolvedAST(
         sql_, parameters_, require_resolver_success, full_name_,
-        execute_statement_type_factory(), reference_driver(),
+        reference_driver()->type_factory(), reference_driver(),
         test_case_options_->required_features(),
         test_case_options_->forbidden_features(), effective_labels_,
         compliance_labels_);
@@ -2373,8 +2409,7 @@ void SQLTestBase::StepExecuteStatementCheckResult() {
     if (script_mode_) {
       ReferenceDriver::ExecuteScriptAuxOutput aux_output;
       ref_result = reference_driver()->ExecuteScriptForReferenceDriver(
-          sql_, parameters_, GetExecuteStatementOptions(),
-          execute_statement_type_factory(), aux_output);
+          sql_, parameters_, GetExecuteStatementOptions(), aux_output);
       uses_unsupported_type = aux_output.uses_unsupported_type.value_or(false);
     } else {
       ReferenceDriver::ExecuteStatementAuxOutput aux_output;
@@ -2830,6 +2865,7 @@ std::string SQLTestBase::ToString(
   InternalValue::FormatValueContentOptions format_options;
   format_options.mode =
       InternalValue::FormatValueContentOptions::Mode::kSQLExpression;
+  format_options.force_type_at_top_level = true;
   for (const std::pair<const std::string, Value>& entry : parameters) {
     param_strs.emplace_back(absl::StrCat(
         "  @", entry.first, " = ",
@@ -2979,12 +3015,17 @@ void SQLTestBase::SetUp() { ZETASQL_EXPECT_OK(CreateDatabase(TestDatabase{})); }
 // tables with measure columns to the test database.
 // TODO: b/350555383 - Remove this function once we can define measures via SQL
 // or use DDL to add measure columns to a table.
-static void MaybeAddMeasureTables(
+void SQLTestBase::MaybeAddMeasureTables(
     const FilebasedSQLTestCaseOptions& test_case_options,
     TestDatabase& test_db) {
   const bool add_tables_with_measures =
       test_case_options.required_features().find(
           LanguageFeature::FEATURE_ENABLE_MEASURES) !=
+      test_case_options.required_features().end();
+
+  const bool add_measures_with_udas =
+      test_case_options.required_features().find(
+          LanguageFeature::FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS) !=
       test_case_options.required_features().end();
 
   if (add_tables_with_measures) {
@@ -3009,6 +3050,8 @@ static void MaybeAddMeasureTables(
         {"measure_array_agg_distinct_country", "ARRAY_AGG(DISTINCT country)"},
         {"measure_array_agg_nullable_str_ignore_nulls",
          "ARRAY_AGG(nullable_str IGNORE NULLS)"},
+        {"measure_array_agg_nullable_str_respect_nulls",
+         "ARRAY_AGG(nullable_str RESPECT NULLS)"},
         {"measure_array_agg_country_limit_one", "ARRAY_AGG(country LIMIT 1)"},
         {"measure_array_agg_price_respect_nulls",
          "ARRAY_AGG(price RESPECT NULLS)"},
@@ -3034,11 +3077,44 @@ static void MaybeAddMeasureTables(
          /*is_pseudo_column=*/true},
         {"measure_aggregation_in_in_expr", "SUM(price) IN ((SELECT 1))"},
     };
+    if (add_measures_with_udas) {
+      test_db.measure_function_defs = {
+          "CREATE TEMP FUNCTION AddUdf(a INT64, b INT64) AS (a + b);",
+          "CREATE TEMP AGGREGATE FUNCTION SumUda(a INT64) AS (SUM(a));",
+          "CREATE TEMP AGGREGATE FUNCTION CountUda(a INT64) AS (COUNT(a));",
+          "CREATE TEMP FUNCTION AddUdfPlusTen(a INT64, b INT64) AS "
+          "(AddUdf(a, b) + 10);"};
+      // Add measure columns that use the UDFs and UDAs.
+      measure_column_defs.push_back({"measure_sum_price_plus_sum_quantity_udf",
+                                     "AddUdf(SUM(price), SUM(quantity))"});
+      measure_column_defs.push_back({"measure_sum_price_uda", "SumUda(price)"});
+      measure_column_defs.push_back(
+          {"measure_count_price_uda", "CountUda(price)"});
+      measure_column_defs.push_back({"measure_sum_price_per_key_uda",
+                                     "SumUda(ANY_VALUE(price) GROUP BY key)"});
+      measure_column_defs.push_back(
+          {"measure_sum_count_price_per_country_uda",
+           "SumUda(CountUda(price) GROUP BY country)"});
+      measure_column_defs.push_back(
+          {"measure_sum_price_plus_sum_quantity_plus_ten_udf",
+           "AddUdfPlusTen(SUM(price), SUM(quantity))"});
+      measure_column_defs.push_back({"measure_sum_max_price_per_country_uda",
+                                     "SumUda(MAX(price) GROUP BY country)"});
+      measure_column_defs.push_back({"measure_sum_price_pseudocolumn_uda",
+                                     "SumUda(price)",
+                                     /*is_pseudo_column=*/true});
+      measure_column_defs.push_back(
+          {"measure_sum_price_plus_one_pseudocolumn_udf",
+           "AddUdf(SUM(price), 1)",
+           /*is_pseudo_column=*/true});
+    }
     std::vector<int> row_identity_columns = {0};
     TestTable measure_table_single_key = {
         .table_as_value = std::move(measure_table_single_key_as_value),
         .measure_column_defs = std::move(measure_column_defs),
         .row_identity_columns = std::move(row_identity_columns)};
+    *measure_table_single_key.options.mutable_required_features() =
+        test_case_options.required_features();
     test_db.tables.insert({"MeasureTable_SingleKey", measure_table_single_key});
   }
 }
@@ -3049,14 +3125,7 @@ absl::Status SQLTestBase::CreateDatabase() {
   // SQL or use DDL to add measure columns to a table.
   MaybeAddMeasureTables(*test_case_options_, test_db_);
 
-  ZETASQL_RETURN_IF_ERROR(ValidateFirstColumnPrimaryKey(
-      test_db_, driver()->GetSupportedLanguageOptions()));
-
-  // Do not call SQLTestBase::CreateDatabase(TestDatabase), which will reset
-  // type factory of the reference driver and invalidate all values in
-  // test_db_.
-  ZETASQL_RETURN_IF_ERROR(driver()->CreateDatabase(test_db_));
-  ZETASQL_RETURN_IF_ERROR(reference_driver()->CreateDatabase(test_db_));
+  ZETASQL_RETURN_IF_ERROR(CreateDatabase(test_db_));
 
   if (!constant_stmt_cache_.empty()) {
     ZETASQL_RETURN_IF_ERROR(AddConstants(constant_stmt_cache_, /*cache_stmts=*/false));

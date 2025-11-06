@@ -21,9 +21,13 @@
 #include <vector>
 
 #include "zetasql/proto/function.pb.h"
-#include "absl/memory/memory.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/types/type.h"
+#include "zetasql/public/types/type_deserializer.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "zetasql/base/status.h"
+#include "absl/strings/str_join.h"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {
@@ -42,15 +46,14 @@ absl::StatusOr<std::unique_ptr<Procedure>> Procedure::Deserialize(
   return std::make_unique<Procedure>(name_path, *signature);
 }
 
-absl::Status Procedure::Serialize(
-    FileDescriptorSetMap* file_descriptor_set_map,
-    ProcedureProto* proto) const {
+absl::Status Procedure::Serialize(FileDescriptorSetMap* file_descriptor_set_map,
+                                  ProcedureProto* proto) const {
   for (const std::string& name : name_path()) {
     proto->add_name_path(name);
   }
 
-  ZETASQL_RETURN_IF_ERROR(signature_.Serialize(
-      file_descriptor_set_map, proto->mutable_signature()));
+  ZETASQL_RETURN_IF_ERROR(signature_.Serialize(file_descriptor_set_map,
+                                       proto->mutable_signature()));
 
   return absl::OkStatus();
 }

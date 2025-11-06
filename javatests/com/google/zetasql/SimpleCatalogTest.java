@@ -80,9 +80,16 @@ public class SimpleCatalogTest {
                     ImmutableList.of(),
                     /* contextId= */ -1)));
     TableValuedFunction tvf =
-        new ForwardInputSchemaToOutputSchemaTVF(
+        new TableValuedFunction(
             ImmutableList.of("test_tvf_name"),
-            new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), /* contextId= */ -1));
+            Function.ZETASQL_FUNCTION_GROUP_NAME,
+            ImmutableList.of(
+                new FunctionSignature(
+                    TABLE_TYPE, ImmutableList.of(TABLE_TYPE), /* contextId= */ -1)),
+            ImmutableList.of(),
+            null,
+            null,
+            TableValuedFunctionOptionsProto.getDefaultInstance());
     List<FunctionArgumentType> arguments = new ArrayList<>();
     FunctionArgumentType typeInt64 =
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
@@ -101,6 +108,7 @@ public class SimpleCatalogTest {
             new SimpleModel.NameAndType(
                 "output", TypeFactory.createSimpleType(TypeKind.TYPE_INT64)));
     SimpleModel model = new SimpleModel("test_model_name", modelInputs, modelOutputs);
+    SimpleSequence sequence = new SimpleSequence("test_sequence_name");
 
     catalog1.addSimpleTable(table);
     catalog1.addType("type", type);
@@ -110,6 +118,7 @@ public class SimpleCatalogTest {
     catalog1.addProcedure(procedure);
     catalog1.addConnection(connection);
     catalog1.addModel(model);
+    catalog1.addSequence(sequence);
 
     assertThat(catalog1.getFullName()).isEqualTo("catalog1");
     assertThat(catalog2.getFullName()).isEqualTo("catalog2");
@@ -134,6 +143,8 @@ public class SimpleCatalogTest {
     assertThat(catalog1.getType("TYpe")).isEqualTo(type);
     assertThat(catalog1.getCatalog("CataloG2")).isEqualTo(catalog2);
     assertThat(catalog1.getFunctionByFullName("ZetaSQL:test_function_name")).isEqualTo(function);
+    assertThat(catalog1.getSequenceByFullName("test_sequence_name")).isEqualTo(sequence);
+    assertThat(catalog1.getTvfByFullName("ZetaSQL:test_tvf_name")).isEqualTo(tvf);
     try {
       assertThat(catalog1.findProcedure(ImmutableList.of("test_procedure_name")))
           .isEqualTo(procedure);
@@ -149,7 +160,8 @@ public class SimpleCatalogTest {
     assertThat(catalog1.getType("noType")).isNull();
     assertThat(catalog1.getCatalog("noCatalog")).isNull();
     assertThat(catalog1.getFunctionByFullName("nofunction")).isNull();
-    assertThat(catalog1.getTVFByName("notvf")).isNull();
+    assertThat(catalog1.getTvfByFullName("notvf")).isNull();
+    assertThat(catalog1.getSequenceByFullName("nosquence")).isNull();
     assertThat(catalog1.getProcedure("noprocedure")).isNull();
     assertThat(catalog1.getConnection("noconnection")).isNull();
     assertThat(catalog1.getModel("nomodel")).isNull();
@@ -287,7 +299,7 @@ public class SimpleCatalogTest {
 
     // Tests for adding TVFs
     catalog.addTableValuedFunction(tvf);
-    assertThat(catalog.getTVFByName("test_tvf_name")).isEqualTo(tvf);
+    assertThat(catalog.getTvfByFullName("test_tvf_name")).isEqualTo(tvf);
     try {
       catalog.addTableValuedFunction(
           new TableValuedFunction.ForwardInputSchemaToOutputSchemaTVF(
@@ -354,6 +366,17 @@ public class SimpleCatalogTest {
         new ForwardInputSchemaToOutputSchemaTVF(
             ImmutableList.of("test_tvf_name"),
             new FunctionSignature(TABLE_TYPE, ImmutableList.of(TABLE_TYPE), /* contextId= */ -1));
+    TableValuedFunction tvfWithGroupName =
+        new TableValuedFunction(
+            ImmutableList.of("tvf_name"),
+            "group",
+            ImmutableList.of(
+                new FunctionSignature(
+                    TABLE_TYPE, ImmutableList.of(TABLE_TYPE), /* contextId= */ -1)),
+            ImmutableList.of(),
+            null,
+            null,
+            TableValuedFunctionOptionsProto.getDefaultInstance());
     List<FunctionArgumentType> arguments = new ArrayList<>();
     FunctionArgumentType typeInt64 =
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
@@ -433,11 +456,17 @@ public class SimpleCatalogTest {
     } catch (IllegalArgumentException expected) {
     }
     catalog.addTableValuedFunction(tvf);
-    assertThat(catalog.getTVFByName("test_tvf_name")).isEqualTo(tvf);
+    assertThat(catalog.getTvfByFullName("test_tvf_name")).isEqualTo(tvf);
     catalog.removeTableValuedFunction("test_tvf_name");
-    assertThat(catalog.getTVFByName("test_tvf_name")).isNull();
+    assertThat(catalog.getTvfByFullName("test_tvf_name")).isNull();
+    assertThat(catalog.getTVFNameList()).doesNotContain("test_tvf_name");
     catalog.addTableValuedFunction(tvf);
-    assertThat(catalog.getTVFByName("test_tvf_name")).isEqualTo(tvf);
+    assertThat(catalog.getTvfByFullName("test_tvf_name")).isEqualTo(tvf);
+    catalog.addTableValuedFunction(tvfWithGroupName);
+    assertThat(catalog.getTvfByFullName("group:tvf_name")).isEqualTo(tvfWithGroupName);
+    catalog.removeTableValuedFunction("group:tvf_name");
+    assertThat(catalog.getTvfByFullName("group:tvf_name")).isNull();
+    assertThat(catalog.getTVFNameList()).doesNotContain("tvf_name");
 
     // Tests for removing procedures
     try {
@@ -769,6 +798,7 @@ public class SimpleCatalogTest {
             + "    options {\n"
             + "    }\n"
             + "  }\n"
+            + "  group: \"\""
             + "}\n"
             + "connection {\n"
             + "  name: \"test_connection_name\"\n"
@@ -945,12 +975,12 @@ public class SimpleCatalogTest {
             "The number of fields of SimpleCatalogProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(SimpleCatalogProto.getDescriptor().getFields())
-        .hasSize(13);
+        .hasSize(14);
     assertWithMessage(
             "The number of fields in SimpleCatalog class has changed, "
                 + "please also update the proto and serialization code accordingly.")
         .that(TestUtil.getNonStaticFieldCount(SimpleCatalog.class))
-        .isEqualTo(22);
+        .isEqualTo(24);
   }
 
   @Test

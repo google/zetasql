@@ -59,6 +59,7 @@
 #include "zetasql/common/errors.h"
 #include "zetasql/common/internal_analyzer_options.h"
 #include "zetasql/common/internal_analyzer_output_properties.h"
+#include "zetasql/common/measure_utils.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/ast_node_kind.h"
 #include "zetasql/parser/parse_tree.h"
@@ -98,10 +99,8 @@
 #include "zetasql/public/property_graph.h"
 #include "zetasql/public/proto/type_annotation.pb.h"
 #include "zetasql/public/proto_util.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/simple_catalog.h"
-#include "zetasql/public/sql_constant.h"
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
@@ -119,6 +118,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -206,21 +206,15 @@ absl::StatusOr<const google::protobuf::FieldDescriptor*> VerifyFieldExtendsMessa
   return field_descriptor;
 }
 
-// If type is an array, returns the array type element. Otherwise returns type.
-const Type* ArrayElementTypeOrType(const Type* type) {
-  if (type->IsArray()) {
-    return type->AsArray()->element_type();
-  }
-  return type;
-}
-
 // Adds 'expr' to the get_field_list for the passed in flatten node.
 // Updates the flatten result type accordingly.
 absl::Status AddGetFieldToFlatten(std::unique_ptr<const ResolvedExpr> expr,
                                   TypeFactory* type_factory,
                                   ResolvedFlatten* flatten) {
   const Type* type = expr->type();
-  if (!type->IsArray()) {
+  // For join-column ROW types, leave the output as a ROW rather than
+  // wrapping it in an ARRAY.
+  if (!type->IsArrayLike()) {
     ZETASQL_RETURN_IF_ERROR(type_factory->MakeArrayType(expr->type(), &type));
   }
   flatten->set_type(type);
@@ -230,7 +224,7 @@ absl::Status AddGetFieldToFlatten(std::unique_ptr<const ResolvedExpr> expr,
 
 static std::string GetTypeNameForPrefixedLiteral(absl::string_view sql,
                                                  const ASTLeaf& leaf_node) {
-  int start_offset = leaf_node.GetParseLocationRange().start().GetByteOffset();
+  int start_offset = leaf_node.location().start().GetByteOffset();
   int end_offset = start_offset;
   while (end_offset < sql.size() && std::isalpha(sql[end_offset])) {
     end_offset++;
@@ -327,20 +321,20 @@ absl::Status CheckGraphElementExpr(const LanguageOptions& language_options,
 }
 
 absl::Status MakeUnsupportedGroupingFunctionError(
-    const ASTFunctionCall* func_call, SelectWithMode mode) {
+    const ASTFunctionCall* func_call, WithModifierMode mode) {
   ABSL_DCHECK(func_call != nullptr);
   std::string query_kind;
   switch (mode) {
-    case SelectWithMode::ANONYMIZATION:
+    case WithModifierMode::ANONYMIZATION:
       query_kind = "anonymization";
       break;
-    case SelectWithMode::DIFFERENTIAL_PRIVACY:
+    case WithModifierMode::DIFFERENTIAL_PRIVACY:
       query_kind = "differential privacy";
       break;
-    case SelectWithMode::AGGREGATION_THRESHOLD:
+    case WithModifierMode::AGGREGATION_THRESHOLD:
       query_kind = "aggregation threshold";
       break;
-    case SelectWithMode::NONE:
+    case WithModifierMode::NONE:
     default:
       return absl::OkStatus();
   }
@@ -807,11 +801,15 @@ absl::Status Resolver::MakeResolvedDateOrTimeLiteral(
 
 absl::Status Resolver::ResolveScalarExpr(
     const ASTExpression* ast_expr, const NameScope* name_scope,
-    const char* clause_name,
+    const char* clause_name, QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out,
     const Type* inferred_type) {
   auto expr_resolution_info =
-      std::make_unique<ExprResolutionInfo>(name_scope, clause_name);
+      std::make_unique<ExprResolutionInfo>(query_resolution_info, name_scope,
+                                           ExprResolutionInfoOptions{
+                                               .clause_name = clause_name,
+                                           });
+  expr_resolution_info->grouping_context = ExprGroupingContext::kPreGrouping;
   return ResolveExpr(ast_expr, expr_resolution_info.get(), resolved_expr_out,
                      inferred_type);
 }
@@ -973,8 +971,9 @@ absl::Status Resolver::ResolveExpr(
   // want it to observe <has_aggregation>, <has_analytic>, or <can_flatten> from
   // a sibling. <has_aggregation> and <has_analytic> need to flow up the tree
   // only, and not across. <can_flatten> needs to be selectively propagated.
-  std::unique_ptr<ExprResolutionInfo> expr_resolution_info(  // Save stack for
-      new ExprResolutionInfo(parent_expr_resolution_info));  // nested exprs.
+  std::unique_ptr<ExprResolutionInfo> expr_resolution_info =
+      std::make_unique<ExprResolutionInfo>(  // Save stack for
+          parent_expr_resolution_info);      // nested exprs.
 
   switch (ast_expr->node_kind()) {
     // These cases are extracted into a separate method to reduce stack usage.
@@ -1279,13 +1278,14 @@ absl::Status Resolver::ResolveExpr(
 
 absl::Status Resolver::ResolveWhere(
     const ASTWhereClause* ast_where, const NameScope* name_scope,
-    const char* clause_name,
+    const char* clause_name, QueryResolutionInfo* query_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr) {
   if (ast_where == nullptr || ast_where->expression() == nullptr) {
     return absl::OkStatus();
   }
   ZETASQL_RETURN_IF_ERROR(ResolveScalarExpr(ast_where->expression(), name_scope,
-                                    clause_name, resolved_expr));
+                                    clause_name, query_resolution_info,
+                                    resolved_expr));
   ZETASQL_RETURN_IF_ERROR(
       CoerceExprToBool(ast_where->expression(), clause_name, resolved_expr));
   return absl::OkStatus();
@@ -1625,11 +1625,11 @@ absl::Status Resolver::ValidateColumnForAggregateOrAnalyticSupport(
     for (const std::unique_ptr<SelectColumnState>& select_column_state :
          select_column_state_list->select_column_state_list()) {
       if (resolved_column == select_column_state->resolved_select_column) {
-        if (select_column_state->has_aggregation) {
-          expr_resolution_info->has_aggregation = true;
+        if (select_column_state->expr_findings.has_aggregation) {
+          expr_resolution_info->findings.has_aggregation = true;
         }
-        if (select_column_state->has_analytic) {
-          expr_resolution_info->has_analytic = true;
+        if (select_column_state->expr_findings.has_analytic) {
+          expr_resolution_info->findings.has_analytic = true;
         }
         ZETASQL_RETURN_IF_ERROR(expr_resolution_info->query_resolution_info
                             ->select_column_state_list()
@@ -1715,6 +1715,8 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
 
   // (1) Try to find a name target that matches <path_expr>.
   CorrelatedColumnsSetList correlated_columns_sets;
+  const std::vector<ExprResolutionInfo*>* lateral_column_reference_observers;
+
   NameTarget target;
   bool resolved_to_target = false;
   if (num_names_consumed == 0 && expr_resolution_info->name_scope != nullptr) {
@@ -1726,11 +1728,13 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
         expr_resolution_info->query_resolution_info->IsPipeAggregate()) {
       problem_string = "not aggregated";
     }
+
     std::optional<IdString> referenced_pattern_variable;
     ZETASQL_RETURN_IF_ERROR(expr_resolution_info->name_scope->LookupNamePath(
         path_expr, expr_resolution_info->clause_name, problem_string,
         in_strict_mode(), correlated_columns_sets, &num_names_consumed,
-        referenced_pattern_variable, &target));
+        referenced_pattern_variable, lateral_column_reference_observers,
+        &target));
     resolved_to_target = num_names_consumed > 0;
 
     const bool is_correlated = !correlated_columns_sets.empty();
@@ -1806,13 +1810,94 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
         break;
       case NameTarget::EXPLICIT_COLUMN:
       case NameTarget::IMPLICIT_COLUMN: {
+        const bool is_correlated = !correlated_columns_sets.empty();
+        // If this is not a delayed column (which is currently used only for
+        // lateral column references), there may not be an ExprResolutionInfo
+        // to observe, e.g. if the column is coming directly from the FROM
+        // clause. In this case, SetupPrecomputedColumnIfNeeded() will be a NOOP
+        // so it doesn't matter which ExprResolutionInfo we pass. However, we
+        // set it up if available (always the case for lateral column
+        // references) so that the pre- and post-grouping context tracking in
+        // the outer query remains accurate.
+        ExprResolutionInfo* uncorrelated_expr_info = expr_resolution_info;
+        if (lateral_column_reference_observers != nullptr &&
+            !lateral_column_reference_observers->empty()) {
+          uncorrelated_expr_info = lateral_column_reference_observers->back();
+          ZETASQL_RET_CHECK(is_correlated ||
+                    uncorrelated_expr_info == expr_resolution_info)
+              << "Is correlated? " << is_correlated
+              << ", expr_resolution_info is observing? "
+              << (uncorrelated_expr_info == expr_resolution_info)
+              << " for target: " << target.DebugString();
+
+          // The first name is a column, so return the target.
+          // find the context from the appropriate ExprResolutionInfo, in case
+          // this is a correlated reference to a lateral column.
+          ZETASQL_RETURN_IF_ERROR(
+              target.SetupPrecomputedColumnIfNeeded(ColumnReferenceContext{
+                  .location = path_parse_location.start(),
+                  .grouping_context =
+                      uncorrelated_expr_info->grouping_context}));
+        } else {
+          ZETASQL_RET_CHECK(!target.delayed_column_info().has_value());
+        }
+
         ResolvedColumn resolved_column = target.column();
         auto resolved_column_ref = MakeColumnRefWithCorrelation(
             resolved_column, correlated_columns_sets, access_flags);
         MaybeRecordParseLocation(path_expr.GetParseLocationRange(),
                                  resolved_column_ref.get());
+
+        if (target.delayed_column_info().has_value()) {
+          ZETASQL_RET_CHECK(target.delayed_column_info()->precompute_callback ==
+                    nullptr);
+
+          if (uncorrelated_expr_info->query_resolution_info != nullptr &&
+              uncorrelated_expr_info->query_resolution_info
+                  ->HasGroupByOrAggregation() &&
+              uncorrelated_expr_info->grouping_context ==
+                  ExprGroupingContext::kPreGrouping) {
+            return MakeSqlErrorAtPoint(path_parse_location.start())
+                   << "Column " << path_expr.ToIdentifierPathString()
+                   << " is referenced laterally from WHERE or argument to an "
+                      "aggregation when there's grouping or aggregation in the "
+                      "query";
+          }
+
+          if (target.delayed_column_info()
+                  ->select_column_state->expr_findings.has_aggregation) {
+            if (!expr_resolution_info->allows_aggregation) {
+              return MakeSqlErrorAtPoint(path_parse_location.start())
+                     << "Column " << path_expr.ToIdentifierPathString()
+                     << " contains an aggregate function, which is not "
+                        "allowed in "
+                     << expr_resolution_info->clause_name;
+            }
+            uncorrelated_expr_info->findings.has_aggregation = true;
+          }
+          if (target.delayed_column_info()
+                  ->select_column_state->expr_findings.has_analytic) {
+            if (!expr_resolution_info->allows_analytic) {
+              return MakeSqlErrorAtPoint(path_parse_location.start())
+                     << "Column " << path_expr.ToIdentifierPathString()
+                     << " contains an analytic function, which is not "
+                        "allowed in "
+                     << expr_resolution_info->clause_name;
+            }
+            uncorrelated_expr_info->findings.has_analytic = true;
+          }
+
+          if (target.delayed_column_info()
+                  ->select_column_state->expr_findings.has_volatile) {
+            uncorrelated_expr_info->findings.has_volatile = true;
+          }
+          uncorrelated_expr_info->columns_referenced_laterally.push_back(
+              target.delayed_column_info()->select_column_state);
+        }
+
         if (expr_resolution_info->in_horizontal_aggregation &&
             resolved_column_ref->type()->IsArray()) {
+          ZETASQL_RET_CHECK(!target.delayed_column_info().has_value());
           ZETASQL_RET_CHECK(expr_resolution_info->allows_horizontal_aggregation);
           auto& info = expr_resolution_info->horizontal_aggregation_info;
           ResolvedColumn output_element_column;
@@ -1956,8 +2041,8 @@ absl::Status Resolver::ResolvePathExpressionAsExpression(
     // (3) We still haven't found a matching name. See if we can find it in
     // function arguments (for CREATE FUNCTION statements only).
     ZETASQL_RETURN_IF_ERROR(MaybeResolvePathExpressionAsFunctionArgumentRef(
-        first_name, path_expr.first_name()->GetParseLocationRange(),
-        &resolved_expr, &num_names_consumed));
+        first_name, path_expr.first_name()->location(), &resolved_expr,
+        &num_names_consumed));
   }
 
   if (num_names_consumed == 0) {
@@ -2095,12 +2180,11 @@ absl::Status Resolver::ResolveParameterExpr(
           // a key to look up the parameter when doing Type analysis for
           // untyped parameters.  See MaybeAssignTypeToUndeclaredParameter()
           // for details.
-          param->SetParseLocationRange(param_expr->GetParseLocationRange());
+          param->SetParseLocationRange(param_expr->location());
           *resolved_expr_out = std::move(param);
           // Record the new location, no collisions are possible.
-          untyped_undeclared_parameters_.emplace(
-              param_expr->GetParseLocationRange().start(),
-              lowercase_param_name);
+          untyped_undeclared_parameters_.emplace(param_expr->location().start(),
+                                                 lowercase_param_name);
           return absl::OkStatus();
         }
         return MakeSqlErrorAt(param_expr)
@@ -2120,11 +2204,11 @@ absl::Status Resolver::ResolveParameterExpr(
           auto param =
               MakeResolvedParameter(types::Int64Type(), lowercase_param_name,
                                     position, /*is_untyped=*/true);
-          param->SetParseLocationRange(param_expr->GetParseLocationRange());
+          param->SetParseLocationRange(param_expr->location());
           *resolved_expr_out = std::move(param);
           // Record the new location, no collisions are possible.
-          untyped_undeclared_parameters_.emplace(
-              param_expr->GetParseLocationRange().start(), position);
+          untyped_undeclared_parameters_.emplace(param_expr->location().start(),
+                                                 position);
           return absl::OkStatus();
         }
         return MakeSqlErrorAt(param_expr)
@@ -2160,10 +2244,10 @@ absl::Status Resolver::ResolveDotIdentifier(
   ZETASQL_RETURN_IF_ERROR(ResolveExpr(dot_identifier->expr(), expr_resolution_info,
                               &resolved_expr));
 
-  return ResolveFieldAccess(
-      std::move(resolved_expr), dot_identifier->GetParseLocationRange(),
-      dot_identifier->name(), &expr_resolution_info->flatten_state,
-      resolved_expr_out);
+  return ResolveFieldAccess(std::move(resolved_expr),
+                            dot_identifier->location(), dot_identifier->name(),
+                            &expr_resolution_info->flatten_state,
+                            resolved_expr_out);
 }
 
 absl::Status Resolver::MaybeResolveProtoFieldAccess(
@@ -2395,6 +2479,65 @@ absl::Status Resolver::ResolveJsonFieldAccess(
   return absl::OkStatus();
 }
 
+absl::Status Resolver::ResolveGetRowField(
+    const ASTIdentifier* identifier, FlattenState* flatten_state,
+    std::unique_ptr<const ResolvedExpr> resolved_lhs,
+    std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  *resolved_expr_out = nullptr;
+
+  ZETASQL_RET_CHECK(resolved_lhs->type()->IsRow());
+  const RowType* row_type = resolved_lhs->type()->AsRow();
+  const Table* table = row_type->table();
+
+  std::string multi_row_error;
+  if (row_type->IsMultiRow() &&
+      (flatten_state == nullptr || !flatten_state->can_flatten())) {
+    return MakeSqlErrorAt(identifier)
+           << "Cannot access fields on an expression with type "
+           << row_type->ShortTypeName(product_mode())
+           << "; Fields of MULTIROW columns can be read in JOIN, UNNEST, "
+              "and FLATTEN";
+  }
+
+  CycleDetector cycle_detector;
+  Catalog::FindOptions find_options(&cycle_detector);
+
+  // The context object is shared across all column lookups for this ROW type,
+  // which corresponds uniquely to one table scan.
+  // This allows the Table to add implementation-defined behavior at table
+  // level that has effects across multiple columns.
+  // TODO Add test cases that make use of this.
+  Table::LazyColumnsTableScanContext* context = row_type->GetTableScanContext();
+
+  absl::StatusOr<const Column*> result =
+      table->FindLazyColumn(identifier->GetAsString(), context, find_options);
+
+  // TODO Include test coverage for all error message cases in
+  // later CLs.
+  if (!result.ok()) {
+    if (absl::IsNotFound(result.status())) {
+      // Lookup returned NotFound.  If it gave a message, use that as the
+      // error message.  Otherwise, use the generic not-found message below.
+      if (!result.status().message().empty()) {
+        return MakeSqlErrorAt(identifier) << result.status().message();
+      }
+    } else {
+      // Lookup failed.  Return the failure.
+      return result.status();
+    }
+  }
+  const Column* column = result.value_or(nullptr);
+  if (column == nullptr) {
+    return MakeSqlErrorAt(identifier)
+           << "Table " << table->FullName() << " does not have a column "
+           << ToIdentifierLiteral(identifier->GetAsIdString());
+  }
+
+  *resolved_expr_out = MakeResolvedGetRowField(column->GetType(),
+                                               std::move(resolved_lhs), column);
+  return absl::OkStatus();
+}
+
 namespace {
 
 absl::StatusOr<const PropertyGraph*> FindPropertyGraph(
@@ -2548,9 +2691,9 @@ absl::Status Resolver::ResolveFieldAccess(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   const Type* lhs_type = resolved_lhs->type();
   std::unique_ptr<ResolvedFlatten> resolved_flatten;
-  if (lhs_type->IsArray() && flatten_state != nullptr &&
+  if (lhs_type->IsArrayLike() && flatten_state != nullptr &&
       flatten_state->can_flatten()) {
-    lhs_type = ArrayElementTypeOrType(resolved_lhs->type());
+    ZETASQL_ASSIGN_OR_RETURN(lhs_type, lhs_type->GetElementType());
     if (resolved_lhs->Is<ResolvedFlatten>() &&
         flatten_state->active_flatten() != nullptr) {
       resolved_flatten.reset(const_cast<ResolvedFlatten*>(
@@ -2578,6 +2721,9 @@ absl::Status Resolver::ResolveFieldAccess(
   } else if (lhs_type->IsJson()) {
     ZETASQL_RETURN_IF_ERROR(ResolveJsonFieldAccess(identifier, std::move(resolved_lhs),
                                            resolved_expr_out));
+  } else if (lhs_type->IsRow()) {
+    ZETASQL_RETURN_IF_ERROR(ResolveGetRowField(
+        identifier, flatten_state, std::move(resolved_lhs), resolved_expr_out));
   } else if (lhs_type->IsGraphElement()) {
     ZETASQL_RETURN_IF_ERROR(ResolveGraphElementPropertyAccess(
         identifier, std::move(resolved_lhs), resolved_expr_out));
@@ -2622,7 +2768,7 @@ absl::Status Resolver::ResolveExtensionFieldAccess(
   std::unique_ptr<ResolvedFlatten> resolved_flatten;
   if (resolved_lhs->type()->IsArray() && flatten_state != nullptr &&
       flatten_state->can_flatten()) {
-    const Type* lhs_type = ArrayElementTypeOrType(resolved_lhs->type());
+    const Type* lhs_type = resolved_lhs->type()->AsArray()->element_type();
     if (resolved_lhs->Is<ResolvedFlatten>() &&
         flatten_state->active_flatten() != nullptr) {
       resolved_flatten.reset(const_cast<ResolvedFlatten*>(
@@ -3196,7 +3342,7 @@ absl::Status Resolver::ResolveSystemVariableExpression(
   if (find_constant_with_path_prefix_status.code() ==
       absl::StatusCode::kNotFound) {
     return GetUnrecognizedNameError(
-        ast_system_variable_expr->GetParseLocationRange().start(), path_parts,
+        ast_system_variable_expr->location().start(), path_parts,
         expr_resolution_info != nullptr ? expr_resolution_info->name_scope
                                         : nullptr,
         /*is_system_variable=*/true);
@@ -3219,7 +3365,7 @@ absl::Status Resolver::ResolveSystemVariableExpression(
        ++num_names_consumed) {
     ZETASQL_RETURN_IF_ERROR(ResolveFieldAccess(
         std::move(*resolved_expr_out),
-        ast_system_variable_expr->path()->GetParseLocationRange(),
+        ast_system_variable_expr->path()->location(),
         ast_system_variable_expr->path()->name(num_names_consumed),
         &expr_resolution_info->flatten_state, resolved_expr_out));
   }
@@ -3259,7 +3405,7 @@ absl::Status Resolver::ResolveFilterFieldsFunctionCall(
       const ASTNamedArgument* named_argument =
           argument->GetAs<ASTNamedArgument>();
       const absl::string_view name = named_argument->name()->GetAsStringView();
-      if (name != kResetClearedRequiredFields) {
+      if (!zetasql_base::CaseEqual(name, kResetClearedRequiredFields)) {
         return MakeSqlErrorAt(argument) << absl::Substitute(
                    "Unsupported named argument in FILTER_FIELDS(): $0", name);
       }
@@ -3725,7 +3871,7 @@ absl::Status Resolver::ResolveInSubquery(
   const ASTExpression* in_expr = in_subquery_expr->lhs();
   const ASTQuery* in_subquery = in_subquery_expr->query();
 
-  ABSL_DCHECK(in_expr != nullptr);
+  ZETASQL_RET_CHECK(in_expr != nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ResolveExpr(in_expr, expr_resolution_info, &resolved_in_expr));
 
@@ -3734,7 +3880,7 @@ absl::Status Resolver::ResolveInSubquery(
       new NameScope(expr_resolution_info->name_scope, &correlated_columns_set));
   std::unique_ptr<const ResolvedScan> resolved_in_subquery;
   std::shared_ptr<const NameList> resolved_name_list;
-  ABSL_DCHECK(in_subquery != nullptr);
+  ZETASQL_RET_CHECK(in_subquery != nullptr);
   ZETASQL_RETURN_IF_ERROR(
       ResolveQuery(in_subquery, subquery_scope.get(), kExprSubqueryId,
                    &resolved_in_subquery, &resolved_name_list,
@@ -4070,17 +4216,32 @@ absl::Status Resolver::ResolveLikeExprSubquery(
   }
 
   ResolvedSubqueryExpr::SubqueryType subquery_type;
-  switch (like_subquery_expr->op()->op()) {
-    case ASTAnySomeAllOp::kAny:
-    case ASTAnySomeAllOp::kSome:
-      subquery_type = ResolvedSubqueryExpr::LIKE_ANY;
-      break;
-    case ASTAnySomeAllOp::kAll:
-      subquery_type = ResolvedSubqueryExpr::LIKE_ALL;
-      break;
-    default:
-      ZETASQL_RET_CHECK_FAIL() << "Unsupported LIKE expression operation. Operation "
-                          "must be of type ANY|SOME|ALL.";
+  if (like_subquery_expr->is_not()) {
+    switch (like_subquery_expr->op()->op()) {
+      case ASTAnySomeAllOp::kAny:
+      case ASTAnySomeAllOp::kSome:
+        subquery_type = ResolvedSubqueryExpr::NOT_LIKE_ANY;
+        break;
+      case ASTAnySomeAllOp::kAll:
+        subquery_type = ResolvedSubqueryExpr::NOT_LIKE_ALL;
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported NOT LIKE expression operation. "
+                            "Operation must be of type ANY|SOME|ALL.";
+    }
+  } else {
+    switch (like_subquery_expr->op()->op()) {
+      case ASTAnySomeAllOp::kAny:
+      case ASTAnySomeAllOp::kSome:
+        subquery_type = ResolvedSubqueryExpr::LIKE_ANY;
+        break;
+      case ASTAnySomeAllOp::kAll:
+        subquery_type = ResolvedSubqueryExpr::LIKE_ALL;
+        break;
+      default:
+        ZETASQL_RET_CHECK_FAIL() << "Unsupported LIKE expression operation. Operation "
+                            "must be of type ANY|SOME|ALL.";
+    }
   }
 
   std::vector<std::unique_ptr<const ResolvedColumnRef>> parameters;
@@ -4197,8 +4358,8 @@ absl::Status Resolver::ResolveExprSubquery(
     return MakeSqlErrorAt(expr_subquery)
            << "Horizontal aggregation expression must not include a subquery";
   }
-  std::unique_ptr<CorrelatedColumnsSet> correlated_columns_set(
-      new CorrelatedColumnsSet);
+  std::unique_ptr<CorrelatedColumnsSet> correlated_columns_set =
+      std::make_unique<CorrelatedColumnsSet>();
   // TODO: If the subquery appears in the HAVING, then we probably
   // need to allow the select list aliases to resolve also.  Test subqueries
   // in the HAVING.
@@ -4284,7 +4445,7 @@ absl::Status Resolver::ResolveExprSubquery(
              << output_type->ShortTypeName(product_mode())
              << " because nested arrays are not supported";
     }
-    if (output_type->IsMeasureType()) {
+    if (IsOrContainsMeasure(output_type) || output_type->IsRow()) {
       return MakeSqlErrorAt(expr_subquery)
              << "Cannot use array subquery with column of type "
              << output_type->ShortTypeName(product_mode());
@@ -4694,7 +4855,7 @@ absl::Status Resolver::ResolveProtoExtractWithExtractTypeAndField(
         << " must be a top level field, but found "
         << field_path->ToIdentifierPathString();
     return MaybeResolveProtoFieldAccess(
-        field_path->GetParseLocationRange(), field_path->first_name(),
+        field_path->location(), field_path->first_name(),
         top_level_field_options, std::move(resolved_proto_input),
         resolved_expr_out);
   }
@@ -4926,7 +5087,7 @@ InitSpecialFunctionFamilyMapForDifferentialPrivacy() {
 }
 
 static SpecialFunctionFamily GetSpecialFunctionFamily(
-    const IdString& function_name, SelectWithMode select_with_mode) {
+    const IdString& function_name, WithModifierMode with_modifier_mode) {
   static IdStringHashMapCase<SpecialFunctionFamily>* kSpecialFunctionFamilyMap =
       InitSpecialFunctionFamilyMap();
   // For differential privacy we replace count, sum etc. with DP versions of
@@ -4935,7 +5096,7 @@ static SpecialFunctionFamily GetSpecialFunctionFamily(
       kSpecialFunctionFamilyMapForDifferentialPrivacy =
           InitSpecialFunctionFamilyMapForDifferentialPrivacy();
 
-  if (select_with_mode == SelectWithMode::DIFFERENTIAL_PRIVACY) {
+  if (with_modifier_mode == WithModifierMode::DIFFERENTIAL_PRIVACY) {
     return zetasql_base::FindWithDefault(
         *kSpecialFunctionFamilyMapForDifferentialPrivacy, function_name,
         FAMILY_NONE);
@@ -4956,22 +5117,22 @@ absl::Status Resolver::GetFunctionNameAndArgumentsForAnonFunctions(
   }
 
   if (query_resolution_info != nullptr) {
-    switch (query_resolution_info->select_with_mode()) {
-      case SelectWithMode::ANONYMIZATION:
+    switch (query_resolution_info->with_modifier_mode()) {
+      case WithModifierMode::ANONYMIZATION:
         break;
 
-      case SelectWithMode::NONE:
-        query_resolution_info->set_select_with_mode(
-            SelectWithMode::ANONYMIZATION);
+      case WithModifierMode::NONE:
+        query_resolution_info->set_with_modifier_mode(
+            WithModifierMode::ANONYMIZATION);
         break;
 
-      case SelectWithMode::AGGREGATION_THRESHOLD:
+      case WithModifierMode::AGGREGATION_THRESHOLD:
         return MakeSqlErrorAt(function_call)
                << "ANON functions are not allowed in SELECT WITH "
                   "AGGREGATION_THRESHOLD queries.";
         break;
 
-      case SelectWithMode::DIFFERENTIAL_PRIVACY:
+      case WithModifierMode::DIFFERENTIAL_PRIVACY:
         return MakeSqlErrorAt(function_call)
                << "ANON functions are not allowed in SELECT WITH "
                   "DIFFERENTIAL_PRIVACY queries. Please use non ANON_ versions "
@@ -5109,8 +5270,8 @@ absl::Status Resolver::GetFunctionNameAndArgumentsForDPFunctions(
       absl::AsciiStrToUpper(function->last_name()->GetAsString());
 
   if (query_resolution_info == nullptr ||
-      query_resolution_info->select_with_mode() !=
-          SelectWithMode::DIFFERENTIAL_PRIVACY) {
+      query_resolution_info->with_modifier_mode() !=
+          WithModifierMode::DIFFERENTIAL_PRIVACY) {
     return MakeSqlErrorAt(function_call)
            << "Function not found: "
            << IdentifierPathToString(function->ToIdentifierVector());
@@ -5214,11 +5375,11 @@ absl::Status Resolver::GetFunctionNameAndArguments(
     return absl::OkStatus();
   }
 
-  const auto& function_family =
-      GetSpecialFunctionFamily(function->last_name()->GetAsIdString(),
-                               (query_resolution_info == nullptr)
-                                   ? SelectWithMode::NONE
-                                   : query_resolution_info->select_with_mode());
+  const auto& function_family = GetSpecialFunctionFamily(
+      function->last_name()->GetAsIdString(),
+      (query_resolution_info == nullptr)
+          ? WithModifierMode::NONE
+          : query_resolution_info->with_modifier_mode());
 
   switch (function_family) {
     // A normal function with no special handling.
@@ -5359,8 +5520,10 @@ absl::Status Resolver::ResolveSequence(
     return MakeSqlErrorAt(path_expr) << error_message;
   }
   ZETASQL_RETURN_IF_ERROR(find_status);
-
-  *resolved_sequence = MakeResolvedSequence(sequence);
+  std::unique_ptr<ResolvedSequence> mutable_resolved_sequence =
+      MakeResolvedSequence(sequence);
+  MaybeRecordParseLocation(path_expr, mutable_resolved_sequence.get());
+  *resolved_sequence = std::move(mutable_resolved_sequence);
   return absl::OkStatus();
 }
 
@@ -5486,6 +5649,31 @@ absl::Status CheckNodeIsNull(const ASTNode* node,
   return absl::OkStatus();
 }
 
+// Return an error if `ast_function` contains a clause that is not supported
+// in horizontal aggregation. Return OK otherwise.
+absl::Status ValidateAggregateFunctionClausesForHorizontalAggregation(
+    const ASTFunctionCall* ast_function,
+    const ExprResolutionInfo* expr_resolution_info) {
+  if (!expr_resolution_info->allows_horizontal_aggregation) {
+    return absl::OkStatus();
+  }
+  if (ast_function->group_by() != nullptr) {
+    return MakeSqlErrorAt(ast_function->group_by())
+           << "Horizontal aggregates do not support multi-level aggregation";
+  }
+  if (ast_function->where_expr() != nullptr) {
+    return MakeSqlErrorAt(ast_function->where_expr())
+           << "Horizontal aggregates do not support WHERE clause aggregate "
+              "filtering";
+  }
+  if (ast_function->having_expr() != nullptr) {
+    return MakeSqlErrorAt(ast_function->where_expr())
+           << "Horizontal aggregates do not support HAVING clause aggregate "
+              "filtering";
+  }
+  return absl::OkStatus();
+}
+
 absl::Status ValidatePotentialMultiLevelAggregate(
     const ASTFunctionCall* ast_function,
     const ExprResolutionInfo* expr_resolution_info,
@@ -5497,10 +5685,6 @@ absl::Status ValidatePotentialMultiLevelAggregate(
   if (ast_function->having_modifier() != nullptr) {
     return MakeSqlErrorAt(group_by)
            << "GROUP BY cannot be used with a HAVING MAX/MIN modifier.";
-  }
-  if (expr_resolution_info->allows_horizontal_aggregation) {
-    return MakeSqlErrorAt(group_by)
-           << "Horizontal aggregates do not support multi-level aggregation.";
   }
   if (group_by->grouping_items().empty()) {
     return MakeSqlErrorAt(group_by)
@@ -5608,6 +5792,8 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
     const std::map<int, SpecialArgumentType>& argument_option_map,
     ExprResolutionInfo* expr_resolution_info,
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
+  ZETASQL_RETURN_IF_ERROR(ValidateAggregateFunctionClausesForHorizontalAggregation(
+      ast_function, expr_resolution_info));
   ZETASQL_RETURN_IF_ERROR(ValidatePotentialMultiLevelAggregate(
       ast_function, expr_resolution_info, language()));
   ZETASQL_RETURN_IF_ERROR(ValidateMeasureTypeAggregateFunction(ast_function, function,
@@ -5624,6 +5810,8 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
             // When resolving arguments of aggregation functions, we resolve
             // against pre-grouped versions of columns only.
             .use_post_grouping_columns = false});
+    local_expr_resolution_info->grouping_context =
+        ExprGroupingContext::kPreGrouping;
 
     if (expr_resolution_info->allows_horizontal_aggregation) {
       if (local_expr_resolution_info->in_horizontal_aggregation) {
@@ -5740,11 +5928,15 @@ absl::Status Resolver::ResolveAggregateFunctionCallFirstPass(
           .clause_name = "Function call WITH GROUP ROWS",
       });
 
-  return ResolveFunctionCallImpl(
+  absl::Status status = ResolveFunctionCallImpl(
       ast_function, function, error_mode, function_arguments,
       argument_option_map, local_expr_resolution_info.get(),
       std::move(resolved_with_group_rows_subquery),
       std::move(correlated_columns), resolved_expr_out);
+  // Ensure `local_expr_resolution_info` is destroyed before
+  // `with_group_rows_subquery_scope`.
+  local_expr_resolution_info.reset();
+  return status;
 }
 
 // Add the resolved_agg_function_call to the aggregate expression map.
@@ -5802,9 +5994,9 @@ absl::Status Resolver::AddColumnToGroupingListSecondPass(
     return MakeSqlErrorAt(ast_function)
            << "GROUPING can only have a single expression argument.";
   }
-  if (query_resolution_info->select_with_mode() != SelectWithMode::NONE) {
+  if (query_resolution_info->with_modifier_mode() != WithModifierMode::NONE) {
     return MakeUnsupportedGroupingFunctionError(
-        ast_function, query_resolution_info->select_with_mode());
+        ast_function, query_resolution_info->with_modifier_mode());
   }
   const ResolvedExpr* argument =
       agg_function_call->argument_list().front().get();
@@ -6166,7 +6358,7 @@ absl::Status Resolver::ResolveFunctionCall(
   }
   const auto& function_family = GetSpecialFunctionFamily(
       ast_function->function()->last_name()->GetAsIdString(),
-      expr_resolution_info->GetSelectWithMode());
+      expr_resolution_info->GetWithModifierMode());
   if (function_family != FAMILY_ANON && function_family != FAMILY_ANON_BINARY) {
     if (ast_function->with_report_modifier() != nullptr) {
       return MakeSqlErrorAt(ast_function)
@@ -6276,6 +6468,9 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
     return MakeSqlErrorAt(analytic_function_call)
            << "GROUP BY modifiers not supported on analytic function calls.";
   }
+  // HAVING filter modifier is not supported on analytic functions, since
+  // GROUP BY modifiers are not supported on analytic functions.
+  ZETASQL_RET_CHECK(analytic_function_call->function()->having_expr() == nullptr);
   if (analytic_function_call->function_with_group_rows() != nullptr) {
     if (MultiLevelAggregationPresent(
             analytic_function_call->function_with_group_rows()->function())) {
@@ -6363,13 +6558,13 @@ absl::Status Resolver::ResolveAnalyticFunctionCall(
         analytic_function_call->function()));
   }
 
-  if (expr_resolution_info->has_analytic) {
+  if (expr_resolution_info->findings.has_analytic) {
     return MakeSqlErrorAt(analytic_function_call)
            << "Analytic function cannot be an argument of another analytic "
               "function";
   }
 
-  expr_resolution_info->has_analytic = true;
+  expr_resolution_info->findings.has_analytic = true;
 
   std::unique_ptr<ResolvedFunctionCall> resolved_function_call;
   ZETASQL_RETURN_IF_ERROR(function_resolver_->ResolveGeneralFunctionCall(
@@ -6904,8 +7099,12 @@ const char Resolver::kSafeArrayAtOrdinal[] = "$safe_array_at_ordinal";
 const char Resolver::kSafeProtoMapAtKey[] = "$safe_proto_map_at_key";
 const char Resolver::kSubscript[] = "$subscript";
 const char Resolver::kSubscriptWithKey[] = "$subscript_with_key";
+const char Resolver::kSafeSubscriptWithKey[] = "$safe_subscript_with_key";
 const char Resolver::kSubscriptWithOffset[] = "$subscript_with_offset";
+const char Resolver::kSafeSubscriptWithOffset[] = "$safe_subscript_with_offset";
 const char Resolver::kSubscriptWithOrdinal[] = "$subscript_with_ordinal";
+const char Resolver::kSafeSubscriptWithOrdinal[] =
+    "$safe_subscript_with_ordinal";
 
 // TODO: Rename ResolveArrayElement to ResolveSubscriptElement.
 // Rename ASTArrayElement to ASTSubscriptElement in all references.
@@ -7089,7 +7288,17 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
     auto* literal = resolved_position->GetAs<ResolvedLiteral>();
     const_cast<ResolvedLiteral*>(literal)->set_preserve_in_literal_remover(
         true);
-    position = literal->value().ToInt64();
+    if (literal->type()->kind() == TYPE_UINT64) {
+      uint64_t position_uint64 = literal->value().ToUint64();
+      if (position_uint64 > std::numeric_limits<int64_t>::max()) {
+        return MakeSqlErrorAt(field_position)
+               << "Field index is larger than INT64 max size";
+      }
+      position = static_cast<int64_t>(position_uint64);
+    } else {
+      // Verified IsInteger() above, so ToInt64() is valid for remaining types.
+      position = literal->value().ToInt64();
+    }
   } else if (!analysis_const_enabled) {
     return MakeSqlErrorAt(field_position)
            << "Field element access is only supported for literal integer "
@@ -7143,7 +7352,17 @@ absl::Status Resolver::ResolveStructSubscriptElementAccess(
              << constant->Name() << " is not available";
     }
     ZETASQL_ASSIGN_OR_RETURN(Value constant_value, constant->GetValue());
-    position = constant_value.ToInt64();
+    if (constant_value.type()->kind() == TYPE_UINT64) {
+      uint64_t position_uint64 = constant_value.ToUint64();
+      if (position_uint64 > std::numeric_limits<int64_t>::max()) {
+        return MakeSqlErrorAt(field_position)
+               << "Field index is larger than INT64 max size";
+      }
+      position = static_cast<int64_t>(position_uint64);
+    } else {
+      // Verified IsInteger() above, so ToInt64() is valid for remaining types.
+      position = constant_value.ToInt64();
+    }
   }
 
   ZETASQL_RET_CHECK(IsAnalysisConstant(resolved_position.get()))
@@ -7191,9 +7410,9 @@ absl::Status Resolver::ResolveNonArraySubscriptElementAccess(
               {kKey, {kSubscriptWithKey}},
               {kOffset, {kSubscriptWithOffset}},
               {kOrdinal, {kSubscriptWithOrdinal}},
-              {kSafeKey, {"SAFE", kSubscriptWithKey}},
-              {kSafeOffset, {"SAFE", kSubscriptWithOffset}},
-              {kSafeOrdinal, {"SAFE", kSubscriptWithOrdinal}}};
+              {kSafeKey, {kSafeSubscriptWithKey}},
+              {kSafeOffset, {kSafeSubscriptWithOffset}},
+              {kSafeOrdinal, {kSafeSubscriptWithOrdinal}}};
 
       // The function name is correctly resolved, then proceed to resolve the
       // argument.
@@ -7733,7 +7952,7 @@ Resolver::ResolveBracedConstructorField(
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> proto_expr,
         ResolveProtoFieldAccess(*update_constructor_expr_to_modify,
-                                field_value->GetParseLocationRange(),
+                                field_value->location(),
                                 *braced_constructor_lhs->extended_path_expr(),
                                 &expr_resolution_info->flatten_state));
     ZETASQL_ASSIGN_OR_RETURN(expr, ResolveBracedConstructorInUpdateContext(
@@ -8304,11 +8523,25 @@ absl::Status Resolver::ResolveArrayConstructor(
   bool is_array_literal = true;
   bool has_annotations = false;
   for (int i = 0; i < resolved_elements.size(); ++i) {
-    // We keep the original <type_annotation_map> when coercing array element.
+    // When an explicit array type is provided (e.g., ARRAY<STRING>),
+    // we should not carry over the collation from the elements.
+    const AnnotationMap* target_element_annotation_map =
+        // TODO: b/449016617 - This will need to check the target collation if
+        // explicitly specified via the COLLATE syntax in the type, e.g.
+        // ARRAY<STRING COLLATE 'und:ci'>[...]
+        // or if type precision is supported, e.g. `ARRAY<NUMERIC(5,2)>[...]`
+        // or `ARRAY<TIMESTAMP(12)>[...]`
+        has_explicit_type ? nullptr
+                          : resolved_elements[i]->type_annotation_map();
+    if (!language().LanguageFeatureEnabled(
+            FEATURE_ARRAY_CONSTRUCTOR_EXPLICIT_TYPE_ENFORCE_TARGET_ANNOTATIONS)) {  // NOLINT
+      target_element_annotation_map =
+          resolved_elements[i]->type_annotation_map();
+    }
     ZETASQL_RETURN_IF_ERROR(CoerceExprToType(
         ast_array_constructor->element(i),
         AnnotatedType(array_type->element_type(),
-                      resolved_elements[i]->type_annotation_map()),
+                      target_element_annotation_map),
         kImplicitCoercion, "Array element type $1 does not coerce to $0",
         &resolved_elements[i]));
 
@@ -8323,6 +8556,10 @@ absl::Status Resolver::ResolveArrayConstructor(
   }
 
   if (is_array_literal && !has_annotations) {
+    // // TODO: b/449016617 - This branch will not work when the explicit type
+    // has a target collation, as each element will now need to be coerced. The
+    // condition should be adjusted instead to track `needs_to_coerce_element`
+    // instead of `has_annotations`, for example.
     std::vector<Value> element_values;
     element_values.reserve(resolved_elements.size());
     for (int i = 0; i < resolved_elements.size(); ++i) {
@@ -8755,6 +8992,12 @@ absl::Status Resolver::ResolveStructConstructorImpl(
       })) {
     return MakeSqlErrorAt(ast_location) << "STRUCT type cannot contain MEASURE";
   }
+  if (absl::c_any_of(struct_type->fields(), [&](const StructField& field) {
+        return field.type->IsRow();
+      })) {
+    return MakeSqlErrorAt(ast_location)
+           << "STRUCT type cannot contain ROW-type values";
+  }
 
   // Resolve struct as a MakeStruct node first to calculate annotations for the
   // final struct output.
@@ -8811,18 +9054,28 @@ static absl::Status CheckAggregateFilteringModifierSupport(
   }
   // Check if the function supports the filtering modifier.
   const Function* function = resolved_function->function();
+  // Normal aggregate functions like COUNT become differential privacy functions
+  // when used with 'WITH DIFFERENTIAL_PRIVACY'. This can result in confusing
+  // (and incorrect) error messages like "COUNT function does not support WHERE
+  // modifier". To avoid this, we provide more information in the error message
+  // to indicate that it is an anonymized / differentially private aggregate
+  // function.
+  absl::string_view function_type =
+      function->Is<AnonFunction>()
+          ? "Anonymization / Differential Privacy Function"
+          : "Function";
   if constexpr (std::is_same_v<ASTFilterExpression, ASTHaving>) {
     if (!function->SupportsHavingFilterModifier()) {
       return MakeSqlErrorAt(ast_filter_expr)
              << absl::AsciiStrToUpper(function->SQLName())
-             << absl::StrFormat(" function does not support %s modifier",
+             << absl::StrFormat(" %s does not support %s", function_type,
                                 modifier_name);
     }
   } else if constexpr (std::is_same_v<ASTFilterExpression, ASTWhereClause>) {
     if (!function->SupportsWhereModifier()) {
       return MakeSqlErrorAt(ast_filter_expr)
              << absl::AsciiStrToUpper(function->SQLName())
-             << absl::StrFormat(" function does not support %s modifier",
+             << absl::StrFormat(" %s does not support %s", function_type,
                                 modifier_name);
     }
   }
@@ -9387,7 +9640,8 @@ absl::Status Resolver::ResolveWhereModifier(
       kWhereModifier));
 
   return ResolveWhere(ast_function_call->where_expr(), name_scope,
-                      kWhereModifier, resolved_where_expr);
+                      kWhereModifier, /*query_resolution_info=*/nullptr,
+                      resolved_where_expr);
 }
 
 absl::Status Resolver::FinishResolvingAggregateFunction(
@@ -9505,7 +9759,7 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
 
   // Checks if there exists aggregate or analytic function after resolving
   // the aggregate arguments, ORDER BY modifier, and HAVING modifier.
-  if (expr_resolution_info->has_aggregation) {
+  if (expr_resolution_info->findings.has_aggregation) {
     if (!language().LanguageFeatureEnabled(FEATURE_MULTILEVEL_AGGREGATION)) {
       return MakeSqlErrorAt(ast_function_call)
              << "Aggregations of aggregations are not allowed";
@@ -9516,12 +9770,12 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
                 "function to have one or more GROUP BY modifiers.";
     }
   }
-  if (expr_resolution_info->has_analytic) {
+  if (expr_resolution_info->findings.has_analytic) {
     return MakeSqlErrorAt(ast_function_call)
            << "Analytic functions cannot be arguments to aggregate functions";
   }
 
-  expr_resolution_info->has_aggregation = true;
+  expr_resolution_info->findings.has_aggregation = true;
 
   ResolvedNonScalarFunctionCallBase::NullHandlingModifier
       resolved_null_handling_modifier = ResolveNullHandlingModifier(
@@ -9603,8 +9857,9 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
           resolve_status, analyzer_options_.error_message_mode());
     }
 
-    std::unique_ptr<FunctionSignature> new_signature(
-        new FunctionSignature((*resolved_function_call)->signature()));
+    std::unique_ptr<FunctionSignature> new_signature =
+        std::make_unique<FunctionSignature>(
+            (*resolved_function_call)->signature());
 
     new_signature->SetConcreteResultType(
         function_call_info->GetAs<TemplatedSQLFunctionCall>()->expr()->type());
@@ -10087,23 +10342,25 @@ Resolver::WrapInASideEffectCall(const ASTNode* ast_location,
 }
 
 // Returns an error if `resolved_arguments` contain any MEASURE-typed arguments
-// and `function` is not the AGGREGATE function.
-static absl::Status EnsureNoMeasureTypedArguments(
+// and `function` is not the AGGREGATE function, or any argument has ROW type.
+static absl::Status EnsureNoIllegallyTypedArguments(
     const Function* function, const std::vector<const ASTNode*>& arg_locations,
     absl::Span<const std::unique_ptr<const ResolvedExpr>> resolved_arguments) {
-  if (IsMeasureAggFunction(function)) {
-    return absl::OkStatus();
-  }
   ZETASQL_RET_CHECK_EQ(arg_locations.size(), resolved_arguments.size());
   for (size_t i = 0; i < resolved_arguments.size(); ++i) {
     if (resolved_arguments[i] == nullptr) {
       continue;
     }
     const ResolvedExpr& resolved_argument = *resolved_arguments[i];
-    if (resolved_argument.type()->IsMeasureType()) {
+    if (resolved_argument.type()->IsMeasureType() &&
+        !IsMeasureAggFunction(function)) {
       return MakeSqlErrorAt(arg_locations[i])
              << "MEASURE-typed arguments are only permitted in the AGG "
                 "function";
+    }
+    if (resolved_argument.type()->IsRow()) {
+      return MakeSqlErrorAt(arg_locations[i])
+             << "ROW-typed values cannot be passed as function arguments";
     }
   }
   return absl::OkStatus();
@@ -10281,8 +10538,8 @@ absl::Status Resolver::ResolveFunctionCallWithResolvedArguments(
     std::unique_ptr<const ResolvedExpr>* resolved_expr_out) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
-  ZETASQL_RETURN_IF_ERROR(EnsureNoMeasureTypedArguments(function, arg_locations,
-                                                resolved_arguments));
+  ZETASQL_RETURN_IF_ERROR(EnsureNoIllegallyTypedArguments(function, arg_locations,
+                                                  resolved_arguments));
 
   // Generated columns, ABSL_CHECK constraints, and expressions that are stored in an
   // index have specific limitations on VOLATILE/STABLE functions. ZetaSQL
@@ -10652,6 +10909,7 @@ absl::Status Resolver::LookupFunctionFromCatalog(
   return find_status;
 }
 
+ABSL_ATTRIBUTE_NOINLINE
 absl::Status Resolver::ResolveFunctionCallByNameWithoutAggregatePropertyCheck(
     const ASTNode* ast_location, absl::string_view function_name,
     const absl::Span<const ASTExpression* const> arguments,
@@ -10933,7 +11191,7 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   }
 
   if (function->function_options().volatility == FunctionEnums::VOLATILE) {
-    expr_resolution_info->has_volatile = true;
+    expr_resolution_info->findings.has_volatile = true;
   }
 
   // A "flatten" function allows the child to flatten.
@@ -11028,8 +11286,8 @@ absl::Status Resolver::ResolveFunctionCallImpl(
     // private aggregate function.
     absl::string_view function_type =
         function->Is<AnonFunction>()
-            ? " Anonymization / Differential Privacy Function "
-            : " Function ";
+            ? " Anonymization / Differential Privacy Function"
+            : " Function";
     return MakeSqlErrorAt(ast_function_call)
            << absl::AsciiStrToUpper(function->SQLName()) << function_type
            << " does not support GROUP BY modifiers";
@@ -11192,7 +11450,6 @@ absl::Status Resolver::ResolveFunctionCallImpl(
   // at the time of resolution, which makes constructing a correct post-grouping
   // namescope impossible.
   for (const auto& resolved_arg : resolved_arguments) {
-    std::vector<const ResolvedNode*> expression_columns;
     const ResolvedExpressionColumn* expression_column = nullptr;
     if (ContainsExpressionColumn(resolved_arg.get(), expression_column)) {
       ZETASQL_RET_CHECK(expression_column != nullptr);
@@ -11592,9 +11849,10 @@ absl::Status Resolver::ResolveWithExpr(
         });
     ZETASQL_RETURN_IF_ERROR(
         ResolveExpr(ast_expr, resolution_info.get(), resolved_expr));
-    child_has_analytic = child_has_analytic || resolution_info->has_analytic;
+    child_has_analytic =
+        child_has_analytic || resolution_info->findings.has_analytic;
     child_has_aggregation =
-        child_has_aggregation || resolution_info->has_aggregation;
+        child_has_aggregation || resolution_info->findings.has_aggregation;
     parent_expr_resolution_info->horizontal_aggregation_info =
         resolution_info->horizontal_aggregation_info;
     return absl::OkStatus();
@@ -11655,10 +11913,11 @@ absl::Status Resolver::ResolveWithExpr(
       output_expr_type, std::move(computed_columns), std::move(output_expr));
   analyzer_output_properties_.MarkRelevant(
       ResolvedASTRewrite::REWRITE_WITH_EXPR);
-  parent_expr_resolution_info->has_analytic =
-      parent_expr_resolution_info->has_analytic || child_has_analytic;
-  parent_expr_resolution_info->has_aggregation =
-      parent_expr_resolution_info->has_aggregation || child_has_aggregation;
+  parent_expr_resolution_info->findings.has_analytic =
+      parent_expr_resolution_info->findings.has_analytic || child_has_analytic;
+  parent_expr_resolution_info->findings.has_aggregation =
+      parent_expr_resolution_info->findings.has_aggregation ||
+      child_has_aggregation;
   return absl::OkStatus();
 }
 

@@ -32,8 +32,7 @@
 
 namespace zetasql {
 
-TestCatalog::~TestCatalog() {
-}
+TestCatalog::~TestCatalog() = default;
 
 absl::Status TestCatalog::GetErrorForName(absl::string_view name) const {
   const absl::Status* error =
@@ -79,7 +78,6 @@ TestFunction::TestFunction(
     const std::vector<FunctionSignature>& function_signatures)
     : Function(function_name, "TestFunction", mode, function_signatures) {}
 
-TestFunction::~TestFunction() {
-}
+TestFunction::~TestFunction() = default;
 
 }  // namespace zetasql

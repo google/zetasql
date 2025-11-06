@@ -38,7 +38,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "absl/types/span.h"
-#include "external/mstch/mstch/include/mstch/mstch.hpp"
+#include "mstch/mstch.hpp"
 #include "zetasql/base/status_macros.h"
 
 namespace zetasql {

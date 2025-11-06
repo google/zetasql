@@ -443,6 +443,156 @@ STRUCT<
 }
 ==
 
+[name=delete_with_offset_has_read_scope_in_set_clause]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
+UPDATE ArrayOfStructsTable SET
+  (UPDATE array_value WITH OFFSET SET int64_value = offset WHERE true)
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         0,
+         ARRAY<INT64>[known order:1100, 1101]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:1200, 1201]
+       }
+     ]},
+    {2,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         0,
+         ARRAY<INT64>[known order:200, 201]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:2200, 2201]
+       }
+     ]}
+  ]}
+==
+
+[name=delete_with_offset_alias_has_read_scope_in_set_clause]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
+UPDATE ArrayOfStructsTable SET
+  (UPDATE array_value WITH OFFSET as foo SET int64_value = foo WHERE true)
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         0,
+         ARRAY<INT64>[known order:1100, 1101]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:1200, 1201]
+       }
+     ]},
+    {2,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         0,
+         ARRAY<INT64>[known order:200, 201]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:2200, 2201]
+       }
+     ]}
+  ]}
+==
+
+[name=delete_with_offset_alias_and_struct_field_name_collision]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
+UPDATE ArrayOfStructsTable SET
+  # The offset column aliased as int64_value overshadows the struct field named
+  # the same in the WHERE clause, but not in the SET clause. In SET, the offset
+  # column is not in scope for writes.
+  (UPDATE array_value WITH OFFSET as int64_value SET int64_value = -999 WHERE int64_value = 1)
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         110,
+         ARRAY<INT64>[known order:1100, 1101]
+       },
+       {
+         -999,
+         ARRAY<INT64>[known order:1200, 1201]
+       }
+     ]},
+    {2,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         210,
+         ARRAY<INT64>[known order:200, 201]
+       },
+       {
+         -999,
+         ARRAY<INT64>[known order:2200, 2201]
+       }
+     ]}
+  ]}
+==
+
+[name=delete_with_offset_alias_and_struct_field_name_read_scope_collision]
+[required_features=NESTED_UPDATE_DELETE_WITH_OFFSET]
+UPDATE ArrayOfStructsTable SET
+  # The offset column aliased as int64_value overshadows the struct field named
+  # the same in the WHERE clause, and on the RHS of the SET assignment. The LHS
+  # of the assignment uses the struct field.
+  (UPDATE array_value WITH OFFSET as int64_value SET int64_value = int64_value WHERE int64_value = 1)
+WHERE array_value IS NOT NULL
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, array_value ARRAY<>>>[unknown order:
+    {1,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         110,
+         ARRAY<INT64>[known order:1100, 1101]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:1200, 1201]
+       }
+     ]},
+    {2,
+     ARRAY<STRUCT<int64_value INT64, array_value2 ARRAY<>>>[known order:
+       {
+         210,
+         ARRAY<INT64>[known order:200, 201]
+       },
+       {
+         1,
+         ARRAY<INT64>[known order:2200, 2201]
+       }
+     ]}
+  ]}
+==
+
 [name=delete_from_primary_key]
 [primary_key_mode=first_column_is_primary_key]
 [required_features=GROUP_BY_ARRAY]
@@ -2633,3 +2783,91 @@ STRUCT<
     {30, 31, ARRAY<INT64>(NULL)}
   ]
 }
+==
+
+[name=nested_dml_truncating_timestamp_positive_value]
+[required_features=TIMESTAMP_PICOS]
+UPDATE  ProtoTable
+SET proto_value.timestamp_micros = TIMESTAMP "4332-09-10 18:09:46.123456789012+00"
+WHERE true
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<
+          primary_key INT64,
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
+        >>
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       timestamp_micros: 74559377386123456
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       timestamp_micros: 74559377386123456
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}
+==
+
+[name=nested_dml_truncating_timestamp_negative_value]
+[required_features=TIMESTAMP_PICOS]
+UPDATE  ProtoTable
+SET proto_value.timestamp_micros = TIMESTAMP "1901-09-10 18:09:46.123456789012+00"
+WHERE true
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<
+          primary_key INT64,
+          proto_value PROTO<zetasql_test__.KitchenSinkPB>
+        >>
+  [unknown order:
+    {1,
+     {
+       int64_key_1: 11
+       int64_key_2: 12
+       timestamp_micros: -2155614613876544
+     }},
+    {2,
+     {
+       int64_key_1: 21
+       int64_key_2: 22
+       repeated_int64_val: 100
+       repeated_int64_val: 101
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 200
+       }
+       nested_repeated_value {
+         [zetasql_test__.KitchenSinkPB.nested_extension_int64]: 201
+       }
+       timestamp_micros: -2155614613876544
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value1"
+       }
+       [zetasql_test__.KitchenSinkExtension.repeated_extension] {
+         value: "value2"
+       }
+     }}
+  ]}

@@ -56,8 +56,6 @@ struct CompareByName {
 // Case insensitive hash table of column names.
 using ColumnNameSet =
     absl::flat_hash_set<IdString, IdStringCaseHash, IdStringCaseEqualFunc>;
-using ColumnNameIdxMap =
-    absl::flat_hash_map<IdString, int, IdStringCaseHash, IdStringCaseEqualFunc>;
 
 // Note that PropertySet and ElementTableSet are ordered because of the file
 // based analyzer tests, which performs a text based comparison and thus
@@ -802,38 +800,71 @@ class GraphTableQueryResolver {
     // - only has `op_type` and `all_or_distinct` in parsed metadata.
     absl::Status ValidateGqlSetOperation(const ASTGqlSetOperation& set_op);
 
-    // Returns a list of input argument types according to column order defined
-    // in `first_query_column_name_idx_map`.
+    // Returns a list of input argument types.
+    // `resolved_inputs`: The resolved input queries for the set operation.
+    // `final_column_num`: The number of columns in the output of the set
+    // operation.
+    // `index_mapper`: Two way mapping between columns from each input query and
+    // the final output columns.
     absl::StatusOr<std::vector<std::vector<InputArgumentType>>>
     BuildColumnTypeLists(
         absl::Span<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
             resolved_inputs,
-        const ColumnNameIdxMap& first_query_column_name_idx_map);
+        int final_column_num, const IndexMapper& index_mapper) const;
 
     // Builds a list of set operation items.
     absl::StatusOr<std::vector<std::unique_ptr<const ResolvedSetOperationItem>>>
     BuildSetOperationItems(
         absl::Span<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
             resolved_inputs,
-        const ResolvedColumnList& target_column_list,
-        const ColumnNameIdxMap& column_name_idx_map);
+        const ResolvedColumnList& final_column_list,
+        const IndexMapper& index_mapper);
 
-    // Wraps a type cast scan to the last scan of graph linear scan if needed.
+    // Wraps a type cast scan to the last scan of graph linear scan if needed
+    // and then wraps a null-padded scan to the last scan of graph linear scan
+    // if needed.
+    //
     // `ast_location` is the AST location for error message.
     // `resolved_input` includes the resolved graph linear scan and the
     //     corresponding namelists.
     // `query_idx` is the index of the query in the set operation.
-    // `target_column_list` is the output column list.
-    // `column_name_idx_map` is a map of the column name to its index in output
-    //     column list.
+    // `final_column_list` is the output column list.
+    // `index_mapper` is two way mapping between columns from each input query
+    //     and the final output columns.
     absl::StatusOr<std::unique_ptr<const ResolvedGraphLinearScan>>
-    MaybeWrapTypeCastScan(
+    MaybeTypeCastAndWrapWithNullPaddedProjectScan(
         const ASTSelect* ast_location,
         ResolvedGraphWithNameList<const ResolvedGraphLinearScan> resolved_input,
-        int query_idx, const ResolvedColumnList& target_column_list,
-        const ColumnNameIdxMap& column_name_idx_map);
+        int query_idx, const ResolvedColumnList& final_column_list,
+        const IndexMapper& index_mapper);
+
+    // Returns the final column names of the set operation based on the
+    // `column_propagation_mode`.
+    //
+    // For LEFT / STRICT mode, returns the column names from the first input.
+    // For INNER mode, returns the intersection of column names from all inputs.
+    // For FULL mode, returns union of column names from all inputs.
+    //
+    // This function also validates that:
+    // - If `column_propagation_mode` is INNER, the intersection of column names
+    // from all inputs must not be empty.
+    // - If `column_propagation_mode` is STRICT, all column name set from
+    // different inputs should be the same.
+    absl::StatusOr<std::vector<IdString>> GetFinalColumnNames(
+        const std::vector<ResolvedGraphWithNameList<
+            const ResolvedGraphLinearScan>>& resolved_inputs,
+        absl::Span<IndexedColumnNames> indexed_column_names_list,
+        ResolvedSetOperationScan::SetOperationColumnPropagationMode
+            column_propagation_mode,
+        const ASTNode* error_location);
 
    private:
+    // Converts a list of resolved inputs to a list of IndexedColumnNames.
+    static std::vector<IndexedColumnNames> ToIndexedColumnNamesList(
+        absl::Span<
+            const ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
+            resolved_inputs);
+
     const ASTGqlSetOperation& node_;
     GraphTableQueryResolver* graph_resolver_;
   };

@@ -248,43 +248,32 @@ absl::Status GetBuiltinFunctionsAndTypes(
   GetEncryptionFunctions(&type_factory, options, &functions);
   GetGeographyFunctions(&type_factory, options, &functions);
   GetCompressionFunctions(&type_factory, options, &functions);
-
-  // TODO: Move language feature checks to function declarations.
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_ANONYMIZATION)) {
-    GetAnonFunctions(&type_factory, options, &functions);
-  }
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_DIFFERENTIAL_PRIVACY)) {
-    ZETASQL_RETURN_IF_ERROR(GetDifferentialPrivacyFunctions(&type_factory, options,
-                                                    &functions, &types));
-  }
+  GetAnonFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(GetDifferentialPrivacyFunctions(&type_factory, options,
+                                                  &functions, &types));
   GetTypeOfFunction(&type_factory, options, &functions);
   GetFilterFieldsFunction(&type_factory, options, &functions);
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE)) {
-    GetRangeFunctions(&type_factory, options, &functions);
-  }
+  GetRangeFunctions(&type_factory, options, &functions);
   GetArraySlicingFunctions(&type_factory, options, &functions);
   GetArrayFilteringFunctions(&type_factory, options, &functions);
   GetArrayTransformFunctions(&type_factory, options, &functions);
   GetArrayIncludesFunctions(&type_factory, options, &functions);
   GetElementWiseAggregationFunctions(&type_factory, options, &functions);
-  if (options.language_options.LanguageFeatureEnabled(
-          FEATURE_ARRAY_FIND_FUNCTIONS)) {
-    ZETASQL_RETURN_IF_ERROR(
-        GetArrayFindFunctions(&type_factory, options, &functions, &types));
-  }
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_ARRAY_ZIP)) {
-    ZETASQL_RETURN_IF_ERROR(
-        GetArrayZipFunctions(&type_factory, options, &functions, &types));
-  }
+  ZETASQL_RETURN_IF_ERROR(
+      GetArrayFindFunctions(&type_factory, options, &functions, &types));
+  ZETASQL_RETURN_IF_ERROR(
+      GetArrayZipFunctions(&type_factory, options, &functions, &types));
   ZETASQL_RETURN_IF_ERROR(
       GetStandaloneBuiltinEnumTypes(&type_factory, options, &types));
-  if (options.language_options.LanguageFeatureEnabled(FEATURE_SQL_GRAPH)) {
-    GetGraphFunctions(&type_factory, options, &functions);
-  }
+  GetGraphFunctions(&type_factory, options, &functions);
   GetMapCoreFunctions(&type_factory, options, &functions);
   GetMeasureFunctions(&type_factory, options, &functions);
   GetMatchRecognizeFunctions(&type_factory, options, &functions);
+  ZETASQL_RETURN_IF_ERROR(GetVectorSearchTableValuedFunctions(&type_factory, options,
+                                                      &table_valued_functions));
+  ZETASQL_RETURN_IF_ERROR(GetTimeSeriesTableValuedFunctions(&type_factory, options,
+                                                    &table_valued_functions));
+
   return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);
 }
 

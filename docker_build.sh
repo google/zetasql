@@ -19,9 +19,6 @@ set -x
 
 MODE=$1
 
-CC=/usr/bin/gcc
-CXX=/usr/bin/g++
-
 if [ "$MODE" = "build" ]; then
   # Build everything.
   bazel build ${BAZEL_ARGS} -c opt ...

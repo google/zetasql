@@ -147,12 +147,6 @@ class FunctionResolver {
       const TemplatedSQLFunction& function, const absl::Status& status,
       ErrorMessageOptions options);
 
-  // Returns a new error message reporting a failure parsing or analyzing the
-  // SQL body. If 'message' is not empty, appends it to the end of the error
-  // string.
-  static absl::Status MakeFunctionExprAnalysisError(
-      const TemplatedSQLFunction& function, absl::string_view message = "");
-
   // Converts <argument> to <target_type> and replaces <argument> with the new
   // expression if successful. If <argument> is a converted literal and
   // <set_has_explicit_type> is true, then the new ResolvedLiteral is marked as

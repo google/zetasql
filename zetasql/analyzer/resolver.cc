@@ -67,7 +67,6 @@
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/property_graph.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
@@ -79,6 +78,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/type_parameters.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -304,8 +304,8 @@ absl::Status Resolver::ResolveStandaloneExpr(
   }
 
   if (analyzer_options_.allow_aggregate_standalone_expression()) {
-    std::unique_ptr<QueryResolutionInfo> query_resolution_info(
-        new QueryResolutionInfo(this));
+    std::unique_ptr<QueryResolutionInfo> query_resolution_info =
+        std::make_unique<QueryResolutionInfo>(this);
     auto expr_resolution_info = std::make_unique<ExprResolutionInfo>(
         query_resolution_info.get(), empty_name_scope_.get(),
         ExprResolutionInfoOptions{.allows_aggregation = true,
@@ -1154,8 +1154,8 @@ absl::Status Resolver::ResolveAnonymizationOptionsList(
     const QueryResolutionInfo& query_resolution_info,
     std::vector<std::unique_ptr<const ResolvedOption>>* resolved_options) {
   const HintOrOptionType option_type =
-      query_resolution_info.select_with_mode() ==
-              SelectWithMode::DIFFERENTIAL_PRIVACY
+      query_resolution_info.with_modifier_mode() ==
+              WithModifierMode::DIFFERENTIAL_PRIVACY
           ? HintOrOptionType::DifferentialPrivacyOption
           : HintOrOptionType::AnonymizationOption;
   const char* option_type_name =
@@ -2161,8 +2161,10 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
 
     const std::vector<int>* column_index_list = nullptr;
     if (scan_node->node_kind() == RESOLVED_TABLE_SCAN) {
-      column_index_list =
-          &scan->GetAs<ResolvedTableScan>()->column_index_list();
+      const auto* table_scan = scan->GetAs<ResolvedTableScan>();
+      if (!table_scan->read_as_row_type()) {
+        column_index_list = &table_scan->column_index_list();
+      }
     } else if (scan_node->node_kind() == RESOLVED_TVFSCAN) {
       column_index_list = &scan->GetAs<ResolvedTVFScan>()->column_index_list();
     }
@@ -2406,7 +2408,7 @@ absl::Status Resolver::ValidateAndResolveCollate(
 absl::StatusOr<absl::string_view> Resolver::GetSQLForASTNode(
     const ASTNode* node) {
   ZETASQL_RET_CHECK(node != nullptr);
-  const ParseLocationRange& range = node->GetParseLocationRange();
+  const ParseLocationRange& range = node->location();
   ZETASQL_RET_CHECK(range.start().IsValid());
   ZETASQL_RET_CHECK(range.end().IsValid());
   ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
@@ -2497,6 +2499,15 @@ const FunctionArgumentInfo::ArgumentDetails* FunctionArgumentInfo::FindArg(
     return nullptr;
   }
   return details_.at(index).get();
+}
+
+void Resolver::MaybeRecordResolvedNodeOperatorKeywordLocation(
+    const ASTNode* ast_node, ResolvedNode* resolved_node) const {
+  if (ast_node != nullptr && analyzer_options_.parse_location_record_type() ==
+                                 PARSE_LOCATION_RECORD_FULL_NODE_SCOPE) {
+    resolved_node->SetOperatorKeywordLocationRange(
+        ast_node->operator_keyword_location());
+  }
 }
 
 }  // namespace zetasql

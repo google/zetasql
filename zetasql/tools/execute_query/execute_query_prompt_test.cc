@@ -180,21 +180,12 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
 
           {.ret = "SELECT\nsomething;"},
 
-          // Missing whitespace between literal and alias
-          {.ret = "SELECT 1x;"},
-
           {.ret = "DROP TABLE MyTable;"},
 
           // Just some whitespace
           {.ret = "\n"},
           {.ret = "\t"},
           {.ret = ""},
-
-          // Missing whitespace between literal and alias
-          {.ret = "SELECT"},
-          {.ret = " (", .want_continuation = true},
-          {.ret = "\"\"), 1", .want_continuation = true},
-          {.ret = "x);\n", .want_continuation = true},
 
           {.ret = std::nullopt},
       },
@@ -206,19 +197,7 @@ TEST(ExecuteQueryStatementPrompt, FaultyMixedWithValid) {
                   text: "\";\nSELECT 123;"
                 )pb"))),
           IsOkAndHolds("SELECT\nsomething;"),
-          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
-                         HasSubstr(
-                             ": Missing whitespace between literal and alias")),
-                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
-                  text: "SELECT 1x;"
-                )pb"))),
           IsOkAndHolds("DROP TABLE MyTable;"),
-          AllOf(StatusIs(absl::StatusCode::kInvalidArgument,
-                         HasSubstr(
-                             ": Missing whitespace between literal and alias")),
-                StatusHasPayload<ParserErrorContext>(EqualsProto(R"pb(
-                  text: "SELECT (\"\"), 1x);"
-                )pb"))),
           IsOkAndHolds(std::nullopt),
       });
 }

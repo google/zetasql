@@ -69,7 +69,7 @@ class AnnotationMap {
 
   AnnotationMap(const AnnotationMap&) = delete;
   AnnotationMap& operator=(const AnnotationMap&) = delete;
-  virtual ~AnnotationMap() {}
+  virtual ~AnnotationMap() = default;
 
   // Sets annotation value for given AnnotationSpec ID, overwriting existing
   // value if it exists.
@@ -393,7 +393,7 @@ class ResolvedRecursiveScan;
 //
 class AnnotationSpec {
  public:
-  virtual ~AnnotationSpec() {}
+  virtual ~AnnotationSpec() = default;
 
   // Returns a unique ID for this kind of annotation.
   // For zetasql AnnotationSpecs, the returned ID should be the same as the

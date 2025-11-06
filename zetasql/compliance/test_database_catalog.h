@@ -35,6 +35,7 @@
 #include "absl/status/status.h"
 #include "absl/types/span.h"
 #include "google/protobuf/compiler/importer.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 
@@ -42,21 +43,18 @@ namespace zetasql {
 // LanguageOptions.
 class TestDatabaseCatalog {
  public:
-  explicit TestDatabaseCatalog(TypeFactory* type_factory);
-
   SimpleCatalog* catalog() const { return catalog_.get(); }
-  // Creates a catalog from `test_db` and preloads types and functions. This
-  // method is to support analyzing randomly generating ZetaSQL measure
-  // expressions. In general, users should refrain from using this method
-  // and use `SetTestDatabase` instead.
-  absl::Status CreateCatalogAndPreloadTypesAndFunctions(
-      const TestDatabase& test_db);
-  absl::Status SetTestDatabase(const TestDatabase& test_db);
+
+  absl::Status SetTestDatabase(const TestDatabaseProto& test_db_proto);
   absl::Status SetLanguageOptions(const LanguageOptions& language_options);
   // Populate the `table_as_value_with_measures` field for all tables with
   // measure columns in `test_db`.
   absl::Status AddTablesWithMeasures(const TestDatabase& test_db,
                                      const LanguageOptions& language_options);
+
+  // Add UDFs and UDAs referenced by measure definitions to the catalog
+  absl::Status AddUdfsForMeasureDefinitions(
+      const TestDatabase& test_db, const LanguageOptions& language_options);
 
   absl::Status IsInitialized() const;
 
@@ -72,9 +70,23 @@ class TestDatabaseCatalog {
   absl::Status GetTables(absl::flat_hash_set<const Table*>* output) const;
   absl::Status GetTypes(absl::flat_hash_set<const Type*>* output) const;
 
-  google::protobuf::compiler::Importer* importer() const { return importer_.get(); }
+  const google::protobuf::DescriptorPool* descriptor_pool() const {
+    return importer_->importer()->pool();
+  }
+
+  TypeFactory* type_factory() const { return type_factory_.get(); }
+
+  std::vector<std::unique_ptr<const AnalyzerOutput>>& sql_object_artifacts() {
+    return sql_object_artifacts_;
+  }
 
  private:
+  ABSL_DEPRECATED(
+      "DO NOT USE THIS. USED ONLY FOR AN EXTERNAL LEGACY TEST"
+      "WHICH IS USING FAKE IN-MEMORY DESCRIPTORS")
+  absl::Status SetTestDatabaseWithLeakyDescriptors(const TestDatabase& test_db);
+  friend class ReferenceDriver;
+
   class BuiltinFunctionCache {
    public:
     ~BuiltinFunctionCache();
@@ -97,15 +109,14 @@ class TestDatabaseCatalog {
 
   // Only true after `SetTestDatabase` is called.
   bool is_initialized_ = false;
-  std::vector<std::string> errors_;
-  std::unique_ptr<google::protobuf::compiler::SourceTree> proto_source_tree_;
-  std::unique_ptr<google::protobuf::compiler::MultiFileErrorCollector>
-      proto_error_collector_;
-  std::unique_ptr<google::protobuf::compiler::Importer> importer_;
-  std::unique_ptr<BuiltinFunctionCache> function_cache_;
+  std::unique_ptr<ProtoImporter> importer_;
+  std::unique_ptr<BuiltinFunctionCache> function_cache_ =
+      std::make_unique<BuiltinFunctionCache>();
   std::unique_ptr<SimpleCatalog> catalog_;
-  TypeFactory* type_factory_;
-  std::vector<std::unique_ptr<const AnalyzerOutput>> analyzed_measure_outputs_;
+  std::unique_ptr<TypeFactory> type_factory_ = std::make_unique<TypeFactory>();
+  // Holds the analyzer outputs for measure definitions as well as UDFs and UDAs
+  // needed for measure definitions.
+  std::vector<std::unique_ptr<const AnalyzerOutput>> sql_object_artifacts_;
 };
 
 }  // namespace zetasql

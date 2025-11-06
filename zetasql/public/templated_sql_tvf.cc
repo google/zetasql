@@ -64,12 +64,14 @@ namespace zetasql {
 absl::Status TemplatedSQLTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
+  ZETASQL_RETURN_IF_ERROR(
+      TableValuedFunction::Serialize(file_descriptor_set_map, proto));
   proto->set_type(FunctionEnums::TEMPLATED_SQL_TVF);
   for (const std::string& arg_name : GetArgumentNames()) {
     proto->add_argument_name(arg_name);
   }
   parse_resume_location_.Serialize(proto->mutable_parse_resume_location());
-  return TableValuedFunction::Serialize(file_descriptor_set_map, proto);
+  return absl::OkStatus();
 }
 
 // static
@@ -126,8 +128,7 @@ absl::Status TemplatedSQLTVF::Resolve(
   // Check if this function calls itself. If so, return an error. Otherwise, add
   // a pointer to this class to the cycle detector in the analyzer options.
   CycleDetector::ObjectInfo object(
-      FullName(), this,
-      analyzer_options->find_options().cycle_detector());
+      FullName(), this, analyzer_options->find_options().cycle_detector());
   // TODO: Attach proper error locations to the returned Status.
   ZETASQL_RETURN_IF_ERROR(object.DetectCycle("table function"));
 

@@ -405,9 +405,11 @@ cc_library(
         "//zetasql/public:analyzer_output_properties",
         "//zetasql/public:builtin_function_cc_proto",
         "//zetasql/public:catalog",
+        "//zetasql/public:function_headers",
         "//zetasql/public:rewriter_interface",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:column_factory",
         "//zetasql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
@@ -587,6 +589,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/public:with_modifier_mode",
         "//zetasql/public/functions:differential_privacy_cc_proto",
         "//zetasql/public/types",
         "//zetasql/resolved_ast",
@@ -754,6 +757,22 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "subpipeline_stmt_rewriter",
+    srcs = ["subpipeline_stmt_rewriter.cc"],
+    hdrs = ["subpipeline_stmt_rewriter.h"],
+    deps = [
+        ":rewrite_subpipeline",
+        "//zetasql/base:check",
+        "//zetasql/base:status",
+        "//zetasql/public:rewriter_interface",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:resolved_ast_builder",
+        "//zetasql/resolved_ast:resolved_node_kind_cc_proto",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 

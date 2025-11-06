@@ -132,11 +132,11 @@ FROM (
   SELECT 5 AS col1
 );
 
-/*------------*
+/*------------+
  | scaled_sum |
  +------------+
  | 4.5        |
- *------------*/
+ +------------*/
 ```
 
 ## Templated function parameters

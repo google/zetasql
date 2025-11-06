@@ -310,3 +310,21 @@ hr {
   background-color: #ff5;
   outline: 1px solid #ffa500;
 }
+
+.ast-col.highlighted-sticky-suspended {
+  background-color: #ffff5522;
+  outline: 1px solid #ffa50044;
+}
+
+/* For highlighting the source column when you hover over a column ID node. */
+.ast-col-src .ast-col.highlighted,
+.ast-col-src .ast-col.highlighted-sticky{
+  background-color: #5f5;
+  outline: 1px solid #0f0;
+}
+
+.ast-col-src .ast-col.highlighted-sticky-suspended {
+  background-color: #55ff5522;
+  outline: 1px solid #00ff0044;
+}
+

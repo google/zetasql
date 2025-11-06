@@ -124,10 +124,14 @@ std::string TableValuedFunction::GetSupportedSignaturesUserFacingText(
     bool print_template_and_name_details) const {
   std::string supported_signatures;
   for (const FunctionSignature& signature : signatures()) {
-    absl::StrAppend(
-        &supported_signatures, (!supported_signatures.empty() ? "; " : ""),
-        GetSignatureUserFacingText(signature, language_options,
-                                   print_template_and_name_details));
+    // Ignore signatures that should be hidden from the supported signature
+    // list.
+    if (!signature.HideInSupportedSignatureList(language_options)) {
+      absl::StrAppend(
+          &supported_signatures, (!supported_signatures.empty() ? "; " : ""),
+          GetSignatureUserFacingText(signature, language_options,
+                                     print_template_and_name_details));
+    }
   }
   return supported_signatures;
 }
@@ -249,6 +253,8 @@ absl::Status TableValuedFunction::Serialize(
   for (const std::string& name : function_name_path()) {
     proto->add_name_path(name);
   }
+  proto->set_group(group_);
+  proto->set_type(FunctionEnums::BASIS_TVF);
   ZETASQL_RET_CHECK_GE(NumSignatures(), 1);
   for (const FunctionSignature& signature : signatures()) {
     ZETASQL_RETURN_IF_ERROR(
@@ -288,6 +294,31 @@ static std::vector<TableValuedFunction::TVFDeserializer>* TvfDeserializers() {
   return tvf_deserializers;
 }
 
+namespace {
+absl::StatusOr<std::vector<FunctionSignature>> DeserializeSignatures(
+    const TableValuedFunctionProto& proto,
+    const TypeDeserializer& type_deserializer) {
+  ZETASQL_RET_CHECK(proto.signatures_size() > 0 || proto.has_signature());
+  // Use the signatures field if set. Otherwise deserialize the single singature
+  // from the signature field.
+  std::vector<FunctionSignature> signatures;
+  if (proto.signatures_size() > 0) {
+    for (const FunctionSignatureProto& signature_proto : proto.signatures()) {
+      ZETASQL_ASSIGN_OR_RETURN(
+          std::unique_ptr<FunctionSignature> signature,
+          FunctionSignature::Deserialize(signature_proto, type_deserializer));
+      signatures.push_back(*signature);
+    }
+  } else {
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<FunctionSignature> signature,
+        FunctionSignature::Deserialize(proto.signature(), type_deserializer));
+    signatures.push_back(*signature);
+  }
+  return signatures;
+}
+}  // namespace
+
 // static
 absl::Status TableValuedFunction::Deserialize(
     const TableValuedFunctionProto& proto,
@@ -296,10 +327,29 @@ absl::Status TableValuedFunction::Deserialize(
   auto tvf_name = [proto]() { return absl::StrJoin(proto.name_path(), "."); };
   ZETASQL_RET_CHECK(proto.has_type()) << tvf_name();
   ZETASQL_RET_CHECK_NE(FunctionEnums::INVALID, proto.type()) << tvf_name();
-  TableValuedFunction::TVFDeserializer deserializer =
-      (*TvfDeserializers())[proto.type()];
-  ZETASQL_RET_CHECK(deserializer != nullptr) << tvf_name();
-  return deserializer(proto, type_deserializer, result);
+  // Deserialize here if type is `BASIS_TVF` otherwise dispatch to corresponding
+  // class.
+  if (proto.type() == FunctionEnums::BASIS_TVF) {
+    std::vector<std::string> path;
+    for (const std::string& name : proto.name_path()) {
+      path.push_back(name);
+    }
+    ZETASQL_ASSIGN_OR_RETURN(std::vector<FunctionSignature> signatures,
+                     DeserializeSignatures(proto, type_deserializer));
+
+    std::unique_ptr<TableValuedFunctionOptions> options;
+    ZETASQL_RETURN_IF_ERROR(
+        TableValuedFunctionOptions::Deserialize(proto.options(), &options));
+
+    *result = std::make_unique<TableValuedFunction>(path, proto.group(),
+                                                    signatures, *options);
+  } else {
+    TableValuedFunction::TVFDeserializer deserializer =
+        (*TvfDeserializers())[proto.type()];
+    ZETASQL_RET_CHECK(deserializer != nullptr) << tvf_name();
+    ZETASQL_RETURN_IF_ERROR(deserializer(proto, type_deserializer, result));
+  }
+  return absl::OkStatus();
 }
 
 // static
@@ -356,11 +406,11 @@ absl::Status TableValuedFunction::Resolve(
   ZETASQL_RET_CHECK(tvf_options_.compute_result_type_callback != nullptr)
       << "TableValuedFunctionOptions compute_result_type_callback is not set, "
          "output signature couldn't be calculated";
-  ZETASQL_ASSIGN_OR_RETURN(TVFSignature * result_type,
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TVFSignature> result_type,
                    tvf_options_.compute_result_type_callback(
                        catalog, type_factory, concrete_signature,
                        actual_arguments, *analyzer_options));
-  output_tvf_signature->reset(result_type);
+  *output_tvf_signature = std::move(result_type);
 
   return absl::OkStatus();
 }
@@ -512,31 +562,6 @@ std::string TVFDescriptorArgument::DebugString() const {
 
 std::string TVFGraphArgument::DebugString() const { return "ANY GRAPH"; }
 
-namespace {
-absl::StatusOr<std::vector<FunctionSignature>> DeserializeSignatures(
-    const TableValuedFunctionProto& proto,
-    const TypeDeserializer& type_deserializer) {
-  ZETASQL_RET_CHECK(proto.signatures_size() > 0 || proto.has_signature());
-  // Use the signatures field if set. Otherwise deserialize the single singature
-  // from the signature field.
-  std::vector<FunctionSignature> signatures;
-  if (proto.signatures_size() > 0) {
-    for (const FunctionSignatureProto& signature_proto : proto.signatures()) {
-      ZETASQL_ASSIGN_OR_RETURN(
-          std::unique_ptr<FunctionSignature> signature,
-          FunctionSignature::Deserialize(signature_proto, type_deserializer));
-      signatures.push_back(*signature);
-    }
-  } else {
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<FunctionSignature> signature,
-        FunctionSignature::Deserialize(proto.signature(), type_deserializer));
-    signatures.push_back(*signature);
-  }
-  return signatures;
-}
-}  // namespace
-
 absl::Status FixedOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
@@ -544,8 +569,10 @@ absl::Status FixedOutputSchemaTVF::Serialize(
   // custom context. Currently the result schema is ignored while serialization
   // and the deserializer uses the schema from result_type of the
   // FunctionSignature.
+  ZETASQL_RETURN_IF_ERROR(
+      TableValuedFunction::Serialize(file_descriptor_set_map, proto));
   proto->set_type(FunctionEnums::FIXED_OUTPUT_SCHEMA_TVF);
-  return TableValuedFunction::Serialize(file_descriptor_set_map, proto);
+  return absl::OkStatus();
 }
 
 // static
@@ -605,8 +632,10 @@ absl::Status FixedOutputSchemaTVF::Resolve(
 absl::Status ForwardInputSchemaToOutputSchemaTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
+  ZETASQL_RETURN_IF_ERROR(
+      TableValuedFunction::Serialize(file_descriptor_set_map, proto));
   proto->set_type(FunctionEnums::FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF);
-  return TableValuedFunction::Serialize(file_descriptor_set_map, proto);
+  return absl::OkStatus();
 }
 
 // static
@@ -673,9 +702,8 @@ absl::Status ForwardInputSchemaToOutputSchemaTVF::CheckIsValid() const {
 absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Serialize(
     FileDescriptorSetMap* file_descriptor_set_map,
     TableValuedFunctionProto* proto) const {
-  proto->set_type(
-      FunctionEnums::
-          FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS);
+  ZETASQL_RETURN_IF_ERROR(
+      TableValuedFunction::Serialize(file_descriptor_set_map, proto));
   if (!extra_columns_.empty()) {
     TVFRelationProto relation_proto;
     for (const TVFSchemaColumn& column : extra_columns_) {
@@ -686,7 +714,10 @@ absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Serialize(
     }
     proto->set_custom_context(relation_proto.SerializeAsString());
   }
-  return TableValuedFunction::Serialize(file_descriptor_set_map, proto);
+  proto->set_type(
+      FunctionEnums::
+          FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_WITH_APPENDED_COLUMNS);
+  return absl::OkStatus();
 }
 
 absl::Status ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF::Resolve(

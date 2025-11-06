@@ -204,7 +204,7 @@ CREATE TABLE FUNCTION foo_tvf(table_arg table<a int64>) AS
 SELECT anon_count(*) AS anon_count
 FROM table_arg;
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 3:6]
+Rewrite ERROR: Unsupported scan type inside of ANONYMIZATION clause: ResolvedRelationArgumentScan [at 3:6]
 FROM table_arg;
      ^
 --
@@ -334,7 +334,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
     anon_count(*) AS anon_count
 FROM table_arg
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 5:6]
+Rewrite ERROR: Unsupported scan type inside of ANONYMIZATION clause: ResolvedRelationArgumentScan [at 5:6]
 FROM table_arg
      ^
 --
@@ -420,7 +420,7 @@ SELECT WITH ANONYMIZATION OPTIONS(epsilon=(e), k_threshold=(k))
     anon_count(*) AS anon_count
 FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedRelationArgumentScan [at 5:6]
+Rewrite ERROR: Unsupported scan type inside of ANONYMIZATION clause: ResolvedRelationArgumentScan [at 5:6]
 FROM table_arg JOIN SimpleTypesWithAnonymizationUid t ON (table_arg.a = t.uid)
      ^
 --

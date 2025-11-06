@@ -32,7 +32,7 @@ select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_grou
 --
 
 
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, DOUBLE, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator COUNT in DIFFERENTIAL_PRIVACY context for argument types: STRING, DOUBLE, STRUCT<INT64, INT64>
   Signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Signature accepts at most 2 arguments, found 3 arguments [at 1:34]
 select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_g...
@@ -44,7 +44,7 @@ select with differential_privacy COUNT(string, 1.0, contribution_bounds_per_g...
 select with differential_privacy COUNT(string, 1.0, string, contriubtion_bounds_per_group => (0, 1)), COUNT(*, 1.0, string, contribution_bounds_per_group => (0, 1)) from SimpleTypes
 --
 
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, DOUBLE, STRING, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator COUNT in DIFFERENTIAL_PRIVACY context for argument types: STRING, DOUBLE, STRING, STRUCT<INT64, INT64>
   Signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `contriubtion_bounds_per_group` does not exist in signature [at 1:34]
 select with differential_privacy COUNT(string, 1.0, string, contriubtion_boun...
@@ -56,7 +56,7 @@ select with differential_privacy COUNT(string, 1.0, string, contriubtion_boun...
 select with differential_privacy COUNT(string, (0, 1)) from SimpleTypes
 --
 
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator COUNT in DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
   Signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Positional argument at 2 is invalid because argument `contribution_bounds_per_group` can only be referred to by name [at 1:34]
 select with differential_privacy COUNT(string, (0, 1)) from SimpleTypes
@@ -68,7 +68,7 @@ select with differential_privacy COUNT(string, (0, 1)) from SimpleTypes
 select with differential_privacy COUNT() from SimpleTypes
 --
 
-ERROR: No matching signature for aggregate operator COUNT in SELECT WITH DIFFERENTIAL_PRIVACY context with no arguments
+ERROR: No matching signature for aggregate operator COUNT in DIFFERENTIAL_PRIVACY context with no arguments
   Signature: COUNT(T2, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Signature requires at least 1 argument, found 0 arguments [at 1:34]
 select with differential_privacy COUNT() from SimpleTypes
@@ -173,7 +173,7 @@ ALTERNATION GROUP: 0,"def"
 --
 
 
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>
+ERROR: No matching signature for aggregate operator COUNT(*) in DIFFERENTIAL_PRIVACY context for argument types: STRUCT<INT64, STRING>
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `contribution_bounds_per_group`: Unable to coerce type STRUCT<INT64, STRING> to expected type STRUCT<INT64, INT64> [at 1:34]
 select with differential_privacy COUNT(*, contribution_bounds_per_group => (0...
@@ -182,7 +182,7 @@ select with differential_privacy COUNT(*, contribution_bounds_per_group => (0...
 ALTERNATION GROUP: "abc",1
 --
 
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<STRING, INT64>
+ERROR: No matching signature for aggregate operator COUNT(*) in DIFFERENTIAL_PRIVACY context for argument types: STRUCT<STRING, INT64>
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `contribution_bounds_per_group`: Unable to coerce type STRUCT<STRING, INT64> to expected type STRUCT<INT64, INT64> [at 1:34]
 select with differential_privacy COUNT(*, contribution_bounds_per_group => ("...
@@ -191,7 +191,7 @@ select with differential_privacy COUNT(*, contribution_bounds_per_group => ("...
 ALTERNATION GROUP: "abc","def"
 --
 
-ERROR: No matching signature for aggregate operator COUNT(*) in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRUCT<STRING, STRING>
+ERROR: No matching signature for aggregate operator COUNT(*) in DIFFERENTIAL_PRIVACY context for argument types: STRUCT<STRING, STRING>
   Signature: COUNT(*, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `contribution_bounds_per_group`: Unable to coerce type STRUCT<STRING, STRING> to expected type STRUCT<INT64, INT64> [at 1:34]
 select with differential_privacy COUNT(*, contribution_bounds_per_group => ("...
@@ -261,7 +261,7 @@ QueryStmt
 [language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS]
 select with differential_privacy SUM(string, contribution_bounds_per_group => (0, 1)) from SimpleTypes
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Argument 1: Unable to coerce type STRING to expected type INT64
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -276,7 +276,7 @@ select with differential_privacy SUM(string, contribution_bounds_per_group =>...
 [language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS]
 select with differential_privacy AVG(string, contribution_bounds_per_group => (0, 1)) from SimpleTypes
 --
-ERROR: No matching signature for aggregate operator AVG in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator AVG in DIFFERENTIAL_PRIVACY context for argument types: STRING, STRUCT<INT64, INT64>
   Signature: AVG(DOUBLE, [contribution_bounds_per_group => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Argument 1: Unable to coerce type STRING to expected type DOUBLE [at 1:34]
 select with differential_privacy AVG(string, contribution_bounds_per_group =>...
@@ -527,7 +527,7 @@ QueryStmt
 select with differential_privacy VAR_POP(double_array)
 from ArrayWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator VAR_POP in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>
+ERROR: No matching signature for aggregate operator VAR_POP in DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>
   Signature: VAR_POP(DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:34]
 select with differential_privacy VAR_POP(double_array)
@@ -540,7 +540,7 @@ select with differential_privacy VAR_POP(double_array)
 select with differential_privacy STDDEV_POP(double_array)
 from ArrayWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator STDDEV_POP in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>
+ERROR: No matching signature for aggregate operator STDDEV_POP in DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>
   Signature: STDDEV_POP(DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:34]
 select with differential_privacy STDDEV_POP(double_array)
@@ -553,7 +553,7 @@ select with differential_privacy STDDEV_POP(double_array)
 select with differential_privacy PERCENTILE_CONT(double_array, 0.4)
 from ArrayWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>, DOUBLE
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>, DOUBLE
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type DOUBLE [at 1:34]
 select with differential_privacy PERCENTILE_CONT(double_array, 0.4)
@@ -567,7 +567,7 @@ select with differential_privacy PERCENTILE_CONT(double)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Signature requires at least 2 arguments, found 1 argument [at 1:34]
 select with differential_privacy PERCENTILE_CONT(double)
@@ -580,7 +580,7 @@ select with differential_privacy PERCENTILE_CONT(double, double, double)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE, DOUBLE
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE, DOUBLE
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Positional argument at 3 is invalid because argument `contribution_bounds_per_row` can only be referred to by name [at 1:34]
 select with differential_privacy PERCENTILE_CONT(double, double, double)
@@ -603,7 +603,7 @@ select with differential_privacy PERCENTILE_CONT(double, 1.5, 1.5)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE, DOUBLE
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE, DOUBLE
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Positional argument at 3 is invalid because argument `contribution_bounds_per_row` can only be referred to by name [at 1:34]
 select with differential_privacy PERCENTILE_CONT(double, 1.5, 1.5)
@@ -616,7 +616,7 @@ select with differential_privacy PERCENTILE_CONT(double)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Signature requires at least 2 arguments, found 1 argument [at 1:34]
 select with differential_privacy PERCENTILE_CONT(double)
@@ -629,7 +629,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, DOUBLE, DOUBLE, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: INT64, DOUBLE, DOUBLE, STRUCT<INT64, INT64>
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     PERCENTILE_CONT(int64, 0.4, 0.4, contribution_bounds_per_group => (2, 3))
@@ -642,7 +642,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, INT64>
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     PERCENTILE_CONT(int64, contribution_bounds_per_group => (2, 3))
@@ -654,7 +654,7 @@ select with differential_privacy
     PERCENTILE_CONT(int64, double, contribution_bounds_per_group => (2, 3))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator PERCENTILE_CONT in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, DOUBLE, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator PERCENTILE_CONT in DIFFERENTIAL_PRIVACY context for argument types: INT64, DOUBLE, STRUCT<INT64, INT64>
   Signature: PERCENTILE_CONT(DOUBLE, DOUBLE, [contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     PERCENTILE_CONT(int64, double, contribution_bounds_per_group => (2, 3))
@@ -689,7 +689,7 @@ ERROR: Syntax error: Expected ")" but got identifier "contribution_bounds_per_gr
 select with differential_privacy APPROX_QUANTILES(double_array, 4)
 from ArrayWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>, INT64
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: ARRAY<DOUBLE>, INT64
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Signature requires at least 3 arguments, found 2 arguments [at 1:34]
 select with differential_privacy APPROX_QUANTILES(double_array, 4)
@@ -703,7 +703,7 @@ select with differential_privacy APPROX_QUANTILES(double)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Signature requires at least 3 arguments, found 1 argument [at 1:34]
 select with differential_privacy APPROX_QUANTILES(double)
@@ -716,7 +716,7 @@ select with differential_privacy APPROX_QUANTILES(double, int64, double)
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, INT64, DOUBLE
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, INT64, DOUBLE
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Positional argument at 3 is invalid because argument `contribution_bounds_per_row` can only be referred to by name [at 1:34]
 select with differential_privacy APPROX_QUANTILES(double, int64, double)
@@ -728,7 +728,7 @@ select with differential_privacy APPROX_QUANTILES(double, int64, double)
 select with differential_privacy APPROX_QUANTILES(double, double)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, DOUBLE
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Signature requires at least 3 arguments, found 2 arguments [at 1:34]
 select with differential_privacy APPROX_QUANTILES(double, double)
@@ -740,7 +740,7 @@ select with differential_privacy APPROX_QUANTILES(double, double)
 select with differential_privacy APPROX_QUANTILES(double, int64)
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, INT64
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: DOUBLE, INT64
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Signature requires at least 3 arguments, found 2 arguments [at 1:34]
 select with differential_privacy APPROX_QUANTILES(double, int64)
@@ -753,7 +753,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, DOUBLE, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, DOUBLE, STRUCT<INT64, INT64>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, 4, 0.4, contribution_bounds_per_group => (2, 3))
@@ -766,7 +766,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRUCT<INT64, INT64>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, contribution_bounds_per_group => (2, 3))
@@ -778,7 +778,7 @@ select with differential_privacy
     APPROX_QUANTILES(int64, int64, contribution_bounds_per_group => (2, 3))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<INT64, INT64>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<INT64, INT64>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, int64, contribution_bounds_per_group => (2, 3))
@@ -791,7 +791,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<DOUBLE, INT64>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<DOUBLE, INT64>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, 4, contribution_bounds_per_group => (double, 3))
@@ -804,7 +804,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<INT64, DOUBLE>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<INT64, DOUBLE>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, 4, contribution_bounds_per_group => (2, double))
@@ -816,7 +816,7 @@ select with differential_privacy
     APPROX_QUANTILES(int64, @test_param_int64, contribution_bounds_per_group => (@test_param_double, @test_param_double))
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator APPROX_QUANTILES in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<DOUBLE, DOUBLE>
+ERROR: No matching signature for aggregate operator APPROX_QUANTILES in DIFFERENTIAL_PRIVACY context for argument types: INT64, INT64, STRUCT<DOUBLE, DOUBLE>
   Signature: APPROX_QUANTILES(DOUBLE, INT64, contribution_bounds_per_row => STRUCT<DOUBLE, DOUBLE>) -> ARRAY<DOUBLE>
     Named argument `contribution_bounds_per_group` does not exist in signature [at 2:5]
     APPROX_QUANTILES(int64, @test_param_int64, contribution_bounds_per_group ...
@@ -854,7 +854,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -883,7 +883,7 @@ select with differential_privacy
 from SimpleTypesWithAnonymizationUid;
 --
 
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -911,7 +911,7 @@ select with differential_privacy
     SUM(int64, report_format => "JSON") as s
 from SimpleTypesWithAnonymizationUid;
 --
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: INT64, STRING
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -929,7 +929,7 @@ SUM(numeric,  report_format => "JSON")
 FROM SimpleTypes
 --
 
-ERROR: No matching signature for aggregate operator SUM in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: NUMERIC, STRING
+ERROR: No matching signature for aggregate operator SUM in DIFFERENTIAL_PRIVACY context for argument types: NUMERIC, STRING
   Signature: SUM(INT64, [contribution_bounds_per_group => STRUCT<INT64, INT64>]) -> INT64
     Named argument `report_format` does not exist in signature
   Signature: SUM(UINT64, [contribution_bounds_per_group => STRUCT<UINT64, UINT64>]) -> UINT64
@@ -955,7 +955,7 @@ AVG(numeric,  report_format => "JSON")
 FROM SimpleTypes
 --
 
-ERROR: No matching signature for aggregate operator AVG in SELECT WITH DIFFERENTIAL_PRIVACY context for argument types: NUMERIC, STRING
+ERROR: No matching signature for aggregate operator AVG in DIFFERENTIAL_PRIVACY context for argument types: NUMERIC, STRING
   Signature: AVG(DOUBLE, [contribution_bounds_per_group => STRUCT<DOUBLE, DOUBLE>]) -> DOUBLE
     Named argument `report_format` does not exist in signature
   Signature: AVG(NUMERIC, [contribution_bounds_per_group => STRUCT<NUMERIC, NUMERIC>]) -> NUMERIC

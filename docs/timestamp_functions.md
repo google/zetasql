@@ -251,11 +251,11 @@ Not applicable
 ```zetasql
 SELECT CURRENT_TIMESTAMP() AS now;
 
-/*---------------------------------------------*
+/*---------------------------------------------+
  | now                                         |
  +---------------------------------------------+
  | 2020-06-02 17:00:53.110 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ## `EXTRACT`
@@ -274,8 +274,8 @@ on how to specify a time zone.
 
 Allowed `part` values are:
 
++ `PICOSECOND`
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -331,11 +331,11 @@ SELECT
     FROM TIMESTAMP('2008-12-25 05:30:00+00') AT TIME ZONE 'America/Los_Angeles')
     AS the_day_california
 
-/*-------------+--------------------*
+/*-------------+--------------------+
  | the_day_utc | the_day_california |
  +-------------+--------------------+
  | 25          | 24                 |
- *-------------+--------------------*/
+ +-------------+--------------------*/
 ```
 
 In the following examples, `EXTRACT` returns values corresponding to different
@@ -350,11 +350,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and
 -- time zone where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2005    | 1       | 2005 | 1    |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 ```zetasql
@@ -367,11 +367,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2008    | 1       | 2007 | 52    |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 ```zetasql
@@ -384,11 +384,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2009    | 1       | 2009 | 0    |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 ```zetasql
@@ -401,11 +401,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2009    | 53      | 2009 | 52   |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 ```zetasql
@@ -418,11 +418,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2017    | 1       | 2017 | 1    |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 ```zetasql
@@ -435,11 +435,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*---------+---------+------+------*
+/*---------+---------+------+------+
  | isoyear | isoweek | year | week |
  +---------+---------+------+------+
  | 2017    | 21      | 2017 | 21   |
- *---------+---------+------+------*/
+ +---------+---------+------+------*/
 ```
 
 In the following example, `timestamp_expression` falls on a Monday. `EXTRACT`
@@ -453,11 +453,11 @@ SELECT
 
 -- Display of results may differ, depending upon the environment and time zone
 -- where this query was executed.
-/*-------------+---------------*
+/*-------------+---------------+
  | week_sunday | week_monday   |
  +-------------+---------------+
  | 45          | 44            |
- *-------------+---------------*/
+ +-------------+---------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -496,44 +496,44 @@ Formats a `TIMESTAMP` value according to the specified format string.
 SELECT FORMAT_TIMESTAMP("%c", TIMESTAMP "2050-12-25 15:30:55+00", "UTC")
   AS formatted;
 
-/*--------------------------*
+/*--------------------------+
  | formatted                |
  +--------------------------+
  | Sun Dec 25 15:30:55 2050 |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_TIMESTAMP("%b-%d-%Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
-/*-------------*
+/*-------------+
  | formatted   |
  +-------------+
  | Dec-25-2050 |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_TIMESTAMP("%b %Y", TIMESTAMP "2050-12-25 15:30:55+00")
   AS formatted;
 
-/*-------------*
+/*-------------+
  | formatted   |
  +-------------+
  | Dec 2050    |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_TIMESTAMP("%Y-%m-%dT%H:%M:%SZ", TIMESTAMP "2050-12-25 15:30:55", "UTC")
   AS formatted;
 
-/*+---------------------*
+/*+---------------------+
  |      formatted       |
  +----------------------+
  | 2050-12-25T15:30:55Z |
- *----------------------*/
+ +----------------------*/
 ```
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -624,11 +624,11 @@ function:
 SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | parsed                                      |
  +---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 [timestamp-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -657,11 +657,11 @@ on how to specify a time zone.
 ```zetasql
 SELECT STRING(TIMESTAMP "2008-12-25 15:30:00+00", "UTC") AS string;
 
-/*-------------------------------*
+/*-------------------------------+
  | string                        |
  +-------------------------------+
  | 2008-12-25 15:30:00+00        |
- *-------------------------------*/
+ +-------------------------------*/
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
@@ -703,55 +703,55 @@ is used.
 SELECT TIMESTAMP("2008-12-25 15:30:00+00") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | timestamp_str                               |
  +---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00", "America/Los_Angeles") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | timestamp_str                               |
  +---------------------------------------------+
  | 2008-12-25 15:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ```zetasql
 SELECT TIMESTAMP("2008-12-25 15:30:00 UTC") AS timestamp_str;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | timestamp_str                               |
  +---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ```zetasql
 SELECT TIMESTAMP(DATETIME "2008-12-25 15:30:00") AS timestamp_datetime;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | timestamp_datetime                          |
  +---------------------------------------------+
  | 2008-12-25 15:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ```zetasql
 SELECT TIMESTAMP(DATE "2008-12-25") AS timestamp_date;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | timestamp_date                              |
  +---------------------------------------------+
  | 2008-12-25 00:00:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
@@ -769,8 +769,8 @@ any time zone.
 
 `TIMESTAMP_ADD` supports the following values for `date_part`:
 
++ `PICOSECOND`
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -790,11 +790,11 @@ SELECT
   TIMESTAMP_ADD(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS later;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------------------------------------------*
+/*---------------------------------------------+---------------------------------------------+
  | original                                    | later                                       |
  +---------------------------------------------+---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:40:00.000 America/Los_Angeles |
- *---------------------------------------------+---------------------------------------------*/
+ +---------------------------------------------+---------------------------------------------*/
 ```
 
 ## `TIMESTAMP_DIFF`
@@ -817,8 +817,8 @@ Gets the number of unit boundaries between two `TIMESTAMP` values
     be:
 
     
+    + `PICOSECOND`
     + `NANOSECOND`
-      (if the SQL engine supports it)
     + `MICROSECOND`
     + `MILLISECOND`
     + `SECOND`
@@ -850,11 +850,11 @@ SELECT
   TIMESTAMP_DIFF(TIMESTAMP "2010-07-07 10:20:00+00", TIMESTAMP "2008-12-25 15:30:00+00", HOUR) AS hours;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------------------------------------------+-------*
+/*---------------------------------------------+---------------------------------------------+-------+
  | later_timestamp                             | earlier_timestamp                           | hours |
  +---------------------------------------------+---------------------------------------------+-------+
  | 2010-07-07 03:20:00.000 America/Los_Angeles | 2008-12-25 07:30:00.000 America/Los_Angeles | 13410 |
- *---------------------------------------------+---------------------------------------------+-------*/
+ +---------------------------------------------+---------------------------------------------+-------*/
 ```
 
 In the following example, the first timestamp occurs before the
@@ -863,11 +863,11 @@ second timestamp, resulting in a negative output.
 ```zetasql
 SELECT TIMESTAMP_DIFF(TIMESTAMP "2018-08-14", TIMESTAMP "2018-10-14", DAY) AS negative_diff;
 
-/*---------------*
+/*---------------+
  | negative_diff |
  +---------------+
  | -61           |
- *---------------*/
+ +---------------*/
 ```
 
 In this example, the result is 0 because only the number of whole specified
@@ -876,11 +876,11 @@ In this example, the result is 0 because only the number of whole specified
 ```zetasql
 SELECT TIMESTAMP_DIFF("2001-02-01 01:00:00", "2001-02-01 00:00:01", HOUR) AS diff;
 
-/*---------------*
+/*---------------+
  | diff          |
  +---------------+
  | 0             |
- *---------------*/
+ +---------------*/
 ```
 
 ## `TIMESTAMP_FROM_UNIX_MICROS`
@@ -909,11 +909,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_FROM_UNIX_MILLIS`
@@ -942,11 +942,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_FROM_UNIX_SECONDS`
@@ -975,11 +975,11 @@ the same timestamp is returned.
 SELECT TIMESTAMP_FROM_UNIX_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_MICROS`
@@ -1003,11 +1003,11 @@ Interprets `int64_expression` as the number of microseconds since 1970-01-01
 SELECT TIMESTAMP_MICROS(1230219000000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_MILLIS`
@@ -1031,11 +1031,11 @@ Interprets `int64_expression` as the number of milliseconds since 1970-01-01
 SELECT TIMESTAMP_MILLIS(1230219000000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_SECONDS`
@@ -1059,11 +1059,11 @@ UTC and returns a timestamp.
 SELECT TIMESTAMP_SECONDS(1230219000) AS timestamp_value;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*------------------------*
+/*------------------------+
  | timestamp_value        |
  +------------------------+
  | 2008-12-25 15:30:00+00 |
- *------------------------*/
+ +------------------------*/
 ```
 
 ## `TIMESTAMP_SUB`
@@ -1079,8 +1079,8 @@ independent of any time zone.
 
 `TIMESTAMP_SUB` supports the following values for `date_part`:
 
++ `PICOSECOND`
 + `NANOSECOND`
-  (if the SQL engine supports it)
 + `MICROSECOND`
 + `MILLISECOND`
 + `SECOND`
@@ -1100,11 +1100,11 @@ SELECT
   TIMESTAMP_SUB(TIMESTAMP "2008-12-25 15:30:00+00", INTERVAL 10 MINUTE) AS earlier;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------------------------------------------*
+/*---------------------------------------------+---------------------------------------------+
  | original                                    | earlier                                     |
  +---------------------------------------------+---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles | 2008-12-25 07:20:00.000 America/Los_Angeles |
- *---------------------------------------------+---------------------------------------------*/
+ +---------------------------------------------+---------------------------------------------*/
 ```
 
 ## `TIMESTAMP_TRUNC`
@@ -1192,6 +1192,8 @@ Truncates a `TIMESTAMP` or `DATETIME` value at a particular granularity.
 
 **Time granularity definitions**
 
+  + `PICOSECOND`: If used, nothing is truncated from the value.
+
   + `NANOSECOND`: If used, nothing is truncated from the value.
 
   + `MICROSECOND`: The nearest lesser than or equal microsecond.
@@ -1235,11 +1237,11 @@ SELECT
   TIMESTAMP_TRUNC(TIMESTAMP "2008-12-25 15:30:00+00", DAY, "America/Los_Angeles") AS la;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------------------------------------------*
+/*---------------------------------------------+---------------------------------------------+
  | utc                                         | la                                          |
  +---------------------------------------------+---------------------------------------------+
  | 2008-12-24 16:00:00.000 America/Los_Angeles | 2008-12-25 00:00:00.000 America/Los_Angeles |
- *---------------------------------------------+---------------------------------------------*/
+ +---------------------------------------------+---------------------------------------------*/
 ```
 
 In the following example, `timestamp_expression` has a time zone offset of +12.
@@ -1260,11 +1262,11 @@ SELECT
 FROM (SELECT TIMESTAMP("2017-11-06 00:00:00+12") AS timestamp_value);
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+---------------------------------------------+---------------------------------------------*
+/*---------------------------------------------+---------------------------------------------+---------------------------------------------+
  | timestamp_value                             | utc_truncated                               | nzdt_truncated                              |
  +---------------------------------------------+---------------------------------------------+---------------------------------------------+
  | 2017-11-05 04:00:00.000 America/Los_Angeles | 2017-10-29 17:00:00.000 America/Los_Angeles | 2017-11-05 03:00:00.000 America/Los_Angeles |
- *---------------------------------------------+---------------------------------------------+---------------------------------------------*/
+ +---------------------------------------------+---------------------------------------------+---------------------------------------------*/
 ```
 
 In the following example, the original `timestamp_expression` is in the
@@ -1281,11 +1283,11 @@ SELECT
   EXTRACT(ISOYEAR FROM TIMESTAMP "2015-06-15 00:00:00+00") AS isoyear_number;
 
 -- Display of results may differ, depending upon the environment and time zone where this query was executed.
-/*---------------------------------------------+----------------*
+/*---------------------------------------------+----------------+
  | isoyear_boundary                            | isoyear_number |
  +---------------------------------------------+----------------+
  | 2014-12-29 00:00:00.000 America/Los_Angeles | 2015           |
- *---------------------------------------------+----------------*/
+ +---------------------------------------------+----------------*/
 ```
 
 [timestamp-link-to-timezone-definitions]: #timezone_definitions
@@ -1317,21 +1319,21 @@ rounding down to the beginning of the microsecond.
 ```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "2008-12-25 15:30:00+00") AS micros;
 
-/*------------------*
+/*------------------+
  | micros           |
  +------------------+
  | 1230219000000000 |
- *------------------*/
+ +------------------*/
 ```
 
 ```zetasql
 SELECT UNIX_MICROS(TIMESTAMP "1970-01-01 00:00:00.0000018+00") AS micros;
 
-/*------------------*
+/*------------------+
  | micros           |
  +------------------+
  | 1                |
- *------------------*/
+ +------------------*/
 ```
 
 ## `UNIX_MILLIS`
@@ -1354,21 +1356,21 @@ higher levels of precision by rounding down to the beginning of the millisecond.
 ```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "2008-12-25 15:30:00+00") AS millis;
 
-/*---------------*
+/*---------------+
  | millis        |
  +---------------+
  | 1230219000000 |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT UNIX_MILLIS(TIMESTAMP "1970-01-01 00:00:00.0018+00") AS millis;
 
-/*---------------*
+/*---------------+
  | millis        |
  +---------------+
  | 1             |
- *---------------*/
+ +---------------*/
 ```
 
 ## `UNIX_SECONDS`
@@ -1391,21 +1393,21 @@ levels of precision by rounding down to the beginning of the second.
 ```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "2008-12-25 15:30:00+00") AS seconds;
 
-/*------------*
+/*------------+
  | seconds    |
  +------------+
  | 1230219000 |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT UNIX_SECONDS(TIMESTAMP "1970-01-01 00:00:01.8+00") AS seconds;
 
-/*------------*
+/*------------+
  | seconds    |
  +------------+
  | 1          |
- *------------*/
+ +------------*/
 ```
 
 ## Supplemental materials

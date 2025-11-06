@@ -315,7 +315,7 @@ class RegExp {
   }
 
   ABSL_DEPRECATED("use MakeRegexp{Utf8,Bytes,WithOptions}")
-  RegExp() {}
+  RegExp() = default;
 
   // The following two functions parse a regular expression assuming
   // UTF-8 (InitializePatternUtf8) or Latin1 (InitializePatternBytes) encoding.

@@ -24,19 +24,21 @@
 #include "zetasql/base/logging.h"
 #include "zetasql/parser/ast_node.h"
 #include "zetasql/parser/ast_node_kind.h"
-#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/parser/statement_properties.h"
 #include "zetasql/parser/tm_token.h"
+#include "zetasql/parser/tokenizer.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
 #include "zetasql/public/parse_resume_location.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
+#include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/status/status.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/ret_check.h"
@@ -236,6 +238,10 @@ ResolvedNodeKind GetStatementKind(ASTNodeKind node_kind) {
       return RESOLVED_AUX_LOAD_DATA_STMT;
     case AST_ALTER_SEQUENCE_STATEMENT:
       return RESOLVED_ALTER_SEQUENCE_STMT;
+    case AST_SUBPIPELINE_STATEMENT:
+      return RESOLVED_SUBPIPELINE_STMT;
+    case AST_STATEMENT_WITH_PIPE_OPERATORS:
+      return RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT;
     default:
       break;
   }
@@ -385,6 +391,7 @@ absl::Status GetNextStatementProperties(
     case AST_RETURN_STATEMENT:
     case AST_REVOKE_STATEMENT:
     case AST_ROLLBACK_STATEMENT:
+    case AST_RUN_STATEMENT:
     case AST_RUN_BATCH_STATEMENT:
     case AST_SET_TRANSACTION_STATEMENT:
     case AST_SHOW_STATEMENT:
@@ -394,6 +401,7 @@ absl::Status GetNextStatementProperties(
     case AST_VARIABLE_DECLARATION:
     case AST_WHILE_STATEMENT:
     case AST_CASE_STATEMENT:
+    case AST_SUBPIPELINE_STATEMENT:  // TODO: b/438995053 - What goes here?
       statement_properties->statement_category = StatementProperties::OTHER;
       break;
     case kUnknownASTNodeKind:
@@ -422,7 +430,7 @@ absl::Status SkipNextStatement(ParseResumeLocation* resume_location,
 
   auto tokenizer = std::make_unique<parser::ZetaSqlTokenizer>(
       resume_location->filename(), resume_location->input(),
-      resume_location->byte_position(), /*force_flex=*/false);
+      resume_location->byte_position());
 
   ParseLocationRange range;
   std::optional<int> semicolon_byte_offset;
@@ -616,4 +624,58 @@ ListSelectColumnExpressionsFromFinalSelectClause(
                    GetSelectNodeFromAST(query_node));
   return ListSelectExpressions(select_node, sql);
 }
+
+#ifndef SWIG
+absl::StatusOr<absl::flat_hash_set<std::vector<std::string>>>
+ListReferencedFunctionsInStatement(absl::string_view sql,
+                                   const LanguageOptions& language_options) {
+  std::unique_ptr<ParserOutput> parser_output;
+  const absl::Status parse_status =
+      ParseStatement(sql, ParserOptions(language_options), &parser_output);
+  ZETASQL_RETURN_IF_ERROR(parse_status);
+  ZETASQL_RET_CHECK(parser_output != nullptr);
+  const ASTStatement* statement = parser_output->statement();
+  ZETASQL_RET_CHECK(statement != nullptr)
+      << "ParseStatement succeeded but returned a null statement";
+
+  std::vector<const ASTNode*> function_call_nodes;
+  statement->GetDescendantsWithKinds({AST_FUNCTION_CALL}, &function_call_nodes);
+
+  absl::flat_hash_set<std::vector<std::string>> referenced_functions;
+  for (const ASTNode* node : function_call_nodes) {
+    const auto* func_call = node->GetAsOrNull<ASTFunctionCall>();
+    ZETASQL_RET_CHECK(func_call != nullptr)
+        << "GetDescendantsWithKinds returned a node that is not an "
+           "ASTFunctionCall.";
+    // Lowercase the function identifier parts.
+    std::vector<std::string> func_name =
+        func_call->function()->ToIdentifierVector();
+    for (int i = 0; i < func_name.size(); ++i) {
+      func_name[i] = absl::AsciiStrToLower(func_name[i]);
+    }
+
+    // Filter out false positives. These are functions that look like functions
+    // in the syntax (e.g. `FLATTEN(...)`), but which are actually not
+    // functions.
+    static constexpr absl::string_view kFalsePositiveFunctionNames[] = {
+        "flatten", "filter_fields"};
+    bool is_false_positive = false;
+    if (func_name.size() == 1) {
+      for (const absl::string_view false_positive :
+           kFalsePositiveFunctionNames) {
+        if (func_name[0] == false_positive) {
+          is_false_positive = true;
+          break;
+        }
+      }
+    }
+    if (!is_false_positive) {
+      referenced_functions.insert(func_name);
+    }
+  }
+
+  return referenced_functions;
+}
+#endif  // SWIG
+
 }  // namespace zetasql

@@ -235,7 +235,7 @@ class MeasureExpressionTest : public ::testing::Test {
             output_schema, /*extra_relation_input_columns_allowed=*/false)},
         /*context_id=*/-1);
     catalog_.AddOwnedTableValuedFunction(
-        new FixedOutputSchemaTVF({"tvf"}, tvf_sig, output_schema));
+        new FixedOutputSchemaTVF({"tvf"}, {tvf_sig}, output_schema));
     // Templated TVF
     ParseResumeLocation sql_body =
         ParseResumeLocation::FromStringView("SELECT 1 as output");
@@ -250,7 +250,8 @@ class MeasureExpressionTest : public ::testing::Test {
   absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpressionForTable(
       absl::string_view table_name,
       std::vector<std::pair<std::string, const Type*>> columns,
-      absl::string_view measure_name, absl::string_view measure_expr) {
+      absl::string_view measure_name, absl::string_view measure_expr,
+      bool can_reference_udas = true) {
     auto table = std::make_unique<SimpleTable>(table_name, columns);
     AnalyzerOptions analyzer_options;
     analyzer_options.mutable_language()->EnableLanguageFeature(
@@ -269,6 +270,10 @@ class MeasureExpressionTest : public ::testing::Test {
         FEATURE_WITH_EXPRESSION);
     analyzer_options.mutable_language()->EnableLanguageFeature(
         FEATURE_FIRST_AND_LAST_N);
+    if (can_reference_udas) {
+      analyzer_options.mutable_language()->EnableLanguageFeature(
+          FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS);
+    }
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
     ZETASQL_ASSIGN_OR_RETURN(
         const ResolvedExpr* resolved_measure_expr,
@@ -305,45 +310,6 @@ static void TableContainsMeasure(const SimpleTable& table,
       measure_node_kind);
 }
 
-TEST_F(MeasureExpressionTest, MeasureExpression) {
-  const std::string measure_name = "total_value";
-  const std::string measure_expr = "SUM(value)";
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       measure_name, measure_expr));
-  EXPECT_EQ(resolved_measure_expr->node_kind(),
-            ResolvedAggregateFunctionCall::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, MeasureExpressionWithGrainLock) {
-  const std::string measure_name = "total_value";
-  const std::string measure_expr = "SUM(ANY_VALUE(value) GROUP BY key)";
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       measure_name, measure_expr));
-  EXPECT_EQ(resolved_measure_expr->node_kind(),
-            ResolvedAggregateFunctionCall::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, MeasureExpressionWithSubquery) {
-  const std::string measure_name = "total_value";
-  const std::string measure_expr =
-      "SUM((SELECT key)) + (SELECT SUM(1) FROM UNNEST([1]))";
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       measure_name, measure_expr));
-  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
-}
-
 // TODO: support measure with grain-lock on repeated field.
 TEST_F(MeasureExpressionTest, MeasureExpressionOnRepeatedField) {
   const std::string measure_name = "total_value";
@@ -362,129 +328,6 @@ TEST_F(MeasureExpressionTest, MeasureExpressionOnRepeatedField) {
                HasSubstr("WITH GROUP ROWS is not supported")));
 }
 
-TEST_F(MeasureExpressionTest, InvalidScalarMeasureExpr) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value", "value + 1"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Expression columns in a measure expression can only "
-                         "be referenced within an aggregate function call")));
-}
-
-TEST_F(MeasureExpressionTest, ValidScalarMeasureExpr) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value", "1 + 1"));
-  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, ConstLiteralMeasureExpr) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value", "1"));
-  EXPECT_TRUE(resolved_measure_expr->Is<ResolvedLiteral>())
-      << resolved_measure_expr->node_kind_string();
-}
-
-TEST_F(MeasureExpressionTest, WithExpr) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(const ResolvedExpr* resolved_measure_expr,
-                       AnalyzeMeasureExpressionForTable(
-                           "table",
-                           {{"key", type_factory_.get_int64()},
-                            {"value", type_factory_.get_int64()}},
-                           "with_measure", "WITH(a as SUM(value), a + 1)"));
-  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedWithExpr::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, AggregateInLambda) {
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable(
-          "table",
-          {{"key", type_factory_.get_int64()},
-           {"value", type_factory_.get_int64()}},
-          "lambda_measure", "ARRAY_REMOVE_LAST_N([1,2], COUNT(value))"));
-  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, InvalidNoTopLevelAggregateFunctionCall) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value",
-                                       "(SELECT SUM(value) FROM UNNEST([1]))"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Expression columns in a measure expression can only "
-                         "be referenced within an aggregate function call")));
-}
-
-TEST_F(MeasureExpressionTest, InvalidAnalyticFunction) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value", "SUM(value) OVER ()"),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr("Analytic function not allowed in standalone expression")));
-}
-
-TEST_F(MeasureExpressionTest, InvalidGroupingConstant) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "total_value",
-                                       "SUM(value GROUP BY key)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Expression column value cannot be an argument to a "
-                         "multi-level aggregate function")));
-}
-
-TEST_F(MeasureExpressionTest, CompositeMeasure) {
-  std::string measure_name = "average_value";
-  std::string measure_expr = "SUM(value) / COUNT(1) * 100";
-  ZETASQL_ASSERT_OK_AND_ASSIGN(
-      const ResolvedExpr* resolved_measure_expr,
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       measure_name, measure_expr));
-  EXPECT_EQ(resolved_measure_expr->node_kind(), ResolvedFunctionCall::TYPE);
-}
-
-TEST_F(MeasureExpressionTest, InvalidCompositeMeasureWithColumnReference) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table",
-                                       {{"key", type_factory_.get_int64()},
-                                        {"value", type_factory_.get_int64()}},
-                                       "invalid", "value + SUM(value)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Expression columns in a measure expression can only "
-                         "be referenced within an aggregate function call")));
-}
-TEST_F(MeasureExpressionTest, InvalidCompositeMeasureWithSubquery) {
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable(
-          "table",
-          {{"key", type_factory_.get_int64()},
-           {"value", type_factory_.get_int64()}},
-          "invalid", "SUM(value) + (SELECT SUM(value) FROM UNNEST([1]))"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Expression columns in a measure expression can only "
-                         "be referenced within an aggregate function call: "
-                         "SUM(value) + (SELECT SUM(value) FROM UNNEST([1]))")));
-}
-
 TEST_F(MeasureExpressionTest, InvalidMeasureReferencingMeasure) {
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       const Type* measure_type,
@@ -495,65 +338,30 @@ TEST_F(MeasureExpressionTest, InvalidMeasureReferencingMeasure) {
                                         {"value", type_factory_.get_int64()},
                                         {"measure_col", measure_type}},
                                        "measure_1", "ANY_VALUE(measure_col)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression: ANY_VALUE(measure_col) cannot "
-                         "reference measure column: measure_col")));
+      StatusIs(
+          absl::StatusCode::kInvalidArgument,
+          HasSubstr(
+              "Measure expression: ANY_VALUE(measure_col) cannot reference "
+              "column: measure_col which contains a measure type")));
 }
 
-TEST_F(MeasureExpressionTest, InvalidMeasureReferencingNonExistingColumn) {
-  std::vector<std::pair<std::string, const Type*>> columns = {
-      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
-  EXPECT_THAT(AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                               "SUM(doesnt_exist)"),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Unrecognized name: doesnt_exist")));
-}
-
-// TODO: b/350555383 - Remove this test once we support measure expressions with
-// the ORDER BY modifier on aggregate functions.
-TEST_F(MeasureExpressionTest, InvalidMeasureWithOrderByClause) {
-  std::vector<std::pair<std::string, const Type*>> columns = {
-      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "ARRAY_AGG(value ORDER BY key)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Standalone expression resolution does not support "
-                         "aggregate function calls with the ORDER BY clause")));
-}
-
-TEST_F(MeasureExpressionTest, InvalidMeasureWithHavingMinMaxClause) {
-  std::vector<std::pair<std::string, const Type*>> columns = {
-      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "SUM(value HAVING MAX key)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not contain an aggregate "
-                         "function with a HAVING MIN/MAX clause")));
-}
-
-TEST_F(MeasureExpressionTest, InvalidMeasureWithWhereClause) {
-  std::vector<std::pair<std::string, const Type*>> columns = {
-      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "SUM(value WHERE value > 5)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not contain an aggregate "
-                         "function with a WHERE filter clause")));
-}
-
-TEST_F(MeasureExpressionTest, InvalidMeasureWithHavingClause) {
-  std::vector<std::pair<std::string, const Type*>> columns = {
-      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
+TEST_F(MeasureExpressionTest, InvalidMeasureReferencingArrayOfMeasure) {
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Type* measure_type,
+      type_factory_.MakeMeasureType(type_factory_.get_int64()));
+  const Type* array_of_measure_type = nullptr;
+  ZETASQL_ASSERT_OK(type_factory_.MakeArrayType(measure_type, &array_of_measure_type));
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable(
-          "table", columns, "measure_col",
-          "SUM(AVG(value) GROUP BY key HAVING COUNT(key) > 5)"),
+          "table",
+          {{"key", type_factory_.get_int64()},
+           {"value", type_factory_.get_int64()},
+           {"array_of_measure", array_of_measure_type}},
+          "measure_1", "ANY_VALUE(array_of_measure)"),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not contain an aggregate "
-                         "function with a HAVING filter clause")));
+               HasSubstr("Measure expression: ANY_VALUE(array_of_measure) "
+                         "cannot reference column: array_of_measure which "
+                         "contains a measure type")));
 }
 
 TEST_F(MeasureExpressionTest, MeasureReferencingUdfs) {
@@ -572,24 +380,36 @@ TEST_F(MeasureExpressionTest, MeasureReferencingUdfs) {
   ASSERT_NE(measure_expr, nullptr);
 }
 
+TEST_F(MeasureExpressionTest, MeasureReferencingUdas) {
+  std::vector<std::pair<std::string, const Type*>> columns = {
+      {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
+
+  // Without FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS, we cannot reference UDAs in
+  // measure expressions.
+  EXPECT_THAT(
+      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
+                                       "SUM(value) + uda(value)",
+                                       /*can_reference_udas=*/false),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Measure expression must not reference UDA; found: "
+                         "uda")));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const ResolvedExpr* measure_expr,
+      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
+                                       "SUM(value) + uda(value)"));
+  ASSERT_NE(measure_expr, nullptr);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(measure_expr, AnalyzeMeasureExpressionForTable(
+                                         "table", columns, "measure_col",
+                                         "SUM(value) + uda_templated(value)"));
+  ASSERT_NE(measure_expr, nullptr);
+}
+
 TEST_F(MeasureExpressionTest, InvalidMeasureReferencingUserDefinedEntities) {
   std::vector<std::pair<std::string, const Type*>> columns = {
       {"key", type_factory_.get_int64()}, {"value", type_factory_.get_int64()}};
   catalog_.AddOwnedTable(new SimpleTable("TestTable", columns));
-
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "SUM(value) + uda(value)"),
-      StatusIs(
-          absl::StatusCode::kInvalidArgument,
-          HasSubstr("Measure expression must not reference UDA; found: uda")));
-
-  EXPECT_THAT(
-      AnalyzeMeasureExpressionForTable("table", columns, "measure_col",
-                                       "SUM(value) + uda_templated(value)"),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("Measure expression must not reference UDA; found: "
-                         "uda_templated")));
 
   EXPECT_THAT(
       AnalyzeMeasureExpressionForTable(

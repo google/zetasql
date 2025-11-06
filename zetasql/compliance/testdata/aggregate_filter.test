@@ -59,8 +59,150 @@ ARRAY<STRUCT<row_id INT64, last_name STRING, test_id STRING, test_score DOUBLE>>
 ]
 ==
 
+[prepare_database]
+CREATE TEMP FUNCTION TimesTwo(arg1 INT64) AS (
+  arg1 * 2
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+CREATE TEMP AGGREGATE FUNCTION CountStar() AS (
+  COUNT(*)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+CREATE TEMP AGGREGATE FUNCTION SumOfAggregateArgs(arg1 INT64) AS (
+  SUM(arg1)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING]
+CREATE TEMP AGGREGATE FUNCTION SumArg1BiggerThanArg2(arg1 INT64, arg2 INT64) AS (
+  SUM(arg1 WHERE arg1 > arg2)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING]
+CREATE TEMP AGGREGATE FUNCTION SumArg1BiggerThanArg2TimesTwo(arg1 INT64, arg2 INT64) AS (
+  TimesTwo(SUM(arg1 WHERE arg1 > arg2))
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS]
+CREATE TEMP AGGREGATE FUNCTION TemplatedSumArg1BiggerThanArg2TimesTwo(arg1 ANY TYPE, arg2 ANY TYPE) AS (
+  TimesTwo(SUM(arg1 WHERE arg1 > arg2))
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING]
+CREATE TEMP AGGREGATE FUNCTION MaxMinusMin(arg1 INT64) AS (
+  MAX(arg1) - MIN(arg1)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING]
+CREATE TEMP FUNCTION NullaryUdfContainingWhereFilterReturnsZero() AS (
+  (SELECT COUNT(* WHERE false) FROM UNNEST([1]))
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS]
+CREATE TEMP FUNCTION TemplatedUdfContainingWhereFilterReturnsCount(arg ANY TYPE) AS (
+  (SELECT COUNT(arg WHERE true) FROM UNNEST([1]))
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,AGGREGATE_FILTERING]
+CREATE TABLE FUNCTION NoArgumentTvfContainingFilterReturnsOne() AS (
+  (SELECT COUNT(* WHERE x > 2) AS result FROM UNNEST([1,2,3]) AS x)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS]
+CREATE TABLE FUNCTION TemplatedTvfContainingFilterReturnsCountStar(arg_t ANY TABLE) AS (
+  SELECT COUNT(* WHERE true) AS result FROM arg_t
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+CREATE TEMP FUNCTION NullaryUdfContainingHavingFilterReturnsOne() AS (
+  (
+    SELECT
+      COUNT(* GROUP BY key HAVING SUM(value) = 2)
+    FROM UNNEST([
+      STRUCT(1 AS key, 2 AS value),
+      STRUCT(2 AS key, 1 AS value),
+      STRUCT(2 AS key, 0 AS value)
+    ])
+  )
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS,MULTILEVEL_AGGREGATION]
+CREATE TEMP FUNCTION TemplatedUdfContainingHavingFilterReturnsCount(arg ANY TYPE) AS (
+  (
+    SELECT
+      COUNT(arg GROUP BY key HAVING SUM(value) = 2)
+    FROM UNNEST([
+      STRUCT(1 AS key, 2 AS value),
+      STRUCT(2 AS key, 1 AS value)
+    ])
+  )
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+CREATE TEMP AGGREGATE FUNCTION KeysWithPositiveSumOfValues(key INT64, value INT64) AS (
+  ARRAY_AGG(key GROUP BY key HAVING SUM(value) > 0)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+CREATE TEMP AGGREGATE FUNCTION TemplatedKeysWithPositiveSumOfValues(key ANY TYPE, value ANY TYPE) AS (
+  ARRAY_AGG(key GROUP BY key HAVING SUM(value) > 0)
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+CREATE TABLE FUNCTION NoArgumentTvfContainingHavingFilterReturnsOne() AS (
+  (
+    SELECT
+      COUNT(* GROUP BY key HAVING SUM(value) = 2) AS one
+    FROM UNNEST([
+      STRUCT(1 AS key, 2 AS value),
+      STRUCT(2 AS key, 1 AS value)
+    ])
+  )
+);
+==
+[prepare_database]
+[prepare_database_additional_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[required_features=TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS,AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+CREATE TABLE FUNCTION TemplatedTvfContainingHavingFilterReturnsSumofSalaryValuesForEmployeesFiveAndSix(arg_t ANY TABLE) AS (
+  (
+    SELECT
+      SUM(SUM(arg_t.salary) GROUP BY arg_t.emp_id HAVING arg_t.emp_id >= 5) AS sum_salary
+    FROM arg_t
+  )
+);
+==
 # Filter is additional on top of the shared WHERE clause
 [name=simple_filter]
+[required_features=AGGREGATE_FILTERING]
 SELECT
   dept_id,
   count(* WHERE job = "Analyst") AS cnt_star_analyst,
@@ -88,6 +230,17 @@ ARRAY<STRUCT<
   {101, 1, 1, 1, 1, 2, 2},
   {102, 2, 2, 0, 0, 2, 2}
 ]
+==
+
+# Filter with multi-level aggregation
+[name=filter_with_mla]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+SELECT
+  SUM(AVG(salary WHERE age < 40) GROUP BY dept_id),
+  SUM(AVG(salary WHERE age < 30) WHERE job = "Analyst" GROUP BY dept_id)
+FROM Employees
+--
+ARRAY<STRUCT<DOUBLE, DOUBLE>>[{190000, 150000}]
 ==
 
 # One of the groups results in zero rows passing the filter.
@@ -283,29 +436,6 @@ ARRAY<STRUCT<dept_id INT64, unfiltered ARRAY<>>>[
 ]
 ==
 
-# Simple aggregation_threshold count query removes the unique student count
-# result for C83 because it is below the threshold.
-[required_features=AGGREGATION_THRESHOLD,AGGREGATE_FILTERING]
-[name=count_aggregation_threshold_query_remove_some_results]
-[labels=aggregation_threshold]
-SELECT WITH AGGREGATION_THRESHOLD
-  OPTIONS(threshold=3, privacy_unit_column=last_name)
-  test_id,
-  COUNT(DISTINCT last_name) AS student_count_unfiltered,
-  COUNT(DISTINCT last_name WHERE row_id < 9) AS filter1,
-  COUNT(DISTINCT last_name WHERE test_score > 500) AS filter2,
-FROM TestExamTableWithRowId
-GROUP BY test_id;
---
-ARRAY<STRUCT<
-        test_id STRING,
-        student_count_unfiltered INT64,
-        filter1 INT64,
-        filter2 INT64
-      >>
-[unknown order:{"P91", 3, 2, 2}, {"U25", 4, 2, 2}]
-==
-
 # Ensure the branch with an error does fail the query
 [name=filter_with_conditional_evaluation_error_in_chosen_branch]
 SELECT
@@ -354,3 +484,190 @@ SELECT * FROM Employees MATCH_RECOGNIZE(
 )
 --
 ARRAY<STRUCT<m ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
+==
+
+[name=filter_on_uda_1]
+SELECT
+  dept_id,
+  CountStar(WHERE job = "Analyst"),
+  SumOfAggregateArgs(age WHERE job = "Analyst"),
+  MaxMinusMin(age WHERE salary > 70000)
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2, 3, 4;
+--
+ARRAY<STRUCT<dept_id INT64, INT64, INT64, INT64>>[known order:
+  {101, 1, 29, 17},
+  {102, 2, 62, 17}
+]
+==
+
+[name=filter_on_uda_2]
+SELECT
+  dept_id,
+  CountStar(WHERE true),
+  CountStar(WHERE false),
+  CountStar(WHERE job = "Analyst"),
+  CountStar(WHERE CAST(NULL as BOOL)),
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2, 3, 4, 5;
+--
+ARRAY<STRUCT<dept_id INT64, INT64, INT64, INT64, INT64>>[known order:
+  {101, 3, 0, 1, 0},
+  {102, 3, 0, 2, 0}
+]
+==
+
+[name=filter_on_uda_containing_filter_in_body]
+SELECT
+  dept_id,
+  SumArg1BiggerThanArg2(salary, 75000 WHERE job = "Analyst"),
+  SumArg1BiggerThanArg2TimesTwo(salary, 75000 WHERE job = "Analyst")
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2, 3;
+--
+ARRAY<STRUCT<dept_id INT64, INT64, INT64>>[known order:
+  {101, NULL, NULL},
+  {102, 160000, 320000}
+]
+==
+
+[name=filter_on_templated_uda_containing_filter_in_body]
+[required_features=AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS]
+[skip_required_feature_integrity_check]
+SELECT
+  dept_id,
+  TemplatedSumArg1BiggerThanArg2TimesTwo(salary, 75000 WHERE job = "Analyst")
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2;
+--
+ARRAY<STRUCT<dept_id INT64, INT64>>[known order:{101, NULL}, {102, 320000}]
+==
+
+[name=filter_inside_udf]
+[skip_required_feature_integrity_check]
+SELECT NullaryUdfContainingWhereFilterReturnsZero()
+--
+ARRAY<STRUCT<INT64>>[{0}]
+==
+
+[name=filter_inside_templated_udf]
+[required_features=AGGREGATE_FILTERING,TEMPLATE_FUNCTIONS]
+[skip_required_feature_integrity_check]
+SELECT TemplatedUdfContainingWhereFilterReturnsCount(1);
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=filter_inside_tvf]
+[required_features=AGGREGATE_FILTERING,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[skip_required_feature_integrity_check]
+SELECT * FROM NoArgumentTvfContainingFilterReturnsOne()
+--
+ARRAY<STRUCT<result INT64>>[{1}]
+==
+
+[name=filter_inside_templated_tvf]
+[required_features=AGGREGATE_FILTERING,TABLE_VALUED_FUNCTIONS,TEMPLATE_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[skip_required_feature_integrity_check]
+SELECT * FROM TemplatedTvfContainingFilterReturnsCountStar(TABLE Employees)
+--
+ARRAY<STRUCT<result INT64>>[{6}]
+==
+
+[name=having_filter]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+SELECT
+  dept_id,
+  SUM(COUNT(*) GROUP BY job HAVING job = "Manager"),
+  SUM(COUNT(*) GROUP BY job HAVING AVG(salary) > 100000),
+  SUM(COUNT(* WHERE age < 40) GROUP BY job HAVING AVG(salary) > 100000)
+FROM Employees
+GROUP BY 1
+ORDER BY 1, 2, 3, 4;
+--
+ARRAY<STRUCT<dept_id INT64, INT64, INT64, INT64>>[known order:
+  {101, 2, 2, 1},
+  {102, 1, 1, 0}
+]
+==
+
+[name=having_filter_with_aggregate_clauses]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+SELECT
+  dept_id,
+  ARRAY_CONCAT_AGG(
+    ARRAY_AGG(emp_id ORDER BY emp_id)
+    GROUP BY job
+    HAVING AVG(salary) > 100000
+  )
+FROM Employees
+GROUP BY 1
+ORDER BY 1
+--
+ARRAY<STRUCT<dept_id INT64, ARRAY<>>>[known order:
+  {
+    101,
+    ARRAY<INT64>[known order:1, 3]
+  },
+  {102, ARRAY<INT64>[2]}
+]
+==
+
+[name=having_filter_inside_udf]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[skip_required_feature_integrity_check]
+SELECT NullaryUdfContainingHavingFilterReturnsOne()
+--
+ARRAY<STRUCT<INT64>>[{1}]
+==
+
+[name=having_filter_inside_templated_udf]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[skip_required_feature_integrity_check]
+SELECT TemplatedUdfContainingHavingFilterReturnsCount(x) FROM UNNEST([1, 2]) AS x;
+--
+ARRAY<STRUCT<INT64>>[unknown order:{1}, {1}]
+==
+
+[name=having_filter_inside_uda]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION]
+[skip_required_feature_integrity_check]
+SELECT
+  KeysWithPositiveSumOfValues(key, value)
+FROM UNNEST([
+  STRUCT(1 AS key, -1 AS value), STRUCT(2 AS key, 1 AS value)
+]);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
+==
+
+[name=having_filter_inside_templated_uda]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,TEMPLATE_FUNCTIONS]
+[skip_required_feature_integrity_check]
+SELECT
+  TemplatedKeysWithPositiveSumOfValues(key, value)
+FROM UNNEST([
+  STRUCT(1 AS key, -1 AS value), STRUCT(2 AS key, 1 AS value)
+]);
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[2]}]
+==
+
+[name=having_filter_inside_tvf]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION]
+[skip_required_feature_integrity_check]
+SELECT * FROM NoArgumentTvfContainingHavingFilterReturnsOne()
+--
+ARRAY<STRUCT<one INT64>>[{1}]
+==
+
+[name=having_filter_inside_templated_tvf]
+[required_features=AGGREGATE_FILTERING,MULTILEVEL_AGGREGATION,TABLE_VALUED_FUNCTIONS,CREATE_TABLE_FUNCTION,TEMPLATE_FUNCTIONS]
+[skip_required_feature_integrity_check]
+SELECT * FROM TemplatedTvfContainingHavingFilterReturnsSumofSalaryValuesForEmployeesFiveAndSix(TABLE Employees)
+--
+ARRAY<STRUCT<sum_salary INT64>>[{150000}]

@@ -293,21 +293,22 @@ std::string GetJsonString(const ValueContent& value) {
   return value.GetAs<internal::JSONRef*>()->ToString();
 }
 
-// Return a `JSONValueConstRef` for the given JSON value.
-// For unparsed JSON used by tests only, it will be parsed on the fly. Invalid
-// JSON strings will be not be supported.
-JSONValueConstRef GetValidatedJsonValue(const ValueContent& value,
-                                        JSONValue* json_value) {
+// Return a `JSONValueConstRef` for the given ValueContent `value`.
+// For unparsed JSON values, it will be parsed on the fly, and the return value
+// is a const reference of the input `json_value`. Invalid unparsed
+// JSON strings will return an error, the callers should check the status.
+absl::StatusOr<JSONValueConstRef> GetJsonValue(const ValueContent& value,
+                                               JSONValue* json_value) {
   auto json_ptr = value.GetAs<internal::JSONRef*>();
   if (json_ptr->document().has_value()) {
     return json_ptr->document().value();
   }
   const std::string* unparsed_string =
       value.GetAs<internal::JSONRef*>()->unparsed_string();
-  auto parsed_json = JSONValue::ParseJSONString(*unparsed_string);
-  ZETASQL_CHECK_OK(parsed_json);  // Crash OK. Unparsed JSON only exists in tests.
+  ZETASQL_ASSIGN_OR_RETURN(auto parsed_json,
+                   JSONValue::ParseJSONString(*unparsed_string));
   ABSL_DCHECK(json_value != nullptr);
-  *json_value = JSONValue::MoveFrom(parsed_json.value().GetRef());
+  *json_value = JSONValue::MoveFrom(parsed_json.GetRef());
   return json_value->GetConstRef();
 }
 
@@ -729,8 +730,12 @@ absl::HashState SimpleType::HashValueContent(const ValueContent& value,
       return absl::HashState::combine(std::move(state), kGeographyHashCode);
     case TYPE_JSON: {
       JSONValue json_value;
-      JSONValueConstRef json_ref = GetValidatedJsonValue(value, &json_value);
-      return absl::HashState::combine(std::move(state), json_ref);
+      auto json_ref = GetJsonValue(value, &json_value);
+      if (!json_ref.ok()) {
+        // Invalid JSON values are hashed by their raw string.
+        return absl::HashState::combine(std::move(state), GetJsonString(value));
+      }
+      return absl::HashState::combine(std::move(state), json_ref.value());
     }
     case TYPE_TOKENLIST:
       return HashTokenList(value, std::move(state));
@@ -752,21 +757,42 @@ bool AllPartsIntervalMatch(const IntervalValue& x, const IntervalValue& y) {
 
 bool JsonEquals(const ValueContent& x, const ValueContent& y) {
   JSONValue x_value;
-  JSONValueConstRef x_ptr = GetValidatedJsonValue(x, &x_value);
+  auto x_ptr = GetJsonValue(x, &x_value);
   JSONValue y_value;
-  JSONValueConstRef y_ptr = GetValidatedJsonValue(y, &y_value);
+  auto y_ptr = GetJsonValue(y, &y_value);
 
-  return x_ptr == y_ptr;
+  // The most common case is that both values are valid JSON, so we check that
+  // first.
+  if (x_ptr.ok() && y_ptr.ok()) {
+    // Valid JSON values are equal if they have the same JSON value using the
+    // JSONValueConstRef::operator==().
+    return x_ptr.value() == y_ptr.value();
+  }
+  if (!x_ptr.ok() && !y_ptr.ok()) {
+    // Invalid JSON values are compared by their raw string.
+    // This is the existing behavior and consistent with its hash function:
+    // invalid JSON values are hashed by their raw string.
+    return GetJsonString(x) == GetJsonString(y);
+  }
+
+  // Invalid JSON values are not equal to valid JSON values, and their hash
+  // values are never the same.
+  return false;
 }
 
 bool JsonLess(const ValueContent& x, const ValueContent& y) {
   JSONValue x_value;
-  JSONValueConstRef x_ptr = GetValidatedJsonValue(x, &x_value);
+  auto x_ptr = GetJsonValue(x, &x_value);
 
   JSONValue y_value;
-  JSONValueConstRef y_ptr = GetValidatedJsonValue(y, &y_value);
+  auto y_ptr = GetJsonValue(y, &y_value);
 
-  return x_ptr < y_ptr;
+  if (!x_ptr.ok() || !y_ptr.ok()) {
+    // Invalid JSON values are not less than each other.
+    return false;
+  }
+
+  return x_ptr.value() < y_ptr.value();
 }
 
 bool SimpleType::ValueContentEquals(
@@ -1219,13 +1245,15 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       if (!value_proto.has_string_value()) {
         return TypeMismatchError(value_proto);
       }
-      value->set(new internal::StringRef(value_proto.string_value()));
+      value->set(new internal::StringRef(
+          std::string(value_proto.string_value())));
       break;
     case TYPE_BYTES:
       if (!value_proto.has_bytes_value()) {
         return TypeMismatchError(value_proto);
       }
-      value->set(new internal::StringRef(value_proto.bytes_value()));
+      value->set(new internal::StringRef(
+          std::string(value_proto.bytes_value())));
       break;
     case TYPE_DATE:
       if (!value_proto.has_date_value()) {
@@ -1301,7 +1329,7 @@ absl::Status SimpleType::DeserializeValueContent(const ValueProto& value_proto,
       }
       value->set(
           new internal::TokenListRef(tokens::TokenList::FromBytesUnvalidated(
-              value_proto.tokenlist_value())));
+              std::string(value_proto.tokenlist_value()))));
       break;
     }
     case TYPE_UUID: {

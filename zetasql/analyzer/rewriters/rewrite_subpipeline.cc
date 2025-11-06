@@ -93,12 +93,14 @@ class SubpipelineRewriteVisitor : public ResolvedASTRewriteVisitor {
 // It might also be possible to combine multiple subpipeline visits into one
 // rewrite, building a map of ResolvedSubpipelineInputScans to replace later.
 absl::StatusOr<std::unique_ptr<const ResolvedScan>> RewriteSubpipelineToScan(
-    ResolvedSubpipeline* subpipeline,
+    std::unique_ptr<const ResolvedSubpipeline> subpipeline,
     std::unique_ptr<const ResolvedScan> input_scan) {
   SubpipelineRewriteVisitor rewriter(std::move(input_scan));
 
+  auto subpipeline_builder = ToBuilder(std::move(subpipeline));
+
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> node,
-                   rewriter.VisitAll(subpipeline->release_scan()));
+                   rewriter.VisitAll(subpipeline_builder.release_scan()));
 
   ZETASQL_RETURN_IF_ERROR(rewriter.CheckFinalStatus());
 

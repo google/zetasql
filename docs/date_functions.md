@@ -177,11 +177,11 @@ The following query produces the current date in the default time zone:
 ```zetasql
 SELECT CURRENT_DATE() AS the_date;
 
-/*--------------*
+/*--------------+
  | the_date     |
  +--------------+
  | 2016-12-25   |
- *--------------*/
+ +--------------*/
 ```
 
 The following queries produce the current date in a specified time zone:
@@ -189,21 +189,21 @@ The following queries produce the current date in a specified time zone:
 ```zetasql
 SELECT CURRENT_DATE('America/Los_Angeles') AS the_date;
 
-/*--------------*
+/*--------------+
  | the_date     |
  +--------------+
  | 2016-12-25   |
- *--------------*/
+ +--------------*/
 ```
 
 ```zetasql
 SELECT CURRENT_DATE('-08') AS the_date;
 
-/*--------------*
+/*--------------+
  | the_date     |
  +--------------+
  | 2016-12-25   |
- *--------------*/
+ +--------------*/
 ```
 
 The following query produces the current date in the default time zone.
@@ -212,11 +212,11 @@ Parentheses aren't needed if the function has no arguments.
 ```zetasql
 SELECT CURRENT_DATE AS the_date;
 
-/*--------------*
+/*--------------+
  | the_date     |
  +--------------+
  | 2016-12-25   |
- *--------------*/
+ +--------------*/
 ```
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/data-types.md#time_zones
@@ -267,11 +267,11 @@ SELECT
   DATE(DATETIME '2016-12-25 23:59:59') AS date_dt,
   DATE(TIMESTAMP '2016-12-25 05:30:00+07', 'America/Los_Angeles') AS date_tstz;
 
-/*------------+------------+------------*
+/*------------+------------+------------+
  | date_ymd   | date_dt    | date_tstz  |
  +------------+------------+------------+
  | 2016-12-25 | 2016-12-25 | 2016-12-24 |
- *------------+------------+------------*/
+ +------------+------------+------------*/
 ```
 
 [date-timezone-definitions]: https://github.com/google/zetasql/blob/master/docs/timestamp_functions.md#timezone_definitions
@@ -308,11 +308,11 @@ DATE
 ```zetasql
 SELECT DATE_ADD(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_later;
 
-/*--------------------*
+/*--------------------+
  | five_days_later    |
  +--------------------+
  | 2008-12-30         |
- *--------------------*/
+ +--------------------*/
 ```
 
 ## `DATE_DIFF`
@@ -365,11 +365,11 @@ behaves like `TIMESTAMP_DIFF(TIMESTAMP, TIMESTAMP, PART)`.
 ```zetasql
 SELECT DATE_DIFF(DATE '2010-07-07', DATE '2008-12-25', DAY) AS days_diff;
 
-/*-----------*
+/*-----------+
  | days_diff |
  +-----------+
  | 559       |
- *-----------*/
+ +-----------*/
 ```
 
 ```zetasql
@@ -377,11 +377,11 @@ SELECT
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', DAY) AS days_diff,
   DATE_DIFF(DATE '2017-10-15', DATE '2017-10-14', WEEK) AS weeks_diff;
 
-/*-----------+------------*
+/*-----------+------------+
  | days_diff | weeks_diff |
  +-----------+------------+
  | 1         | 1          |
- *-----------+------------*/
+ +-----------+------------*/
 ```
 
 The example above shows the result of `DATE_DIFF` for two days in succession.
@@ -402,11 +402,11 @@ SELECT
   DATE_DIFF('2017-12-30', '2014-12-30', YEAR) AS year_diff,
   DATE_DIFF('2017-12-30', '2014-12-30', ISOYEAR) AS isoyear_diff;
 
-/*-----------+--------------*
+/*-----------+--------------+
  | year_diff | isoyear_diff |
  +-----------+--------------+
  | 3         | 2            |
- *-----------+--------------*/
+ +-----------+--------------*/
 ```
 
 The following example shows the result of `DATE_DIFF` for two days in
@@ -422,11 +422,11 @@ SELECT
   DATE_DIFF('2017-12-18', '2017-12-17', WEEK(MONDAY)) AS week_weekday_diff,
   DATE_DIFF('2017-12-18', '2017-12-17', ISOWEEK) AS isoweek_diff;
 
-/*-----------+-------------------+--------------*
+/*-----------+-------------------+--------------+
  | week_diff | week_weekday_diff | isoweek_diff |
  +-----------+-------------------+--------------+
  | 0         | 1                 | 1            |
- *-----------+-------------------+--------------*/
+ +-----------+-------------------+--------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -452,11 +452,11 @@ DATE
 ```zetasql
 SELECT DATE_FROM_UNIX_DATE(14238) AS date_from_epoch;
 
-/*-----------------*
+/*-----------------+
  | date_from_epoch |
  +-----------------+
  | 2008-12-25      |
- *-----------------+*/
+ +-----------------+*/
 ```
 
 ## `DATE_SUB`
@@ -491,11 +491,11 @@ DATE
 ```zetasql
 SELECT DATE_SUB(DATE '2008-12-25', INTERVAL 5 DAY) AS five_days_ago;
 
-/*---------------*
+/*---------------+
  | five_days_ago |
  +---------------+
  | 2008-12-20    |
- *---------------*/
+ +---------------*/
 ```
 
 ## `DATE_TRUNC`
@@ -631,11 +631,11 @@ The same data type as the first argument passed into this function.
 ```zetasql
 SELECT DATE_TRUNC(DATE '2008-12-25', MONTH) AS month;
 
-/*------------*
+/*------------+
  | month      |
  +------------+
  | 2008-12-01 |
- *------------*/
+ +------------*/
 ```
 
 In the following example, the original date falls on a Sunday. Because
@@ -646,11 +646,11 @@ preceding Monday.
 SELECT date AS original, DATE_TRUNC(date, WEEK(MONDAY)) AS truncated
 FROM (SELECT DATE('2017-11-05') AS date);
 
-/*------------+------------*
+/*------------+------------+
  | original   | truncated  |
  +------------+------------+
  | 2017-11-05 | 2017-10-30 |
- *------------+------------*/
+ +------------+------------*/
 ```
 
 In the following example, the original `date_expression` is in the Gregorian
@@ -666,11 +666,11 @@ SELECT
   DATE_TRUNC('2015-06-15', ISOYEAR) AS isoyear_boundary,
   EXTRACT(ISOYEAR FROM DATE '2015-06-15') AS isoyear_number;
 
-/*------------------+----------------*
+/*------------------+----------------+
  | isoyear_boundary | isoyear_number |
  +------------------+----------------+
  | 2014-12-29       | 2015           |
- *------------------+----------------*/
+ +------------------+----------------*/
 ```
 
 [date-trunc-granularity-date]: #date_trunc_granularity_date
@@ -725,11 +725,11 @@ date part.
 ```zetasql
 SELECT EXTRACT(DAY FROM DATE '2013-12-25') AS the_day;
 
-/*---------*
+/*---------+
  | the_day |
  +---------+
  | 25      |
- *---------*/
+ +---------*/
 ```
 
 In the following example, `EXTRACT` returns values corresponding to different
@@ -745,7 +745,7 @@ SELECT
 FROM UNNEST(GENERATE_DATE_ARRAY('2015-12-23', '2016-01-09')) AS date
 ORDER BY date;
 
-/*------------+---------+---------+------+------*
+/*------------+---------+---------+------+------+
  | date       | isoyear | isoweek | year | week |
  +------------+---------+---------+------+------+
  | 2015-12-23 | 2015    | 52      | 2015 | 51   |
@@ -766,7 +766,7 @@ ORDER BY date;
  | 2016-01-07 | 2016    | 1       | 2016 | 1    |
  | 2016-01-08 | 2016    | 1       | 2016 | 1    |
  | 2016-01-09 | 2016    | 1       | 2016 | 1    |
- *------------+---------+---------+------+------*/
+ +------------+---------+---------+------+------*/
 ```
 
 In the following example, `date_expression` falls on a Sunday. `EXTRACT`
@@ -780,11 +780,11 @@ SELECT
   EXTRACT(WEEK(SUNDAY) FROM date) AS week_sunday,
   EXTRACT(WEEK(MONDAY) FROM date) AS week_monday FROM table;
 
-/*------------+-------------+-------------*
+/*------------+-------------+-------------+
  | date       | week_sunday | week_monday |
  +------------+-------------+-------------+
  | 2017-11-05 | 45          | 44          |
- *------------+-------------+-------------*/
+ +------------+-------------+-------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -816,31 +816,31 @@ Formats a `DATE` value according to a specified format string.
 ```zetasql
 SELECT FORMAT_DATE('%x', DATE '2008-12-25') AS US_format;
 
-/*------------*
+/*------------+
  | US_format  |
  +------------+
  | 12/25/08   |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_DATE('%b-%d-%Y', DATE '2008-12-25') AS formatted;
 
-/*-------------*
+/*-------------+
  | formatted   |
  +-------------+
  | Dec-25-2008 |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_DATE('%b %Y', DATE '2008-12-25') AS formatted;
 
-/*-------------*
+/*-------------+
  | formatted   |
  +-------------+
  | Dec 2008    |
- *-------------*/
+ +-------------*/
 ```
 
 [date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -884,21 +884,21 @@ These both return the last day of the month:
 ```zetasql
 SELECT LAST_DAY(DATE '2008-11-25', MONTH) AS last_day
 
-/*------------*
+/*------------+
  | last_day   |
  +------------+
  | 2008-11-30 |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT LAST_DAY(DATE '2008-11-25') AS last_day
 
-/*------------*
+/*------------+
  | last_day   |
  +------------+
  | 2008-11-30 |
- *------------*/
+ +------------*/
 ```
 
 This returns the last day of the year:
@@ -906,11 +906,11 @@ This returns the last day of the year:
 ```zetasql
 SELECT LAST_DAY(DATE '2008-11-25', YEAR) AS last_day
 
-/*------------*
+/*------------+
  | last_day   |
  +------------+
  | 2008-12-31 |
- *------------*/
+ +------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Sunday:
@@ -918,11 +918,11 @@ This returns the last day of the week for a week that starts on a Sunday:
 ```zetasql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(SUNDAY)) AS last_day
 
-/*------------*
+/*------------+
  | last_day   |
  +------------+
  | 2008-11-15 |
- *------------*/
+ +------------*/
 ```
 
 This returns the last day of the week for a week that starts on a Monday:
@@ -930,11 +930,11 @@ This returns the last day of the week for a week that starts on a Monday:
 ```zetasql
 SELECT LAST_DAY(DATE '2008-11-10', WEEK(MONDAY)) AS last_day
 
-/*------------*
+/*------------+
  | last_day   |
  +------------+
  | 2008-11-16 |
- *------------*/
+ +------------*/
 ```
 
 [ISO-8601]: https://en.wikipedia.org/wiki/ISO_8601
@@ -1017,11 +1017,11 @@ This example converts a `MM/DD/YY` formatted string to a `DATE` object:
 ```zetasql
 SELECT PARSE_DATE('%x', '12/25/08') AS parsed;
 
-/*------------*
+/*------------+
  | parsed     |
  +------------+
  | 2008-12-25 |
- *------------*/
+ +------------*/
 ```
 
 This example converts a `YYYYMMDD` formatted string to a `DATE` object:
@@ -1029,11 +1029,11 @@ This example converts a `YYYYMMDD` formatted string to a `DATE` object:
 ```zetasql
 SELECT PARSE_DATE('%Y%m%d', '20081225') AS parsed;
 
-/*------------*
+/*------------+
  | parsed     |
  +------------+
  | 2008-12-25 |
- *------------*/
+ +------------*/
 ```
 
 [date-format-elements]: https://github.com/google/zetasql/blob/master/docs/format-elements.md#format_elements_date_time
@@ -1057,10 +1057,10 @@ INT64
 ```zetasql
 SELECT UNIX_DATE(DATE '2008-12-25') AS days_from_epoch;
 
-/*-----------------*
+/*-----------------+
  | days_from_epoch |
  +-----------------+
  | 14238           |
- *-----------------*/
+ +-----------------*/
 ```
 

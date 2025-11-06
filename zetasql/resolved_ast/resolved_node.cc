@@ -79,6 +79,16 @@ void ResolvedNode::SetParseLocationRange(
 
 void ResolvedNode::ClearParseLocationRange() { parse_location_range_.reset(); }
 
+void ResolvedNode::SetOperatorKeywordLocationRange(
+    const ParseLocationRange& range) {
+  operator_keyword_parse_location_range_ =
+      std::make_unique<ParseLocationRange>(range);
+}
+
+void ResolvedNode::ClearOperatorKeywordLocationRange() {
+  operator_keyword_parse_location_range_.reset();
+}
+
 std::string ResolvedNode::DebugString(const DebugStringConfig& config) const {
   std::string output;
   DebugStringImpl(this, config, /*prefix=1*/ "", /*prefix2=*/"", &output);
@@ -123,7 +133,7 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
   }
 
   if (node != nullptr) {
-    absl::StrAppend(output, prefix2, node->GetNameForDebugString());
+    absl::StrAppend(output, prefix2, node->GetNameForDebugString(config));
   } else {
     absl::StrAppend(output, prefix2, "<nullptr AST node>");
   }
@@ -138,19 +148,21 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
       const bool print_field_name = !field.name.empty();
       const bool value_has_newlines = absl::StrContains(field.value, "\n");
       const bool print_one_line = field.nodes.empty() && !value_has_newlines;
+      absl::string_view column_created_string =
+          config.print_created_columns && field.column_created ? "{c}" : "";
       absl::string_view accessed_string =
           config.print_accessed ? field.accessed ? "{*}" : "{ }" : "";
 
       if (print_field_name) {
-        absl::StrAppend(output, prefix1, "+-", field.name, accessed_string,
-                        "=");
+        absl::StrAppend(output, prefix1, "+-", field.name,
+                        column_created_string, accessed_string, "=");
         if (print_one_line) {
           absl::StrAppend(output, field.value);
         }
         absl::StrAppend(output, "\n");
       } else if (print_one_line) {
-        absl::StrAppend(output, prefix1, "+-", field.value, accessed_string,
-                        "\n");
+        absl::StrAppend(output, prefix1, "+-", field.value,
+                        column_created_string, accessed_string, "\n");
       }
 
       if (!print_one_line) {
@@ -181,14 +193,18 @@ void ResolvedNode::DebugStringImpl(const ResolvedNode* node,
   } else {
     *output += "(";
     for (const DebugStringField& field : fields) {
+      absl::string_view column_created_string =
+          config.print_created_columns && field.column_created ? "{c}" : "";
       absl::string_view accessed_string =
           config.print_accessed ? field.accessed ? "{*}" : "{ }" : "";
 
       if (&field != &fields[0]) *output += ", ";
       if (field.name.empty()) {
-        absl::StrAppend(output, field.value, accessed_string);
+        absl::StrAppend(output, field.value, column_created_string,
+                        accessed_string);
       } else {
-        absl::StrAppend(output, field.name, accessed_string, "=", field.value);
+        absl::StrAppend(output, field.name, column_created_string,
+                        accessed_string, "=", field.value);
       }
     }
     *output += ")";
@@ -204,6 +220,12 @@ void ResolvedNode::CollectDebugStringFields(
   if (location != nullptr) {
     fields->emplace_back("parse_location", location->GetString(), false);
   }
+  const ParseLocationRange* operator_keyword_location =
+      GetOperatorKeywordLocationRangeOrNULL();
+  if (operator_keyword_location != nullptr) {
+    fields->emplace_back("operator_keyword_location",
+                         operator_keyword_location->GetString(), false);
+  }
 }
 
 bool ResolvedNode::HasDebugStringFieldsWithNodes() const {
@@ -217,7 +239,8 @@ bool ResolvedNode::HasDebugStringFieldsWithNodes() const {
   return false;
 }
 
-std::string ResolvedNode::GetNameForDebugString() const {
+std::string ResolvedNode::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return node_kind_string();
 }
 
@@ -324,11 +347,11 @@ std::string ResolvedNode::GetNameForDebugStringWithNameFormat(
   } else if (node->HasDebugStringFieldsWithNodes()) {
     return absl::StrCat(name, " :=");
   } else {
-    return absl::StrCat(name, " := ", node->GetNameForDebugString());
+    return absl::StrCat(name, " := ", node->GetNameForDebugString({}));
   }
 }
 
-const int ResolvedNode::GetTreeDepth() const {
+int ResolvedNode::GetTreeDepth() const {
   int max_depth = 0;
   std::vector<const ResolvedNode*> children;
   GetChildNodes(&children);
@@ -365,9 +388,13 @@ void ResolvedComputedColumn::CollectDebugStringFields(
   CollectDebugStringFieldsWithNameFormat(expr_.get(), fields);
 }
 
-std::string ResolvedComputedColumn::GetNameForDebugString() const {
-  return GetNameForDebugStringWithNameFormat(column_.ShortDebugString(),
-                                             expr_.get());
+std::string ResolvedComputedColumn::GetNameForDebugString(
+    const DebugStringConfig& config) const {
+  std::string name = column_.ShortDebugString();
+  if (config.print_created_columns) {
+    absl::StrAppend(&name, "{c}");
+  }
+  return GetNameForDebugStringWithNameFormat(name, expr_.get());
 }
 
 void ResolvedDeferredComputedColumn::CollectDebugStringFields(
@@ -376,8 +403,12 @@ void ResolvedDeferredComputedColumn::CollectDebugStringFields(
   CollectDebugStringFieldsWithNameFormat(expr_.get(), fields);
 }
 
-std::string ResolvedDeferredComputedColumn::GetNameForDebugString() const {
+std::string ResolvedDeferredComputedColumn::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   std::string name = column().ShortDebugString();
+  if (config.print_created_columns) {
+    absl::StrAppend(&name, "{c}");
+  }
   absl::StrAppend(&name, " [side_effect_column=",
                   side_effect_column_.ShortDebugString(), "]");
   return GetNameForDebugStringWithNameFormat(name, expr());
@@ -391,7 +422,8 @@ void ResolvedOutputColumn::CollectDebugStringFields(
   ABSL_DCHECK(fields->empty());
 }
 
-std::string ResolvedOutputColumn::GetNameForDebugString() const {
+std::string ResolvedOutputColumn::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat(column_.DebugString(), " AS ", ToIdentifierLiteral(name_),
                       " [", column_.type()->DebugString(), "]");
 }
@@ -408,7 +440,8 @@ void ResolvedConstant::CollectDebugStringFields(
                        constant_accessed());
 }
 
-std::string ResolvedConstant::GetNameForDebugString() const {
+std::string ResolvedConstant::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat("Constant");
 }
 
@@ -423,7 +456,8 @@ void ResolvedSystemVariable::CollectDebugStringFields(
                   name_path_accessed());
 }
 
-std::string ResolvedSystemVariable::GetNameForDebugString() const {
+std::string ResolvedSystemVariable::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat("SystemVariable");
 }
 
@@ -459,7 +493,8 @@ void ResolvedFunctionCallBase::CollectDebugStringFields(
   }
 }
 
-std::string ResolvedFunctionCallBase::GetNameForDebugString() const {
+std::string ResolvedFunctionCallBase::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat(
       node_kind_string(), "(",
       error_mode_ == SAFE_ERROR_MODE ? "{SAFE_ERROR_MODE} " : "",
@@ -506,7 +541,8 @@ void ResolvedCast::CollectDebugStringFields(
   }
 }
 
-std::string ResolvedCast::GetNameForDebugString() const {
+std::string ResolvedCast::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat("Cast(", expr_->type()->DebugString(), " -> ",
                       type()->DebugString(), ")");
 }
@@ -524,7 +560,8 @@ void ResolvedCast::set_type_parameters(const TypeParameters& v) {
       TypeModifiers::MakeTypeModifiers(v, type_modifiers_.release_collation());
 }
 
-std::string ResolvedExtendedCastElement::GetNameForDebugString() const {
+std::string ResolvedExtendedCastElement::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat(
       "ResolvedExtendedCastElement(", from_type_->DebugString(), " -> ",
       to_type_->DebugString(), ", function",
@@ -542,7 +579,8 @@ void ResolvedMakeProtoField::CollectDebugStringFields(
   CollectDebugStringFieldsWithNameFormat(expr_.get(), fields);
 }
 
-std::string ResolvedMakeProtoField::GetNameForDebugString() const {
+std::string ResolvedMakeProtoField::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   // If the MakeProtoFieldNode has any modifiers present, add them
   // in parentheses on the field name.
   std::string name;
@@ -581,7 +619,8 @@ void ResolvedOption::CollectDebugStringFields(
   }
 }
 
-std::string ResolvedOption::GetNameForDebugString() const {
+std::string ResolvedOption::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   const std::string prefix = absl::StrCat(
       qualifier_.empty() ? ""
                           : absl::StrCat(ToIdentifierLiteral(qualifier_), "."),
@@ -646,7 +685,8 @@ std::string ResolvedWindowFrame::GetFrameUnitString() const {
   return FrameUnitToString(frame_unit_);
 }
 
-std::string ResolvedWindowFrame::GetNameForDebugString() const {
+std::string ResolvedWindowFrame::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat(node_kind_string(), "(frame_unit=", GetFrameUnitString(),
                       ")");
 }
@@ -660,7 +700,8 @@ void ResolvedWindowFrameExpr::CollectDebugStringFields(
   }
 }
 
-std::string ResolvedWindowFrameExpr::GetNameForDebugString() const {
+std::string ResolvedWindowFrameExpr::GetNameForDebugString(
+    const DebugStringConfig& config) const {
   return absl::StrCat(node_kind_string(),
                       "(boundary_type=", GetBoundaryTypeString(), ")");
 }
@@ -900,8 +941,9 @@ void ResolvedStaticDescribeScan::CollectDebugStringFields(
   }
 }
 
-std::string ResolvedStaticDescribeScan::GetNameForDebugString() const {
-  return SUPER::GetNameForDebugString();
+std::string ResolvedStaticDescribeScan::GetNameForDebugString(
+    const DebugStringConfig& config) const {
+  return SUPER::GetNameForDebugString(config);
 }
 
 const ResolvedScan* ResolvedPipeIfScan::GetSelectedCaseScan() const {

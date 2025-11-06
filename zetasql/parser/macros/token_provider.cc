@@ -14,13 +14,12 @@
 // limitations under the License.
 //
 
-#include "zetasql/parser/macros/flex_token_provider.h"
+#include "zetasql/parser/macros/token_provider.h"
 
 #include <cstddef>
 #include <memory>
 #include <optional>
 
-#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/macros/token_provider_base.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/parser/token_with_location.h"
@@ -53,29 +52,25 @@ static ParseLocationRange WithOffset(const ParseLocationRange& location,
           location.end().filename(), location.end().GetByteOffset() + offset));
 }
 
-FlexTokenProvider::FlexTokenProvider(absl::string_view filename,
-                                     absl::string_view input, int start_offset,
-                                     std::optional<int> end_offset,
-                                     int offset_in_original_input,
-                                     bool force_flex)
+TokenProvider::TokenProvider(absl::string_view filename,
+                             absl::string_view input, int start_offset,
+                             std::optional<int> end_offset,
+                             int offset_in_original_input)
     : TokenProviderBase(filename, input, start_offset, end_offset,
                         offset_in_original_input),
       tokenizer_(std::make_unique<ZetaSqlTokenizer>(
-          filename, input.substr(0, this->end_offset()), start_offset,
-          force_flex)),
+          filename, input.substr(0, this->end_offset()), start_offset)),
       location_(ParseLocationPoint::FromByteOffset(filename, -1),
-                ParseLocationPoint::FromByteOffset(filename, -1)),
-      force_flex_(force_flex) {}
+                ParseLocationPoint::FromByteOffset(filename, -1)) {}
 
-std::unique_ptr<TokenProviderBase> FlexTokenProvider::CreateNewInstance(
+std::unique_ptr<TokenProviderBase> TokenProvider::CreateNewInstance(
     absl::string_view filename, absl::string_view input, int start_offset,
     std::optional<int> end_offset, int offset_in_original_input) const {
-  return std::make_unique<FlexTokenProvider>(
-      filename, input, start_offset, end_offset, offset_in_original_input,
-      force_flex_);
+  return std::make_unique<TokenProvider>(filename, input, start_offset,
+                                         end_offset, offset_in_original_input);
 }
 
-absl::StatusOr<TokenWithLocation> FlexTokenProvider::ConsumeNextTokenImpl() {
+absl::StatusOr<TokenWithLocation> TokenProvider::ConsumeNextTokenImpl() {
   if (!input_token_buffer_.empty()) {
     // Check for any unused tokens first, before we pull any more
     const TokenWithLocation front_token = input_token_buffer_.front();
@@ -83,10 +78,10 @@ absl::StatusOr<TokenWithLocation> FlexTokenProvider::ConsumeNextTokenImpl() {
     return front_token;
   }
 
-  return GetFlexToken();
+  return GetToken();
 }
 
-absl::StatusOr<TokenWithLocation> FlexTokenProvider::GetFlexToken() {
+absl::StatusOr<TokenWithLocation> TokenProvider::GetToken() {
   int last_token_end_offset = location_.end().GetByteOffset();
   if (last_token_end_offset == -1) {
     last_token_end_offset = start_offset();

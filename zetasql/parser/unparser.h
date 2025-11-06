@@ -169,10 +169,14 @@ class Unparser : public ParseTreeVisitor {
   // Visitor implementation.
   void visitASTHintedStatement(const ASTHintedStatement* node,
                                void* data) override;
+  void visitASTStatementWithPipeOperators(
+      const ASTStatementWithPipeOperators* node, void* data) override;
   void visitASTExplainStatement(const ASTExplainStatement* node,
                                 void* data) override;
   void visitASTQueryStatement(const ASTQueryStatement* node,
                               void* data) override;
+  void visitASTSubpipelineStatement(const ASTSubpipelineStatement* node,
+                                    void* data) override;
   void visitASTTableClause(const ASTTableClause* node, void* data) override;
   void visitASTModelClause(const ASTModelClause* node, void* data) override;
   void visitASTConnectionClause(const ASTConnectionClause* node,

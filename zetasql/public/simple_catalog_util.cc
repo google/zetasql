@@ -194,7 +194,7 @@ MakeTVFFromCreateTableFunction(const ResolvedCreateTableFunctionStmt& stmt) {
         << "Only TVFs with fixed output table schemas are supported";
 
     tvf = std::make_unique<FixedOutputSchemaTVF>(
-        stmt.name_path(), stmt.signature(),
+        stmt.name_path(), std::vector<FunctionSignature>{stmt.signature()},
         result_type.options().relation_input_schema());
   }
 

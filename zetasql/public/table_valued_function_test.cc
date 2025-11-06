@@ -39,6 +39,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 
 namespace zetasql {
 
@@ -202,7 +203,7 @@ TEST(TVFTest, TestInvalidColumnNameForTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_column_empty_name"},
-          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1)},
           {TVFSchemaColumn("", zetasql::types::Int64Type())})),
       "invalid empty column name in extra columns");
 }
@@ -216,7 +217,7 @@ TEST(TVFTest, TestDuplicateColumnNameForTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_column_with_duplicated_names"},
-          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1)},
           {int64_col, int64_col})),
       "extra columns have duplicated column names: int64_col");
 }
@@ -235,7 +236,7 @@ TEST(TVFTest, TestInvalidNonTemplatedArgumentForTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_column_with_value_table"},
-          FunctionSignature(
+          {FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
                   tvf_relation,
                   /*extra_relation_input_columns_allowed=*/false),
@@ -244,7 +245,7 @@ TEST(TVFTest, TestInvalidNonTemplatedArgumentForTVFWithExtraColumns) {
                    /*extra_relation_input_columns_allowed=*/false),
                FunctionArgumentType(ARG_TYPE_ARBITRARY,
                                     FunctionArgumentType::REQUIRED)},
-              -1),
+              -1)},
           {int64_col})),
       HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
                 "have a templated relation as the first argument"));
@@ -303,13 +304,14 @@ TEST(TVFTest, TVFResolveCallsComputeResultCallBack) {
         TVFSignatureOptions tvf_signature_options;
         tvf_signature_options.additional_deprecation_warnings =
             signature.AdditionalDeprecationWarnings();
-        return new TVFSignature(arguments, tvf_relation, tvf_signature_options);
+        return std::make_unique<TVFSignature>(arguments, tvf_relation,
+                                              tvf_signature_options);
       };
 
   FunctionSignature signature(ARG_TYPE_RELATION, {}, -1);
   std::vector<std::string> name_path = {"tvf"};
   auto tvf = std::make_unique<TableValuedFunction>(
-      name_path, signature,
+      name_path, /*group=*/"", std::vector<FunctionSignature>{signature},
       TableValuedFunctionOptions().set_compute_result_type_callback(
           result_type_callback));
 
@@ -326,7 +328,10 @@ TEST(TVFTest, TVFResolveComputeResultCallBackNullPtr) {
   TypeFactory factory;
   std::vector<std::string> name_path = {"tvf"};
   auto tvf = std::make_unique<TableValuedFunction>(
-      name_path, FunctionSignature(ARG_TYPE_RELATION, {}, -1),
+      name_path,
+      /*group=*/"",
+      std::vector<FunctionSignature>{
+          FunctionSignature(ARG_TYPE_RELATION, {}, -1)},
       TableValuedFunctionOptions());
 
   AnalyzerOptions options;
@@ -353,7 +358,7 @@ TEST(TVFTest, TestInvalidConcreteSignatureTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_column_input_table_has_concrete_signature"},
-          FunctionSignature(arg_type, {arg_type}, -1), {int64_col})),
+          {FunctionSignature(arg_type, {arg_type}, -1)}, {int64_col})),
       HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
                 "have a templated relation as the first argument"));
 }
@@ -367,7 +372,7 @@ TEST(TVFTest, TestPseudoColumnForTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_pseudo_column"},
-          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1),
+          {FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1)},
           {pseudo_column})),
       "extra columns cannot be pseudo column");
 }
@@ -389,7 +394,8 @@ TEST(TVFTest, TestInputTableWithPseudoColumnForTVFWithExtraColumns) {
   EXPECT_DEATH(
       tvf.reset(new ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF(
           {"tvf_append_pseudo_column"},
-          FunctionSignature(ARG_TYPE_RELATION, {arg_type}, -1), {double_col})),
+          {FunctionSignature(ARG_TYPE_RELATION, {arg_type}, -1)},
+          {double_col})),
       HasSubstr("ForwardInputSchemaToOutputSchemaWithAppendedColumnTVF must "
                 "have a templated relation as the first argument"));
 }
@@ -407,12 +413,12 @@ TEST(TVFTest, TestSignatureTextUppercasesNameByDefault) {
   std::unique_ptr<TableValuedFunction> deserialized_tvf =
       std::make_unique<FixedOutputSchemaTVF>(
           function_path,
-          ::zetasql::FunctionSignature(
+          std::vector<FunctionSignature>{::zetasql::FunctionSignature(
               ::zetasql::ARG_TYPE_RELATION,
               {::zetasql::FunctionArgumentType(
                   ::zetasql::ARG_TYPE_ARBITRARY,
                   ::zetasql::FunctionArgumentType::REPEATED)},
-              /*context_id=*/static_cast<int64_t>(0)),
+              /*context_id=*/static_cast<int64_t>(0))},
           *tvf_schema);
 
   EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
@@ -436,17 +442,150 @@ TEST(TVFTest, TestSignatureTextLowercasesNameWhenSpecified) {
   std::unique_ptr<TableValuedFunction> deserialized_tvf =
       std::make_unique<FixedOutputSchemaTVF>(
           function_path,
-          ::zetasql::FunctionSignature(
+          std::vector<FunctionSignature>{::zetasql::FunctionSignature(
               ::zetasql::ARG_TYPE_RELATION,
               {::zetasql::FunctionArgumentType(
                   ::zetasql::ARG_TYPE_ARBITRARY,
                   ::zetasql::FunctionArgumentType::REPEATED)},
-              /*context_id=*/static_cast<int64_t>(0)),
+              /*context_id=*/static_cast<int64_t>(0))},
           *tvf_schema, tvf_options);
 
   EXPECT_EQ(deserialized_tvf->GetSupportedSignaturesUserFacingText(
                 LanguageOptions(), /*print_template_and_name_details=*/false),
             "test_tvf_name([ANY, ...])");
+}
+
+TEST(TVFTest, GetSupportedSignaturesUserFacingTextWithHiddenSignatures) {
+  TypeFactory factory;
+  const std::vector<std::string> function_path = {"test_tvf_name"};
+
+  // Signature 1: No required features, not hidden.
+  FunctionSignature signature1(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1);
+
+  // Signature 2: Requires FEATURE_NAMED_ARGUMENTS, hidden if not enabled.
+  FunctionSignatureOptions options2;
+  options2.AddRequiredLanguageFeature(FEATURE_NAMED_ARGUMENTS);
+  FunctionSignature signature2(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION, FunctionArgumentType(types::Int64Type())}, -1,
+      options2);
+
+  // Signature 3: Always hidden.
+  FunctionSignatureOptions options3;
+  options3.set_is_hidden(true);
+  FunctionSignature signature3(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION, FunctionArgumentType(types::StringType())}, -1,
+      options3);
+
+  // Signature 4: Requires FEATURE_ANALYTIC_FUNCTIONS, hidden if not enabled.
+  FunctionSignatureOptions options4;
+  options4.AddRequiredLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  FunctionSignature signature4(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION, FunctionArgumentType(types::BoolType())}, -1,
+      options4);
+
+  // Signature 5: IsInternal is true.
+  FunctionSignatureOptions options5;
+  options5.set_is_internal(true);
+  FunctionSignature signature5(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION, FunctionArgumentType(types::DoubleType())}, -1,
+      options5);
+
+  // Signature 6: IsDeprecated is true.
+  FunctionSignatureOptions options6;
+  options6.set_is_deprecated(true);
+  FunctionSignature signature6(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION, FunctionArgumentType(types::FloatType())}, -1,
+      options6);
+
+  // Signature 7: HasUnsupportedType because FEATURE_NUMERIC_TYPE is not
+  // enabled.
+  FunctionSignatureOptions options7;
+  FunctionSignature signature7(
+      ARG_TYPE_RELATION,
+      {ARG_TYPE_RELATION,
+       FunctionArgumentType(factory.MakeSimpleType(TYPE_NUMERIC))},
+      -1, options7);
+
+  std::vector<FunctionSignature> signatures = {
+      signature1, signature2, signature3, signature4,
+      signature5, signature6, signature7};
+  TableValuedFunctionOptions tvf_options;
+  tvf_options.uses_upper_case_sql_name = false;
+
+  auto tvf = std::make_unique<TableValuedFunction>(function_path, /*group=*/"",
+                                                   signatures, tvf_options);
+
+  const std::string expected_sig1 = "test_tvf_name(TABLE)";
+  const std::string expected_sig2 = "test_tvf_name(TABLE, INT64)";
+  const std::string expected_sig4 = "test_tvf_name(TABLE, BOOL)";
+
+  // Test Case 1: No features enabled. Only signature1 is shown.
+  LanguageOptions lang_options_none;
+  EXPECT_EQ(tvf->GetSupportedSignaturesUserFacingText(
+                lang_options_none, /*print_template_and_name_details=*/false),
+            expected_sig1);
+
+  // Test Case 2: FEATURE_NAMED_ARGUMENTS enabled. signature1 and signature2 are
+  // shown.
+  LanguageOptions lang_options_named_args;
+  lang_options_named_args.EnableLanguageFeature(FEATURE_NAMED_ARGUMENTS);
+  EXPECT_EQ(tvf->GetSupportedSignaturesUserFacingText(
+                lang_options_named_args,
+                /*print_template_and_name_details=*/false),
+            absl::StrCat(expected_sig1, "; ", expected_sig2));
+
+  // Test Case 3: FEATURE_ANALYTIC_FUNCTIONS enabled. signature1 and signature4
+  // are shown.
+  LanguageOptions lang_options_analytic;
+  lang_options_analytic.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  EXPECT_EQ(tvf->GetSupportedSignaturesUserFacingText(
+                lang_options_analytic,
+                /*print_template_and_name_details=*/false),
+            absl::StrCat(expected_sig1, "; ", expected_sig4));
+
+  // Test Case 4: Both FEATURE_NAMED_ARGUMENTS and FEATURE_ANALYTIC_FUNCTIONS
+  // enabled. signature1, signature2, and signature4 are shown.
+  LanguageOptions lang_options_both;
+  lang_options_both.EnableLanguageFeature(FEATURE_NAMED_ARGUMENTS);
+  lang_options_both.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  EXPECT_EQ(
+      tvf->GetSupportedSignaturesUserFacingText(
+          lang_options_both, /*print_template_and_name_details=*/false),
+      absl::StrCat(expected_sig1, "; ", expected_sig2, "; ", expected_sig4));
+}
+
+TEST(TVFTest, TestTableValuedFunctionSerializeAndDeserialize) {
+  std::vector<std::string> name_path = {"tvf"};
+  auto tvf = std::make_unique<TableValuedFunction>(
+      name_path, "group_name",
+      std::vector<FunctionSignature>{
+          FunctionSignature(ARG_TYPE_RELATION, {ARG_TYPE_RELATION}, -1)});
+
+  FileDescriptorSetMap file_descriptor_set_map;
+  TableValuedFunctionProto tvf_proto;
+  ZETASQL_ASSERT_OK(tvf->Serialize(&file_descriptor_set_map, &tvf_proto));
+  TypeFactory type_factory;
+  std::vector<const google::protobuf::DescriptorPool*> pools(
+      file_descriptor_set_map.size());
+  for (const auto& pair : file_descriptor_set_map) {
+    pools[pair.second->descriptor_set_index] = pair.first;
+  }
+  std::unique_ptr<TableValuedFunction> deserialized_tvf;
+  ZETASQL_ASSERT_OK(TableValuedFunction::Deserialize(
+      tvf_proto, TypeDeserializer(&type_factory, pools), &deserialized_tvf));
+
+  EXPECT_TRUE(deserialized_tvf->Is<TableValuedFunction>());
+  EXPECT_EQ(typeid(*deserialized_tvf), typeid(TableValuedFunction));
+  EXPECT_THAT(deserialized_tvf->function_name_path(),
+              tvf->function_name_path());
+  EXPECT_THAT(deserialized_tvf->GetGroup(), tvf->GetGroup());
+  EXPECT_EQ(deserialized_tvf->signatures().size(), tvf->signatures().size());
+  EXPECT_EQ(deserialized_tvf->DebugString(), tvf->DebugString());
 }
 
 TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
@@ -465,14 +604,14 @@ TEST(TVFTest, TestFixedOutputSchemaTVFSerializeAndDeserialize) {
   std::unique_ptr<TableValuedFunction> tvf =
       std::make_unique<FixedOutputSchemaTVF>(
           function_path,
-          ::zetasql::FunctionSignature(
+          std::vector<FunctionSignature>{::zetasql::FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
                   *tvf_schema,
                   /*extra_relation_input_columns_allowed=*/false),
               {::zetasql::FunctionArgumentType(
                   ::zetasql::ARG_TYPE_ARBITRARY,
                   ::zetasql::FunctionArgumentType::REPEATED)},
-              /*context_id=*/static_cast<int64_t>(0)),
+              /*context_id=*/static_cast<int64_t>(0))},
           *tvf_schema, tvf_options);
 
   FileDescriptorSetMap file_descriptor_set_map;
@@ -614,14 +753,14 @@ TEST(TVFTest, TestAnonymizationInfo) {
   std::unique_ptr<TableValuedFunction> tvf_with_userid =
       std::make_unique<FixedOutputSchemaTVF>(
           function_path,
-          ::zetasql::FunctionSignature(
+          std::vector<FunctionSignature>{::zetasql::FunctionSignature(
               FunctionArgumentType::RelationWithSchema(
                   *tvf_schema,
                   /*extra_relation_input_columns_allowed=*/false),
               {::zetasql::FunctionArgumentType(
                   ::zetasql::ARG_TYPE_ARBITRARY,
                   ::zetasql::FunctionArgumentType::REPEATED)},
-              /*context_id=*/static_cast<int64_t>(0)),
+              /*context_id=*/static_cast<int64_t>(0))},
           *tvf_schema, tvf_options);
 
   ZETASQL_ASSERT_OK(tvf_with_userid->SetUserIdColumnNamePath({"value"}));

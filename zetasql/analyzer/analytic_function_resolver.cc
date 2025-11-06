@@ -164,8 +164,8 @@ absl::Status AnalyticFunctionResolver::SetWindowClause(
 
     // A named window can only reference a preceding window which has been
     // flattened, so we can determine all the clauses right here.
-    std::unique_ptr<FlattenedWindowInfo> flattened_window_info(
-        new FlattenedWindowInfo(named_window->window_spec()));
+    auto flattened_window_info =
+        std::make_unique<FlattenedWindowInfo>(named_window->window_spec());
     ZETASQL_RETURN_IF_ERROR(ExtractWindowInfoFromReferencedWindow(
         flattened_window_info.get()));
     (*named_window_info_map_)[named_window_name] =
@@ -306,8 +306,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
 
   const ASTWindowSpecification* over_clause_window_spec =
       ast_analytic_function_call->window_spec();
-  std::unique_ptr<FlattenedWindowInfo> flattened_window_info(
-      new FlattenedWindowInfo(over_clause_window_spec));
+  auto flattened_window_info =
+      std::make_unique<FlattenedWindowInfo>(over_clause_window_spec);
 
   if (over_clause_window_spec->base_window_name() != nullptr &&
       named_window_not_allowed_here_name_ != nullptr) {
@@ -440,8 +440,8 @@ absl::Status AnalyticFunctionResolver::ResolveOverClauseAndCreateAnalyticColumn(
       ast_window_spec_to_function_group_map_, ast_grouping_window_spec);
   AnalyticFunctionGroupInfo* group_info;
   if (found_group_info == nullptr) {
-    std::unique_ptr<AnalyticFunctionGroupInfo> new_group_info(
-        new AnalyticFunctionGroupInfo(ast_partition_by, ast_order_by));
+    auto new_group_info = std::make_unique<AnalyticFunctionGroupInfo>(
+        ast_partition_by, ast_order_by);
     group_info = new_group_info.get();
     zetasql_base::InsertOrDie(&ast_window_spec_to_function_group_map_,
                      ast_grouping_window_spec, new_group_info.get());
@@ -594,8 +594,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowPartitionByPreAggregation(
     return absl::OkStatus();
   }
 
-  std::unique_ptr<WindowExprInfoList> partition_by_info(
-      new WindowExprInfoList);
+  auto partition_by_info = std::make_unique<WindowExprInfoList>();
   for (const ASTExpression* ast_partition_expr :
        ast_partition_by->partitioning_expressions()) {
     auto partitioning_resolution_info = std::make_unique<ExprResolutionInfo>(
@@ -637,8 +636,7 @@ absl::Status AnalyticFunctionResolver::ResolveWindowOrderByPreAggregation(
     return absl::OkStatus();
   }
 
-  std::unique_ptr<WindowExprInfoList> order_by_info(
-      new WindowExprInfoList);
+  auto order_by_info = std::make_unique<WindowExprInfoList>();
   for (const ASTOrderingExpression* ast_ordering_expr :
        ast_order_by->ordering_expressions()) {
     ResolvedColumn resolved_ordering_column;

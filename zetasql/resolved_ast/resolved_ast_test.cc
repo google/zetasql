@@ -217,6 +217,71 @@ QueryStmt
       absl::StrCat("\n", query_stmt->DebugString({.print_accessed = true})));
 }
 
+TEST_F(ResolvedASTTest, DebugStringPrintCreatedColumnsInTableScan) {
+  SimpleColumn column("bar", "baz", types::Int64Type());
+  SimpleTable table("bar", {&column}, false, 123);
+  SimpleCatalog catalog("foo");
+  catalog.AddTable(&table);
+  TypeFactory factory;
+  std::unique_ptr<const AnalyzerOutput> output;
+  AnalyzerOptions options = AnalyzerOptions();
+  options.set_record_parse_locations(true);
+  ZETASQL_ASSERT_OK(zetasql::AnalyzeStatement("select baz from bar;", options,
+                                        &catalog, &factory, &output));
+  const ResolvedStatement* query_stmt = output->resolved_statement();
+
+  EXPECT_THAT(query_stmt->DebugString({.print_created_columns = true}),
+              R"(QueryStmt
++-output_column_list=
+| +-bar.baz#1 AS baz [INT64]
++-query=
+  +-ProjectScan
+    +-parse_location=0-19
+    +-column_list=[bar.baz#1]
+    +-input_scan=
+      +-TableScan(parse_location=16-19, column_list{c}=[bar.baz#1], table=bar, column_index_list=[0])
+)");
+}
+
+TEST_F(ResolvedASTTest,
+       DebugStringPrintCreatedColumnsInArrayScanAndComputedColumn) {
+  TypeFactory factory;
+  SimpleCatalog catalog("catalog", &factory);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions::AllReleasedFunctions());
+  AnalyzerOptions options;
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(
+      "SELECT *, numbers+1 FROM UNNEST ([10,20,30]) as numbers;", options,
+      &catalog, &factory, &output));
+  const ResolvedStatement* query_stmt = output->resolved_statement();
+
+  EXPECT_THAT(query_stmt->DebugString({.print_created_columns = true}),
+              R"(QueryStmt
++-output_column_list=
+| +-$array.numbers#1 AS numbers [INT64]
+| +-$query.$col2#2 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$array.numbers#1, $query.$col2#2]
+    +-expr_list=
+    | +-$col2#2{c} :=
+    |   +-FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
+    |     +-ColumnRef(type=INT64, column=$array.numbers#1)
+    |     +-Literal(type=INT64, value=1)
+    +-input_scan=
+      +-ArrayScan
+        +-column_list=[$array.numbers#1]
+        +-array_expr_list=
+        | +-Literal(type=ARRAY<INT64>, value=[10, 20, 30])
+        +-element_column_list{c}=[$array.numbers#1]
+)");
+
+  // Test with both print_created_columns and print_accessed enabled.
+  EXPECT_THAT(query_stmt->DebugString(
+                  {.print_accessed = true, .print_created_columns = true}),
+              HasSubstr("+-element_column_list{c}{ }=[$array.numbers#1]"));
+}
+
 TEST_F(ResolvedASTTest, DebugStringAnnotationsFunctionCall) {
   TypeFactory type_factory;
 
@@ -262,6 +327,7 @@ FunctionCall(test_group:test(INT64, INT64, INT64) -> INT64) (test - call root)
                                   {call.get(), "(test - call root)"}},
                      .print_accessed = true}))));
 }
+
 TEST_F(ResolvedASTTest, QueryStmtDebugString) {
   IdStringPool pool;
 

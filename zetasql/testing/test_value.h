@@ -151,7 +151,7 @@ inline absl::StatusOr<Value> GetStatusOrValue(const Value& arg) {
 
 template <>
 inline absl::StatusOr<Value> GetStatusOrValue(
-    const absl::StatusOr<std::variant<Value, ScriptResult>>& arg) {
+    const absl::StatusOr<std::variant<Value, MultiStmtResult>>& arg) {
   if (!arg.ok()) {
     return arg.status();
   }
@@ -277,7 +277,7 @@ Value Range(ValueConstructor start, ValueConstructor end);
 
 // Creates a static graph node with identifier, definition name, static
 // properties and static labels for graph identified by graph_reference.
-Value GraphNode(
+absl::StatusOr<Value> GraphNode(
     absl::Span<const std::string> graph_reference, absl::string_view identifier,
     absl::Span<const std::pair<std::string, Value>> static_properties,
     absl::Span<const std::string> static_labels,
@@ -286,7 +286,7 @@ Value GraphNode(
 // Creates a static graph edge with identifier, definition name, static
 // properties, static labels, source and destination node identifiers for graph
 // identified by graph_reference.
-Value GraphEdge(
+absl::StatusOr<Value> GraphEdge(
     absl::Span<const std::string> graph_reference, absl::string_view identifier,
     absl::Span<const std::pair<std::string, Value>> static_properties,
     absl::Span<const std::string> static_labels,
@@ -328,6 +328,8 @@ Value Map(
 const ArrayType* MakeArrayType(const Type* element_type,
                                TypeFactory* type_factory = nullptr);
 
+// TODO: jmorcos - These functions are dangerous if used in the compliance flows
+// due to the type factory differences.
 // If type_factory is not provided the function will use the default static type
 // factory (see: static_type_factory())
 const StructType* MakeStructType(

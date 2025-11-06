@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "zetasql/base/enum_utils.h"
+#include "zetasql/common/builtin_function_internal.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/builtin_function.pb.h"
 #include "zetasql/public/builtin_function_options.h"
@@ -251,6 +252,7 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
   TypeFactory type_factory;
   NameToFunctionMap functions;
   NameToTypeMap types;
+  NameToTableValuedFunctionMap table_valued_functions;
 
   // These settings retrieve the maximum set of functions/signatures
   // possible.
@@ -259,8 +261,8 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
   language_options.set_product_mode(PRODUCT_INTERNAL);
   ZetaSQLBuiltinFunctionOptions options(language_options);
   // Get all the relevant functions for this 'language_options'.
-  ZETASQL_EXPECT_OK(
-      GetBuiltinFunctionsAndTypes(options, type_factory, functions, types));
+  ZETASQL_EXPECT_OK(GetBuiltinFunctionsAndTypes(options, type_factory, functions, types,
+                                        table_valued_functions));
 
   for (const auto& [name, function] : functions) {
     ValidateFunction(language_options, name, *function);
@@ -296,8 +298,14 @@ TEST(SimpleBuiltinFunctionTests, SanityTests) {
     const std::string function_name =
         FunctionSignatureIdToName(static_cast<FunctionSignatureId>(id));
 
-    EXPECT_THAT(zetasql_base::FindOrNull(functions, function_name), NotNull())
+    EXPECT_TRUE(functions.contains(function_name) ||
+                table_valued_functions.contains(function_name))
         << "Not found (id " << id << "): " << function_name;
+
+    EXPECT_FALSE(functions.contains(function_name) &&
+                 table_valued_functions.contains(function_name))
+        << "Same function defined both as a function and as a tvf: "
+        << function_name;
   }
 }
 

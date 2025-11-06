@@ -122,12 +122,6 @@ using ComputeResultTypeCallback = std::function<absl::StatusOr<const Type*>(
     Catalog*, TypeFactory*, CycleDetector*,
     const FunctionSignature&, const std::vector<InputArgumentType>&,
     const AnalyzerOptions&)>;
-// The legacy signature of the ComputeResultTypeCallback. It does not take the
-// matched signature as input.
-using LegacyComputeResultTypeCallback =
-    std::function<absl::StatusOr<const Type*>(
-        Catalog*, TypeFactory*, CycleDetector*,
-        const std::vector<InputArgumentType>&, const AnalyzerOptions&)>;
 
 // This callback signature takes a list of sql representation of function
 // inputs and returns the sql representation of the function call.
@@ -258,38 +252,9 @@ struct FunctionOptions {
     post_resolution_constraint = std::move(constraint);
     return *this;
   }
-  ABSL_DEPRECATED(
-      "Please use the overload with PostResolutionArgumentConstraintsCallback")
-  FunctionOptions& set_post_resolution_argument_constraint(
-      ArgumentConstraintsCallback constraint) {
-    post_resolution_constraint =
-        [constraint = std::move(constraint)](
-            const FunctionSignature& signature,
-            const std::vector<InputArgumentType>& input_arguments,
-            const LanguageOptions& language_options) {
-          return constraint(input_arguments, language_options);
-        };
-    return *this;
-  }
   FunctionOptions& set_compute_result_type_callback(
       ComputeResultTypeCallback callback) {
     compute_result_type_callback = std::move(callback);
-    return *this;
-  }
-  ABSL_DEPRECATED(
-      "Use the overload that takes a ComputeResultTypeCallback instead")
-  FunctionOptions& set_compute_result_type_callback(
-      LegacyComputeResultTypeCallback callback) {
-    compute_result_type_callback =
-        [callback = std::move(callback)](
-            Catalog* catalog, TypeFactory* type_factory,
-            CycleDetector* cycle_detector,
-            const FunctionSignature& /*signature*/,
-            const std::vector<InputArgumentType>& input_arguments,
-            const AnalyzerOptions& analyzer_options) {
-          return callback(catalog, type_factory, cycle_detector,
-                          input_arguments, analyzer_options);
-        };
     return *this;
   }
 
@@ -757,7 +722,7 @@ class Function {
 
   // Returns <function_name_path_> strings joined with '.', and if
   // <include_group> is true then it is prefixed with the group name.
-  const std::string FullName(bool include_group = true) const;
+  std::string FullName(bool include_group = true) const;
 
   // Returns an external 'SQL' name for the function, for use in error messages
   // and anywhere else appropriate.  If <function_options_> has its <sql_name>
@@ -767,7 +732,7 @@ class Function {
   // Name() is equivalent to FullName(). Otherwise it returns FullName(). For
   // ZetaSQL builtin functions, it avoids prefixing group name (by providing
   // false as argument to FullName).
-  const std::string SQLName() const;
+  std::string SQLName() const;
 
   // Returns SQLName() prefixed with either 'operator ' or 'function ',
   // and 'aggregate ' or 'analytic ' if appropriate.  If <capitalize_qualifier>
@@ -775,7 +740,7 @@ class Function {
   // (i.e., 'Operator' vs. 'operator' and 'Analytic function' vs.
   // 'analytic function').  A function uses the 'operator ' prefix if its name
   // starts with '$'.
-  const std::string QualifiedSQLName(bool capitalize_qualifier = false) const;
+  std::string QualifiedSQLName(bool capitalize_qualifier = false) const;
 
   // Returns the 'group' the function belongs to.
   const std::string& GetGroup() const { return group_; }
@@ -908,7 +873,7 @@ class Function {
 
   // Returns a generic error message for the no matching function signature
   // error condition.
-  static const std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
+  static std::string GetGenericNoMatchingFunctionSignatureErrorMessage(
       absl::string_view qualified_function_name,
       absl::Span<const InputArgumentType> arguments, ProductMode product_mode,
       absl::Span<const absl::string_view> argument_names = {},

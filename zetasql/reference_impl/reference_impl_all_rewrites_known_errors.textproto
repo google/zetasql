@@ -98,7 +98,7 @@ known_errors {
 
 known_errors {
   mode: ALLOW_ERROR
-  reason: "Unsupported function in SELECT WITH ANONYMIZATION select list: SUM"
+  reason: "Unsupported function in ANONYMIZATION clause: SUM"
   label: "anonymization_test:anonymization_min_privacy_units_per_group_is_2"
   label: "anonymization_test:anonymization_min_privacy_units_per_group_is_3"
   label: "anonymization_test:anonymization_min_privacy_units_per_group_is_4"
@@ -150,7 +150,7 @@ known_errors {
 }
 known_errors {
   mode: ALLOW_ERROR
-  reason: "Example: Unsupported function in SELECT WITH DIFFERENTIAL_PRIVACY select list: SUM"
+  reason: "Example: Unsupported function in DIFFERENTIAL_PRIVACY clause: SUM"
   label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json"
   label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_json_zero_rows"
   label: "differential_privacy_test:differential_privacy_approx_quantiles_double_explicit_bounds_multi_user_with_report_proto"
@@ -392,14 +392,57 @@ known_errors {
   label: "measures_test:null_measure_value_from_where_false"
 }
 
-# TODO: b/439843654 - Remove this once MULTILEVEL_AGGREGATION_ON_UDAS is
-# removed from development. Currently, the reference driver with all rewrites
-# does not respect prepare_database_additional_features.
 known_errors {
   mode: ALLOW_ERROR
-  reason: "Reference driver with all rewrites does not support GROUP BY modifiers"
+  reason: "SQL function inliner cannot inline aggregate function with GROUP BY modifier"
+  label: "call_sql_udas_with_multi_level_agg_test:call_array_agg_sum_with_non_aggregate_args_and_group_by"
+  label: "call_sql_udas_with_multi_level_agg_test:call_avg_times_two_over_count_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_avg_times_two_over_max_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_avg_times_two_over_sum__times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_bunch_of_aggs_with_group_by"
   label: "call_sql_udas_with_multi_level_agg_test:call_count_times_two_over_max_by_key"
   label: "call_sql_udas_with_multi_level_agg_test:call_max_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_multiple_top_level_udas_with_group_by"
+  label: "call_sql_udas_with_multi_level_agg_test:call_sum_of_distinct_values_with_group_by"
   label: "call_sql_udas_with_multi_level_agg_test:call_sum_squares_over_sum_times_two_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_sum_squares_with_group_by"
+  label: "call_sql_udas_with_multi_level_agg_test:call_sum_squares_with_group_by_2"
   label: "call_sql_udas_with_multi_level_agg_test:call_sum_times_two_over_max_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_templated_sum_of_distinct_values_with_group_by"
+  label: "call_sql_udas_with_multi_level_agg_test:call_templated_sum_squares_with_group_by"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "SQL function inliner cannot inline aggregate function with nested UDA"
+  label: "call_sql_udas_with_multi_level_agg_test:call_avg_times_two_over_sum_squares_over_sum_times_two_by_key"
+  label: "call_sql_udas_with_multi_level_agg_test:call_uda_calling_other_udas"
+  label: "call_sql_udas_with_multi_level_agg_test:call_uda_mixed_with_multi_level_aggs_complex"
+  label: "call_sql_udas_with_multi_level_agg_test:call_uda_nested_inside_multi_level_agg"
+  label: "call_sql_udas_with_multi_level_agg_test:call_uda_nested_inside_multi_level_agg_complex"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "Measures in these tests get expanded to UDAs that use aggregate function modifiers, which the SQL UDA inliner does not support"
+  label: "measures_with_udas_test:measures_with_udas_complex"
+  label: "measures_with_udas_test:measures_with_udas_complex_with_group_by"
+  label: "measures_with_udas_test:measures_with_udas_simple"
+  label: "measures_with_udas_test:measures_with_udas_simple_with_group_by"
+}
+
+known_errors {
+  mode: ALLOW_ERROR
+  reason: "SQL function inliner cannot inline UDAs with aggregate filters"
+  label: "aggregate_filter_test:filter_on_templated_uda_containing_filter_in_body"
+  label: "aggregate_filter_test:filter_on_uda_1"
+  label: "aggregate_filter_test:filter_on_uda_2"
+  label: "aggregate_filter_test:filter_on_uda_containing_filter_in_body"
+}
+
+known_errors {
+  mode: ALLOW_UNIMPLEMENTED
+  reason: "Aggregate functions with a WHERE filter modifier are not supported in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter"
+  label: "aggregate_filter_test:filter_with_limit"
+  label: "aggregate_filter_test:filter_with_order_by"
 }

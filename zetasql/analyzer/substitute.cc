@@ -204,7 +204,14 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
       ColumnFactory* column_factory);
 
   absl::Status VisitResolvedSubqueryExpr(
-      const ResolvedSubqueryExpr* node) override;
+      const ResolvedSubqueryExpr* node) override {
+    return ProcessCorrelatedContext(node);
+  }
+
+  absl::Status VisitResolvedInlineLambda(
+      const ResolvedInlineLambda* node) override {
+    return ProcessCorrelatedContext(node);
+  }
 
   absl::Status VisitResolvedFunctionCall(
       const ResolvedFunctionCall* node) override;
@@ -213,13 +220,77 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
   // Returns if the enclosing SubqueryExpr is the outermost.
   bool InOutermostSubquery() { return column_refs_stack_.size() == 1; }
 
-  // Adds collected lambda column refs to parameter_list of 'subquery_expr'.
-  // If 'subquery_expr' is the outermost, column refs are added as it is in
+  // Template specialization for the 3 special nodes so that we can use a single
+  // template containing CopyVisitXyz().
+  template <typename ResolvedNodeType>
+  absl::Status CopyVisitNode(const ResolvedNodeType* node) {
+    ZETASQL_RET_CHECK_FAIL() << "Unexpected node type: "
+                     << ResolvedNodeKind_Name(node->node_kind());
+  }
+  template <>
+  absl::Status CopyVisitNode(const ResolvedSubqueryExpr* node) {
+    return CopyVisitResolvedSubqueryExpr(node);
+  }
+  template <>
+  absl::Status CopyVisitNode(const ResolvedInlineLambda* node) {
+    return CopyVisitResolvedInlineLambda(node);
+  }
+  template <>
+  absl::Status CopyVisitNode(const ResolvedJoinScan* node) {
+    return CopyVisitResolvedJoinScan(node);
+  }
+
+  template <typename ResolvedNodeType>
+  absl::Status ProcessCorrelatedContext(const ResolvedNodeType* node) {
+    ScopedColumnRefLayer scoped_column_ref_layer(column_refs_stack_);
+
+    // Leverage template specialization to dispatch to the correct
+    // CopyVisitXyz() method.
+    ZETASQL_RETURN_IF_ERROR(CopyVisitNode(node->template GetAs<ResolvedNodeType>()));
+    std::unique_ptr<ResolvedNodeType> subquery_expr =
+        ConsumeTopOfStack<ResolvedNodeType>();
+    if (InOutermostSubquery()) {
+      // Add column refs in projected 'variables' to outermost SubqueryExpr.
+      for (const auto& ref : referenced_columns_) {
+        ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedColumnRef(ref.get()));
+        subquery_expr->add_parameter_list(
+            ConsumeTopOfStack<ResolvedColumnRef>());
+      }
+    }
+
+    ZETASQL_RETURN_IF_ERROR(AddLambdaColumnRefsToParameterList(subquery_expr.get()));
+
+    PushNodeToStack(std::move(subquery_expr));
+    return absl::OkStatus();
+  }
+
+  // Adds collected lambda column refs to parameter_list of `node`, which can be
+  // either a SubqueryExpr or an InlineLambda.
+  // If `node` is the outermost, column refs are added unchanged from the
   // original lambda parameter_list.
-  // If 'subquery_expr' is not the outermost, column refs are added to
+  // If 'node' is not the outermost, column refs are added to
   // parameter_list as correlated.
-  absl::Status AddLambdaColumnRefsToSubqueryExpr(
-      ResolvedSubqueryExpr* subquery_expr);
+  template <typename ResolvedNodeType>
+  absl::Status AddLambdaColumnRefsToParameterList(ResolvedNodeType* node) {
+    // Build a set of added column ids to avoid duplicates.
+    absl::flat_hash_set<int> added_column_id_set;
+    for (const auto& ref : node->parameter_list()) {
+      added_column_id_set.emplace(ref->column().column_id());
+    }
+
+    for (const auto& id_and_column : column_refs_stack_.back()) {
+      if (!added_column_id_set.insert(id_and_column.first).second) {
+        continue;
+      }
+
+      ZETASQL_ASSIGN_OR_RETURN(auto copy, ProcessNode(id_and_column.second));
+      if (!InOutermostSubquery()) {
+        copy->set_is_correlated(true);
+      }
+      node->add_parameter_list(std::move(copy));
+    }
+    return absl::OkStatus();
+  }
 
   const std::vector<std::unique_ptr<const ResolvedColumnRef>>&
       referenced_columns_;
@@ -531,48 +602,6 @@ absl::Status VariableReplacementInserter::VisitResolvedFunctionCall(
   return absl::OkStatus();
 }
 
-absl::Status VariableReplacementInserter::VisitResolvedSubqueryExpr(
-    const ResolvedSubqueryExpr* node) {
-  ScopedColumnRefLayer scoped_column_ref_layer(column_refs_stack_);
-
-  ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedSubqueryExpr(node));
-  std::unique_ptr<ResolvedSubqueryExpr> subquery_expr =
-      ConsumeTopOfStack<ResolvedSubqueryExpr>();
-  if (InOutermostSubquery()) {
-    // Add column refs in projected 'variables' to outermost SubqueryExpr.
-    for (const auto& ref : referenced_columns_) {
-      ZETASQL_RETURN_IF_ERROR(CopyVisitResolvedColumnRef(ref.get()));
-      subquery_expr->add_parameter_list(ConsumeTopOfStack<ResolvedColumnRef>());
-    }
-  }
-
-  ZETASQL_RETURN_IF_ERROR(AddLambdaColumnRefsToSubqueryExpr(subquery_expr.get()));
-
-  PushNodeToStack(std::move(subquery_expr));
-  return absl::OkStatus();
-}
-
-absl::Status VariableReplacementInserter::AddLambdaColumnRefsToSubqueryExpr(
-    ResolvedSubqueryExpr* subquery_expr) {
-  // Build a set of added column ids to avoid duplicates.
-  absl::flat_hash_set<int> added_column_id_set;
-  for (const auto& ref : subquery_expr->parameter_list()) {
-    added_column_id_set.emplace(ref->column().column_id());
-  }
-
-  for (const auto& id_and_column : column_refs_stack_.back()) {
-    if (!added_column_id_set.insert(id_and_column.first).second) {
-      continue;
-    }
-
-    ZETASQL_ASSIGN_OR_RETURN(auto copy, ProcessNode(id_and_column.second));
-    if (!InOutermostSubquery()) {
-      copy->set_is_correlated(true);
-    }
-    subquery_expr->add_parameter_list(std::move(copy));
-  }
-  return absl::OkStatus();
-}
 }  // namespace
 
 absl::Status ExpectAnalyzeSubstituteSuccess(

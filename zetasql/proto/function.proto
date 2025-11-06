@@ -236,6 +236,7 @@ message TableValuedFunctionProto {
   // private data.
   optional SimpleAnonymizationInfoProto anonymization_info = 10;
   optional StatementContext statement_context = 11 [default = CONTEXT_DEFAULT];
+  optional string group = 13;
 }
 
 message TVFArgumentProto {

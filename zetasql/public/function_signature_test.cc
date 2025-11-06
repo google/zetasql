@@ -914,7 +914,7 @@ TEST(FunctionSignatureTests, FunctionSignatureTestsFloat32) {
   EXPECT_EQ("(FLOAT, FLOAT) RETURNS FLOAT",
             float32_function.GetSQLDeclaration({} /* arg_names */,
                                                ProductMode::PRODUCT_INTERNAL));
-  EXPECT_EQ("(FLOAT, FLOAT) RETURNS FLOAT",
+  EXPECT_EQ("(FLOAT32, FLOAT32) RETURNS FLOAT32",
             float32_function.GetSQLDeclaration({} /* arg_names */,
                                                ProductMode::PRODUCT_EXTERNAL));
   EXPECT_EQ("(FLOAT32, FLOAT32) RETURNS FLOAT32",

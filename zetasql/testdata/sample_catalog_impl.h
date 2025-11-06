@@ -125,7 +125,8 @@ class SampleCatalogImpl {
   // will add a catalog object - `LoadAllRegisteredCatalogChanges` calls all
   // registered lambdas to add the objects to the catalog.
   void LoadAllRegisteredCatalogChanges();
-  void LoadExtendedSubscriptFunctions();
+  absl::Status LoadExtendedSubscriptFunctions(
+      const LanguageOptions& language_options);
   void LoadFunctionsWithDefaultArguments();
   void LoadTemplatedSQLUDFs();
   absl::Status LoadAmlBasedPropertyGraphs();

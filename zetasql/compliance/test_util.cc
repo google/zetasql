@@ -22,9 +22,20 @@
 #include <set>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "zetasql/base/logging.h"
+#include "google/protobuf/duration.pb.h"
+#include "google/protobuf/timestamp.pb.h"
+#include "google/protobuf/wrappers.pb.h"
+#include "google/type/date.pb.h"
+#include "google/type/timeofday.pb.h"
+#include "zetasql/public/functions/array_find_mode.pb.h"
+#include "zetasql/public/functions/array_zip_mode.pb.h"
+#include "zetasql/public/functions/rounding_mode.pb.h"
+#include "absl/base/no_destructor.h"
 #include "absl/container/btree_map.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/flags/commandlineflag.h"
 #include "absl/flags/reflection.h"
 #include "absl/status/status.h"
@@ -49,6 +60,57 @@ constexpr absl::string_view kTestTotalShards = "TEST_TOTAL_SHARDS";
 constexpr absl::string_view kTestTimeoutFlag = "test_timeout";
 constexpr absl::string_view kTestTimeoutEnv = "TEST_TIMEOUT";
 }  // namespace
+
+const absl::flat_hash_map<absl::string_view, const google::protobuf::EnumDescriptor*>&
+GetBuiltinEnumDescriptors() {
+  static const absl::NoDestructor<
+      absl::flat_hash_map<absl::string_view, const google::protobuf::EnumDescriptor*>>
+      kBuiltinEnumDescriptors([] {
+        std::vector<const google::protobuf::EnumDescriptor*> descriptors = {
+            zetasql::functions::RoundingMode_descriptor(),
+            zetasql::functions::ArrayFindEnums::ArrayFindMode_descriptor(),
+            zetasql::functions::ArrayZipEnums::ArrayZipMode_descriptor(),
+        };
+        absl::flat_hash_map<absl::string_view, const google::protobuf::EnumDescriptor*>
+            descriptor_map;
+        for (const google::protobuf::EnumDescriptor* descriptor : descriptors) {
+          descriptor_map[descriptor->full_name()] = descriptor;
+        }
+        return descriptor_map;
+      }());
+  return *kBuiltinEnumDescriptors;
+}
+
+const absl::flat_hash_map<absl::string_view, const google::protobuf::Descriptor*>&
+GetBuiltinProtoDescriptors() {
+  static const absl::NoDestructor<
+      absl::flat_hash_map<absl::string_view, const google::protobuf::Descriptor*>>
+      kBuiltinProtoDescriptors([] {
+        std::vector<const google::protobuf::Descriptor*> descriptors = {
+            google::protobuf::Timestamp::descriptor(),
+            google::type::Date::descriptor(),
+            google::type::TimeOfDay::descriptor(),
+            google::protobuf::DoubleValue::descriptor(),
+            google::protobuf::FloatValue::descriptor(),
+            google::protobuf::Int64Value::descriptor(),
+            google::protobuf::UInt64Value::descriptor(),
+            google::protobuf::Int32Value::descriptor(),
+            google::protobuf::UInt32Value::descriptor(),
+            google::protobuf::BoolValue::descriptor(),
+            google::protobuf::StringValue::descriptor(),
+            google::protobuf::BytesValue::descriptor(),
+            google::protobuf::Duration::descriptor(),
+        };
+        absl::flat_hash_map<absl::string_view, const google::protobuf::Descriptor*>
+            descriptor_map;
+        for (const google::protobuf::Descriptor* descriptor : descriptors) {
+          descriptor_map[descriptor->full_name()] = descriptor;
+        }
+
+        return descriptor_map;
+      }());
+  return *kBuiltinProtoDescriptors;
+}
 
 // Recursively computes transitive closure of a set of protos P and a set of
 // enums E.

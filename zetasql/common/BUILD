@@ -236,7 +236,9 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
-        "@icu//:headers",
+        "@icu//icu4c/source/common:headers",
+        "@icu//icu4c/source/common:platform",
+        "@icu//icu4c/source/common:uset_props",
     ],
 )
 
@@ -601,6 +603,23 @@ cc_test(
     ],
 )
 
+cc_test(
+    name = "builtin_tvfs_test",
+    srcs = ["builtin_tvfs_test.cc"],
+    deps = [
+        ":builtin_function_internal",
+        ":builtins_output_properties",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public:builtin_function_options",
+        "//zetasql/public:language_options",
+        "//zetasql/public:options_cc_proto",
+        "//zetasql/public/types",
+        "//zetasql/public/types:type",
+        "@com_google_absl//absl/strings:string_view",
+    ],
+)
+
 cc_library(
     name = "builtins_output_properties",
     hdrs = ["builtins_output_properties.h"],
@@ -628,6 +647,8 @@ cc_library(
         "builtin_function_measure.cc",
         "builtin_function_range.cc",
         "builtin_function_sketches.cc",
+        "builtin_function_time_series.cc",
+        "builtin_tvfs.cc",
     ],
     hdrs = ["builtin_function_internal.h"],
     deps = [
@@ -650,6 +671,7 @@ cc_library(
         "//zetasql/public:cycle_detector",
         "//zetasql/public:function",
         "//zetasql/public:function_cc_proto",
+        "//zetasql/public:json_value",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:strings",
@@ -676,6 +698,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
         "@com_google_googleapis//google/type:date_cc_proto",
         "@com_google_googleapis//google/type:timeofday_cc_proto",
@@ -770,7 +793,9 @@ cc_library(
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/strings",
-        "@icu//:common",
+        "@icu//icu4c/source/common:headers",
+        "@icu//icu4c/source/common:platform",
+        "@icu//icu4c/source/common:uset_props",
     ],
 )
 
@@ -798,7 +823,7 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_googlesource_code_re2//:re2",
-        "@icu//:headers",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -843,7 +868,6 @@ cc_library(
     srcs = ["evaluator_registration_utils.cc"],
     hdrs = ["evaluator_registration_utils.h"],
     deps = [
-        "//zetasql/base:status",
         "//zetasql/public:collator",
         "//zetasql/reference_impl/functions:register_all",
         "@com_google_absl//absl/base",

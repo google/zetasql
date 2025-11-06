@@ -329,7 +329,7 @@ GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
 
-/*-------------------------------------*
+/*-------------------------------------+
  | source_account_id | is_acyclic_path |
  +-------------------------------------+
  | 16                | TRUE            |
@@ -339,7 +339,7 @@ RETURN src.id AS source_account_id, IS_ACYCLIC(p) AS is_acyclic_path
  | 7                 | TRUE            |
  | 7                 | TRUE            |
  | 20                | FALSE           |
- *-------------------------------------*/
+ +-------------------------------------*/
 ```
 
 ## `IS_SIMPLE`
@@ -506,7 +506,7 @@ RETURN
   JSON_QUERY(TO_JSON(ns)[0], '$.labels') AS labels,
   JSON_QUERY(TO_JSON(ns)[0], '$.properties.nick_name') AS nick_name;
 
-/*--------------------------------*
+/*--------------------------------+
  | labels      | nick_name        |
  +--------------------------------+
  | ["Account"] | "Vacation Fund"  |
@@ -517,7 +517,7 @@ RETURN
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Vacation Fund"  |
  | ["Account"] | "Rainy Day Fund" |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 ## `PATH`
@@ -558,12 +558,12 @@ RETURN
   JSON_QUERY(TO_JSON(p)[1], '$.labels') AS element_b,
   JSON_QUERY(TO_JSON(p)[2], '$.labels') AS element_c
 
-/*-------------------------------------------*
+/*-------------------------------------------+
  | element_a   | element_b     | element_c   |
  +-------------------------------------------+
  | ["Account"] | ["Transfers"] | ["Account"] |
  | ...         | ...           | ...         |
- *-------------------------------------------*/
+ +-------------------------------------------*/
 ```
 
 ```zetasql
@@ -625,7 +625,7 @@ RETURN
   LABELS(f) AS labels,
   f.nick_name AS nick_name;
 
-/*--------------------------*
+/*--------------------------+
  | labels  | nick_name      |
  +--------------------------+
  | Account | Vacation Fund  |
@@ -635,7 +635,7 @@ RETURN
  | Account | Vacation Fund  |
  | Account | Vacation Fund  |
  | Account | Rainy Day Fund |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 ## `PATH_LAST`
@@ -671,7 +671,7 @@ RETURN
   LABELS(f) AS labels,
   f.nick_name AS nick_name;
 
-/*--------------------------*
+/*--------------------------+
  | labels  | nick_name      |
  +--------------------------+
  | Account | Vacation Fund  |
@@ -681,7 +681,7 @@ RETURN
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
  | Account | Rainy Day Fund |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 ## `PATH_LENGTH`
@@ -714,7 +714,7 @@ GRAPH FinGraph
 MATCH p=(src:Account)-[t1:Transfers]->(mid:Account)-[t2:Transfers]->(dst:Account)
 RETURN PATH_LENGTH(p) AS results
 
-/*---------*
+/*---------+
  | results |
  +---------+
  | 2       |
@@ -724,7 +724,7 @@ RETURN PATH_LENGTH(p) AS results
  | 2       |
  | 2       |
  | 2       |
- *---------*/
+ +---------*/
 ```
 
 ## `PROPERTY_NAMES`

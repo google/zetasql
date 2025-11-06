@@ -44,7 +44,7 @@ class TypeFactory;
 // thread-safe.
 class Rewriter {
  public:
-  virtual ~Rewriter() {}
+  virtual ~Rewriter() = default;
 
   // Rewrites 'input' according to the rules of this rewriter. Returns the
   // rewritten AST, and potentially other output properties, in the return

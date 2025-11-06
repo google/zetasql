@@ -448,6 +448,9 @@ FunctionEpsilonAssigner::CreateFromScan(
   if (has_non_null_min_privacy_units_per_group_option) {
     --num_functions_even_splitting;
   }
+  ZETASQL_RET_CHECK_GE(num_functions_even_splitting, 0)
+      << "This indicates that the query was not rewritten by the anonymization "
+         "rewriter";
 
   for (const std::unique_ptr<const ResolvedComputedColumnBase>& aggregate :
        scan->aggregate_list()) {

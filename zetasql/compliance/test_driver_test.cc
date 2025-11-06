@@ -56,6 +56,7 @@ TEST(TestDriverTest, ClassAndProtoSize) {
     std::map<std::string, TestTable> tables;
     std::map<std::string, std::string> graph_defs;
     std::map<std::string, std::string> tvfs;
+    std::set<std::string> measure_function_defs;
   };
   struct MockTestTestTableOptions {
     int expected_table_size_min;
@@ -73,9 +74,9 @@ TEST(TestDriverTest, ClassAndProtoSize) {
                 "Please change SerializeTestDatabase (test_driver.cc) and "
                 "TestDatabaseProto (test_driver.proto) tests if TestDatabase "
                 "is modified.");
-  EXPECT_EQ(TestDatabaseProto::descriptor()->field_count(), 7);
+  EXPECT_EQ(TestDatabaseProto::descriptor()->field_count(), 8);
   EXPECT_EQ(7, TestTableOptionsProto::descriptor()->field_count());
-  EXPECT_EQ(3, TestTableProto::descriptor()->field_count());
+  EXPECT_EQ(5, TestTableProto::descriptor()->field_count());
 }
 
 Value KitchenSinkPBValue(const ProtoType* proto_type,
@@ -115,18 +116,15 @@ TEST(TestDriverTest, SerializeDeserializeTestDbWithProtos) {
   t.table_as_value = Value::Array(array_struct_proto_type, {row1, row2});
   TestDatabase test_db;
   test_db.tables["t"] = t;
+  test_db.measure_function_defs.push_back("CREATE MEASURE m1 AS (1)");
 
   TestDatabaseProto test_db_proto;
   ZETASQL_ASSERT_OK(SerializeTestDatabase(test_db, &test_db_proto));
 
-  google::protobuf::DescriptorPool test_pool;
-  std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
-  descriptor_pools.push_back(&test_pool);
-  std::vector<std::unique_ptr<const AnnotationMap>> annotation_maps;
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       TestDatabase deserialized_db,
-      DeserializeTestDatabase(test_db_proto, &type_factory, descriptor_pools,
-                              annotation_maps));
+      DeserializeTestDatabase(test_db_proto, &type_factory,
+                              ::google::protobuf::DescriptorPool::generated_pool()));
   ASSERT_EQ(deserialized_db.tables["t"].table_as_value.DebugString(),
             test_db.tables["t"].table_as_value.DebugString())
       << "Table differs after round-trip serialization/deserialization";
@@ -160,15 +158,11 @@ TEST(TestDriverTest, SerializeDeserializeTableOptions) {
   TestDatabaseProto test_db_proto;
   ZETASQL_ASSERT_OK(SerializeTestDatabase(test_db, &test_db_proto));
 
-  google::protobuf::DescriptorPool test_pool;
-  std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
-  descriptor_pools.push_back(&test_pool);
-  std::vector<std::unique_ptr<const AnnotationMap>> annotation_maps;
   SCOPED_TRACE(absl::StrCat(test_db_proto));
   ZETASQL_ASSERT_OK_AND_ASSIGN(
       TestDatabase deserialized_db,
-      DeserializeTestDatabase(test_db_proto, &type_factory, descriptor_pools,
-                              annotation_maps));
+      DeserializeTestDatabase(test_db_proto, &type_factory,
+                              ::google::protobuf::DescriptorPool::generated_pool()));
   const TestTable& deserialized_t = deserialized_db.tables["t"];
   ASSERT_EQ(deserialized_t.options.expected_table_size_min(), 3);
   ASSERT_EQ(deserialized_t.options.expected_table_size_max(), 8);

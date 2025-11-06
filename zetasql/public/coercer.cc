@@ -401,9 +401,8 @@ absl::StatusOr<TypeListView> GetCandidateSuperTypes(const Type* type,
 
   if (type->IsExtendedType()) {
     if (catalog == nullptr) {
-      return zetasql_base::FailedPreconditionErrorBuilder()
-             << "Attempt to find a conversion rule for extended type "
-             << type->DebugString() << " without providing a Catalog";
+      ZETASQL_RET_CHECK_FAIL() << "Attempt to find a conversion rule for extended type "
+                       << type->DebugString() << " without providing a Catalog";
     }
 
     return catalog->GetExtendedTypeSuperTypes(type);
@@ -635,24 +634,24 @@ absl::StatusOr<const StructType*> Coercer::GetCommonStructSuperType(
 
   std::vector<StructType::StructField> supertyped_field_types;
   for (int i = 0; i < num_struct_fields; ++i) {
-    const Type* common_field_type =
-        GetCommonSuperType(struct_field_argument_sets[i]);
+    const Type* common_field_type = nullptr;
+    ZETASQL_RETURN_IF_ERROR(
+        GetCommonSuperType(struct_field_argument_sets[i], &common_field_type));
     if (common_field_type == nullptr) {
       return nullptr;
-    } else {
-      // If the dominant_argument field is an untyped NULL, we would pick the
-      // field aliases for the nested struct from some other non-NULL field
-      // argument which is incorrect.  To fix this, we strip off the
-      // field aliases from the nested struct supertype here.
-      if (common_field_type->IsStruct() &&
-          dominant_argument->field_type(i).is_untyped()) {
-        StripFieldAliasesFromStructType(&common_field_type);
-      }
-
-      supertyped_field_types.push_back(
-          {dominant_argument->type()->AsStruct()->field(i).name,
-           common_field_type});
     }
+    // If the dominant_argument field is an untyped NULL, we would pick the
+    // field aliases for the nested struct from some other non-NULL field
+    // argument which is incorrect.  To fix this, we strip off the
+    // field aliases from the nested struct supertype here.
+    if (common_field_type->IsStruct() &&
+        dominant_argument->field_type(i).is_untyped()) {
+      StripFieldAliasesFromStructType(&common_field_type);
+    }
+
+    supertyped_field_types.push_back(
+        {dominant_argument->type()->AsStruct()->field(i).name,
+         common_field_type});
   }
 
   const StructType* supertyped_struct_type = nullptr;

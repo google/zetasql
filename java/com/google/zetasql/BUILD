@@ -76,9 +76,38 @@ BUILTIN_PROTO_DEPS = [
     "//zetasql/proto:function_java_proto",
 ]
 
+java_plugin(
+    name = "auto_value_processor_plugin",
+    processor_class = "com.google.auto.value.processor.AutoValueProcessor",
+    deps = ["@maven//:com_google_auto_value_auto_value"],
+)
+
+java_plugin(
+    name = "auto_one_of_processor_plugin",
+    processor_class = "com.google.auto.value.processor.AutoOneOfProcessor",
+    deps = ["@maven//:com_google_auto_value_auto_value"],
+)
+
+java_plugin(
+    name = "auto_annotation_processor_plugin",
+    processor_class = "com.google.auto.value.processor.AutoAnnotationProcessor",
+    deps = ["@maven//:com_google_auto_value_auto_value"],
+)
+
+java_plugin(
+    name = "auto_service_processor_plugin",
+    processor_class = "com.google.auto.service.processor.AutoServiceProcessor",
+    deps = ["@maven//:com_google_auto_service_auto_service"],
+)
+
 java_library(
     name = "types",
     srcs = TYPES_SRCS,
+    plugins = [
+        ":auto_value_processor_plugin",
+        ":auto_one_of_processor_plugin",
+        ":auto_annotation_processor_plugin",
+    ],
     tags = ["maven_coordinates=com.google.zetasql:zetasql-types:${project.version}"],
     deps = BUILTIN_PROTO_DEPS + [
         "//zetasql/public:annotation_java_proto",
@@ -86,10 +115,11 @@ java_library(
         "//zetasql/public:simple_value_java_proto",
         "//zetasql/public:type_parameters_java_proto",
         "//zetasql/public/proto:type_annotation_java_proto",
-        "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",
         "@com_google_protobuf//:protobuf_java_util",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
+        "@maven//:com_google_auto_value_auto_value",
+        "@maven//:com_google_auto_value_auto_value_annotations",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",  # buildcleaner: keep
         "@maven//:com_google_guava_guava",
@@ -155,8 +185,8 @@ java_library(
     srcs = CHANNEL_PROVIDER_SRCS,
     tags = ["maven_coordinates=com.google.zetasql:zetasql-client:${project.version}"],
     deps = [
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
     ],
 )
 
@@ -245,6 +275,7 @@ javadoc_library(
 java_library(
     name = "jni_channel",
     srcs = JNI_CHANNEL_SRCS,
+    plugins = [":auto_service_processor_plugin"],
     tags = ["maven_coordinates=com.google.zetasql:zetasql-jni-channel:${project.version}"],
     runtime_deps = [
         ":jni_channel_darwin",
@@ -253,10 +284,10 @@ java_library(
     deps = [
         ":channel_provider",
         "//zetasql/local_service:local_service_jni",
-        "@com_google_auto_service",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//netty",
+        "@maven//:com_google_auto_service_auto_service",
         "@maven//:io_netty_netty_common",
         "@maven//:io_netty_netty_transport",
         "@native_utils",
@@ -396,6 +427,11 @@ SIMPLE_CATALOG_SRCS = [
 java_library(
     name = "client",
     srcs = COMMON_SRCS + SIMPLE_CATALOG_SRCS + CATALOG_SRCS,
+    plugins = [
+        ":auto_value_processor_plugin",
+        ":auto_one_of_processor_plugin",
+        ":auto_annotation_processor_plugin",
+    ],
     deps = BUILTIN_PROTO_DEPS + [
         ":channel_provider",
         ":property_graph",
@@ -417,19 +453,21 @@ java_library(
         "//zetasql/public:simple_connection_java_proto",
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
+        "//zetasql/public:simple_sequence_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",  # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",  # unuseddeps: keep # buildcleaner: keep
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
         "@maven//:com_google_api_grpc_proto_google_common_protos",  # unuseddeps: keep # buildcleaner: keep
+        "@maven//:com_google_auto_value_auto_value",
+        "@maven//:com_google_auto_value_auto_value_annotations",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
     ],
 )
@@ -437,6 +475,11 @@ java_library(
 java_library(
     name = "catalog",
     srcs = CATALOG_SRCS,
+    plugins = [
+        ":auto_value_processor_plugin",
+        ":auto_one_of_processor_plugin",
+        ":auto_annotation_processor_plugin",
+    ],
     deps = [
         ":common",
         ":types",
@@ -455,13 +498,14 @@ java_library(
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@com_google_auto_value",
         "@com_google_protobuf//:protobuf_java",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
+        "@maven//:com_google_auto_value_auto_value",
+        "@maven//:com_google_auto_value_auto_value_annotations",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
         "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
     ],
 )
@@ -469,6 +513,11 @@ java_library(
 java_library(
     name = "simple_catalog",
     srcs = SIMPLE_CATALOG_SRCS,
+    plugins = [
+        ":auto_value_processor_plugin",
+        ":auto_one_of_processor_plugin",
+        ":auto_annotation_processor_plugin",
+    ],
     deps = [
         ":catalog",
         ":channel_provider",
@@ -486,17 +535,19 @@ java_library(
         "//zetasql/public:simple_connection_java_proto",
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
+        "//zetasql/public:simple_sequence_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/public:type_proto_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # unuseddeps: keep # buildcleaner: keep
         "//zetasql/resolved_ast:serialization_java_proto",  # unuseddeps: keep # buildcleaner: keep
-        "@com_google_auto_value",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//stub",
+        "@maven//:com_google_auto_value_auto_value",
+        "@maven//:com_google_auto_value_auto_value_annotations",
         "@maven//:com_google_code_findbugs_jsr305",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_stub",
         "@maven//:javax_annotation_javax_annotation_api",  # unuseddeps: keep # buildcleaner: keep
     ],
 )
@@ -523,9 +574,9 @@ java_library(
         "//zetasql/local_service:local_service_java_proto",
         "//zetasql/public/functions:datetime_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",  # buildcleaner: keep
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
         "@maven//:com_google_errorprone_error_prone_annotations",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
     ],
 )
 
@@ -536,10 +587,10 @@ java_library(
         ":client",
         "//java/com/google/zetasql/parser",
         "//zetasql/local_service:local_service_java_proto",
+        "@io_grpc_grpc_java//api",
+        "@io_grpc_grpc_java//core",
         "@maven//:com_google_errorprone_error_prone_annotations",
         "@maven//:com_google_guava_guava",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_core",
     ],
 )
 
@@ -566,19 +617,20 @@ jarjar_library(
         "//zetasql/public:simple_connection_java_proto",
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
+        "//zetasql/public:simple_sequence_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_grpc_grpc_protobuf_lite",
-        "@maven//:io_grpc_grpc_stub",
-        "@maven//:io_grpc_grpc_api",
-        "@com_google_code_gson_gson//jar",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//netty",
+        "@io_grpc_grpc_java//protobuf",
+        "@io_grpc_grpc_java//protobuf-lite",
+        "@io_grpc_grpc_java//stub",
+        "@io_grpc_grpc_java//api",
+        "@maven//:com_google_code_gson_gson",
         "@maven//:io_opencensus_opencensus_api",
         "@maven//:io_opencensus_opencensus_contrib_grpc_metrics",
     ],
@@ -624,17 +676,18 @@ pom_file(
         "//zetasql/public:simple_connection_java_proto",
         "//zetasql/public:simple_constant_java_proto",
         "//zetasql/public:simple_model_java_proto",
+        "//zetasql/public:simple_sequence_java_proto",
         "//zetasql/public:simple_table_java_proto",
         "//zetasql/resolved_ast:resolved_ast_enums_java_proto",
         "//zetasql/resolved_ast:resolved_ast_java_proto",
         "//zetasql/resolved_ast:resolved_node_kind_java_proto",
         "//zetasql/resolved_ast:serialization_java_proto",
-        "@maven//:io_grpc_grpc_context",
-        "@maven//:io_grpc_grpc_core",
-        "@maven//:io_grpc_grpc_netty",
-        "@maven//:io_grpc_grpc_protobuf",
-        "@maven//:io_grpc_grpc_protobuf_lite",
-        "@maven//:io_grpc_grpc_api",
+        "@io_grpc_grpc_java//context",
+        "@io_grpc_grpc_java//core",
+        "@io_grpc_grpc_java//netty",
+        "@io_grpc_grpc_java//protobuf",
+        "@io_grpc_grpc_java//protobuf-lite",
+        "@io_grpc_grpc_java//api",
         "@maven//:io_opencensus_opencensus_api",
         "@maven//:io_opencensus_opencensus_contrib_grpc_metrics",
     ],

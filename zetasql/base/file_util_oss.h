@@ -162,7 +162,7 @@ inline absl::Status SetContents(absl::string_view filename,
 
 // The path in blaze where we expect to find inputs like `.test` files.
 inline std::string TestSrcRootDir() {
-  return zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "com_google_zetasql");
+  return zetasql_base::JoinPath(getenv("TEST_SRCDIR"), "_main");
 }
 
 // The path in bazel where we expect to find inputs like `.test` files.

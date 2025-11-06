@@ -36,7 +36,7 @@ QueryStmt
 select with anonymization sum(int64)
 from SimpleTypesWithAnonymizationUid;
 
-Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM [at 1:27]
+Rewrite ERROR: Unsupported function in ANONYMIZATION clause: SUM [at 1:27]
 select with anonymization sum(int64)
                           ^
 ==
@@ -66,7 +66,7 @@ QueryStmt
             +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               +-ColumnRef(type=INT64, column=SimpleTypesWithAnonymizationUid.int64#2)
 
-Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: SUM
+Rewrite ERROR: Unsupported function in ANONYMIZATION clause: SUM
 ==
 
 [enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
@@ -2773,7 +2773,7 @@ select with anonymization anon_count(* CLAMPED BETWEEN @_p0_INT64 AND @_p1_INT64
 from (
   select rank() over (order by int64) from SimpleTypesWithAnonymizationUid);
 
-Rewrite ERROR: Unsupported scan type inside of SELECT WITH ANONYMIZATION from clause: ResolvedAnalyticScan [at 3:3]
+Rewrite ERROR: Unsupported scan type inside of ANONYMIZATION clause: ResolvedAnalyticScan [at 3:3]
   select rank() over (order by int64) from SimpleTypesWithAnonymizationUid);
   ^
 ==
@@ -9779,7 +9779,7 @@ QueryStmt
           +-epsilon := Literal(type=DOUBLE, value=1e+20)
           +-k_threshold := Literal(type=INT64, value=1)
 
-Rewrite ERROR: Unsupported function in SELECT WITH ANONYMIZATION select list: ARRAY_AGG
+Rewrite ERROR: Unsupported function in ANONYMIZATION clause: ARRAY_AGG
 --
 ALTERNATION GROUP: DEFAULTS,+ORDER_BY_AND_LIMIT_IN_AGGREGATE
 --

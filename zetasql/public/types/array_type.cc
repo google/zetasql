@@ -162,7 +162,7 @@ ArrayType::ArrayType(const TypeFactoryBase* factory, const Type* element_type)
   ABSL_CHECK(!element_type->IsArray());  // Blocked in MakeArrayType.
 }
 
-ArrayType::~ArrayType() {}
+ArrayType::~ArrayType() = default;
 
 bool ArrayType::IsSupportedType(const LanguageOptions& language_options) const {
   return element_type()->IsSupportedType(language_options);

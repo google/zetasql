@@ -39,6 +39,7 @@ import com.google.zetasql.SimpleConnectionProtos.SimpleConnectionProto;
 import com.google.zetasql.SimpleConstantProtos.SimpleConstantProto;
 import com.google.zetasql.SimpleModelProtos.SimpleModelProto;
 import com.google.zetasql.SimplePropertyGraphProtos.SimplePropertyGraphProto;
+import com.google.zetasql.SimpleSequenceProtos.SimpleSequenceProto;
 import com.google.zetasql.SimpleTableProtos.SimpleTableProto;
 import io.grpc.StatusRuntimeException;
 import java.util.HashMap;
@@ -79,8 +80,9 @@ public class SimpleCatalog extends Catalog {
   private final Map<String, SimpleCatalog> catalogs = new HashMap<>();
   private final Map<Long, SimpleTable> tablesById = new HashMap<>();
   private final Map<String, Function> customFunctions = new HashMap<>();
-  private final Map<String, TableValuedFunction> tvfs = new HashMap<>();
+  private final Map<String, TableValuedFunction> customTvfs = new HashMap<>();
   private final Map<String, Function> functionsByFullName = new HashMap<>();
+  private final Map<String, TableValuedFunction> tvfsByFullName = new HashMap<>();
   private final Map<String, Procedure> procedures = new HashMap<>();
   // globalNames is used to avoid naming conflict of top tier objects including
   // tables and property graphs.
@@ -90,6 +92,7 @@ public class SimpleCatalog extends Catalog {
   private final Map<String, SimpleConnection> connections = new HashMap<>();
   private final Map<String, SimpleModel> models = new HashMap<>();
   private final Map<Long, SimpleModel> modelsById = new HashMap<>();
+  private final Map<String, SimpleSequence> sequences = new HashMap<>();
   private DescriptorPool descriptorPool;
   ZetaSQLBuiltinFunctionOptionsProto builtinFunctionOptions;
 
@@ -249,7 +252,7 @@ public class SimpleCatalog extends Catalog {
     for (Entry<String, SimpleCatalog> catalog : catalogs.entrySet()) {
       builder.addCatalog(catalog.getValue().serialize(fileDescriptorSetsBuilder));
     }
-    for (Entry<String, TableValuedFunction> tvf : tvfs.entrySet()) {
+    for (Entry<String, TableValuedFunction> tvf : customTvfs.entrySet()) {
       builder.addCustomTvf(tvf.getValue().serialize(fileDescriptorSetsBuilder));
     }
 
@@ -275,6 +278,10 @@ public class SimpleCatalog extends Catalog {
 
     for (Entry<String, SimplePropertyGraph> propertyGraph : propertyGraphs.entrySet()) {
       builder.addPropertyGraph(propertyGraph.getValue().serialize(fileDescriptorSetsBuilder));
+    }
+
+    for (Entry<String, SimpleSequence> sequence : sequences.entrySet()) {
+      builder.addSequence(sequence.getValue().serialize());
     }
 
     if (descriptorPool != null) {
@@ -315,6 +322,14 @@ public class SimpleCatalog extends Catalog {
     modelsById.put(model.getId(), model);
   }
 
+  public void addSequence(SimpleSequence sequence) {
+    Preconditions.checkState(!registered);
+    Preconditions.checkNotNull(sequence.getFullName());
+    Preconditions.checkArgument(!sequences.containsKey(Ascii.toLowerCase(sequence.getFullName())));
+    String fullName = sequence.getFullName();
+    sequences.put(Ascii.toLowerCase(fullName), sequence);
+  }
+
   /**
    * Add simple table into this catalog. Table names are case insensitive.
    *
@@ -334,16 +349,12 @@ public class SimpleCatalog extends Catalog {
     tablesById.put(table.getId(), table);
   }
 
-  /**
-   * Removes a simple table from this catalog.
-   */
+  /** Removes a simple table from this catalog. */
   public void removeSimpleTable(SimpleTable table) {
     removeSimpleTable(table.getName());
   }
 
-  /**
-   * Removes a simple table from this catalog. Table names are case insensitive.
-   */
+  /** Removes a simple table from this catalog. Table names are case insensitive. */
   public void removeSimpleTable(String name) {
     String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
@@ -382,9 +393,7 @@ public class SimpleCatalog extends Catalog {
     types.put(nameInLowerCase, type);
   }
 
-  /**
-   * Removes the type with the passed name from this catalog. Type names are case insensitive.
-   */
+  /** Removes the type with the passed name from this catalog. Type names are case insensitive. */
   public void removeType(String name) {
     String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
@@ -479,9 +488,7 @@ public class SimpleCatalog extends Catalog {
     return newCatalog;
   }
 
-  /**
-   * Removes the passed sub catalog from this catalog.
-   */
+  /** Removes the passed sub catalog from this catalog. */
   public void removeSimpleCatalog(SimpleCatalog catalog) {
     removeSimpleCatalog(catalog.getFullName());
   }
@@ -535,6 +542,10 @@ public class SimpleCatalog extends Catalog {
     for (FunctionProto proto : response.getFunctionList()) {
       addFunctionToFullNameMap(Function.deserialize(proto, pools));
     }
+    for (TableValuedFunctionProto proto : response.getTableValuedFunctionList()) {
+      addTableValuedFunctionToFullNameMap(
+          TableValuedFunction.deserialize(proto, pools, typeFactory));
+    }
     for (Map.Entry<String, TypeProto> entry : response.getTypesMap().entrySet()) {
       Type type = typeFactory.deserialize(entry.getValue(), pools);
       // When we deserialize a catalog, it may contain these types already, so as any existing
@@ -570,16 +581,19 @@ public class SimpleCatalog extends Catalog {
     functionsByFullName.put(functionName, function);
   }
 
-  /**
-   * Removes the passed function from this catalog.
-   */
+  private void addTableValuedFunctionToFullNameMap(TableValuedFunction tvf) {
+    String tvfName = Ascii.toLowerCase(tvf.getFullName());
+    Preconditions.checkArgument(
+        !tvfsByFullName.containsKey(tvfName), "%s already exists.", tvfName);
+    tvfsByFullName.put(tvfName, tvf);
+  }
+
+  /** Removes the passed function from this catalog. */
   public void removeFunction(Function function) {
     removeFunction(function.getFullName());
   }
 
-  /**
-   * Removes the function with the passed full name from this catalog.
-   */
+  /** Removes the function with the passed full name from this catalog. */
   public void removeFunction(String fullName) {
     Preconditions.checkState(!registered);
     Function function = getFunctionByFullName(fullName);
@@ -597,8 +611,9 @@ public class SimpleCatalog extends Catalog {
   public void addTableValuedFunction(TableValuedFunction tvf) {
     Preconditions.checkState(!registered);
     String tvfName = Ascii.toLowerCase(tvf.getName());
-    Preconditions.checkArgument(!tvfs.containsKey(tvfName));
-    tvfs.put(tvfName, tvf);
+    Preconditions.checkArgument(!customTvfs.containsKey(tvfName));
+    customTvfs.put(tvfName, tvf);
+    addTableValuedFunctionToFullNameMap(tvf);
   }
 
   /** Removes the passed TVF from this catalog. */
@@ -607,18 +622,24 @@ public class SimpleCatalog extends Catalog {
   }
 
   /** Removes the TVF with the passed full name from this catalog. */
-  public void removeTableValuedFunction(String name) {
+  public void removeTableValuedFunction(String fullName) {
     Preconditions.checkState(!registered);
-    String lowerCaseName = Ascii.toLowerCase(name);
-    TableValuedFunction tvf = getTVFByName(lowerCaseName);
+    TableValuedFunction tvf = getTvfByFullName(fullName);
     Preconditions.checkArgument(tvf != null);
-    tvfs.remove(lowerCaseName);
+    customTvfs.remove(Ascii.toLowerCase(tvf.getName()));
+    removeTableValuedFunctionFromFullNameMap(tvf);
   }
 
   private void removeFunctionFromFullNameMap(Function function) {
     String fullNameInlowerCase = Ascii.toLowerCase(function.getFullName());
     Preconditions.checkArgument(functionsByFullName.containsKey(fullNameInlowerCase));
     functionsByFullName.remove(fullNameInlowerCase);
+  }
+
+  private void removeTableValuedFunctionFromFullNameMap(TableValuedFunction tvf) {
+    String fullNameInlowerCase = Ascii.toLowerCase(tvf.getFullName());
+    Preconditions.checkArgument(tvfsByFullName.containsKey(fullNameInlowerCase));
+    tvfsByFullName.remove(fullNameInlowerCase);
   }
 
   /**
@@ -633,16 +654,12 @@ public class SimpleCatalog extends Catalog {
     procedures.put(nameInLowerCase, procedure);
   }
 
-  /**
-   * Removes the passed procedure from this catalog.
-   */
+  /** Removes the passed procedure from this catalog. */
   public void removeProcedure(Procedure procedure) {
     removeProcedure(procedure.getName());
   }
 
-  /**
-   * Removes the procedure with the passed name from this catalog. Names are case insensitive.
-   */
+  /** Removes the procedure with the passed name from this catalog. Names are case insensitive. */
   public void removeProcedure(String name) {
     String nameInLowerCase = Ascii.toLowerCase(name);
     Preconditions.checkState(!registered);
@@ -680,6 +697,7 @@ public class SimpleCatalog extends Catalog {
   public ImmutableList<PropertyGraph> getPropertyGraphList() {
     return ImmutableList.copyOf(propertyGraphs.values());
   }
+
   public ImmutableList<Type> getTypeList() {
     return ImmutableList.copyOf(types.values());
   }
@@ -693,7 +711,7 @@ public class SimpleCatalog extends Catalog {
   }
 
   public ImmutableList<TableValuedFunction> getTVFList() {
-    return ImmutableList.copyOf(tvfs.values());
+    return ImmutableList.copyOf(customTvfs.values());
   }
 
   public ImmutableList<String> getFunctionNameList() {
@@ -701,7 +719,7 @@ public class SimpleCatalog extends Catalog {
   }
 
   public ImmutableList<String> getTVFNameList() {
-    return ImmutableList.copyOf(tvfs.keySet());
+    return ImmutableList.copyOf(customTvfs.keySet());
   }
 
   public ImmutableList<Procedure> getProcedureList() {
@@ -789,11 +807,11 @@ public class SimpleCatalog extends Catalog {
 
   @Override
   protected TableValuedFunction getTableValuedFunction(String name, FindOptions options) {
-    return tvfs.get(Ascii.toLowerCase(name));
+    return customTvfs.get(Ascii.toLowerCase(name));
   }
 
-  public TableValuedFunction getTVFByName(String name) {
-    return tvfs.get(Ascii.toLowerCase(name));
+  public TableValuedFunction getTvfByFullName(String fullName) {
+    return tvfsByFullName.get(Ascii.toLowerCase(fullName));
   }
 
   @Override
@@ -832,8 +850,7 @@ public class SimpleCatalog extends Catalog {
   }
 
   public Sequence getSequenceByFullName(String fullName) {
-    // TODO: Add support for Sequence in the Java implementation.
-    return null;
+    return sequences.get(Ascii.toLowerCase(fullName));
   }
 
   @Override
@@ -900,6 +917,10 @@ public class SimpleCatalog extends Catalog {
     for (SimplePropertyGraphProto propertyGraphProto : proto.getPropertyGraphList()) {
       catalog.addSimplePropertyGraph(
           SimplePropertyGraph.deserialize(propertyGraphProto, pools, catalog));
+    }
+
+    for (SimpleSequenceProto sequenceProto : proto.getSequenceList()) {
+      catalog.addSequence(SimpleSequence.deserialize(sequenceProto));
     }
 
     if (proto.hasBuiltinFunctionOptions()) {

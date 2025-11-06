@@ -271,6 +271,16 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
     parse_location_range_.set_end(point);
     return this;
   }
+  // Sets the location range of the operator keyword and returns `this` to allow
+  // a chained function or to be used in a return statement.
+  ASTNode* set_operator_keyword_location(const ParseLocationRange& range) {
+    operator_keyword_location_ = range;
+    return this;
+  }
+  // Returns the location range of the operator keyword. The value can be empty.
+  const ParseLocationRange& operator_keyword_location() const {
+    return operator_keyword_location_;
+  }
 
   virtual bool IsTableExpression() const { return false; }
   virtual bool IsQueryExpression() const { return false; }
@@ -526,7 +536,11 @@ class ASTNode : public zetasql_base::ArenaOnlyGladiator {
 
   ASTNode* parent_ = nullptr;
 
+  // The location range of the node.
   ParseLocationRange parse_location_range_;
+
+  // The location range of the node's keyword.
+  ParseLocationRange operator_keyword_location_;
 
   // Many nodes have one to two children, so InlinedVector saves allocations.
   absl::InlinedVector<ASTNode*, 4> children_;

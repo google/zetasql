@@ -178,6 +178,17 @@ absl::Status Resolver::ValidateStatementIsReturnable(
             CheckOutputColumns(query->output_schema()->output_column_list()));
       }
     } break;
+    case RESOLVED_SUBPIPELINE_STMT: {
+      const auto* subpipeline = statement->GetAs<ResolvedSubpipelineStmt>();
+      if (subpipeline->output_schema() != nullptr) {
+        ZETASQL_RETURN_IF_ERROR(CheckOutputColumns(
+            subpipeline->output_schema()->output_column_list()));
+      }
+    } break;
+    case RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT:
+      // We don't check these for returnability.  The underlying statement
+      // should itself have been checked already.
+      break;
     case RESOLVED_CREATE_VIEW_STMT:
       ZETASQL_RETURN_IF_ERROR(CheckOutputColumns(
           statement->GetAs<ResolvedCreateViewStmt>()->output_column_list()));
@@ -387,6 +398,13 @@ absl::Status Resolver::ResolveStatement(
       }
       break;
 
+    case AST_SUBPIPELINE_STATEMENT:
+      if (language().SupportsStatementKind(RESOLVED_SUBPIPELINE_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveSubpipelineStatement(
+            static_cast<const ASTSubpipelineStatement*>(statement), &stmt));
+      }
+      break;
+
     case AST_EXPLAIN_STATEMENT:
       RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
       if (language().SupportsStatementKind(RESOLVED_EXPLAIN_STMT)) {
@@ -399,6 +417,14 @@ absl::Status Resolver::ResolveStatement(
         ZETASQL_RETURN_IF_ERROR(
             ResolveStatement(sql, explain->statement(), &inner_statement));
         stmt = MakeResolvedExplainStmt(std::move(inner_statement));
+      }
+      break;
+
+    case AST_STATEMENT_WITH_PIPE_OPERATORS:
+      if (language().SupportsStatementKind(
+              RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT)) {
+        ZETASQL_RETURN_IF_ERROR(ResolveStatementWithPipeOperators(
+            static_cast<const ASTStatementWithPipeOperators*>(statement), &stmt));
       }
       break;
 
@@ -1018,7 +1044,7 @@ absl::Status Resolver::ResolveStatement(
 }
 // NOLINTEND(readability/fn_size)
 
-absl::Status Resolver::FinishResolveStatement(const ASTStatement* ast_stmt,
+absl::Status Resolver::FinishResolveStatement(const ASTNode* ast_location,
                                               ResolvedStatement* stmt) {
   // These apply at the end of ResolveStatement, and also in resolve methods
   // for terminal pipe operators that correspond to statements.
@@ -1028,7 +1054,7 @@ absl::Status Resolver::FinishResolveStatement(const ASTStatement* ast_stmt,
   // operator, and again for the outer QueryStmt.  Pruning twice is okay.
   ZETASQL_RETURN_IF_ERROR(PruneColumnLists(stmt));
   ZETASQL_RETURN_IF_ERROR(SetColumnAccessList(stmt));
-  ZETASQL_RETURN_IF_ERROR(ValidateStatementIsReturnable(stmt, ast_stmt));
+  ZETASQL_RETURN_IF_ERROR(ValidateStatementIsReturnable(stmt, ast_location));
   return absl::OkStatus();
 }
 
@@ -1102,6 +1128,92 @@ absl::Status Resolver::ResolveQueryStatement(
         MakeOutputColumnList(**output_name_list),
         (*output_name_list)->is_value_table(), std::move(resolved_scan));
   }
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveSubpipelineStatement(
+    const ASTSubpipelineStatement* ast_subpipeline_statement,
+    std::unique_ptr<ResolvedStatement>* output_stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  const ASTSubpipeline* ast_subpipeline =
+      ast_subpipeline_statement->subpipeline();
+
+  const Table* input_table =
+      analyzer_options_.default_table_for_subpipeline_stmt();
+  if (input_table == nullptr) {
+    return MakeSqlErrorAt(ast_subpipeline_statement)
+           << "Cannot use a standalone subpipeline because there's no "
+              "default input table";
+  }
+
+  std::unique_ptr<ResolvedTableScan> table_scan;
+  std::shared_ptr<const NameList> current_name_list;
+
+  IdString alias = MakeIdString(input_table->Name());
+  ZETASQL_RETURN_IF_ERROR(MakeScanForTable(
+      ast_subpipeline, input_table, alias,
+      /*has_explicit_alias=*/true, /*alias_location=*/ast_subpipeline,
+      /*for_system_time=*/nullptr,
+      /*read_as_row_type_error_kind=*/"", &table_scan, &current_name_list,
+      /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
+
+  NameScope empty_scope;  // Outer scope for correlated references is empty.
+
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<const ResolvedSubpipeline> resolved_subpipeline,
+      ResolveSubpipeline(ast_subpipeline, &empty_scope,
+                         table_scan->column_list(), /*input_is_ordered=*/false,
+                         &current_name_list, /*allow_terminal=*/true));
+
+  // Some ResolvedGeneralizedQuerySubpipeline cases won't have an output schema,
+  // meaning the pipeline doesn't return a final output table.
+  std::unique_ptr<const ResolvedOutputSchema> output_schema;
+  if (current_name_list != nullptr) {
+    output_schema = MakeOutputSchema(*current_name_list);
+  }
+
+  std::unique_ptr<ResolvedStatement> stmt = MakeResolvedSubpipelineStmt(
+      std::move(table_scan), std::move(resolved_subpipeline),
+      std::move(output_schema));
+
+  *output_stmt = std::move(stmt);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveStatementWithPipeOperators(
+    const ASTStatementWithPipeOperators* ast_stmt,
+    std::unique_ptr<ResolvedStatement>* output_stmt) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  const ASTSubpipelineStatement* pipe_suffix = ast_stmt->pipe_operator_suffix();
+  ZETASQL_RET_CHECK(pipe_suffix != nullptr);
+  ZETASQL_RET_CHECK(pipe_suffix->subpipeline() != nullptr);
+  auto pipe_operator_list = pipe_suffix->subpipeline()->pipe_operator_list();
+  ZETASQL_RET_CHECK(!pipe_operator_list.empty());
+  const ASTPipeOperator* first_pipe_operator = pipe_operator_list.front();
+
+  if (!language().LanguageFeatureEnabled(FEATURE_PIPES)) {
+    return MakeSqlErrorAt(first_pipe_operator)
+           << "Pipe query syntax not supported";
+  }
+  if (!language().LanguageFeatureEnabled(
+          FEATURE_STATEMENT_WITH_PIPE_OPERATORS)) {
+    // The parser also checks for this so this error is unreachable in
+    // analyzer tests.
+    return MakeSqlErrorAt(first_pipe_operator)
+           << "Statement does not support pipe operators";
+  }
+
+  std::unique_ptr<const ResolvedStatement> inner_statement;
+  ZETASQL_RETURN_IF_ERROR(
+      ResolveStatement(sql_, ast_stmt->statement(), &inner_statement));
+
+  ZETASQL_ASSIGN_OR_RETURN(absl::string_view subpipeline_sql,
+                   GetSQLForASTNode(ast_stmt->pipe_operator_suffix()));
+  ZETASQL_RET_CHECK(!subpipeline_sql.empty());
+
+  *output_stmt = MakeResolvedStatementWithPipeOperatorsStmt(
+      std::move(inner_statement), subpipeline_sql);
   return absl::OkStatus();
 }
 
@@ -2763,6 +2875,7 @@ absl::Status Resolver::ResolveCreateIndexStatement(
       table_path, table_alias, has_explicit_table_name_alias,
       /*alias_location=*/table_alias_location, /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"CREATE INDEX",
       /*remaining_names=*/nullptr, &resolved_table_scan, &target_name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
 
@@ -3855,8 +3968,9 @@ absl::Status Resolver::ResolveDataSourceForCopyOrClone(
       data_source->path_expr(), GetAliasForExpression(data_source->path_expr()),
       /*has_explicit_alias=*/false, /*alias_location=*/data_source->path_expr(),
       /*hints=*/nullptr, data_source->for_system_time(),
-      empty_name_scope_.get(), /*remaining_names=*/nullptr, &table_scan,
-      &output_name_list,
+      empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"COPY or CLONE",
+      /*remaining_names=*/nullptr, &table_scan, &output_name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   if (table_scan->table()->IsValueTable()) {
     return MakeSqlErrorAt(data_source)
@@ -3880,6 +3994,7 @@ absl::Status Resolver::ResolveReplicaSource(
       data_source, GetAliasForExpression(data_source),
       /*has_explicit_alias=*/false, /*alias_location=*/data_source,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"REPLICA table",
       /*remaining_names=*/nullptr, &table_scan, &output_name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   *output = std::move(table_scan);
@@ -4754,7 +4869,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
                                     expr_info.get(), &resolved_expr,
                                     return_type));
 
-        ZETASQL_RET_CHECK(!expr_info->has_analytic);
+        ZETASQL_RET_CHECK(!expr_info->findings.has_analytic);
         if (expr_info->query_resolution_info->HasGroupingCall()) {
           return MakeSqlErrorAt(ast_statement)
                  << "GROUPING function is not supported in SQL function body.";
@@ -4763,7 +4878,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
             FunctionResolver::CheckCreateAggregateFunctionProperties(
                 *resolved_expr, sql_function_body->expression(),
                 expr_info.get(), query_info.get(), language()));
-        if (expr_info->has_aggregation) {
+        if (expr_info->findings.has_aggregation) {
           ZETASQL_RET_CHECK(is_aggregate);
           std::vector<std::unique_ptr<const ResolvedComputedColumnBase>> aggs =
               query_info->release_aggregate_columns_to_compute();
@@ -4836,7 +4951,7 @@ absl::Status Resolver::ResolveCreateFunctionStatement(
     FunctionArgumentTypeOptions options;
     if (ast_statement->return_type()) {
       options.set_argument_type_parse_location(
-          ast_statement->return_type()->GetParseLocationRange());
+          ast_statement->return_type()->location());
     }
     signature = std::make_unique<FunctionSignature>(
         FunctionArgumentType(return_type, options),
@@ -5074,7 +5189,7 @@ absl::Status Resolver::ResolveCreateTableFunctionStatement(
   if (code != nullptr) {
     code_string = code->string_value();
   } else if (query != nullptr) {
-    const ParseLocationRange& range = query->GetParseLocationRange();
+    const ParseLocationRange& range = query->location();
     code_string = std::string(sql_.substr(
         range.start().GetByteOffset(),
         range.end().GetByteOffset() - range.start().GetByteOffset()));
@@ -5601,8 +5716,7 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
         ast_statement->name()->ToIdentifierPathString()));
 
     // Copy procedure body from BEGIN <statement_list> END block
-    const ParseLocationRange& range =
-        ast_statement->body()->GetParseLocationRange();
+    const ParseLocationRange& range = ast_statement->body()->location();
     ZETASQL_RET_CHECK_GE(sql_.length(), range.end().GetByteOffset()) << sql_;
     procedure_body = sql_.substr(
         range.start().GetByteOffset(),
@@ -5952,6 +6066,7 @@ absl::Status Resolver::ResolveTableAndPredicate(
   ZETASQL_RETURN_IF_ERROR(ResolvePathExpressionAsTableScan(
       table_path, alias, /*has_explicit_alias=*/false, alias_location,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"ROW ACCESS POLICY",
       /*remaining_names=*/nullptr, resolved_table_scan, &target_name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   ZETASQL_RET_CHECK(target_name_list->HasRangeVariable(alias));
@@ -6089,6 +6204,7 @@ absl::Status Resolver::ResolveCreatePrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"PRIVILEGE RESTRICTION",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
@@ -6298,6 +6414,7 @@ absl::Status Resolver::ResolveAlterPrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"PRIVILEGE RESTRICTION",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
@@ -6436,6 +6553,7 @@ absl::Status Resolver::ResolveAlterAllRowAccessPoliciesStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"ROW ACCESS POLICY",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
 
@@ -6475,6 +6593,7 @@ absl::Status Resolver::ResolveCloneDataStatement(
       /*has_explicit_alias=*/false,
       /*alias_location=*/ast_statement->target_path(), /*hints=*/nullptr,
       /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"CLONE DATA",
       /*remaining_names=*/nullptr, &target_table, &output_name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   if (target_table->table()->IsValueTable()) {
@@ -7082,6 +7201,7 @@ absl::Status Resolver::ResolveDropPrivilegeRestrictionStatement(
       table_path, GetAliasForExpression(table_path),
       /*has_explicit_alias=*/false, /*alias_location=*/table_path,
       /*hints=*/nullptr, /*for_system_time=*/nullptr, empty_name_scope_.get(),
+      /*read_as_row_type_error_kind=*/"PRIVILEGE RESTRICTION",
       /*remaining_names=*/nullptr, &resolved_table_scan, &name_list,
       /*output_column_name_list=*/nullptr, resolved_columns_from_table_scans_));
   const std::shared_ptr<const NameScope> name_scope =
@@ -7331,8 +7451,7 @@ absl::Status Resolver::ResolveImportStatement(
         alias_path.push_back(name_path.back());
       }
       kind = ResolvedImportStmt::MODULE;
-      import_path_location_range =
-          ast_statement->name()->GetParseLocationRange();
+      import_path_location_range = ast_statement->name()->location();
       break;
     case ASTImportStatement::PROTO:
       if (ast_statement->string_value() != nullptr) {
@@ -7357,8 +7476,7 @@ absl::Status Resolver::ResolveImportStatement(
         into_alias_path.push_back(ast_statement->into_alias()->GetAsString());
       }
       kind = ResolvedImportStmt::PROTO;
-      import_path_location_range =
-          ast_statement->string_value()->GetParseLocationRange();
+      import_path_location_range = ast_statement->string_value()->location();
       break;
   }
 

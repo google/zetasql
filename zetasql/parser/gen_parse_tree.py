@@ -42,7 +42,7 @@ from zetasql.parser.generator_utils import UpperCamelCase
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 536
+NEXT_NODE_TAG_ID = 543
 
 
 def GetTempTagId():
@@ -832,8 +832,14 @@ class TreeGenerator(object):
     # {{items|linkify_node_names}} can be used to link AST node names
     # in text to the node documentation.
     def LinkifyNodeNames(text):
+      def LinkSafe(match):
+        # The replacement string is explicitly marked as safe HTML
+        return markupsafe.Markup(
+            f'<a href="#{match.group(1)}">{match.group(1)}</a>'
+        )
+
       text = markupsafe.escape(text)
-      text = linkify_re.sub(r'<a href="#\1">\1</a>', text)
+      text = linkify_re.sub(LinkSafe, text)
       text = markupsafe.Markup(text)
       return text
 
@@ -899,6 +905,26 @@ def main(argv):
               tag_id=2,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
+
+  gen.AddNode(
+      name='ASTSubpipelineStatement',
+      tag_id=536,
+      parent='ASTStatement',
+      comment="""
+    Represents a standalone subpipeline parsed as a statement.
+    Also used for pipe suffixes on other statements in
+    ASTStatementWithPipeOperators.
+    See (broken link).
+      """,
+      fields=[
+          Field(
+              'subpipeline',
+              'ASTSubpipeline',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTQueryExpression',
@@ -4455,6 +4481,39 @@ def main(argv):
               tag_id=3,
               field_loader=FieldLoaderMethod.REQUIRED),
       ])
+
+  gen.AddNode(
+      name='ASTStatementWithPipeOperators',
+      tag_id=537,
+      parent='ASTStatement',
+      comment="""
+      This wraps another statement, adding pipe operators on the end.
+
+      The parser doesn't use this for ASTQueryStatement or other nodes that
+      can include pipe operator suffixes themselves.
+
+      This can only occur if FEATURE_STATEMENT_WITH_PIPE_OPERATORS is set.
+
+      These pipe suffixes are generally not handled by the analyzer, and must
+      be processed by the engine.  See (broken link).
+      """,
+      fields=[
+          Field(
+              'statement',
+              'ASTStatement',
+              tag_id=2,
+              field_loader=FieldLoaderMethod.REQUIRED,
+          ),
+          Field(
+              'pipe_operator_suffix',
+              # This uses ASTSubpipelineStatement rather than ASTSubpipeline
+              # because that makes it easier to share the analysis code used for
+              # standalone subpipeline statements.
+              'ASTSubpipelineStatement',
+              tag_id=3,
+          ),
+      ],
+  )
 
   gen.AddNode(
       name='ASTExplainStatement',

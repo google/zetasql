@@ -16,12 +16,14 @@
 
 #include "zetasql/testdata/sample_catalog.h"
 
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/public/catalog.h"
+#include "zetasql/public/evaluator_table_iterator.h"
 #include "zetasql/public/function.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/sql_view.h"
@@ -129,6 +131,107 @@ TEST(SampleCatalogTest, SequenceFunction) {
   const Function* function = nullptr;
   ZETASQL_ASSERT_OK(sample.catalog()->GetFunction("fn_with_sequence_arg", &function));
   EXPECT_NE(function, nullptr);
+}
+
+// Compare output on column listing and Find methods for tables with each
+// ColumnListMode.
+TEST(SampleCatalogTest, LazyTables) {
+  LanguageOptions options;
+  options.EnableMaximumLanguageFeatures();
+  TypeFactory type_factory;
+  SampleCatalog sample(options, &type_factory);
+
+  Catalog::FindOptions find_options;
+  Table::LazyColumnsTableScanContext context;
+
+  // Test the three KeyValue tables with the different ColumnListModes.
+  const Table* table_default = nullptr;
+  ZETASQL_ASSERT_OK(sample.catalog()->GetTable("KeyValue", &table_default));
+  const Table* table_lazy = nullptr;
+  ZETASQL_ASSERT_OK(sample.catalog()->GetTable("KeyValueLazy", &table_lazy));
+  const Table* table_find_only = nullptr;
+  ZETASQL_ASSERT_OK(sample.catalog()->GetTable("KeyValueFindOnly", &table_find_only));
+
+  EXPECT_EQ(table_default->GetColumnListMode(), Table::ColumnListMode::DEFAULT);
+  EXPECT_EQ(table_lazy->GetColumnListMode(), Table::ColumnListMode::LAZY);
+  EXPECT_EQ(table_find_only->GetColumnListMode(),
+            Table::ColumnListMode::FIND_ONLY);
+
+  for (const Table* table : {table_default, table_lazy, table_find_only}) {
+    // NumColumns, GetColumn and FindColumnByName work on DEFAULT table only.
+    if (table == table_default) {
+      EXPECT_EQ(table->GetColumnListMode(), Table::ColumnListMode::DEFAULT);
+      EXPECT_TRUE(table->HasColumnList());
+      EXPECT_EQ(2, table->NumColumns());
+      EXPECT_EQ(table->GetColumn(0)->Name(), "Key");
+      EXPECT_EQ(table->FindColumnByName("keY")->Name(), "Key");
+      EXPECT_EQ(nullptr, table->FindColumnByName("BadCol"));
+    } else {
+      EXPECT_EQ(0, table->NumColumns());
+      EXPECT_EQ(nullptr, table->FindColumnByName("Key"));
+    }
+
+    // ListLazyColumns works except on FIND_ONLY tables.
+    if (table == table_find_only) {
+      EXPECT_FALSE(table->SupportsListLazyColumns());
+    } else {
+      EXPECT_TRUE(table->SupportsListLazyColumns());
+
+      ZETASQL_ASSERT_OK_AND_ASSIGN(auto list_result,
+                           table->ListLazyColumns(&context, find_options));
+      EXPECT_EQ(list_result.size(), 2);
+      EXPECT_EQ(list_result[0]->Name(), "Key");
+      EXPECT_EQ(list_result[1]->Name(), "Value");
+    }
+
+    // FindLazyColumn is always supported.
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto find_result,
+                         table->FindLazyColumn("Key", &context, find_options));
+    ASSERT_TRUE(find_result != nullptr);
+    EXPECT_EQ(find_result->Name(), "Key");
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        find_result, table->FindLazyColumn("BadCol", &context, find_options));
+    EXPECT_EQ(find_result, nullptr);
+
+    ZETASQL_ASSERT_OK_AND_ASSIGN(auto find_multi_result,
+                         table->FindLazyColumns({"keY", "bad", "vaLUE"},
+                                                &context, find_options));
+    ASSERT_EQ(find_multi_result.size(), 3);
+    EXPECT_EQ(find_multi_result[0].value()->Name(), "Key");
+    EXPECT_EQ(find_multi_result[1].value(), nullptr);
+    EXPECT_EQ(find_multi_result[2].value()->Name(), "Value");
+
+    for (int mode = 0; mode < 2; ++mode) {
+      // Try making an iterator, reading column Key.
+      // In mode 0, use column_index_list (in default ColumnListMode only).
+      // In mode 1, use table_column_list.
+      std::unique_ptr<EvaluatorTableIterator> iterator;
+      if (mode == 0) {
+        if (table != table_default) continue;
+
+        ZETASQL_ASSERT_OK_AND_ASSIGN(iterator,
+                             table->CreateEvaluatorTableIterator({0}));
+      } else {
+        ZETASQL_ASSERT_OK_AND_ASSIGN(
+            const Column* key_column,
+            table->FindLazyColumn("Key", &context, find_options));
+        ZETASQL_ASSERT_OK_AND_ASSIGN(
+            iterator,
+            table->CreateEvaluatorTableIteratorFromColumns({key_column}));
+      }
+
+      // The values in the column are always {1,2}.
+      EXPECT_TRUE(iterator->NextRow());
+      EXPECT_EQ(iterator->GetValue(0).int64_value(), 1);
+
+      EXPECT_TRUE(iterator->NextRow());
+      EXPECT_EQ(iterator->GetValue(0).int64_value(), 2);
+
+      EXPECT_FALSE(iterator->NextRow());
+      ZETASQL_EXPECT_OK(iterator->Status());
+    }
+  }
 }
 
 }  // namespace zetasql

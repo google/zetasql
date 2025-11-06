@@ -180,6 +180,7 @@ std::vector<FunctionTestCall> GetFunctionTestsDatetimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeDiff();
 std::vector<FunctionTestCall> GetFunctionTestsDatetimeTrunc();
 std::vector<FunctionTestCall> GetFunctionTestsLastDay();
+std::vector<FunctionTestCall> GetFunctionTestsNextDay();
 std::vector<FunctionTestCall> GetFunctionTestsAddMonths();
 std::vector<FunctionTestCall> GetFunctionTestsTimeAddSub();
 std::vector<FunctionTestCall> GetFunctionTestsTimeDiff();

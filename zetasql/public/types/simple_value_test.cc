@@ -25,10 +25,10 @@ namespace zetasql {
 
 class SimpleValueTest : public ::testing::Test {
  public:
-  SimpleValueTest() {}
+  SimpleValueTest() = default;
   SimpleValueTest(const SimpleValueTest&) = delete;
   SimpleValueTest& operator=(const SimpleValueTest&) = delete;
-  ~SimpleValueTest() override {}
+  ~SimpleValueTest() override = default;
 
   bool StringPtrRefCountIsOne(const SimpleValue& value) {
     return value.string_ptr_->RefCountIsOne();

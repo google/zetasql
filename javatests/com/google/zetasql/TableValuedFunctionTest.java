@@ -36,6 +36,112 @@ import org.junit.runners.JUnit4;
 public final class TableValuedFunctionTest {
 
   @Test
+  public void getFullName_shouldNotPrependEmptyGroupName() {
+    TableValuedFunctionOptionsProto tvfOptions =
+        TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build();
+    ImmutableList<String> functionNamePath = ImmutableList.of("tvf_name");
+    FunctionArgumentType relationArg =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_RELATION,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder().build(),
+            1);
+    FunctionSignature signatureRelationArg =
+        new FunctionSignature(relationArg, ImmutableList.of(relationArg), /* contextId= */ 1);
+    TableValuedFunction tvf =
+        new TableValuedFunction(
+            functionNamePath,
+            "",
+            ImmutableList.of(signatureRelationArg),
+            ImmutableList.of(),
+            null,
+            null,
+            tvfOptions);
+    assertThat(tvf.getFullName()).isEqualTo("tvf_name");
+  }
+
+  @Test
+  public void getFullName_shouldPrependGroupName() {
+    TableValuedFunctionOptionsProto tvfOptions =
+        TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build();
+    ImmutableList<String> functionNamePath = ImmutableList.of("tvf_name");
+    FunctionArgumentType relationArg =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_RELATION,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder().build(),
+            1);
+    FunctionSignature signatureRelationArg =
+        new FunctionSignature(relationArg, ImmutableList.of(relationArg), /* contextId= */ 1);
+    TableValuedFunction tvf =
+        new TableValuedFunction(
+            functionNamePath,
+            "group",
+            ImmutableList.of(signatureRelationArg),
+            ImmutableList.of(),
+            null,
+            null,
+            tvfOptions);
+    assertThat(tvf.getFullName()).isEqualTo("group:tvf_name");
+  }
+
+  @Test
+  public void isZetaSQLBuiltin_shouldTrueForZetaSQLFunctionGroupName() {
+    TableValuedFunctionOptionsProto tvfOptions =
+        TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build();
+    ImmutableList<String> functionNamePath = ImmutableList.of("tvf_name");
+    FunctionArgumentType relationArg =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_RELATION,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder().build(),
+            1);
+    FunctionSignature signatureRelationArg =
+        new FunctionSignature(relationArg, ImmutableList.of(relationArg), /* contextId= */ 1);
+    TableValuedFunction tvf =
+        new TableValuedFunction(
+            functionNamePath,
+            Function.ZETASQL_FUNCTION_GROUP_NAME,
+            ImmutableList.of(signatureRelationArg),
+            ImmutableList.of(),
+            null,
+            null,
+            tvfOptions);
+    assertThat(tvf.isZetaSQLBuiltin()).isTrue();
+  }
+
+  @Test
+  public void serializeDeserialize_shouldIdempotent() {
+    TableValuedFunctionOptionsProto tvfOptions =
+        TableValuedFunctionOptionsProto.newBuilder().setUsesUpperCaseSqlName(false).build();
+    ImmutableList<String> functionNamePath = ImmutableList.of("tvf_name");
+    FunctionArgumentType relationArg =
+        new FunctionArgumentType(
+            SignatureArgumentKind.ARG_TYPE_RELATION,
+            FunctionArgumentType.FunctionArgumentTypeOptions.builder().build(),
+            1);
+    FunctionSignature signatureRelationArg =
+        new FunctionSignature(relationArg, ImmutableList.of(relationArg), /* contextId= */ 1);
+    TableValuedFunction tvf =
+        new TableValuedFunction(
+            functionNamePath,
+            "group_name",
+            ImmutableList.of(signatureRelationArg),
+            ImmutableList.of(),
+            null,
+            null,
+            tvfOptions);
+    FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
+    TypeFactory typeFactory = TypeFactory.nonUniqueNames();
+    TableValuedFunctionProto tvfProto = tvf.serialize(fileDescriptorSetsBuilder);
+    TableValuedFunction deserializedTvf =
+        TableValuedFunction.deserialize(
+            tvfProto, fileDescriptorSetsBuilder.getDescriptorPools(), typeFactory);
+    assertThat(deserializedTvf.getClass()).isEqualTo(TableValuedFunction.class);
+    assertThat(deserializedTvf.getNamePath()).isEqualTo(tvf.getNamePath());
+    assertThat(deserializedTvf.getGroup()).isEqualTo(tvf.getGroup());
+    assertThat(deserializedTvf.getFunctionSignatures()).hasSize(tvf.getFunctionSignatures().size());
+    assertThat(deserializedTvf.toDebugString(true)).isEqualTo(tvf.toDebugString(true));
+  }
+
+  @Test
   public void testTvfDebugStringAndToString() {
     ImmutableList<String> functionNamePath = ImmutableList.of("foo", "bar", "tvf_name");
     TVFRelation tvfSchema =

@@ -36,11 +36,13 @@
 #include "zetasql/common/status_payload_utils.h"
 #include "zetasql/base/testing/status_matchers.h"  
 #include "zetasql/common/unicode_utils.h"
+#include "zetasql/examples/tpch/catalog/tpch_catalog.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
 #include "zetasql/public/analyzer_output.h"
 #include "zetasql/public/analyzer_output_properties.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/catalog.h"
 #include "zetasql/public/error_helpers.h"
 #include "zetasql/public/evaluator.h"
@@ -48,6 +50,7 @@
 #include "zetasql/public/functions/date_time_util.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/literal_remover.h"
+#include "zetasql/public/measure_expression.h"
 #include "zetasql/public/multi_catalog.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_helpers.h"
@@ -97,6 +100,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/container/node_hash_map.h"
 #include "absl/flags/commandlineflag.h"
+#include "absl/flags/declare.h"
 #include "absl/flags/flag.h"
 #include "absl/flags/reflection.h"
 #include "absl/functional/bind_front.h"
@@ -119,6 +123,7 @@
 #include "file_based_test_driver/test_case_options.h"
 #include "google/protobuf/text_format.h"
 #include "zetasql/base/map_util.h"
+#include "re2/re2.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
 
@@ -240,6 +245,7 @@ class StripParseLocationsVisitor : public ResolvedASTVisitor {
  public:
   absl::Status DefaultVisit(const ResolvedNode* node) override {
     const_cast<ResolvedNode*>(node)->ClearParseLocationRange();
+    const_cast<ResolvedNode*>(node)->ClearOperatorKeywordLocationRange();
     return node->ChildrenAccept(this);
   }
 };
@@ -431,6 +437,7 @@ class AnalyzerTestRunner {
 
   static constexpr absl::string_view kSampleCatalogName = "SampleCatalog";
   static constexpr absl::string_view kSpecialCatalogName = "SpecialCatalog";
+  static constexpr absl::string_view kTpchCatalogName = "TpchCatalog";
 
   // Acts as a cache for catalog instances.
   // Constructing SampleCatalog instances is extremely slow, this class.
@@ -473,6 +480,14 @@ class AnalyzerTestRunner {
           special_catalog_ = GetSpecialCatalog();
         }
         return special_catalog_.get();
+      } else if (catalog_name == kTpchCatalogName) {
+        ZETASQL_RET_CHECK(suppressed_functions.empty());
+        if (tpch_catalog_ == nullptr) {
+          ZETASQL_ASSIGN_OR_RETURN(tpch_catalog_,
+                           MakeTpchCatalog(/*with_semantic_graph=*/true));
+          tpch_catalog_->AddBuiltinFunctions(BuiltinFunctionOptions(language));
+        }
+        return tpch_catalog_.get();
       } else {
         auto it = prepared_databases_map_.find(catalog_name);
 
@@ -489,7 +504,8 @@ class AnalyzerTestRunner {
         const LanguageOptions& language,
         std::vector<std::string> suppressed_functions) {
       if (catalog_name == kSampleCatalogName ||
-          catalog_name == kSpecialCatalogName) {
+          catalog_name == kSpecialCatalogName ||
+          catalog_name == kTpchCatalogName) {
         return absl::AlreadyExistsError(
             absl::StrFormat("'%s' is reserved and cannot be specified in"
                             " prepare_database. Did you mean use_database?",
@@ -567,6 +583,7 @@ class AnalyzerTestRunner {
     };
 
     mutable std::unique_ptr<SimpleCatalog> special_catalog_;
+    mutable std::unique_ptr<SimpleCatalog> tpch_catalog_;
     mutable absl::node_hash_map<CacheKey, std::unique_ptr<SampleCatalog>>
         sample_catalog_cache_;
     absl::node_hash_map<std::string, PreparedDatabase> prepared_databases_map_;
@@ -767,10 +784,12 @@ class AnalyzerTestRunner {
     ZETASQL_ASSERT_OK(type_factory.MakeProtoType(
         zetasql_test__::KitchenSinkPB::descriptor(), &proto_type));
 
-    // Add some expression columns that can be used in AnalyzeStatement cases.
-    ZETASQL_EXPECT_OK(
-        options.AddExpressionColumn("column_int32", type_factory.get_int32()));
-    ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_KitchenSink", proto_type));
+    if (mode != "measure_expression") {
+      // Add some expression columns that can be used in AnalyzeStatement cases.
+      ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_int32",
+                                            type_factory.get_int32()));
+      ZETASQL_EXPECT_OK(options.AddExpressionColumn("column_KitchenSink", proto_type));
+    }
 
     // Add some pseudo-columns that can be used in DDL statements.
     const std::string ddl_pseudo_column_mode =
@@ -876,6 +895,20 @@ class AnalyzerTestRunner {
         types.push_back(type->AsStruct()->field(i).type);
       }
       options.set_target_column_types(types);
+    }
+
+    if (!test_case_options_.GetString(kDefaultTableForSubpipelineStmt)
+             .empty()) {
+      auto catalog_holder = CreateCatalog(options);
+      const std::vector<std::string> table_path = absl::StrSplit(
+          test_case_options_.GetString(kDefaultTableForSubpipelineStmt), '.');
+
+      const Table* table;
+      ZETASQL_ASSERT_OK(catalog_holder.catalog()->FindTable(table_path, &table));
+      ASSERT_NE(table, nullptr)
+          << "default_table_for_subpipeline_stmt "
+          << IdentifierPathToString(table_path) << " not found";
+      options.set_default_table_for_subpipeline_stmt(table);
     }
 
     if (test_case_options_.GetBool(kUseSharedIdSequence)) {
@@ -1007,9 +1040,12 @@ class AnalyzerTestRunner {
           if (analyze_from_ast_status.ok()) {
             ZETASQL_EXPECT_OK(analyze_from_ast_output->resolved_statement()
                           ->CheckNoFieldsAccessed());
-            EXPECT_EQ(
-                analyze_from_ast_output->resolved_statement()->DebugString(),
-                output->resolved_statement()->DebugString());
+            EXPECT_TRUE(output != nullptr);
+            if (output != nullptr) {
+              EXPECT_EQ(
+                  analyze_from_ast_output->resolved_statement()->DebugString(),
+                  output->resolved_statement()->DebugString());
+            }
             EXPECT_EQ(nullptr, parser_output);
           } else {
             EXPECT_NE(nullptr, parser_output);
@@ -1050,8 +1086,8 @@ class AnalyzerTestRunner {
       }
 
       if (status.ok()) {
-        CheckSupportedStatementKind(
-            test_case, output->resolved_statement()->node_kind(), options);
+        CheckSupportedStatementKind(test_case, output->resolved_statement(),
+                                    options);
 
         // Deep copy the AST and verify that it copies correctly.
         CheckDeepCopyAST(output.get());
@@ -1069,6 +1105,19 @@ class AnalyzerTestRunner {
       if (status.ok()) {
         ZETASQL_EXPECT_OK(output->resolved_expr()->CheckNoFieldsAccessed());
       }
+    } else if (mode == "measure_expression") {
+      ASSERT_FALSE(
+          test_case_options_.GetString(kTableForMeasureExprAnalysis).empty());
+      const std::vector<std::string> table_path = absl::StrSplit(
+          test_case_options_.GetString(kTableForMeasureExprAnalysis), '.');
+      const Table* table = nullptr;
+      ZETASQL_ASSERT_OK(catalog->FindTable(table_path, &table));
+      ASSERT_NE(table, nullptr)
+          << "table_for_measure_expr_analysis "
+          << IdentifierPathToString(table_path) << " not found";
+      status = AnalyzeMeasureExpression(test_case, *table, *catalog,
+                                        *type_factory, options, output)
+                   .status();
     } else if (mode == "type") {
       // Use special-case handler since we don't get a resolved AST.
       HandleOneType(test_case, options, catalog, type_factory, test_result);
@@ -1419,12 +1468,23 @@ class AnalyzerTestRunner {
       // TODO: AST_ALTER_TABLE_STATEMENT sometimes will return
       // RESOLVED_ALTER_TABLE_SET_OPTIONS_STMT for backward compatibility.
       // Disable the resulting test failure for now.
-    } else if (resolved_statement->node_kind() !=
-               extracted_statement_properties.node_kind) {
-      test_result->AddTestOutput(AddFailure(absl::StrCat(
-          "FAILED extracting statement kind. Extracted kind ",
-          ResolvedNodeKindToString(extracted_statement_properties.node_kind),
-          ", actual kind ", resolved_statement->node_kind_string())));
+    } else {
+      ResolvedNodeKind found_node_kind = resolved_statement->node_kind();
+      if (found_node_kind == RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT) {
+        // This wrapper statement is added based on a suffix, which
+        // GetStatementKind doesn't see.  We expect to get the statement kind
+        // from the initial statement.
+        found_node_kind =
+            resolved_statement->GetAs<ResolvedStatementWithPipeOperatorsStmt>()
+                ->statement()
+                ->node_kind();
+      }
+      if (found_node_kind != extracted_statement_properties.node_kind) {
+        test_result->AddTestOutput(AddFailure(absl::StrCat(
+            "FAILED extracting statement kind. Extracted kind ",
+            ResolvedNodeKindToString(extracted_statement_properties.node_kind),
+            ", actual kind ", resolved_statement->node_kind_string())));
+      }
     }
 
     // Check whether the statement is CREATE TEMP matches the extracted
@@ -1526,10 +1586,10 @@ class AnalyzerTestRunner {
       EXPECT_NE(status.code(), absl::StatusCode::kUnknown)
           << "UNKNOWN errors are not expected";
 
-      if (!test_case_options_.GetBool(kAllowInternalError)) {
+      if (test_case_options_.GetString(kAllowInternalErrorTodoBug).empty()) {
         EXPECT_NE(status.code(), absl::StatusCode::kInternal)
-            << "Query cannot return internal error without ["
-            << kAllowInternalError << "] option: " << status;
+            << "Query cannot return internal error without non-empty ["
+            << kAllowInternalErrorTodoBug << "] option: " << status;
       }
 
       if (status.code() != absl::StatusCode::kInternal &&
@@ -1740,6 +1800,26 @@ class AnalyzerTestRunner {
           }
         }
       }
+    }
+
+    // If `allow_internal_error_todo_bug` is set, redact ZETASQL_RET_CHECK messages in
+    // test output, and enforce that the text starts with a bug number. If not
+    // enabled, disallow ZETASQL_RET_CHECK messages in test output.
+    if (!test_case_options_.GetString(kAllowInternalErrorTodoBug).empty()) {
+      EXPECT_THAT(test_case_options_.GetString(kAllowInternalErrorTodoBug),
+                  ::testing::StartsWith("b/"))
+          << "The [" << kAllowInternalErrorTodoBug
+          << "] option must start with a TODO bug reference, for example: ["
+          << kAllowInternalErrorTodoBug << "=b/123 - Description of issue]";
+      RE2::GlobalReplace(&test_result_string,
+                         R"regexp(ZETASQL_RET_CHECK failure \([^)]+\))regexp",
+                         "RET_CHECK failure (<location redacted>)");
+    } else {
+      EXPECT_THAT(test_result_string,
+                  Not(testing::HasSubstr("RET_CHECK failure (")))
+          << "Test output contains a ZETASQL_RET_CHECK failure. This can be allowed "
+             "temporarily by setting the option with a TODO bug: ["
+          << kAllowInternalErrorTodoBug << "=b/123 - Description of issue]";
     }
 
     // Skip adding a second output if it would be empty and we've already got
@@ -2404,6 +2484,12 @@ class AnalyzerTestRunner {
         return CompareStatementShape(
             output_stmt->GetAs<ResolvedExplainStmt>()->statement(),
             sqlbuilder_stmt->GetAs<ResolvedExplainStmt>()->statement());
+      case RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT:
+        return CompareStatementShape(
+            output_stmt->GetAs<ResolvedStatementWithPipeOperatorsStmt>()
+                ->statement(),
+            sqlbuilder_stmt->GetAs<ResolvedStatementWithPipeOperatorsStmt>()
+                ->statement());
       case RESOLVED_DEFINE_TABLE_STMT:
         return CompareOptionList(
             output_stmt->GetAs<ResolvedDefineTableStmt>()->option_list(),
@@ -3011,24 +3097,38 @@ class AnalyzerTestRunner {
     }
   }
 
-  void CheckSupportedStatementKind(absl::string_view sql, ResolvedNodeKind kind,
+  void CheckSupportedStatementKind(absl::string_view sql,
+                                   const ResolvedStatement* stmt,
                                    AnalyzerOptions options) {
-    // This is used so that we only test each statement kind once.
-    static std::set<ResolvedNodeKind> statement_kinds_to_be_skipped = {
-        // Skip EXPLAIN statements, which fail the below checks because they
-        // also require the explained statement kind to be supported.
-        RESOLVED_EXPLAIN_STMT};
+    // We want `stmt`'s kind to be the only supported statement kind.
+    options.mutable_language()->SetSupportedStatementKinds({});
 
-    if (zetasql_base::ContainsKey(statement_kinds_to_be_skipped, kind)) return;
+    // Add the statement kind, plus any extra statement kinds that are needed.
+    while (true) {
+      ResolvedNodeKind kind = stmt->node_kind();
+      options.mutable_language()->AddSupportedStatementKind(kind);
 
-    // Make the given kind the only supported statement kind.
-    options.mutable_language()->SetSupportedStatementKinds({kind});
+      if (kind == RESOLVED_GENERALIZED_QUERY_STMT) {
+        // ResolvedGeneralizedQueryStmt comes out for queries, which can't be
+        // started unless ResolvedQueryStmt is also enabled.
+        options.mutable_language()->AddSupportedStatementKind(
+            RESOLVED_QUERY_STMT);
+        break;
+      } else if (kind == RESOLVED_SUBPIPELINE_STMT) {
+        // ResolvedSubpipelineStmt can also include generalized pipe operators
+        // so add ResolvedGeneralizedQueryStmt too.
+        options.mutable_language()->AddSupportedStatementKind(
+            RESOLVED_GENERALIZED_QUERY_STMT);
+        break;
 
-    // ResolvedGeneralizedQueryStmt comes out for queries, which can't be
-    // started unless ResolvedQueryStmt is also enabled.
-    if (kind == RESOLVED_GENERALIZED_QUERY_STMT) {
-      options.mutable_language()->AddSupportedStatementKind(
-          RESOLVED_QUERY_STMT);
+      } else if (kind == RESOLVED_EXPLAIN_STMT) {
+        stmt = stmt->GetAs<ResolvedExplainStmt>()->statement();
+      } else if (kind == RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT) {
+        stmt =
+            stmt->GetAs<ResolvedStatementWithPipeOperatorsStmt>()->statement();
+      } else {
+        break;
+      }
     }
 
     options.set_column_id_sequence_number(nullptr);
@@ -3048,10 +3148,6 @@ class AnalyzerTestRunner {
     EXPECT_FALSE(AnalyzeStatement(sql, options, catalog_holder.catalog(),
                                   &factory, &output)
                      .ok());
-
-    // We only need to test each statement kind once, add it to skipped set
-    // to save testing time.
-    statement_kinds_to_be_skipped.insert(kind);
   }
 
   // This method is called for every valid query statement used in the analyzer
@@ -3096,8 +3192,8 @@ class AnalyzerTestRunner {
     TypeFactory type_factory;
     std::unique_ptr<const AnalyzerOutput> analyzer_output;
     auto catalog_holder = CreateCatalog(options);
-    ZETASQL_CHECK_OK(AnalyzeStatement(sql, options, catalog_holder.catalog(),
-                              &type_factory, &analyzer_output));
+    ZETASQL_RET_CHECK_OK(AnalyzeStatement(sql, options, catalog_holder.catalog(),
+                                  &type_factory, &analyzer_output));
 
     std::string dbg_info = absl::StrCat(
         "\n[QUERY WITH LITERALS]:\n", sql, "\n Initial resolved AST:\n",
@@ -3123,7 +3219,8 @@ class AnalyzerTestRunner {
     for (const auto& pair : generated_parameters) {
       const std::string& parameter_name = pair.first;
       const Type* parameter_type = pair.second.type();
-      ZETASQL_CHECK_OK(new_options.AddQueryParameter(parameter_name, parameter_type))
+      ZETASQL_RET_CHECK_OK(
+          new_options.AddQueryParameter(parameter_name, parameter_type))
           << dbg_info;
     }
     auto new_catalog_holder = CreateCatalog(new_options);
@@ -3336,10 +3433,10 @@ class AnalyzerTestRunner {
     }
 
     if (!visitor_status.ok()) {
-      if (test_case_options_.GetBool(kAllowInternalError)) {
+      if (test_case_options_.GetString(kAllowInternalErrorTodoBug).empty()) {
         EXPECT_EQ(visitor_status.code(), absl::StatusCode::kInternal)
-            << "Query cannot return internal error without ["
-            << kAllowInternalError << "] option: " << visitor_status
+            << "Query cannot return internal error without non-empty ["
+            << kAllowInternalErrorTodoBug << "] option: " << visitor_status
             << "; input_ast: " << ast->DebugString();
       } else {
         ZETASQL_EXPECT_OK(visitor_status) << "; input_ast: " << ast->DebugString();

@@ -85,6 +85,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "zetasql/base/check.h"
 #include "absl/log/die_if_null.h"
+#include "absl/numeric/int128.h"
 #include "absl/random/distributions.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
@@ -163,6 +164,7 @@ namespace zetasql {
 
 namespace {
 
+using ::zetasql_base::exactfloat::ExactFloat;
 using ::zetasql::functions::ArrayZipEnums;
 using ::zetasql::functions::RankTypeEnums;
 using ::google::protobuf::util::TimeUtil;
@@ -591,6 +593,7 @@ FunctionMap::FunctionMap() {
     RegisterFunction(FunctionKind::kDatetimeTrunc, "datetime_trunc",
                      "Datetime_trunc");
     RegisterFunction(FunctionKind::kLastDay, "last_day", "Last_day");
+    RegisterFunction(FunctionKind::kNextDay, "next_day", "NextDay");
     RegisterFunction(FunctionKind::kAddMonths, "add_months", "AddMonths");
     RegisterFunction(FunctionKind::kDateDiff, "date_diff", "Date_diff");
     RegisterFunction(FunctionKind::kDivide, "$divide", "Divide");
@@ -1185,6 +1188,8 @@ FunctionMap::FunctionMap() {
                      "MapSubscript");
     RegisterFunction(FunctionKind::kMapSubscriptWithKey,
                      "map_subscript_with_key", "MapSubscriptWithKey");
+    RegisterFunction(FunctionKind::kMapSafeSubscriptWithKey,
+                     "map_safe_subscript_with_key", "SafeMapSubscriptWithKey");
     RegisterFunction(FunctionKind::kMapContainsKey, "map_contains_key",
                      "MapContainsKey");
     RegisterFunction(FunctionKind::kMapKeysSorted, "map_keys_sorted",
@@ -2620,6 +2625,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new DateTimeTruncFunction(kind, output_type);
     case FunctionKind::kLastDay:
       return new LastDayFunction(kind, output_type);
+    case FunctionKind::kNextDay:
+      return new NextDayFunction(kind, output_type);
     case FunctionKind::kAddMonths:
       return new AddMonthsFunction(kind, output_type);
     case FunctionKind::kExtractFrom:
@@ -4924,7 +4931,7 @@ absl::StatusOr<Value> ArrayMinMaxFunction::Eval(
 
 static absl::StatusOr<Value> AggregateDoubleArraySumValue(
     absl::Span<const Value> elements, const Type* output_type) {
-  zetasql_base::ExactFloat sum = 0;
+  ExactFloat sum = 0;
   bool has_non_null = false;
   for (const Value& element : elements) {
     if (element.is_null()) {
@@ -4933,12 +4940,12 @@ static absl::StatusOr<Value> AggregateDoubleArraySumValue(
     has_non_null = true;
     sum += element.ToDouble();
   }
-  if (sum.is_finite() && (sum > std::numeric_limits<double>::max() ||
-                          sum < -std::numeric_limits<double>::max())) {
+  if (isfinite(sum) && (sum > std::numeric_limits<double>::max() ||
+                        sum < -std::numeric_limits<double>::max())) {
     return ::zetasql_base::OutOfRangeErrorBuilder() << "ARRAY_SUM double overflow";
   }
   if (has_non_null) {
-    return Value::Double(sum.ToDouble());
+    return Value::Double(static_cast<double>(sum));
   }
   return Value::Null(output_type);
 }
@@ -5613,7 +5620,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
   int64_t count_ = 0;
   int64_t countif_ = 0;
   long double out_double_ = 0;         // Max, Min, Avg, CovarPop, CovarSamp
-  zetasql_base::ExactFloat out_exact_float_ = 0;     // Sum
+  ExactFloat out_exact_float_ = 0;     // Sum
   long double avg_ = 0;                // VarPop, VarSamp, StddevPop, StddevSamp
   long double variance_ = 0;           // VarPop, VarSamp, StddevPop, StddevSamp
   int64_t out_int64_ = 0;              // Max, Min
@@ -5634,7 +5641,7 @@ class BuiltinAggregateAccumulator : public AggregateAccumulator {
 
   // Elementwise aggregates (Elementwise_sum, Elementwise_avg)
   std::vector<long double> out_double_array_;
-  std::vector<zetasql_base::ExactFloat> out_exact_float_array_;
+  std::vector<ExactFloat> out_exact_float_array_;
   std::vector<__int128> out_int128_array_;
   std::vector<unsigned __int128> out_uint128_array_;
   std::vector<NumericValue> out_numeric_array_;
@@ -7877,19 +7884,28 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
                                                   std::move(array_agg_));
     case FunctionKind::kArrayConcatAgg: {
       std::vector<Value> values;
-      bool found_non_null_inputs = false;
+      uint64_t non_null_input_count = 0;
+      const Value* first_non_null_input_array = nullptr;
       for (const Value& input_array : array_agg_) {
         // ARRAY_CONCAT_AGG ignores NULLs.
         if (input_array.is_null()) continue;
-        found_non_null_inputs = true;
+        non_null_input_count++;
+        if (first_non_null_input_array == nullptr) {
+          first_non_null_input_array = &input_array;
+        }
         for (int i = 0; i < input_array.num_elements(); ++i) {
           values.push_back(input_array.element(i));
         }
       }
       // ARRAY_CONCAT_AGG returns NULL over empty input, or if all the inputs
       // are NULLs.
-      if (!found_non_null_inputs) {
+      if (non_null_input_count == 0) {
         return Value::Null(output_type);
+      }
+      // If there was exactly 1 non-NULL array input to ARRAY_CONCAT_AGG, then
+      // just return it.
+      if (non_null_input_count == 1) {
+        return *first_non_null_input_array;
       }
       return InternalValue::ArrayNotChecked(output_type->AsArray(),
                                             InternalValue::kIgnoresOrder,
@@ -7954,12 +7970,12 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
       if (count_ == 0) {
         return Value::NullDouble();
       }
-      if (out_exact_float_.is_finite() &&
+      if (isfinite(out_exact_float_) &&
           (out_exact_float_ > std::numeric_limits<double>::max() ||
            out_exact_float_ < -std::numeric_limits<double>::max())) {
         return ::zetasql_base::OutOfRangeErrorBuilder() << "double overflow";
       }
-      return Value::Double(out_exact_float_.ToDouble());
+      return Value::Double(static_cast<double>(out_exact_float_));
     }
     case FCT(FunctionKind::kSum, TYPE_INT64): {
       if (count_ == 0) {
@@ -8053,15 +8069,15 @@ absl::StatusOr<Value> BuiltinAggregateAccumulator::GetFinalResultInternal(
           std::vector<Value> double_vals;
           for (int i = 0; i < out_exact_float_array_.size(); ++i) {
             if (elementwise_non_null_element_tracker_[i]) {
-              if (out_exact_float_array_[i].is_finite() &&
+              if (isfinite(out_exact_float_array_[i]) &&
                   (out_exact_float_array_[i] >
                        std::numeric_limits<double>::max() ||
                    out_exact_float_array_[i] <
                        -std::numeric_limits<double>::max())) {
                 return ::zetasql_base::OutOfRangeErrorBuilder() << "double overflow";
               }
-              double_vals.push_back(
-                  Value::Double(out_exact_float_array_[i].ToDouble()));
+              double_vals.push_back(Value::Double(
+                  static_cast<double>(out_exact_float_array_[i])));
             } else {
               double_vals.push_back(Value::NullDouble());
             }
@@ -10918,6 +10934,25 @@ absl::StatusOr<Value> LastDayFunction::Eval(
   } else {
     ZETASQL_RETURN_IF_ERROR(
         functions::LastDayOfDatetime(args[0].datetime_value(), part, &date));
+  }
+  return values::Date(date);
+}
+
+absl::StatusOr<Value> NextDayFunction::Eval(
+    absl::Span<const TupleData* const> params, absl::Span<const Value> args,
+    EvaluationContext* context) const {
+  // The signature arguments are (<date> or <datetime>, string).
+  ZETASQL_RET_CHECK_EQ(args.size(), 2);
+  if (args[0].is_null() || args[1].is_null()) {
+    return Value::Null(output_type());
+  }
+  int32_t date;
+  if (args[0].type_kind() == TYPE_DATE) {
+    ZETASQL_RETURN_IF_ERROR(functions::NextDayOfDate(args[0].date_value(),
+                                             args[1].string_value(), &date));
+  } else {
+    ZETASQL_RETURN_IF_ERROR(functions::NextDayOfDatetime(
+        args[0].datetime_value(), args[1].string_value(), &date));
   }
   return values::Date(date);
 }

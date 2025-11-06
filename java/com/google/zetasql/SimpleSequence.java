@@ -17,18 +17,41 @@
 
 package com.google.zetasql;
 
+import com.google.zetasql.SimpleSequenceProtos.SimpleSequenceProto;
+
 /** SimpleSequence is a concrete implementation of the Sequence interface. */
 public final class SimpleSequence implements Sequence {
 
-  public SimpleSequence() {}
+  private final String name;
+  private String fullName = "";
+
+  public SimpleSequence(String name) {
+    this.name = name;
+  }
 
   @Override
   public String getName() {
-    return "";
+    return name;
   }
 
   @Override
   public String getFullName() {
-    return "";
+    return fullName.isEmpty() ? name : fullName;
+  }
+
+  public void setFullName(String fullName) {
+    this.fullName = fullName;
+  }
+
+  /** Serialize this sequence into protobuf. */
+  public SimpleSequenceProto serialize() {
+    return SimpleSequenceProto.newBuilder().setName(name).setFullName(fullName).build();
+  }
+
+  /** Deserialize a proto into a new SimpleSequence. */
+  public static SimpleSequence deserialize(SimpleSequenceProto proto) {
+    SimpleSequence sequence = new SimpleSequence(proto.getName());
+    sequence.setFullName(proto.getFullName());
+    return sequence;
   }
 }

@@ -250,11 +250,12 @@ std::string SafeArrayAtOffsetFunctionSQL(
     const std::vector<std::string>& inputs);
 
 std::string SubscriptFunctionSQL(const std::vector<std::string>& inputs);
-std::string SubscriptWithKeyFunctionSQL(absl::Span<const std::string> inputs);
+std::string SubscriptWithKeyFunctionSQL(bool safe,
+                                        absl::Span<const std::string> inputs);
 std::string SubscriptWithOffsetFunctionSQL(
-    absl::Span<const std::string> inputs);
+    bool safe, absl::Span<const std::string> inputs);
 std::string SubscriptWithOrdinalFunctionSQL(
-    absl::Span<const std::string> inputs);
+    bool safe, absl::Span<const std::string> inputs);
 
 std::string SafeArrayAtOrdinalFunctionSQL(
     const std::vector<std::string>& inputs);
@@ -619,7 +620,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions);
 
-void GetDatetimeDiffTruncLastFunctions(
+void GetDatetimeDiffTruncLastNextFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions);
 
@@ -835,6 +836,15 @@ void GetMeasureFunctions(TypeFactory* type_factory,
 void GetMatchRecognizeFunctions(TypeFactory* type_factory,
                                 const ZetaSQLBuiltinFunctionOptions& options,
                                 NameToFunctionMap* functions);
+
+// Adds VECTOR_SEARCH TVF to the given map.
+absl::Status GetVectorSearchTableValuedFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToTableValuedFunctionMap* table_valued_functions);
+
+absl::Status GetTimeSeriesTableValuedFunctions(
+    TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
+    NameToTableValuedFunctionMap* table_valued_functions);
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_BUILTIN_FUNCTION_INTERNAL_H_

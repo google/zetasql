@@ -893,11 +893,17 @@ ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[]}]
 SELECT ARRAY_CONCAT_AGG(x)
 FROM (SELECT ARRAY<INT64>[1, 2] x UNION ALL SELECT NULL x) foo;
 --
-ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:1, 2]}]
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
 ==
 [name=array_concat_agg_simple]
 SELECT ARRAY_CONCAT_AGG(x)
 FROM (SELECT [1, 2] x) foo;
+--
+ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[known order:1, 2]}]
+==
+[name=array_concat_agg_simple_unordered]
+SELECT ARRAY_CONCAT_AGG(arr)
+FROM (SELECT ARRAY(SELECT element FROM UNNEST([1, 2]) AS element) AS arr);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<INT64>[unknown order:1, 2]}]
 ==

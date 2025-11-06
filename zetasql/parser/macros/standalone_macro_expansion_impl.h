@@ -20,9 +20,9 @@
 #include <memory>
 #include <optional>
 
-#include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/macro_expander.h"
+#include "zetasql/parser/macros/token_provider.h"
 #include "zetasql/public/options.pb.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -36,10 +36,9 @@ inline absl::StatusOr<ExpansionOutput> ExpandMacros(
     const MacroCatalog& catalog, MacroExpanderOptions macro_expander_options,
     int offset_in_original_input) {
   return MacroExpander::ExpandMacros(
-      std::make_unique<FlexTokenProvider>(filename, input, /*start_offset=*/0,
-                                          /*end_offset=*/std::nullopt,
-                                          offset_in_original_input,
-                                          /*force_flex=*/false),
+      std::make_unique<TokenProvider>(filename, input, /*start_offset=*/0,
+                                      /*end_offset=*/std::nullopt,
+                                      offset_in_original_input),
       catalog, macro_expander_options);
 }
 

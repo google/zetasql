@@ -48,12 +48,12 @@
 #include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/property_graph.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/types/annotation.h"
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_builder.h"
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
@@ -375,6 +375,26 @@ absl::StatusOr<std::unique_ptr<NameScope>> CreateNameScopeWithDisallowList(
       error_name_targets, &scope));
   return scope;
 }
+
+// Returns the set operation column propagation mode for the given `metadata`.
+// Default to STRICT if column propagation mode is not specified.
+static ResolvedSetOperationScan::SetOperationColumnPropagationMode
+GetGraphSetColumnPropagationMode(const ASTSetOperationMetadata* metadata) {
+  if (metadata->column_propagation_mode() == nullptr) {
+    return ResolvedSetOperationScan::STRICT;
+  }
+  switch (metadata->column_propagation_mode()->value()) {
+    case ASTSetOperation::STRICT:
+      return ResolvedSetOperationScan::STRICT;
+    case ASTSetOperation::INNER:
+      return ResolvedSetOperationScan::INNER;
+    case ASTSetOperation::LEFT:
+      return ResolvedSetOperationScan::LEFT;
+    case ASTSetOperation::FULL:
+      return ResolvedSetOperationScan::FULL;
+  }
+}
+
 }  // namespace
 
 // Returns true if the 'ast_node' is a quantified pattern.
@@ -1545,7 +1565,6 @@ GraphTableQueryResolver::ResolveGraphPattern(
                 ", defined in the previous statement, can only "
                 "be referenced in the outermost WHERE clause of MATCH");
           }));
-
   ZETASQL_ASSIGN_OR_RETURN(
       auto path_list_result,
       ResolvePathPatternList(ast_graph_pattern, restricted_scope.get()));
@@ -2884,21 +2903,6 @@ static absl::StatusOr<ColumnNameSet> ToColumnNameSet(
   return column_names;
 }
 
-// Returns a map of column name id to original column index.
-static absl::StatusOr<ColumnNameIdxMap> ToColumnNameIdxMap(
-    GraphTableNamedVariables graph_name_lists) {
-  ColumnNameIdxMap column_name_idx_map;
-  for (int idx = 0; idx < graph_name_lists.singleton_name_list->num_columns();
-       ++idx) {
-    ZETASQL_RET_CHECK(
-        column_name_idx_map
-            .insert(
-                {graph_name_lists.singleton_name_list->column(idx).name(), idx})
-            .second);
-  }
-  return column_name_idx_map;
-}
-
 // Returns a string of column names produced by graph singleton and group name
 // lists for user-visible errors.
 static std::string GraphNameListsToString(GraphTableNamedVariables name_lists) {
@@ -2952,8 +2956,11 @@ GraphTableQueryResolver::GraphSetOperationResolver::ValidateGqlSetOperation(
         << "Gql set operation does not support hint";
     ZETASQL_RET_CHECK_EQ(metadata->column_match_mode(), nullptr)
         << "Gql set operation does not support column match mode";
-    ZETASQL_RET_CHECK_EQ(metadata->column_propagation_mode(), nullptr)
-        << "Gql set operation does not support column propagation mode";
+    if (!graph_resolver_->resolver_->language().LanguageFeatureEnabled(
+            FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE)) {
+      ZETASQL_RET_CHECK_EQ(metadata->column_propagation_mode(), nullptr)
+          << "Gql set operation does not support column propagation mode";
+    }
     ZETASQL_RET_CHECK_EQ(metadata->corresponding_by_column_list(), nullptr)
         << "Gql set operation does not support corresponding by";
     ZETASQL_ASSIGN_OR_RETURN(ResolvedSetOperationScan::SetOperationType op_type,
@@ -2961,6 +2968,20 @@ GraphTableQueryResolver::GraphSetOperationResolver::ValidateGqlSetOperation(
     if (op_type != first_op_type) {
       return MakeSqlErrorAtLocalNode(metadata)
              << "Gql set operation must have the same set operation type";
+    }
+  }
+  if (graph_resolver_->resolver_->language().LanguageFeatureEnabled(
+          FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE)) {
+    const auto first_column_propagation_mode = GetGraphSetColumnPropagationMode(
+        set_op.metadata()->set_operation_metadata_list(0));
+    for (const auto* metadata :
+         set_op.metadata()->set_operation_metadata_list()) {
+      if (GetGraphSetColumnPropagationMode(metadata) !=
+          first_column_propagation_mode) {
+        return MakeSqlErrorAtLocalNode(metadata)
+               << "Gql set operation must have the same column propagation "
+                  "mode";
+      }
     }
   }
 
@@ -3022,51 +3043,118 @@ absl::StatusOr<std::vector<std::vector<InputArgumentType>>>
 GraphTableQueryResolver::GraphSetOperationResolver::BuildColumnTypeLists(
     absl::Span<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
         resolved_inputs,
-    const ColumnNameIdxMap& column_name_idx_map) {
-  std::vector<std::vector<InputArgumentType>> column_type_lists(
-      column_name_idx_map.size());
+    int final_column_num, const IndexMapper& index_mapper) const {
+  std::vector<std::vector<InputArgumentType>> column_type_lists;
+  column_type_lists.resize(final_column_num);
 
   for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
-    const ResolvedScan* return_scan =
+    const ResolvedScan* resolved_scan =
         resolved_inputs[query_idx].resolved_node->scan_list().back().get();
-    for (auto& col : resolved_inputs[query_idx]
-                         .graph_name_lists.singleton_name_list->columns()) {
-      int column_idx = column_name_idx_map.at(col.name());
+    const NameList& curr_name_list =
+        *resolved_inputs[query_idx].graph_name_lists.singleton_name_list;
+    for (int i = 0; i < final_column_num; ++i) {
+      ZETASQL_ASSIGN_OR_RETURN(std::optional<int> output_column_index,
+                       index_mapper.GetOutputColumnIndex(query_idx, i));
+      if (!graph_resolver_->resolver_->language().LanguageFeatureEnabled(
+              FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE)) {
+        ZETASQL_RET_CHECK(output_column_index.has_value());
+      }
+      if (!output_column_index.has_value()) {
+        // This query does not have a column corresponding to the i-th final
+        // column; a NULL column will be padded which can coerce to any types.
+        column_type_lists[i].push_back(InputArgumentType::UntypedNull());
+        continue;
+      }
+      const ResolvedColumn& column =
+          curr_name_list.column(*output_column_index).column();
       ZETASQL_ASSIGN_OR_RETURN(InputArgumentType input_argument_type,
-                       GetColumnInputArgumentType(col.column(), return_scan));
-      column_type_lists[column_idx].push_back(input_argument_type);
+                       GetColumnInputArgumentType(column, resolved_scan));
+      column_type_lists[i].push_back(input_argument_type);
     }
   }
   return column_type_lists;
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedGraphLinearScan>>
-GraphTableQueryResolver::GraphSetOperationResolver::MaybeWrapTypeCastScan(
-    const ASTSelect* ast_location,
-    ResolvedGraphWithNameList<const ResolvedGraphLinearScan> resolved_input,
-    int query_idx, const ResolvedColumnList& target_column_list,
-    const ColumnNameIdxMap& column_name_idx_map) {
+GraphTableQueryResolver::GraphSetOperationResolver::
+    MaybeTypeCastAndWrapWithNullPaddedProjectScan(
+        const ASTSelect* ast_location,
+        ResolvedGraphWithNameList<const ResolvedGraphLinearScan> resolved_input,
+        int query_idx, const ResolvedColumnList& final_column_list,
+        const IndexMapper& index_mapper) {
   ResolvedGraphLinearScanBuilder linear_scan_builder =
       ToBuilder(std::move(resolved_input.resolved_node));
   std::vector<std::unique_ptr<const ResolvedScan>> scan_list =
       linear_scan_builder.release_scan_list();
+  ResolvedColumnList matched_final_column_list;
+  ResolvedColumnList scan_column_list;
+  ResolvedColumnList full_scan_column_list_with_null_columns(
+      final_column_list.size());
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> null_columns;
+  std::vector<int> non_null_column_indices;
+  for (int i = 0; i < final_column_list.size(); ++i) {
+    ZETASQL_ASSIGN_OR_RETURN(std::optional<int> output_column_index,
+                     index_mapper.GetOutputColumnIndex(query_idx, i));
+    if (output_column_index.has_value()) {
+      matched_final_column_list.push_back(final_column_list[i]);
+      scan_column_list.push_back(
+          resolved_input.graph_name_lists.singleton_name_list
+              ->column(*output_column_index)
+              .column());
+      non_null_column_indices.push_back(i);
+      continue;
+    }
 
-  // Reorder the linear scan column list to match the target column list.
-  ResolvedColumnList scan_column_list(target_column_list.size());
-  for (const auto& col :
-       resolved_input.graph_name_lists.singleton_name_list->columns()) {
-    int column_idx = column_name_idx_map.at(col.name());
-    scan_column_list[column_idx] = col.column();
+    // NULL columns are padded for those columns in the final column list but
+    // not present in the current query.
+    const ResolvedColumn& column = final_column_list[i];
+    std::unique_ptr<const ResolvedComputedColumn> null_column =
+        MakeResolvedComputedColumn(
+            ResolvedColumn(
+                graph_resolver_->resolver_->AllocateColumnId(),
+                graph_resolver_->resolver_->MakeIdString(absl::StrCat(
+                    kGraphSetOperation.ToStringView(), query_idx + 1, "_null")),
+                graph_resolver_->resolver_->MakeIdString(
+                    column.name_id().ToStringView()),
+                column.type()),
+            zetasql::MakeResolvedLiteral(Value::Null(column.type())));
+    full_scan_column_list_with_null_columns[i] = null_column->column();
+    graph_resolver_->resolver_->RecordColumnAccess(null_column->column());
+    null_columns.push_back(std::move(null_column));
   }
 
   std::unique_ptr<const ResolvedScan>* return_scan = &scan_list.back();
   ZETASQL_RETURN_IF_ERROR(graph_resolver_->resolver_->CreateWrapperScanWithCasts(
-      ast_location, target_column_list,
+      ast_location, matched_final_column_list,
       graph_resolver_->resolver_->MakeIdString(absl::StrCat(
           kGraphSetOperation.ToStringView(), query_idx + 1, "_cast")),
       return_scan, &scan_column_list));
+
+  // Because the column names in `scan_column_list` might be changed after the
+  // cast, we need to update the `full_scan_column_list_with_null_columns` to
+  // use the new column names.
+  for (int i = 0; i < non_null_column_indices.size(); ++i) {
+    full_scan_column_list_with_null_columns[non_null_column_indices[i]] =
+        scan_column_list[i];
+  }
+
+  // Wrap the last scan (ProjectScan) in GraphLinearScan with another
+  // ProjectScan to pad NULL columns if needed.
+  if (!null_columns.empty()) {
+    std::unique_ptr<const ResolvedScan> last_scan = std::move(scan_list.back());
+    scan_list.pop_back();
+    ZETASQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<const ResolvedProjectScan> project_scan,
+        ResolvedProjectScanBuilder()
+            .set_column_list(full_scan_column_list_with_null_columns)
+            .set_expr_list(std::move(null_columns))
+            .set_input_scan(std::move(last_scan))
+            .Build());
+    scan_list.push_back(std::move(project_scan));
+  }
+
   return std::move(linear_scan_builder)
-      .set_column_list(scan_column_list)
+      .set_column_list(full_scan_column_list_with_null_columns)
       .set_scan_list(std::move(scan_list))
       .Build();
 }
@@ -3075,25 +3163,29 @@ absl::StatusOr<std::vector<std::unique_ptr<const ResolvedSetOperationItem>>>
 GraphTableQueryResolver::GraphSetOperationResolver::BuildSetOperationItems(
     absl::Span<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
         resolved_inputs,
-    const ResolvedColumnList& target_column_list,
-    const ColumnNameIdxMap& column_name_idx_map) {
+    const ResolvedColumnList& final_column_list,
+    const IndexMapper& index_mapper) {
   std::vector<std::unique_ptr<const ResolvedSetOperationItem>>
       resolved_set_op_items;
   resolved_set_op_items.reserve(resolved_inputs.size());
-  for (int i = 0; i < resolved_inputs.size(); ++i) {
+  for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
     // Wrap the last scan (ProjectScan) in GraphLinearScan with another
-    // ProjectScan, if casting to supertype is needed.
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedGraphLinearScan> linear_scan,
-        MaybeWrapTypeCastScan(node_.inputs(i)
-                                  ->GetAsOrDie<ASTGqlOperatorList>()
-                                  ->operators()
-                                  .back()
-                                  ->GetAsOrDie<ASTGqlReturn>()
-                                  ->select(),
-                              std::move(resolved_inputs[i]),
-                              /*query_idx=*/i, target_column_list,
-                              column_name_idx_map));
+    // ProjectScan, if casting to supertype is needed (and the new ProjectScan
+    // will become the last scan of the GraphLinearScan).
+    //
+    // Then wrap the last scan (ProjectScan) in GraphLinearScan with another,
+    // if padding NULL columns is needed (and the new ProjectScan will become
+    // the last scan of the GraphLinearScan).
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedGraphLinearScan> linear_scan,
+                     MaybeTypeCastAndWrapWithNullPaddedProjectScan(
+                         node_.inputs(query_idx)
+                             ->GetAsOrDie<ASTGqlOperatorList>()
+                             ->operators()
+                             .back()
+                             ->GetAsOrDie<ASTGqlReturn>()
+                             ->select(),
+                         std::move(resolved_inputs[query_idx]), query_idx,
+                         final_column_list, index_mapper));
 
     ResolvedColumnList column_list = linear_scan->column_list();
     std::unique_ptr<ResolvedSetOperationItem> item =
@@ -3101,6 +3193,69 @@ GraphTableQueryResolver::GraphSetOperationResolver::BuildSetOperationItems(
     resolved_set_op_items.push_back(std::move(item));
   }
   return resolved_set_op_items;
+}
+
+absl::StatusOr<std::vector<IdString>>
+GraphTableQueryResolver::GraphSetOperationResolver::GetFinalColumnNames(
+    const std::vector<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>&
+        resolved_inputs,
+    absl::Span<IndexedColumnNames> indexed_column_names_list,
+    ResolvedSetOperationScan::SetOperationColumnPropagationMode
+        column_propagation_mode,
+    const ASTNode* error_location) {
+  // Please notice that the column_propagation_mode is always STRICT when
+  // FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE is disabled.
+  switch (column_propagation_mode) {
+    case ResolvedSetOperationScan::LEFT: {
+      return CalculateFinalColumnNamesForLeftCorresponding(
+          indexed_column_names_list,
+          /*no_common_columns_error=*/[&](int query_idx) {
+            return MakeSqlErrorAtLocalNode(error_location)
+                   << absl::StrCat("Query ", query_idx + 1)
+                   << " of the GQL set operation with LEFT mode does not"
+                      " share any common columns with the first input query";
+          });
+      break;
+    }
+    case ResolvedSetOperationScan::STRICT: {
+      return CalculateFinalColumnNamesForStrictCorresponding(
+          indexed_column_names_list,
+          /*input_column_mismatch_error=*/[&](int query_idx,
+                                              const std::vector<IdString>&,
+                                              const std::vector<IdString>&) {
+            // When the feature is disabled, users are not exposed with the
+            // internal details of column propagation mode.
+            absl::string_view specify_propagation_mode_err_msg =
+                graph_resolver_->resolver_->language().LanguageFeatureEnabled(
+                    FEATURE_SQL_GRAPH_SET_OPERATION_PROPAGATION_MODE)
+                    ? " when column propagation mode is default (STRICT)"
+                    : "";
+            return MakeSqlErrorAtLocalNode(error_location)
+                   << "GQL set operation requires all input queries to have "
+                      "identical column names"
+                   << specify_propagation_mode_err_msg
+                   << ", but the first query has "
+                   << GraphNameListsToString(
+                          resolved_inputs.front().graph_name_lists)
+                   << " and query " << (query_idx + 1) << " has "
+                   << GraphNameListsToString(
+                          resolved_inputs[query_idx].graph_name_lists);
+          });
+    }
+    case ResolvedSetOperationScan::INNER: {
+      return CalculateFinalColumnNamesForInnerCorresponding(
+          indexed_column_names_list,
+          /*column_intersection_empty_error=*/[&]() {
+            return MakeSqlErrorAtLocalNode(error_location)
+                   << "GQL set operation using INNER requires that the "
+                      "intersection of columns from input queries is non-empty";
+          });
+    }
+    case ResolvedSetOperationScan::FULL: {
+      return CalculateFinalColumnNamesForFullCorresponding(
+          indexed_column_names_list);
+    }
+  }
 }
 
 GraphTableQueryResolver::GraphSetOperationResolver::GraphSetOperationResolver(
@@ -3111,6 +3266,25 @@ GraphTableQueryResolver::GraphSetOperationResolver::GraphSetOperationResolver(
       node_(node),
       graph_resolver_(resolver) {}
 
+// static
+std::vector<SetOperationResolverBase::IndexedColumnNames>
+GraphTableQueryResolver::GraphSetOperationResolver::ToIndexedColumnNamesList(
+    absl::Span<const ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
+        resolved_inputs) {
+  std::vector<IndexedColumnNames> indexed_column_names_list;
+  for (int query_idx = 0; query_idx < resolved_inputs.size(); ++query_idx) {
+    IndexedColumnNames indexed_column_names;
+    indexed_column_names.query_idx = query_idx;
+    for (const auto& col :
+         resolved_inputs[query_idx]
+             .graph_name_lists.singleton_name_list->columns()) {
+      indexed_column_names.column_names.push_back(col.name());
+    }
+    indexed_column_names_list.push_back(std::move(indexed_column_names));
+  }
+  return indexed_column_names_list;
+}
+
 absl::StatusOr<
     GraphTableQueryResolver::ResolvedGraphWithNameList<const ResolvedScan>>
 GraphTableQueryResolver::GraphSetOperationResolver::Resolve(
@@ -3118,9 +3292,12 @@ GraphTableQueryResolver::GraphSetOperationResolver::Resolve(
     ResolvedGraphWithNameList<const ResolvedScan> inputs,
     bool is_first_statement_in_graph_query) {
   ZETASQL_RETURN_IF_ERROR(ValidateGqlSetOperation(node_));
-  ZETASQL_ASSIGN_OR_RETURN(
-      ResolvedSetOperationScan::SetOperationType op_type,
-      GetSetOperationType(node_.metadata()->set_operation_metadata_list(0)));
+  const auto* set_op_metadata =
+      node_.metadata()->set_operation_metadata_list(0);
+  ZETASQL_ASSIGN_OR_RETURN(ResolvedSetOperationScan::SetOperationType op_type,
+                   GetSetOperationType(set_op_metadata));
+  const auto column_propagation_mode =
+      GetGraphSetColumnPropagationMode(set_op_metadata);
 
   std::vector<ResolvedGraphWithNameList<const ResolvedGraphLinearScan>>
       resolved_set_op_inputs;
@@ -3138,40 +3315,22 @@ GraphTableQueryResolver::GraphSetOperationResolver::Resolve(
             is_first_statement_in_graph_query));
     resolved_set_op_inputs.push_back(std::move(resolved_input));
   }
+  std::vector<IndexedColumnNames> input_query_column_names =
+      ToIndexedColumnNamesList(absl::MakeSpan(resolved_set_op_inputs));
 
-  // Validate that column names across linear queries matches by name in a case
-  // insensitive way. And column types satisfy the following requirements:
-  //   * Columns with the same name have the same supertype
-  //   * Set operation other than UNION ALL must have all column types groupable
-  //   * Set operation INTERSECT or EXCEPT must have all column types comparable
-  // Note that, GraphLinearScan guarantees that output columns must have name.
-  // TODO: b/345302738 - pull shareable components out.
+  const auto* error_location =
+      set_op_metadata->column_propagation_mode() == nullptr
+          ? static_cast<const ASTNode*>(set_op_metadata->op_type())
+          : static_cast<const ASTNode*>(
+                set_op_metadata->column_propagation_mode());
   ZETASQL_ASSIGN_OR_RETURN(
-      ColumnNameIdxMap first_query_column_name_idx_map,
-      ToColumnNameIdxMap(resolved_set_op_inputs[0].graph_name_lists));
-  ColumnNameSet first_query_column_names;
-  zetasql_base::InsertKeysFromMap(first_query_column_name_idx_map,
-                         &first_query_column_names);
-  const ASTNode* error_location =
-      node_.metadata()->set_operation_metadata_list(0)->op_type();
-  for (int query_idx = 1; query_idx < resolved_set_op_inputs.size();
-       ++query_idx) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        ColumnNameSet column_names,
-        ToColumnNameSet(resolved_set_op_inputs[query_idx].graph_name_lists));
-    if (!zetasql_base::HashSetEquality(first_query_column_names, column_names)) {
-      // The error message needs a deterministic order of column names. So we
-      // can't use ColumnNameSet here.
-      return MakeSqlErrorAtLocalNode(error_location)
-             << "GQL set operation requires all input queries to have "
-                "identical column names, but the first query has "
-             << GraphNameListsToString(
-                    resolved_set_op_inputs[0].graph_name_lists)
-             << " and query " << (query_idx + 1) << " has "
-             << GraphNameListsToString(
-                    resolved_set_op_inputs[query_idx].graph_name_lists);
-    }
-  }
+      std::vector<IdString> final_column_names,
+      GetFinalColumnNames(resolved_set_op_inputs,
+                          absl::MakeSpan(input_query_column_names),
+                          column_propagation_mode, error_location));
+  ZETASQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<IndexMapper> index_mapper,
+      BuildIndexMapping(input_query_column_names, final_column_names));
 
   // Decide the final column list. The names and order of the columns will
   // respect those of the first query. The column type will be supertype of the
@@ -3179,33 +3338,33 @@ GraphTableQueryResolver::GraphSetOperationResolver::Resolve(
   ZETASQL_ASSIGN_OR_RETURN(
       std::vector<std::vector<InputArgumentType>> column_type_lists,
       BuildColumnTypeLists(absl::MakeSpan(resolved_set_op_inputs),
-                           first_query_column_name_idx_map));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::vector<const Type*> super_types,
-      GetSuperTypesOfSetOperation(
-          column_type_lists, node_.metadata()->set_operation_metadata_list(0),
-          op_type, /*column_identifier_in_error_string=*/
-          [&](int col_idx) -> std::string {
-            return resolved_set_op_inputs[0]
-                .graph_name_lists.singleton_name_list->column(col_idx)
-                .name()
-                .ToString();
-          }));
+                           static_cast<int>(final_column_names.size()),
+                           *index_mapper));
 
+  // Verify column types satisfy the following requirements:
+  //   * Columns with the same name have the same supertype
+  //   * Set operation other than UNION ALL must have all column types groupable
+  //   * Set operation INTERSECT or EXCEPT must have all column types comparable
+  // Note that, GraphLinearScan guarantees that output columns must have name.
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<const Type*> super_types,
+                   GetSuperTypesOfSetOperation(
+                       column_type_lists, set_op_metadata,
+                       op_type, /*column_identifier_in_error_string=*/
+                       [&final_column_names](int col_idx) -> std::string {
+                         return final_column_names[col_idx].ToString();
+                       }));
   ZETASQL_ASSIGN_OR_RETURN(
       ResolvedColumnList final_column_list,
       BuildFinalColumnList(
-          resolved_set_op_inputs[0]
-              .graph_name_lists.singleton_name_list->GetColumnNames(),
-          super_types, kGraphSetOperation,
+          final_column_names, super_types, kGraphSetOperation,
           /*record_column_access=*/[&](const ResolvedColumn& col) -> void {
             graph_resolver_->resolver_->RecordColumnAccess(col);
           }));
 
-  ZETASQL_ASSIGN_OR_RETURN(auto resolved_set_op_items,
-                   BuildSetOperationItems(
-                       absl::MakeSpan(resolved_set_op_inputs),
-                       final_column_list, first_query_column_name_idx_map));
+  ZETASQL_ASSIGN_OR_RETURN(
+      auto resolved_set_op_items,
+      BuildSetOperationItems(absl::MakeSpan(resolved_set_op_inputs),
+                             final_column_list, *index_mapper));
 
   // We set CORRESPONDING here to indicate that columns are matched by name.
   // However, this would have the side effect of requiring components that
@@ -3216,7 +3375,7 @@ GraphTableQueryResolver::GraphSetOperationResolver::Resolve(
           .set_column_list(final_column_list)
           .set_op_type(op_type)
           .set_column_match_mode(ResolvedSetOperationScan::CORRESPONDING)
-          .set_column_propagation_mode(ResolvedSetOperationScan::STRICT)
+          .set_column_propagation_mode(column_propagation_mode)
           .set_input_item_list(std::move(resolved_set_op_items))
           .Build());
 
@@ -4274,7 +4433,7 @@ GraphTableQueryResolver::ResolveGqlWith(
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveSelectAfterFrom(
       select, /*order_by=*/nullptr,
       /*limit_offset=*/nullptr, local_scope, kGraphTableName,
-      SelectForm::kGqlWith, SelectWithMode::NONE,
+      SelectForm::kGqlWith, WithModifierMode::NONE,
       /*force_new_columns_for_projected_outputs=*/true,
       /*inferred_type_for_query=*/nullptr, &input_scan,
       input_graph_name_lists.singleton_name_list,
@@ -4346,7 +4505,7 @@ GraphTableQueryResolver::ResolveGqlReturn(
   ZETASQL_RETURN_IF_ERROR(resolver_->ResolveSelectAfterFrom(
       select, order_by,
       /*limit_offset=*/nullptr, local_scope, kGraphTableName,
-      SelectForm::kGqlReturn, SelectWithMode::NONE,
+      SelectForm::kGqlReturn, WithModifierMode::NONE,
       /*force_new_columns_for_projected_outputs=*/true,
       /*inferred_type_for_query=*/nullptr, &input_scan,
       input_graph_name_lists.singleton_name_list,

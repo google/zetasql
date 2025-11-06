@@ -28,7 +28,7 @@
 #include "zetasql/public/function.h"
 #include "zetasql/public/function.pb.h"
 #include "zetasql/public/id_string.h"
-#include "zetasql/public/select_with_mode.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -59,6 +59,7 @@ absl::StatusOr<bool> IsConstantExpression(const ResolvedExpr* expr) {
     case RESOLVED_COLUMN_REF:
     case RESOLVED_AGGREGATE_FUNCTION_CALL:
     case RESOLVED_ANALYTIC_FUNCTION_CALL:
+    case RESOLVED_GET_ROW_FIELD:
 
       // Subqueries are considered non-constant because they may involve
       // iteration over tables. We could make subqueries constant if they have
@@ -314,6 +315,7 @@ ExprResolutionInfo::ExprResolutionInfo(
           options.nearest_enclosing_physical_nav_op) {
   ABSL_DCHECK(options.name_scope == nullptr)
       << "Pass name_scope in the required argument, not in options";
+  Subscribe(name_scope);
 }
 
 ExprResolutionInfo::ExprResolutionInfo(
@@ -371,6 +373,7 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent,
          name_scope == parent->name_scope)
       << "Setting new NameScape in child ExprResolutionInfo not allowed "
          "by default";
+  Subscribe(name_scope);
 }
 
 ExprResolutionInfo::ExprResolutionInfo(
@@ -409,6 +412,7 @@ ExprResolutionInfo::ExprResolutionInfo(
   ABSL_DCHECK(parent->query_resolution_info != nullptr);
   ABSL_DCHECK(parent->query_resolution_info->scoped_aggregation_state() ==
          query_resolution_info->scoped_aggregation_state());
+  Subscribe(name_scope);
 }
 
 std::unique_ptr<ExprResolutionInfo>
@@ -440,6 +444,7 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
       clause_name(parent->clause_name),
       query_resolution_info(parent->query_resolution_info),
       use_post_grouping_columns(parent->use_post_grouping_columns),
+      grouping_context(parent->grouping_context),
       top_level_ast_expr(parent->top_level_ast_expr),
       column_alias(parent->column_alias),
       allows_horizontal_aggregation(parent->allows_horizontal_aggregation),
@@ -447,7 +452,9 @@ ExprResolutionInfo::ExprResolutionInfo(ExprResolutionInfo* parent)
       in_horizontal_aggregation(parent->in_horizontal_aggregation),
       in_match_recognize_define(parent->in_match_recognize_define),
       nearest_enclosing_physical_nav_op(
-          parent->nearest_enclosing_physical_nav_op) {}
+          parent->nearest_enclosing_physical_nav_op) {
+  Subscribe(name_scope);
+}
 
 ExprResolutionInfo::ExprResolutionInfo(
     const NameScope* name_scope_in, const NameScope* aggregate_name_scope_in,
@@ -474,6 +481,7 @@ ExprResolutionInfo::ExprResolutionInfo(const NameScope* name_scope_in,
       analytic_name_scope(name_scope_in),
       clause_name(clause_name_in) {
   ABSL_DCHECK(clause_name != nullptr);
+  Subscribe(name_scope);
 }
 
 ExprResolutionInfo::~ExprResolutionInfo() {
@@ -481,19 +489,23 @@ ExprResolutionInfo::~ExprResolutionInfo() {
   // We assume all child ExprResolutionInfo objects will go out of scope
   // before the caller's has_ fields are examined.
   if (parent != nullptr) {
-    if (has_aggregation) {
-      parent->has_aggregation = true;
+    if (findings.has_aggregation) {
+      parent->findings.has_aggregation = true;
     }
-    if (has_analytic) {
-      parent->has_analytic = true;
+    if (findings.has_analytic) {
+      parent->findings.has_analytic = true;
     }
-    if (has_volatile) {
-      parent->has_volatile = true;
+    if (findings.has_volatile) {
+      parent->findings.has_volatile = true;
     }
     if (allows_horizontal_aggregation) {
       parent->horizontal_aggregation_info = horizontal_aggregation_info;
     }
+    for (SelectColumnState* column : columns_referenced_laterally) {
+      parent->columns_referenced_laterally.push_back(column);
+    }
   }
+  Unsubscribe(name_scope);
 }
 
 bool ExprResolutionInfo::is_post_distinct() const {
@@ -503,10 +515,10 @@ bool ExprResolutionInfo::is_post_distinct() const {
   return false;
 }
 
-SelectWithMode ExprResolutionInfo::GetSelectWithMode() const {
+WithModifierMode ExprResolutionInfo::GetWithModifierMode() const {
   return query_resolution_info == nullptr
-             ? SelectWithMode::NONE
-             : query_resolution_info->select_with_mode();
+             ? WithModifierMode::NONE
+             : query_resolution_info->with_modifier_mode();
 }
 
 std::string ExprResolutionInfo::DebugString() const {
@@ -518,13 +530,15 @@ std::string ExprResolutionInfo::DebugString() const {
       (aggregate_name_scope != nullptr ? aggregate_name_scope->DebugString()
                                        : "NULL"));
   absl::StrAppend(&debugstring, "\nallows_aggregation: ", allows_aggregation);
-  absl::StrAppend(&debugstring, "\nhas_aggregation: ", has_aggregation);
+  absl::StrAppend(&debugstring,
+                  "\nhas_aggregation: ", findings.has_aggregation);
   absl::StrAppend(&debugstring, "\nallows_analytic: ", allows_analytic);
-  absl::StrAppend(&debugstring, "\nhas_analytic: ", has_analytic);
-  absl::StrAppend(&debugstring, "\nhas_volatile: ", has_volatile);
+  absl::StrAppend(&debugstring, "\nhas_analytic: ", findings.has_analytic);
+  absl::StrAppend(&debugstring, "\nhas_volatile: ", findings.has_volatile);
   absl::StrAppend(&debugstring, "\nclause_name: ", clause_name);
   absl::StrAppend(&debugstring,
                   "\nuse_post_grouping_columns: ", use_post_grouping_columns);
+  absl::StrAppend(&debugstring, "\ngrouping_context: ", grouping_context);
   absl::StrAppend(&debugstring, "\nallows_horizontal_aggregation: ",
                   allows_horizontal_aggregation);
   absl::StrAppend(&debugstring,

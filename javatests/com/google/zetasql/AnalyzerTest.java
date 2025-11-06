@@ -482,7 +482,7 @@ public class AnalyzerTest {
     SimpleCatalog catalog = new SimpleCatalog("catalog1");
     catalog.addTableValuedFunction(tvf);
     // Test if tvf is added to catalog.
-    assertThat(catalog.getTVFByName("test_tvf")).isEqualTo(tvf);
+    assertThat(catalog.getTvfByFullName("test_tvf")).isEqualTo(tvf);
     AnalyzerOptions analyzerOptions = new AnalyzerOptions();
     analyzerOptions
         .getLanguageOptions()
@@ -508,7 +508,7 @@ public class AnalyzerTest {
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_STRING));
     FunctionArgumentType int64Type =
         new FunctionArgumentType(TypeFactory.createSimpleType(TypeKind.TYPE_INT64));
-    Function func =
+    Function subscriptWithOffsetFn =
         new Function(
             "$subscript_with_offset",
             "ZetaSQL",
@@ -518,10 +518,23 @@ public class AnalyzerTest {
                     stringType, ImmutableList.of(stringType, int64Type), /* contextId= */ -1),
                 new FunctionSignature(
                     stringType, ImmutableList.of(stringType, stringType), /* contextId= */ -1)),
-            FunctionOptionsProto.newBuilder().setSupportsSafeErrorMode(true).build());
+            FunctionOptionsProto.newBuilder().setSupportsSafeErrorMode(false).build());
+
+    Function safeSubscriptWithOffsetFn =
+        new Function(
+            "$safe_subscript_with_offset",
+            "ZetaSQL",
+            Mode.SCALAR,
+            ImmutableList.of(
+                new FunctionSignature(
+                    stringType, ImmutableList.of(stringType, int64Type), /* contextId= */ -1),
+                new FunctionSignature(
+                    stringType, ImmutableList.of(stringType, stringType), /* contextId= */ -1)),
+            FunctionOptionsProto.newBuilder().setSupportsSafeErrorMode(false).build());
 
     SimpleCatalog catalog = new SimpleCatalog("foo");
-    catalog.addFunction(func);
+    catalog.addFunction(subscriptWithOffsetFn);
+    catalog.addFunction(safeSubscriptWithOffsetFn);
 
     LanguageOptions options = new LanguageOptions();
     options.enableLanguageFeature(LanguageFeature.FEATURE_SAFE_FUNCTION_CALL);

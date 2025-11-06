@@ -85,11 +85,11 @@ each column that's visible after executing the full query.
 ```zetasql
 SELECT * FROM (SELECT "apple" AS fruit, "carrot" AS vegetable);
 
-/*-------+-----------*
+/*-------+-----------+
  | fruit | vegetable |
  +-------+-----------+
  | apple | carrot    |
- *-------+-----------*/
+ +-------+-----------*/
 ```
 
 ### `SELECT expression` 
@@ -122,11 +122,11 @@ WITH groceries AS
 SELECT g.*
 FROM groceries AS g;
 
-/*-------+---------+-------*
+/*-------+---------+-------+
  | dairy | protein | grain |
  +-------+---------+-------+
  | milk  | eggs    | bread |
- *-------+---------+-------*/
+ +-------+---------+-------*/
 ```
 
 More examples:
@@ -139,12 +139,12 @@ WITH locations AS
 SELECT l.location.*
 FROM locations l;
 
-/*---------+------------*
+/*---------+------------+
  | city    | state      |
  +---------+------------+
  | Seattle | Washington |
  | Phoenix | Arizona    |
- *---------+------------*/
+ +---------+------------*/
 ```
 
 ```zetasql
@@ -154,11 +154,11 @@ WITH locations AS
 SELECT l.LOCATION[offset(0)].*
 FROM locations l;
 
-/*---------+------------*
+/*---------+------------+
  | city    | state      |
  +---------+------------+
  | Seattle | Washington |
- *---------+------------*/
+ +---------+------------*/
 ```
 
 ### `SELECT * EXCEPT`
@@ -174,11 +174,11 @@ WITH orders AS
 SELECT * EXCEPT (order_id)
 FROM orders;
 
-/*-----------+----------*
+/*-----------+----------+
  | item_name | quantity |
  +-----------+----------+
  | sprocket  | 200      |
- *-----------+----------*/
+ +-----------+----------*/
 ```
 
 Note: `SELECT * EXCEPT` doesn't exclude columns that don't have names.
@@ -202,11 +202,11 @@ WITH orders AS
 SELECT * REPLACE ("widget" AS item_name)
 FROM orders;
 
-/*----------+-----------+----------*
+/*----------+-----------+----------+
  | order_id | item_name | quantity |
  +----------+-----------+----------+
  | 5        | widget    | 200      |
- *----------+-----------+----------*/
+ +----------+-----------+----------*/
 
 WITH orders AS
   (SELECT 5 as order_id,
@@ -215,11 +215,11 @@ WITH orders AS
 SELECT * REPLACE (quantity/2 AS quantity)
 FROM orders;
 
-/*----------+-----------+----------*
+/*----------+-----------+----------+
  | order_id | item_name | quantity |
  +----------+-----------+----------+
  | 5        | sprocket  | 100      |
- *----------+-----------+----------*/
+ +----------+-----------+----------*/
 ```
 
 Note: `SELECT * REPLACE` doesn't replace columns that don't have names.
@@ -614,13 +614,13 @@ Input values:
   ```zetasql
   SELECT * FROM UNNEST ([10,20,30]) as numbers WITH OFFSET;
 
-  /*---------+--------*
+  /*---------+--------+
    | numbers | offset |
    +---------+--------+
    | 10      | 0      |
    | 20      | 1      |
    | 30      | 2      |
-   *---------+--------*/
+   +---------+--------*/
   ```
 
   
@@ -654,12 +654,12 @@ FROM UNNEST(
         (1, 'foo', (10, 11)),
         (3, 'bar', (20, 21))]);
 
-/*---+-----+----------*
+/*---+-----+----------+
  | x | y   | z        |
  +---+-----+----------+
  | 1 | foo | {10, 11} |
  | 3 | bar | {20, 21} |
- *---+-----+----------*/
+ +---+-----+----------*/
 ```
 
 Because the `UNNEST` operator returns a
@@ -681,12 +681,12 @@ FROM UNNEST(
       (1, 'foo'),
       (3, 'bar')]) AS struct_value;
 
-/*---+-----+--------------*
+/*---+-----+--------------+
  | x | y   | struct_value |
  +---+-----+--------------+
  | 3 | bar | {3, bar}     |
  | 1 | foo | {1, foo}     |
- *---+-----+--------------*/
+ +---+-----+--------------*/
 ```
 
 ### `UNNEST` and protocol buffers
@@ -709,11 +709,11 @@ FROM UNNEST(
   ]
 );
 
-/*-------------------------+--------+----------------------------------*
+/*-------------------------+--------+----------------------------------+
  | album_name              | singer | song                             |
  +-------------------------+--------+----------------------------------+
  | The Goldberg Variations | NULL   | [Aria, Variation 1, Variation 2] |
- *-------------------------+--------+----------------------------------*/
+ +-------------------------+--------+----------------------------------*/
 ```
 
 As with structs, you can alias `UNNEST` to define a range variable. You
@@ -731,11 +731,11 @@ FROM UNNEST(
   ]
 ) AS proto_value;
 
-/*---------------------------------------------------------------------*
+/*---------------------------------------------------------------------+
  | proto_value                                                         |
  +---------------------------------------------------------------------+
  | {album_name: "The Goldberg Variations" song: "Aria" song: "Var. 1"} |
- *---------------------------------------------------------------------*/
+ +---------------------------------------------------------------------*/
 ```
 
 ### Explicit and implicit `UNNEST` 
@@ -872,7 +872,7 @@ Conceptual example:
 
 ```zetasql
 -- Before PIVOT is used to rotate sales and quarter into Q1, Q2, Q3, Q4 columns:
-/*---------+-------+---------+------*
+/*---------+-------+---------+------+
  | product | sales | quarter | year |
  +---------+-------+---------+------|
  | Kale    | 51    | Q1      | 2020 |
@@ -884,17 +884,17 @@ Conceptual example:
  | Apple   | 77    | Q1      | 2020 |
  | Apple   | 0     | Q2      | 2020 |
  | Apple   | 1     | Q1      | 2021 |
- *---------+-------+---------+------*/
+ +---------+-------+---------+------*/
 
 -- After PIVOT is used to rotate sales and quarter into Q1, Q2, Q3, Q4 columns:
-/*---------+------+----+------+------+------*
+/*---------+------+----+------+------+------+
  | product | year | Q1 | Q2   | Q3   | Q4   |
  +---------+------+----+------+------+------+
  | Apple   | 2020 | 77 | 0    | NULL | NULL |
  | Apple   | 2021 | 1  | NULL | NULL | NULL |
  | Kale    | 2020 | 51 | 23   | 45   | 3    |
  | Kale    | 2021 | 70 | 85   | NULL | NULL |
- *---------+------+----+------+------+------*/
+ +---------+------+----+------+------+------*/
 ```
 
 **Definitions**
@@ -1117,7 +1117,7 @@ WITH Produce AS (
   SELECT 'Apple', 1, 'Q1', 2021)
 SELECT * FROM Produce
 
-/*---------+-------+---------+------*
+/*---------+-------+---------+------+
  | product | sales | quarter | year |
  +---------+-------+---------+------|
  | Kale    | 51    | Q1      | 2020 |
@@ -1129,7 +1129,7 @@ SELECT * FROM Produce
  | Apple   | 77    | Q1      | 2020 |
  | Apple   | 0     | Q2      | 2020 |
  | Apple   | 1     | Q1      | 2021 |
- *---------+-------+---------+------*/
+ +---------+-------+---------+------*/
 ```
 
 With the `PIVOT` operator, the rows in the `quarter` column are rotated into
@@ -1142,14 +1142,14 @@ SELECT * FROM
   Produce
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
 
-/*---------+------+----+------+------+------*
+/*---------+------+----+------+------+------+
  | product | year | Q1 | Q2   | Q3   | Q4   |
  +---------+------+----+------+------+------+
  | Apple   | 2020 | 77 | 0    | NULL | NULL |
  | Apple   | 2021 | 1  | NULL | NULL | NULL |
  | Kale    | 2020 | 51 | 23   | 45   | 3    |
  | Kale    | 2021 | 70 | 85   | NULL | NULL |
- *---------+------+----+------+------+------*/
+ +---------+------+----+------+------+------*/
 ```
 
 If you don't include `year`, then `SUM` is grouped only by `product`.
@@ -1159,12 +1159,12 @@ SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3', 'Q4'))
 
-/*---------+-----+-----+------+------*
+/*---------+-----+-----+------+------+
  | product | Q1  | Q2  | Q3   | Q4   |
  +---------+-----+-----+------+------+
  | Apple   | 78  | 0   | NULL | NULL |
  | Kale    | 121 | 108 | 45   | 3    |
- *---------+-----+-----+------+------*/
+ +---------+-----+-----+------+------*/
 ```
 
 You can select a subset of values in the `pivot_column`:
@@ -1174,12 +1174,12 @@ SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
 
-/*---------+-----+-----+------*
+/*---------+-----+-----+------+
  | product | Q1  | Q2  | Q3   |
  +---------+-----+-----+------+
  | Apple   | 78  | 0   | NULL |
  | Kale    | 121 | 108 | 45   |
- *---------+-----+-----+------*/
+ +---------+-----+-----+------*/
 ```
 
 ```zetasql
@@ -1187,11 +1187,11 @@ SELECT * FROM
   (SELECT sales, quarter FROM Produce)
   PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2', 'Q3'))
 
-/*-----+-----+----*
+/*-----+-----+----+
  | Q1  | Q2  | Q3 |
  +-----+-----+----+
  | 199 | 108 | 45 |
- *-----+-----+----*/
+ +-----+-----+----*/
 ```
 
 You can include multiple aggregation functions in the `PIVOT`. In this case, you
@@ -1203,12 +1203,12 @@ SELECT * FROM
   (SELECT product, sales, quarter FROM Produce)
   PIVOT(SUM(sales) AS total_sales, COUNT(*) AS num_records FOR quarter IN ('Q1', 'Q2'))
 
-/*--------+----------------+----------------+----------------+----------------*
+/*--------+----------------+----------------+----------------+----------------+
  |product | total_sales_Q1 | num_records_Q1 | total_sales_Q2 | num_records_Q2 |
  +--------+----------------+----------------+----------------+----------------+
  | Kale   | 121            | 2              | 108            | 2              |
  | Apple  | 78             | 2              | 0              | 1              |
- *--------+----------------+----------------+----------------+----------------*/
+ +--------+----------------+----------------+----------------+----------------*/
 ```
 
 ## `UNPIVOT` operator 
@@ -1258,15 +1258,15 @@ Conceptual example:
 
 ```zetasql
 -- Before UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
-/*---------+----+----+----+----*
+/*---------+----+----+----+----+
  | product | Q1 | Q2 | Q3 | Q4 |
  +---------+----+----+----+----+
  | Kale    | 51 | 23 | 45 | 3  |
  | Apple   | 77 | 0  | 25 | 2  |
- *---------+----+----+----+----*/
+ +---------+----+----+----+----*/
 
 -- After UNPIVOT is used to rotate Q1, Q2, Q3, Q4 into sales and quarter columns:
-/*---------+-------+---------*
+/*---------+-------+---------+
  | product | sales | quarter |
  +---------+-------+---------+
  | Kale    | 51    | Q1      |
@@ -1277,7 +1277,7 @@ Conceptual example:
  | Apple   | 0     | Q2      |
  | Apple   | 25    | Q3      |
  | Apple   | 2     | Q4      |
- *---------+-------+---------*/
+ +---------+-------+---------*/
 ```
 
 **Definitions**
@@ -1403,12 +1403,12 @@ WITH Produce AS (
   SELECT 'Apple', 77, 0, 25, 2)
 SELECT * FROM Produce
 
-/*---------+----+----+----+----*
+/*---------+----+----+----+----+
  | product | Q1 | Q2 | Q3 | Q4 |
  +---------+----+----+----+----+
  | Kale    | 51 | 23 | 45 | 3  |
  | Apple   | 77 | 0  | 25 | 2  |
- *---------+----+----+----+----*/
+ +---------+----+----+----+----*/
 ```
 
 With the `UNPIVOT` operator, the columns `Q1`, `Q2`, `Q3`, and `Q4` are
@@ -1420,7 +1420,7 @@ This is a single-column unpivot operation.
 SELECT * FROM Produce
 UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
 
-/*---------+-------+---------*
+/*---------+-------+---------+
  | product | sales | quarter |
  +---------+-------+---------+
  | Kale    | 51    | Q1      |
@@ -1431,7 +1431,7 @@ UNPIVOT(sales FOR quarter IN (Q1, Q2, Q3, Q4))
  | Apple   | 0     | Q2      |
  | Apple   | 25    | Q3      |
  | Apple   | 2     | Q4      |
- *---------+-------+---------*/
+ +---------+-------+---------*/
 ```
 
 In this example, we `UNPIVOT` four quarters into two semesters.
@@ -1444,14 +1444,14 @@ UNPIVOT(
   FOR semesters
   IN ((Q1, Q2) AS 'semester_1', (Q3, Q4) AS 'semester_2'))
 
-/*---------+------------------+-------------------+------------*
+/*---------+------------------+-------------------+------------+
  | product | first_half_sales | second_half_sales | semesters  |
  +---------+------------------+-------------------+------------+
  | Kale    | 51               | 23                | semester_1 |
  | Kale    | 45               | 3                 | semester_2 |
  | Apple   | 77               | 0                 | semester_1 |
  | Apple   | 25               | 2                 | semester_2 |
- *---------+------------------+-------------------+------------*/
+ +---------+------------------+-------------------+------------*/
 ```
 
 ## `TABLESAMPLE` operator 
@@ -1788,14 +1788,14 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
  | Buchanan   | Lakers       |
  | Coolidge   | Lakers       |
  | Davis      | Knights      |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 You can use a [correlated][correlated-join] `INNER JOIN` to flatten an array
@@ -1844,7 +1844,7 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster CROSS JOIN TeamMascot;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
@@ -1856,7 +1856,7 @@ FROM Roster CROSS JOIN TeamMascot;
  | Buchanan   | Lakers       |
  | Buchanan   | Mustangs     |
  | ...                       |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ### Comma cross join (,) 
@@ -1903,7 +1903,7 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster, TeamMascot;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
@@ -1915,7 +1915,7 @@ FROM Roster, TeamMascot;
  | Buchanan   | Lakers       |
  | Buchanan   | Mustangs     |
  | ...                       |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ### `FULL [OUTER] JOIN` 
@@ -1973,7 +1973,7 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
@@ -1982,7 +1982,7 @@ FROM Roster FULL JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
  | Davis      | Knights      |
  | Eisenhower | NULL         |
  | NULL       | Mustangs     |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ### `LEFT [OUTER] JOIN` 
@@ -2044,7 +2044,7 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
@@ -2052,7 +2052,7 @@ FROM Roster LEFT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
  | Coolidge   | Lakers       |
  | Davis      | Knights      |
  | Eisenhower | NULL         |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ### `RIGHT [OUTER] JOIN` 
@@ -2114,7 +2114,7 @@ and [`TeamMascot`][teammascot-table] tables.
 SELECT Roster.LastName, TeamMascot.Mascot
 FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 
-/*---------------------------*
+/*---------------------------+
  | LastName   | Mascot       |
  +---------------------------+
  | Adams      | Jaguars      |
@@ -2122,7 +2122,7 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
  | Coolidge   | Lakers       |
  | Davis      | Knights      |
  | NULL       | Mustangs     |
- *---------------------------*/
+ +---------------------------*/
 ```
 
 ### `LATERAL` join 
@@ -2133,9 +2133,11 @@ FROM Roster RIGHT JOIN TeamMascot ON Roster.SchoolID = TeamMascot.SchoolID;
 <a href="#from_clause"><span class="var">from_item</span></a> , LATERAL <a href="#from_clause"><span class="var">from_item</span></a>
 </pre>
 
-A `LATERAL` join enables a right `from_item` (typically a subquery, an [`UNNEST`
-operator][unnest-operator] operation or a [table-valued function
-(TVF)][tvf-concepts]) to reference columns from a left `from_item` that precedes
+A `LATERAL` join enables a right `from_item`
+(typically a subquery, an
+[`UNNEST` operator][unnest-operator] operation, or a
+[table-valued function (TVF)][tvf-concepts])
+to reference columns from a left `from_item` that precedes
 it in the `FROM` clause. The right `from_item` is evaluated for each row of the
 left `from_item`.
 
@@ -2580,14 +2582,14 @@ single `SchoolID` column.
 ```zetasql
 SELECT * FROM Roster INNER JOIN TeamMascot USING (SchoolID);
 
-/*----------------------------------------*
+/*----------------------------------------+
  | SchoolID   | LastName   | Mascot       |
  +----------------------------------------+
  | 50         | Adams      | Jaguars      |
  | 52         | Buchanan   | Lakers       |
  | 52         | Coolidge   | Lakers       |
  | 51         | Davis      | Knights      |
- *----------------------------------------*/
+ +----------------------------------------*/
 ```
 
 #### `ON` and `USING` equivalency
@@ -2982,12 +2984,12 @@ JOIN
     )) AS PlayerMatches
   ON PlayerMatches.LastName = 'Buchanan'
 
-/*------------+----------+----------+------------+--------------*
+/*------------+----------+----------+------------+--------------+
  | LastName   | SchoolID | LastName | OpponentID | PointsScored |
  +------------+----------+----------+------------+--------------+
  | Adams      | 50       | Buchanan | 50         | 13           |
  | Eisenhower | 77       | Buchanan | 77         | 0            |
- *------------+----------+----------+------------+--------------*/
+ +------------+----------+----------+------------+--------------*/
 ```
 
 A common pattern for a correlated `LEFT JOIN` is to have an `UNNEST` operation
@@ -3011,7 +3013,7 @@ FROM
 LEFT JOIN
   A.items AS item;
 
-/*--------+------+---------------------*
+/*--------+------+---------------------+
  | name   | item | item_count_for_name |
  +--------+------+---------------------+
  | first  | 1    | 4                   |
@@ -3019,7 +3021,7 @@ LEFT JOIN
  | first  | 3    | 4                   |
  | first  | 4    | 4                   |
  | second | NULL | 0                   |
- *--------+------+---------------------*/
+ +--------+------+---------------------*/
 ```
 
 In the case of a correlated `INNER JOIN` or `CROSS JOIN`, when the input on the
@@ -3040,14 +3042,14 @@ FROM
 INNER JOIN
   A.items AS item;
 
-/*-------+------*
+/*-------+------+
  | name  | item |
  +-------+------+
  | first | 1    |
  | first | 2    |
  | first | 3    |
  | first | 4    |
- *-------+------*/
+ +-------+------*/
 ```
 
 ## `WHERE` clause 
@@ -4237,13 +4239,13 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT NULL, false)
 ORDER BY x;
 
-/*------+-------*
+/*------+-------+
  | x    | y     |
  +------+-------+
  | NULL | false |
  | 1    | true  |
  | 9    | true  |
- *------+-------*/
+ +------+-------*/
 ```
 
 Use the default sort order (ascending), but return null values last.
@@ -4255,13 +4257,13 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT NULL, false)
 ORDER BY x NULLS LAST;
 
-/*------+-------*
+/*------+-------+
  | x    | y     |
  +------+-------+
  | 1    | true  |
  | 9    | true  |
  | NULL | false |
- *------+-------*/
+ +------+-------*/
 ```
 
 Use descending sort order.
@@ -4273,13 +4275,13 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT NULL, false)
 ORDER BY x DESC;
 
-/*------+-------*
+/*------+-------+
  | x    | y     |
  +------+-------+
  | 9    | true  |
  | 1    | true  |
  | NULL | false |
- *------+-------*/
+ +------+-------*/
 ```
 
 Use descending sort order, but return null values first.
@@ -4291,13 +4293,13 @@ FROM (SELECT 1 AS x, true AS y UNION ALL
       SELECT NULL, false)
 ORDER BY x DESC NULLS FIRST;
 
-/*------+-------*
+/*------+-------+
  | x    | y     |
  +------+-------+
  | NULL | false |
  | 9    | true  |
  | 1    | true  |
- *------+-------*/
+ +------+-------*/
 ```
 
 It's possible to order by multiple columns. In the example below, the result
@@ -4449,13 +4451,13 @@ FROM Produce
 WHERE Produce.category = 'vegetable'
 QUALIFY rank <= 3
 
-/*---------+------*
+/*---------+------+
  | item    | rank |
  +---------+------+
  | kale    | 1    |
  | lettuce | 2    |
  | cabbage | 3    |
- *---------+------*/
+ +---------+------*/
 ```
 
 You don't have to include a window function in the `SELECT` list to use
@@ -4468,13 +4470,13 @@ FROM Produce
 WHERE Produce.category = 'vegetable'
 QUALIFY RANK() OVER (PARTITION BY category ORDER BY purchases DESC) <= 3
 
-/*---------*
+/*---------+
  | item    |
  +---------+
  | kale    |
  | lettuce |
  | cabbage |
- *---------*/
+ +---------*/
 ```
 
 ## `WINDOW` clause 
@@ -5352,12 +5354,12 @@ SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 2;
 
-/*---------*
+/*---------+
  | letter  |
  +---------+
  | a       |
  | b       |
- *---------*/
+ +---------*/
 ```
 
 ```zetasql
@@ -5365,13 +5367,13 @@ SELECT *
 FROM UNNEST(ARRAY<STRING>['a', 'b', 'c', 'd', 'e']) AS letter
 ORDER BY letter ASC LIMIT 3 OFFSET 1;
 
-/*---------*
+/*---------+
  | letter  |
  +---------+
  | b       |
  | c       |
  | d       |
- *---------*/
+ +---------*/
 ```
 
 ## `WITH` clause 
@@ -5520,13 +5522,13 @@ WITH RECURSIVE
   T1 AS ( (SELECT 1 AS n) UNION ALL (SELECT n + 1 AS n FROM T1 WHERE n < 3) )
 SELECT n FROM T1
 
-/*---*
+/*---+
  | n |
  +---+
  | 2 |
  | 1 |
  | 3 |
- *---*/
+ +---*/
 ```
 
 The first iteration of a recursive union operation runs the base term.
@@ -5560,13 +5562,13 @@ WITH RECURSIVE
     (SELECT n + 2 FROM T1 WHERE n < 4))
 SELECT * FROM T1 ORDER BY n
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
  | 3 |
  | 5 |
- *---*/
+ +---*/
 ```
 
 Multiple subqueries in the same recursive CTE are okay, as
@@ -5581,14 +5583,14 @@ WITH RECURSIVE
   T3 AS (SELECT * FROM T1 INNER JOIN T2 USING (n))
 SELECT * FROM T3 ORDER BY n
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
  | 2 |
  | 3 |
  | 4 |
- *---*/
+ +---*/
 ```
 
 Aggregate functions can be invoked in subqueries, as long as they aren't
@@ -5600,12 +5602,12 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + (SELECT COUNT(*) FROM T0) FROM T1 WHERE n < 4))
 SELECT * FROM T1 ORDER BY n
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
  | 4 |
- *---*/
+ +---*/
 ```
 
 `INNER JOIN` can be used inside subqueries:
@@ -5616,12 +5618,12 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT n + 1 FROM T1 INNER JOIN T0 USING (n)))
 SELECT * FROM T1 ORDER BY n
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
  | 2 |
- *---*/
+ +---*/
 ```
 
 `CROSS JOIN` can be used inside subqueries:
@@ -5632,13 +5634,13 @@ WITH RECURSIVE
   T1 AS ((SELECT 1 AS n) UNION ALL (SELECT T1.n + T0.p FROM T1 CROSS JOIN T0 WHERE T1.n < 4))
 SELECT * FROM T1 CROSS JOIN T0 ORDER BY n
 
-/*---+---*
+/*---+---+
  | n | p |
  +---+---+
  | 1 | 2 |
  | 3 | 2 |
  | 5 | 2 |
- *---+---*/
+ +---+---*/
 ```
 
 In the following query, if `UNION DISTINCT` was replaced with `UNION ALL`,
@@ -5651,7 +5653,7 @@ WITH RECURSIVE
   T1 AS ( (SELECT 0 AS n) UNION DISTINCT (SELECT MOD(n + 1, 5) FROM T1) )
 SELECT * FROM T1 ORDER BY n
 
-/*---*
+/*---+
  | n |
  +---+
  | 0 |
@@ -5659,7 +5661,7 @@ SELECT * FROM T1 ORDER BY n
  | 2 |
  | 3 |
  | 4 |
- *---*/
+ +---*/
 ```
 
 ##### Examples of disallowed recursive CTEs
@@ -5884,13 +5886,13 @@ WITH RECURSIVE
   A AS (SELECT 1 AS n UNION ALL (SELECT n + 1 FROM A WHERE n < 3))
 SELECT * FROM A
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
  | 2 |
  | 3 |
- *---*/
+ +---*/
 ```
 
 `A` can reference `B` because references between CTEs can go forwards:
@@ -5901,11 +5903,11 @@ WITH RECURSIVE
   B AS (SELECT 1 AS n)
 SELECT * FROM B
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
- *---*/
+ +---*/
 ```
 
 `B` can reference `A` because references between CTEs can go backwards:
@@ -5916,11 +5918,11 @@ WITH RECURSIVE
   B AS (SELECT * FROM A)
 SELECT * FROM B
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
- *---*/
+ +---*/
 ```
 
 This produces an error. `A` and `B` reference each other, which creates a cycle:
@@ -5980,11 +5982,11 @@ WITH
   B AS (SELECT * FROM A)
 SELECT * FROM B
 
-/*---*
+/*---+
  | n |
  +---+
  | 1 |
- *---*/
+ +---*/
 ```
 
 This produces an error. `A` and `B` reference each other, which creates a
@@ -6078,12 +6080,12 @@ SELECT WITH AGGREGATION_THRESHOLD
 FROM ExamTable
 GROUP BY test_id;
 
-/*---------+---------------+----------------*
+/*---------+---------------+----------------+
  | test_id | student_count | avg_test_score |
  +---------+---------------+----------------+
  | P91     | 3             | 510.0          |
  | U25     | 4             | 516.0          |
- *---------+---------------+----------------*/
+ +---------+---------------+----------------*/
 ```
 
 ## Differential privacy clause 
@@ -6102,7 +6104,7 @@ WITH DIFFERENTIAL_PRIVACY OPTIONS( <a href="#dp_privacy_parameters"><span class=
 
 <a href="#dp_privacy_parameters"><span class="var">privacy_parameters</span></a>:
   <span class="var">epsilon</span> = <span class="var">expression</span>,
-  { <span class="var">delta</span> = <span class="var">expression</span> | <span class="var">k_threshold</span> = <span class="var">expression</span> },
+  <span class="var">delta</span> = <span class="var">expression</span>,
   [ <span class="var">max_groups_contributed</span> = <span class="var">expression</span> ],
   [ <span class="var">group_selection_strategy</span> = { LAPLACE_THRESHOLD | PUBLIC_GROUPS } ]
 </pre>
@@ -6133,9 +6135,6 @@ You can use the following syntax to build a differential privacy clause:
 +  [`delta`][dp-delta]: The probability that any row in the result fails to
    be epsilon-differentially private. `expression` must be a literal and return
    a `DOUBLE`.
-+  [`k_threshold`][dp-k-threshold]: The number of entities that must
-   contribute to a group in order for the group to be exposed in the results.
-   `expression` must return an `INT64`.
 +  [`max_groups_contributed`][dp-max-groups]: A positive integer identifying the
    limit on the number of groups that an entity is allowed to contribute to.
    This number is also used to scale the noise for each group. `expression` must
@@ -6146,9 +6145,6 @@ You can use the following syntax to build a differential privacy clause:
   or a column name that's visible in the `FROM` clause.
 + [`group_selection_strategy`][dp-group-selection-strategy]: Determines how
   differential privacy is applied to groups.
-
-Note: `delta` and `k_threshold` are mutually exclusive; `delta` is preferred
-over `k_threshold`.
 
 If you want to use this syntax, add it after the `SELECT` keyword with one or
 more differentially private aggregate functions in the `SELECT` list.
@@ -6199,13 +6195,6 @@ The `delta` differential privacy parameter represents the probability that any
 row fails to be `epsilon`-differentially private in the result of a
 differentially private query.
 
-If you have to choose between `delta` and `k_threshold`, use `delta`.
-When supporting `delta`, the specification of `epsilon/delta` must be evaluated
-to determine `k_threshold`, and the specification of `epsilon/k_threshold` must
-be evaluated to determine `delta`. This allows a user to specify either
-(`epsilon`,`delta`) or (`epsilon`, `k_threshold`) in their
-differentially private query.
-
 While doing testing or initial data exploration, it's often useful to set
 `delta` to a value where all groups, including small groups, are
 preserved. This removes privacy protection and should only be done when it
@@ -6213,19 +6202,6 @@ isn't necessary to protect query results, such as when working with non-private
 test data. `delta` roughly corresponds to the probability of keeping a small
 group.  In order to avoid losing small groups, set `delta` very close to 1,
 for example `0.99999`.
-
-#### `k_threshold` 
-<a id="dp_k_threshold"></a>
-
-Important: `k_threshold` is discouraged. If possible, use `delta` instead.
-
-Tip: We recommend that engines implementing this specification don't allow
-entities to specify `k_threshold`.
-
-The `k_threshold` differential privacy parameter computes a noisy entity count
-for each group and eliminates groups with few entities from the output. Use
-this parameter to define how many unique entities must be included in the group
-for the value to be included in the output.
 
 #### `max_groups_contributed` 
 <a id="dp_max_groups"></a>
@@ -6381,12 +6357,12 @@ GROUP BY item;
 -- These results will change each time you run the query.
 -- The scissors group was removed this time, but might not be
 -- removed the next time.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 38.5038356810269 |
  | pen      | 13.4725028762032 |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -6403,12 +6379,12 @@ GROUP BY item;
 -- These results will change each time you run the query.
 -- The scissors group was removed this time, but might not be
 -- removed the next time.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 38.5038356810269 |
  | pen      | 13.4725028762032 |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 #### Remove noise 
@@ -6429,13 +6405,13 @@ SELECT
 FROM {{USERNAME}}.view_on_professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 40               |
  | pen      | 18.5             |
  | scissors | 8                |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -6449,13 +6425,13 @@ SELECT
 FROM professors
 GROUP BY item;
 
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 40               |
  | pen      | 18.5             |
  | scissors | 8                |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 #### Limit the groups in which a privacy unit ID can exist 
@@ -6477,13 +6453,13 @@ GROUP BY item;
 
 -- The privacy unit ID 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 40               |
  | pen      | 18.5             |
  | scissors | 8                |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ```zetasql
@@ -6497,13 +6473,13 @@ GROUP BY item;
 
 -- The privacy unit column 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 40               |
  | pen      | 18.5             |
  | scissors | 8                |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 #### Use public groups in a differentially private query 
@@ -6549,13 +6525,13 @@ GROUP BY item;
 
 -- The privacy unit ID 123 was only included in the pen group in this example.
 -- Noise was removed from this query for demonstration purposes only.
-/*----------+------------------*
+/*----------+------------------+
  | item     | average_quantity |
  +----------+------------------+
  | pencil   | 40               |
  | pen      | 18.5             |
  | book     | 0                |
- *----------+------------------*/
+ +----------+------------------*/
 ```
 
 ## Using aliases 
@@ -6778,11 +6754,11 @@ Example:
 ```zetasql
 SELECT 1 AS a, 2 AS a;
 
-/*---+---*
+/*---+---+
  | a | a |
  +---+---+
  | 1 | 2 |
- *---+---*/
+ +---+---*/
 ```
 
 ### Ambiguous aliases 
@@ -6879,11 +6855,11 @@ which in effect selects column `x` from table `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.x FROM Grid AS Coordinate;
 
-/*---*
+/*---+
  | x |
  +---+
  | 1 |
- *---*/
+ +---*/
 ```
 
 The following example selects all columns from range variable `Coordinate`,
@@ -6893,11 +6869,11 @@ which in effect selects all columns from table `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate.* FROM Grid AS Coordinate;
 
-/*---+---*
+/*---+---+
  | x | y |
  +---+---+
  | 1 | 2 |
- *---+---*/
+ +---+---*/
 ```
 
 The following example selects the range variable `Coordinate`, which is a
@@ -6909,11 +6885,11 @@ from `Grid`.
 WITH Grid AS (SELECT 1 x, 2 y)
 SELECT Coordinate FROM Grid AS Coordinate;
 
-/*--------------*
+/*--------------+
  | Coordinate   |
  +--------------+
  | {x: 1, y: 2} |
- *--------------*/
+ +--------------*/
 ```
 
 ## Table function calls
@@ -6987,7 +6963,7 @@ The `Roster` table includes a list of player names (`LastName`) and the
 unique ID assigned to their school (`SchoolID`). It looks like this:
 
 ```zetasql
-/*-----------------------*
+/*-----------------------+
  | LastName   | SchoolID |
  +-----------------------+
  | Adams      | 50       |
@@ -6995,7 +6971,7 @@ unique ID assigned to their school (`SchoolID`). It looks like this:
  | Coolidge   | 52       |
  | Davis      | 51       |
  | Eisenhower | 77       |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -7018,7 +6994,7 @@ unique ID assigned to the opponent they played in a given game (`OpponentID`)
 and the number of points scored by the athlete in that game (`PointsScored`).
 
 ```zetasql
-/*----------------------------------------*
+/*----------------------------------------+
  | LastName   | OpponentID | PointsScored |
  +----------------------------------------+
  | Adams      | 51         | 3            |
@@ -7026,7 +7002,7 @@ and the number of points scored by the athlete in that game (`PointsScored`).
  | Coolidge   | 77         | 1            |
  | Adams      | 52         | 4            |
  | Buchanan   | 50         | 13           |
- *----------------------------------------*/
+ +----------------------------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -7048,14 +7024,14 @@ The `TeamMascot` table includes a list of unique school IDs (`SchoolID`) and the
 mascot for that school (`Mascot`).
 
 ```zetasql
-/*---------------------*
+/*---------------------+
  | SchoolID | Mascot   |
  +---------------------+
  | 50       | Jaguars  |
  | 51       | Knights  |
  | 52       | Lakers   |
  | 53       | Mustangs |
- *---------------------*/
+ +---------------------*/
 ```
 
 You can use this `WITH` clause to emulate a temporary table name for the
@@ -7409,8 +7385,6 @@ Results:
 [value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
 
 [dp-example-tables]: #dp_example_tables
-
-[dp-k-threshold]: #dp_k_threshold
 
 [dp-privacy-parameters]: #dp_privacy_parameters
 

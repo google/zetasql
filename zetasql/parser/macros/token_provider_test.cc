@@ -14,7 +14,7 @@
 // limitations under the License.
 //
 
-#include "zetasql/parser/macros/flex_token_provider.h"
+#include "zetasql/parser/macros/token_provider.h"
 
 #include <optional>
 #include <ostream>
@@ -67,17 +67,16 @@ static ParseLocationRange MakeLocation(int start_offset, int end_offset) {
   return location;
 }
 
-static FlexTokenProvider MakeTokenProvider(absl::string_view input) {
-  return FlexTokenProvider(kFileName, input,
-                           /*start_offset=*/0, /*end_offset=*/std::nullopt,
-                           /*offset_in_original_input=*/0,
-                           /*force_flex=*/false);
+static TokenProvider MakeTokenProvider(absl::string_view input) {
+  return TokenProvider(kFileName, input,
+                       /*start_offset=*/0, /*end_offset=*/std::nullopt,
+                       /*offset_in_original_input=*/0);
 }
 
-TEST(FlexTokenProviderTest, RawTokenizerMode) {
+TEST(TokenProviderTest, RawTokenizerMode) {
   absl::string_view input = "/*comment*/ 123";
 
-  FlexTokenProvider token_provider = MakeTokenProvider(input);
+  TokenProvider token_provider = MakeTokenProvider(input);
   EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
                   .kind = Token::COMMENT,
@@ -95,10 +94,10 @@ TEST(FlexTokenProviderTest, RawTokenizerMode) {
               }));
 }
 
-TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
+TEST(TokenProviderTest, AlwaysEndsWithEOF) {
   absl::string_view input = "\t\t";
-  FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
+  TokenProvider token_provider = MakeTokenProvider(input);
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
                   .kind = Token::EOI,
                   .location = MakeLocation(2, 2),
@@ -106,7 +105,7 @@ TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
                   .preceding_whitespaces = "\t\t",
               }));
   // No preceding whitespaces for the second EOF.
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(TokenWithLocation{
                   .kind = Token::EOI,
                   .location = MakeLocation(2, 2),
@@ -115,21 +114,18 @@ TEST(FlexTokenProviderTest, AlwaysEndsWithEOF) {
               }));
 }
 
-TEST(FlexTokenProviderTest, CanPeekToken) {
+TEST(TokenProviderTest, CanPeekToken) {
   absl::string_view input = "\t123 identifier";
-  FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
+  TokenProvider token_provider = MakeTokenProvider(input);
   const TokenWithLocation int_token{
       .kind = Token::DECIMAL_INTEGER_LITERAL,
       .location = MakeLocation(1, 4),
       .text = "123",
       .preceding_whitespaces = "\t",
   };
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
-              IsOkAndHoldsToken(int_token));
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
-              IsOkAndHoldsToken(int_token));
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
-              IsOkAndHoldsToken(int_token));
+  EXPECT_THAT(token_provider.PeekNextToken(), IsOkAndHoldsToken(int_token));
+  EXPECT_THAT(token_provider.PeekNextToken(), IsOkAndHoldsToken(int_token));
+  EXPECT_THAT(token_provider.ConsumeNextToken(), IsOkAndHoldsToken(int_token));
 
   const TokenWithLocation identifier_token{
       .kind = Token::IDENTIFIER,
@@ -137,17 +133,17 @@ TEST(FlexTokenProviderTest, CanPeekToken) {
       .text = "identifier",
       .preceding_whitespaces = " ",
   };
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
+  EXPECT_THAT(token_provider.PeekNextToken(),
               IsOkAndHoldsToken(identifier_token));
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
+  EXPECT_THAT(token_provider.PeekNextToken(),
               IsOkAndHoldsToken(identifier_token));
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(identifier_token));
 }
 
-TEST(FlexTokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
+TEST(TokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
   absl::string_view input = "SELECT";
-  FlexTokenProvider flex_token_provider = MakeTokenProvider(input);
+  TokenProvider token_provider = MakeTokenProvider(input);
 
   TokenWithLocation first_token{
       .kind = Token::KW_SELECT,
@@ -156,13 +152,12 @@ TEST(FlexTokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
       .preceding_whitespaces = "",
   };
 
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
-              IsOkAndHoldsToken(first_token));
-  EXPECT_EQ(flex_token_provider.num_consumed_tokens(), 0);
+  EXPECT_THAT(token_provider.PeekNextToken(), IsOkAndHoldsToken(first_token));
+  EXPECT_EQ(token_provider.num_consumed_tokens(), 0);
 
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(first_token));
-  EXPECT_EQ(flex_token_provider.num_consumed_tokens(), 1);
+  EXPECT_EQ(token_provider.num_consumed_tokens(), 1);
 
   TokenWithLocation second_token{
       .kind = Token::EOI,
@@ -171,13 +166,12 @@ TEST(FlexTokenProviderTest, TracksCountOfConsumedTokensIncludingEOF) {
       .preceding_whitespaces = "",
   };
 
-  EXPECT_THAT(flex_token_provider.PeekNextToken(),
-              IsOkAndHoldsToken(second_token));
-  EXPECT_EQ(flex_token_provider.num_consumed_tokens(), 1);
+  EXPECT_THAT(token_provider.PeekNextToken(), IsOkAndHoldsToken(second_token));
+  EXPECT_EQ(token_provider.num_consumed_tokens(), 1);
 
-  EXPECT_THAT(flex_token_provider.ConsumeNextToken(),
+  EXPECT_THAT(token_provider.ConsumeNextToken(),
               IsOkAndHoldsToken(second_token));
-  EXPECT_EQ(flex_token_provider.num_consumed_tokens(), 2);
+  EXPECT_EQ(token_provider.num_consumed_tokens(), 2);
 }
 
 }  // namespace macros

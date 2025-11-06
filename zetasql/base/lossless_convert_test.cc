@@ -119,6 +119,12 @@ TEST(LosslessConvertTest, IntDouble) {
 }
 
 TEST(LosslessConvertTest, IntLongDouble) {
+  if (sizeof(long double) == sizeof(double)) {
+    GTEST_SKIP()
+        << "skip this test because IntLongDouble test assumes the"
+           "`long double` type has more bytes than `double`, but `long double` "
+           "is the same size as `double` in this platform";
+  }
   // We don't have any integer types large enough to lose precision when
   // converting to long double.
   EXPECT_TRUE(
@@ -188,6 +194,11 @@ TEST(LosslessConvertTest, DoubleFloat) {
 }
 
 TEST(LosslessConvertTest, LongDouble) {
+  if (sizeof(long double) == sizeof(double)) {
+    GTEST_SKIP() << "skip this test because LongDouble test assumes the `long "
+                    "double` type has more bytes than `double`, but `long "
+                    "double` is the same size as `double` in this platform";
+  }
   // Detect precision loss.
   EXPECT_TRUE((Case<long double, float>(10000001, true)));
   EXPECT_TRUE((Case<long double, float>(100000001, false)));

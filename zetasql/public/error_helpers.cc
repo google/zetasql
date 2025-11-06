@@ -837,7 +837,7 @@ constexpr ErrorRedaction kRedactions[] = {
 
     // Privacy
     {"FUNCTION_NOT_SUPPORTED_IN_DIFFERENTIAL_PRIVACY",
-     "Unsupported function in SELECT WITH DIFFERENTIAL_PRIVACY select list: "
+     "Unsupported function in DIFFERENTIAL_PRIVACY clause: "
      "(<id>)",
      "$0: $1", 1},
     {"READING_USERDATA_TABLE_IN_EXPR_SUBQUERY",

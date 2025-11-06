@@ -110,6 +110,94 @@ Pipe operators have the following semantic behavior:
     Columns from earlier in the same query aren't visible. Inside subqueries,
     correlated references to outer columns are still allowed.
 
+### Terminal operators {: #terminal_operators}
+
+Certain pipe operators are *terminal operators*. These operators appear at the
+end of a pipe query and typically consume the final query result.
+
+Terminal operators have the following semantic behavior:
+
++ They can only appear at the end of a pipe query.
++ They consume the pipe input table and return no result.
++ They are only allowed in the outermost query of a query
+  statement. They can't be used inside a [subquery][subqueries] or in
+  non-query statements.
+
+For supported terminal operators, see [Pipe operators][pipe-operators].
+
+### Semi-terminal operators {: #semi_terminal_operators}
+
+Certain pipe operators are *semi-terminal operators*. Like
+[terminal operators][terminal-operators], semi-terminal operators can only
+appear in the outermost query of a query statement. Unlike terminal operators,
+semi-terminal operators return a result table and can be followed by other
+pipe operators.
+
+Semi-terminal operators have the following semantic behavior:
+
++ They consume the pipe input table and return a result.
++ They are only allowed in the outermost query of a query
+  statement. They can't be used inside a [subquery][subqueries] or in
+  non-query statements.
+
+For supported semi-terminal operators, see [Pipe operators][pipe-operators].
+
+## Subpipelines 
+<a id="subpipelines"></a>
+
+The parts of a query that use pipe operators are sometimes called *pipelines*.
+Nested pipelines within a pipeline are called *subpipelines*. Subpipelines are
+similar to [subqueries][subqueries], but can only contain pipe operators rather
+than a full query. A subpipeline doesn't begin with an initial `FROM` or
+`SELECT` clause.
+
+The syntax for subpipelines consists of zero or more pipe operators surrounded
+by `()`:
+
+<pre class="lang-sql prettyprint no-copy">
+(
+  |> pipe_operator1
+  |> pipe_operator2
+  ...
+)
+</pre>
+
+Subpipelines have the following key characteristics:
+
++ Only specific pipe operators use subpipelines. Those operators take
+  subpipelines for one or more of their arguments.
++ Operators that use subpipelines define a table that's implicitly passed as
+  input to the subpipeline, as if that table were scanned with a `FROM` clause.
++ The operator defines whether that subpipeline operates over the input table
+  just once or multiple times. If the subpipeline runs more than once, it might
+  operate over different rows each time.
++ Empty subpipelines are allowed, and are written as `()`. These subpipelines
+  return their input table without changes.
+
+**Example**
+
+This query shows a subpipeline used in the `IF` pipe operator:
+
+```zetasql
+FROM Produce
+|> IF true THEN
+  (
+    |> AGGREGATE COUNT(*) AS total
+  ) ELSE
+  (
+    |> SELECT *
+  )
+|> AS Inventory;
+```
+
+In this example, the first subpipeline case (`AGGREGATE`) runs because the
+condition is true. If the condition were false, the second subpipeline
+case (`SELECT`) would run.
+
+The `IF` operator passes its input table to the case that runs. The subpipeline
+output table is returned as the final output of the `IF` operator, which is
+then passed to the `AS` operator.
+
 ## `FROM` queries 
 <a id="from_queries"></a>
 
@@ -223,15 +311,6 @@ documentation on the corresponding syntax.
 </tr>
 
 <tr>
-  <td><a href="#limit_pipe_operator"><code>LIMIT</code></a>
-</td>
-  <td>
-    Limits the number of rows to return in a query, with an optional
-    <code>OFFSET</code> clause to skip over rows.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#aggregate_pipe_operator"><code>AGGREGATE</code></a>
 </td>
   <td>
@@ -249,9 +328,36 @@ documentation on the corresponding syntax.
 </tr>
 
 <tr>
+  <td><a href="#join_pipe_operator"><code>JOIN</code></a>
+</td>
+  <td>
+    Joins rows from the input table with rows from a second table provided as an
+    argument.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#call_pipe_operator"><code>CALL</code></a>
+</td>
+  <td>
+    Calls a table-valued function (TVF), passing the pipe input table as a
+    table argument.
+  </td>
+</tr>
+
+<tr>
   <td><a href="#order_by_pipe_operator"><code>ORDER BY</code></a>
 </td>
   <td>Sorts results by a list of expressions.</td>
+</tr>
+
+<tr>
+  <td><a href="#limit_pipe_operator"><code>LIMIT</code></a>
+</td>
+  <td>
+    Limits the number of rows to return in a query, with an optional
+    <code>OFFSET</code> clause to skip over rows.
+  </td>
 </tr>
 
 <tr>
@@ -260,6 +366,12 @@ documentation on the corresponding syntax.
   <td>
     Returns the combined results of the input queries to the left and right of the pipe operator.
   </td>
+</tr>
+
+<tr>
+  <td><a href="#recursive_union_pipe_operator"><code>RECURSIVE UNION</code></a>
+</td>
+  <td>Runs recursive queries.</td>
 </tr>
 
 <tr>
@@ -282,38 +394,15 @@ documentation on the corresponding syntax.
 </tr>
 
 <tr>
-  <td><a href="#join_pipe_operator"><code>JOIN</code></a>
-</td>
-  <td>
-    Joins rows from the input table with rows from a second table provided as an
-    argument.
-  </td>
-</tr>
-
-<tr>
-  <td><a href="#call_pipe_operator"><code>CALL</code></a>
-</td>
-  <td>
-    Calls a table-valued function (TVF), passing the pipe input table as a
-    table argument.
-  </td>
-</tr>
-
-<!-- disableFinding(LINK_ID) -->
-
-<tr>
-  <td><a href="#window_pipe_operator"><code>WINDOW</code></a>
-</td>
-  <td>
-    Deprecated. Adds columns with the result of computing the function
-    over some window of existing rows.
-  </td>
-</tr>
-
-<tr>
   <td><a href="#tablesample_pipe_operator"><code>TABLESAMPLE</code></a>
 </td>
   <td>Selects a random sample of rows from the input table.</td>
+</tr>
+
+<tr>
+  <td><a href="#with_pipe_operator"><code>WITH</code></a>
+</td>
+  <td>Introduces one or more common table expressions (CTEs).</td>
 </tr>
 
 <tr>
@@ -328,12 +417,79 @@ documentation on the corresponding syntax.
   <td>Rotates columns into rows.</td>
 </tr>
 
+<!-- disableFinding(LINK_ID) -->
+
+<tr>
+  <td><a href="#window_pipe_operator"><code>WINDOW</code></a>
+</td>
+  <td>
+    Deprecated. Adds columns with the result of computing the function
+    over some window of existing rows.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#match_recognize_pipe_operator"><code>MATCH_RECOGNIZE</code></a>
+</td>
+  <td>Filters and aggregates rows based on matches.</td>
+</tr>
+
 <tr>
   <td><a href="#assert_pipe_operator"><code>ASSERT</code></a>
 </td>
   <td>
     Evaluates that an expression is true for all input rows, raising an error
     if not.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#describe_pipe_operator"><code>DESCRIBE</code></a>
+</td>
+  <td>Returns a textual description of the table schema and other details about the query.</td>
+</tr>
+
+<tr>
+  <td><a href="#if_pipe_operator"><code>IF</code></a>
+</td>
+  <td>
+    Run operators (written as a subpipeline) conditionally.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#create_table_pipe_operator"><code>CREATE TABLE</code></a>
+</td>
+  <td>Terminal pipe operator. Creates a table and populates it.</td>
+</tr>
+
+<tr>
+  <td><a href="#export_data_pipe_operator"><code>EXPORT DATA</code></a>
+</td>
+  <td>Terminal pipe operator. Writes the pipe result to a file or stream.</td>
+</tr>
+
+<tr>
+  <td><a href="#insert_pipe_operator"><code>INSERT</code></a>
+</td>
+  <td>Terminal pipe operator. Adds new rows to a table.</td>
+</tr>
+
+<tr>
+  <td><a href="#fork_pipe_operator"><code>FORK</code></a>
+</td>
+  <td>
+    Terminal pipe operator. Ends the main pipeline and splits it into one or
+    more subpipelines.
+  </td>
+</tr>
+
+<tr>
+  <td><a href="#tee_pipe_operator"><code>TEE</code></a>
+</td>
+  <td>
+    Semi-terminal pipe operator. Splits the main pipeline into one or more
+    subpipelines and continues the main pipeline.
   </td>
 </tr>
 
@@ -345,14 +501,19 @@ documentation on the corresponding syntax.
 
 <pre class="lang-sql prettyprint no-copy">
 |> SELECT expression [[AS] alias] [, ...]
+   [<span class="kwd">WINDOW</span> name AS window_spec, ...]
 </pre>
 
 **Description**
 
 Produces a new table with the listed columns, similar to the outermost
-[`SELECT` clause][select-clause] in a table subquery in standard syntax.
-The `SELECT` operator supports standard output modifiers like `SELECT AS STRUCT`, and supports
-[window functions][window-functions]. The `SELECT` operator doesn't support aggregations or anonymization.
+[`SELECT` clause][select-clause] in a table subquery in standard syntax. The
+`SELECT` operator supports standard output modifiers like `SELECT AS STRUCT` and
+`SELECT DISTINCT`. The `SELECT` operator
+also supports [window functions][window-functions],
+including [named windows][named-windows]. Named windows are defined using the
+`WINDOW` keyword and are only visible to the current pipe `SELECT` operator.
+The `SELECT` operator doesn't support aggregations or anonymization.
 
 In pipe syntax, the `SELECT` operator in a query is optional. The `SELECT`
 operator can be used near the end of a query to specify the list of output
@@ -388,6 +549,22 @@ FROM (SELECT 'apples' AS item, 2 AS sales)
  +------------*/
 ```
 
+```zetasql
+-- Window function with a named window
+FROM Produce
+|> SELECT item, sales, category, SUM(sales) OVER item_window AS category_total
+   WINDOW item_window AS (PARTITION BY category);
+
+/*---------+-------+-----------+----------------+
+ | item    | sales | category  | category_total |
+ +---------+-------+-----------+----------------+
+ | apples  | 2     | fruit     | 14             |
+ | apples  | 7     | fruit     | 14             |
+ | bananas | 5     | fruit     | 14             |
+ | carrots | 8     | vegetable | 8              |
+ +---------+-------+-----------+----------------*/
+```
+
 [select-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_list
 
 [window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
@@ -413,13 +590,16 @@ FROM (SELECT 'apples' AS item, 2 AS sales)
 
 <pre class="lang-sql prettyprint no-copy">
 |> <span class="kwd">EXTEND</span> expression [[AS] alias] [, ...]
+   [<span class="kwd">WINDOW</span> name AS window_spec, ...]
 </pre>
 
 **Description**
 
 Propagates the existing table and adds computed columns, similar to
 [`SELECT *, new_column`][select-star] in standard syntax. The `EXTEND` operator supports
-[window functions][window-functions].
+[window functions][window-functions]
+, including [named windows][named-windows]. Named windows are defined using the
+`WINDOW` keyword and are only visible to the current `EXTEND` operator.
 
 **Examples**
 
@@ -427,15 +607,15 @@ Propagates the existing table and adds computed columns, similar to
 (
   SELECT 'apples' AS item, 2 AS sales
   UNION ALL
-  SELECT 'carrots' AS item, 8 AS sales
+  SELECT 'bananas' AS item, 8 AS sales
 )
-|> EXTEND item IN ('carrots', 'oranges') AS is_orange;
+|> EXTEND item IN ('bananas', 'lemons') AS is_yellow;
 
 /*---------+-------+------------+
- | item    | sales | is_orange  |
+ | item    | sales | is_yellow  |
  +---------+-------+------------+
  | apples  | 2     | FALSE      |
- | carrots | 8     | TRUE       |
+ | bananas | 8     | TRUE       |
  +---------+-------+------------*/
 ```
 
@@ -457,6 +637,22 @@ Propagates the existing table and adds computed columns, similar to
  | bananas | 5     | 15          |
  | carrots | 8     | 15          |
  +---------+-------+-------------*/
+```
+
+```zetasql
+-- Window function with a named window
+FROM Produce
+|> EXTEND SUM(sales) OVER item_window AS category_total
+   WINDOW item_window AS (PARTITION BY category);
+
+/*-----------+-----------+----------------+
+ | item      | category  | category_total |
+ +----------------------------------------+
+ | apples    | fruit     | 14             |
+ | apples    | fruit     | 14             |
+ | bananas   | fruit     | 14             |
+ | carrots   | vegetable | 8              |
+ +----------------------------------------*/
 ```
 
 [select-star]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#select_
@@ -696,59 +892,6 @@ a `QUALIFY` clause, use window functions inside a `WHERE` clause instead.
 [aggregate-pipe-operator]: #aggregate_pipe_operator
 
 [window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-### `LIMIT` pipe operator 
-<a id="limit_pipe_operator"></a>
-
-<pre class="lang-sql prettyprint no-copy">
-|> <span class="kwd">LIMIT</span> count [OFFSET skip_rows]
-</pre>
-
-**Description**
-
-Limits the number of rows to return in a query, with an optional `OFFSET` clause
-to skip over rows. The `LIMIT` operator behaves the same as the
-[`LIMIT` and `OFFSET` clause][limit-offset-clause] in standard syntax.
-
-**Examples**
-
-```zetasql
-(
-  SELECT 'apples' AS item, 2 AS sales
-  UNION ALL
-  SELECT 'bananas' AS item, 5 AS sales
-  UNION ALL
-  SELECT 'carrots' AS item, 8 AS sales
-)
-|> ORDER BY item
-|> LIMIT 1;
-
-/*---------+-------+
- | item    | sales |
- +---------+-------+
- | apples  | 2     |
- +---------+-------*/
-```
-
-```zetasql
-(
-  SELECT 'apples' AS item, 2 AS sales
-  UNION ALL
-  SELECT 'bananas' AS item, 5 AS sales
-  UNION ALL
-  SELECT 'carrots' AS item, 8 AS sales
-)
-|> ORDER BY item
-|> LIMIT 1 OFFSET 2;
-
-/*---------+-------+
- | item    | sales |
- +---------+-------+
- | carrots | 8     |
- +---------+-------*/
-```
-
-[limit-offset-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_and_offset_clause
 
 ### `AGGREGATE` pipe operator 
 <a id="aggregate_pipe_operator"></a>
@@ -1124,6 +1267,110 @@ FROM table
 
 [inner-join]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#inner_join
 
+### `JOIN` pipe operator 
+<a id="join_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> [join_type] JOIN from_item [[AS] alias] [{on_clause | using_clause}]
+</pre>
+
+**Description**
+
+Joins rows from the input table with rows from a second table provided as an
+argument. The `JOIN` operator behaves the same as the
+[`JOIN` operation][join-operation] in standard syntax. The input table is the
+left side of the join and the `JOIN` argument is the right side of the join.
+Standard join inputs are supported, including tables, subqueries, `UNNEST`
+operations, and table-valued function (TVF) calls. Standard join modifiers like
+`LEFT`, `INNER`, and `CROSS` are allowed before the `JOIN` keyword.
+
+An alias can be assigned to the input table on the right side of the join, but
+not to the input table on the left side of the join. If an alias on the
+input table is needed, perhaps to disambiguate columns in an
+[`ON` expression][on-clause], then an alias can be added using the
+[`AS` operator][as-pipe-operator] before the `JOIN` arguments.
+
+**Example**
+
+```zetasql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+)
+|> AS produce_sales
+|> LEFT JOIN
+     (
+       SELECT "apples" AS item, 123 AS id
+     ) AS produce_data
+   ON produce_sales.item = produce_data.item
+|> SELECT produce_sales.item, sales, id;
+
+/*---------+-------+------+
+ | item    | sales | id   |
+ +---------+-------+------+
+ | apples  | 2     | 123  |
+ | bananas | 5     | NULL |
+ +---------+-------+------*/
+```
+
+[join-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
+
+[on-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#on_clause
+
+[as-pipe-operator]: #as_pipe_operator
+
+### `CALL` pipe operator 
+<a id="call_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">CALL</span> table_function (argument [, ...]) [[AS] alias]
+</pre>
+
+**Description**
+
+Calls a [table-valued function][tvf] (TVF) that accepts at least one table as
+an argument, similar to
+[table function calls][table-function-calls] in standard syntax.
+
+TVFs in standard syntax can be called in the `FROM` clause or in a `JOIN`
+operation. These are both allowed in pipe syntax as well.
+
+In pipe syntax, TVFs that take a table argument can also be called with the
+`CALL` operator. The first table argument comes from the input table and
+must be omitted in the arguments. An optional table alias can be added for the
+output table.
+
+Multiple TVFs can be called sequentially without using nested subqueries.
+
+**Examples**
+
+Suppose you have TVFs with the following parameters:
+
++  `tvf1(inputTable1 ANY TABLE, arg1 ANY TYPE)` and
++  `tvf2(arg2 ANY TYPE, arg3 ANY TYPE, inputTable2 ANY TABLE)`.
+
+The following examples compare calling both TVFs on an input table
+by using standard syntax and by using the `CALL` pipe operator:
+
+```zetasql
+-- Call the TVFs without using the CALL operator.
+SELECT *
+FROM
+  tvf2(arg2, arg3, TABLE tvf1(TABLE input_table, arg1));
+```
+
+```zetasql
+-- Call the same TVFs with the CALL operator.
+FROM input_table
+|> CALL tvf1(arg1)
+|> CALL tvf2(arg2, arg3);
+```
+
+[tvf]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
+
+[table-function-calls]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#table_function_calls
+
 ### `ORDER BY` pipe operator 
 <a id="order_by_pipe_operator"></a>
 
@@ -1168,6 +1415,59 @@ apply `ORDER BY` behavior more concisely as part of aggregation.
 [aggregate-pipe-operator]: #aggregate_pipe_operator
 
 [shorthand-order-pipe-syntax]: #shorthand_order_pipe_syntax
+
+### `LIMIT` pipe operator 
+<a id="limit_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">LIMIT</span> count [OFFSET skip_rows]
+</pre>
+
+**Description**
+
+Limits the number of rows to return in a query, with an optional `OFFSET` clause
+to skip over rows. The `LIMIT` operator behaves the same as the
+[`LIMIT` and `OFFSET` clause][limit-offset-clause] in standard syntax.
+
+**Examples**
+
+```zetasql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> ORDER BY item
+|> LIMIT 1;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | apples  | 2     |
+ +---------+-------*/
+```
+
+```zetasql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> ORDER BY item
+|> LIMIT 1 OFFSET 2;
+
+/*---------+-------+
+ | item    | sales |
+ +---------+-------+
+ | carrots | 8     |
+ +---------+-------*/
+```
+
+[limit-offset-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#limit_and_offset_clause
 
 ### `UNION` pipe operator 
 <a id="union_pipe_operator"></a>
@@ -1292,6 +1592,247 @@ SELECT 1 AS one_digit, 10 AS two_digit
 ```
 
 [union-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#union
+
+### `RECURSIVE UNION` pipe operator 
+<a id="recursive_union_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> RECURSIVE UNION
+   { ALL | DISTINCT }
+   [ BY NAME ]
+   ( query | subpipeline )
+   [ AS alias ]
+</pre>
+
+**Description**
+
+Runs a recursive query or [subpipeline][subpipelines], similar to the
+[`WITH RECURSIVE` clause][recursive-cte] but as a pipe operator. You can use the
+`RECURSIVE UNION` operator anywhere in a query.
+
+The `RECURSIVE UNION` operator does the following when run:
+
+1. Adds the pipe input table to the combined output. If
+   the `DISTINCT` keyword is specified, duplicate rows are excluded from the
+   output.
+   If the `ALL` keyword is specified, duplicate rows are included in the
+   output.
+1. If any new rows were added, the operator does the following:
+   1.  Runs the specified query or subpipeline on the new rows.
+   1.  Adds the resulting output rows to the combined output. If
+       the `DISTINCT` keyword is specified, duplicate rows are
+       excluded.
+   1.  Repeats this process as long as new rows continue to be
+       generated.
+1. Returns the final union of added rows.
+
+The specified query or subpipeline runs repeatedly to potentially generate new
+rows of output. On each iteration, the `RECURSIVE UNION` pipe operator scans
+the *recursive input table* that provides the rows added by the previous
+iteration. The operator stops running the recursion when no new rows are
+produced.
+
+The recursive input to the query is referenced as a table, using the `alias`
+value as its name. This recursive input table must be referenced exactly once,
+in a `FROM` clause or `JOIN` operation inside the query.
+
+If a [subpipeline][subpipelines] is provided in place of a query, the recursive
+input is passed in automatically as the subpipeline's input table. If an
+`alias` value is included, the value works as a table alias for the input
+table, allowing the subpipeline to reference its columns in the format
+`alias.column_name`.
+
+The output schema has the same column names and types as the pipe input table.
+The recursive query or subpipeline must produce columns with compatible
+types. If the [`BY NAME` modifier][by-name-or-corresponding]
+is specified, the columns in the recursive input table are matched by column
+name; otherwise the columns are matched positionally.
+
+If the input to the `RECURSIVE UNION` pipe operator is a
+[value table][datamodel-value-tables], the output is also a value table. As with
+the [`UNION` pipe operator][union-pipe-operator], the `RECURSIVE UNION` operator
+can combine one-column tables with value tables.
+
+**Syntax comparison**
+
+The `RECURSIVE UNION` operator syntax is shorter, clearer, and easier to read
+and maintain than the corresponding `WITH RECURSIVE` clause syntax.
+
+The following comparison shows the basic structure of a `WITH RECURSIVE` clause
+and a `RECURSIVE UNION` operator equivalent:
+
+```zetasql
+-- Standard syntax
+WITH RECURSIVE name AS (
+  base_query
+  UNION ALL
+  recursive_query
+)
+final_query
+
+-- Pipe syntax equivalent with RECURSIVE UNION operator
+WITH name AS (
+  base_query
+  |> RECURSIVE UNION ALL (
+    recursive_query
+  ) AS name
+)
+final_query
+```
+
+Converting recursive queries to pipe syntax is usually just a matter of
+replacing the `UNION ALL` clause with the `RECURSIVE UNION` operator. After
+that, if the recursive query is in pipe syntax and starts with a `FROM` clause,
+the `FROM` clause can be removed and replaced with the subpipeline form.
+
+In addition, you can also remove the initial `WITH` clause if the rest of the
+query previously started with a `FROM` clause:
+
+```zetasql
+-- Example query with no WITH clause
+base_query
+|> RECURSIVE UNION ALL (
+     recursive_query
+   ) AS name
+final_query
+```
+
+**Style guidance**
+
++ Use the `RECURSIVE UNION` operator instead of the `WITH RECURSIVE` clause.
++ Use `RECURSIVE UNION` inline, without using `WITH`, unless:
+  + `WITH` is used because a common table is referenced multiple times, or
+  + `WITH` is helpful to break a large query into named fragments.
++ Use the subpipeline form because it's shorter and represents
+  the typical input pattern.
+
+**Examples**
+
+The following examples assume this is the input table, representing an
+employee hierarchy:
+
+```zetasql
+CREATE TEMP TABLE Employees(
+  employee_id INT64,
+  manager_id INT64,
+  state STRING);
+```
+
+The following example looks up a manager with `employee_id = 123456`,
+performs a recursive traversal to retrieve all employees who report transitively
+to that manager, and counts how many of those reports are in one state.
+
+Here is the standard syntax that accomplishes this, using the
+`WITH RECURSIVE` clause:
+
+```zetasql
+WITH RECURSIVE
+  AllReportees AS (
+    SELECT employee_id, manager_id, state
+    FROM Employees
+    WHERE employee_id = 123456
+    UNION ALL
+    SELECT e.employee_id, e.manager_id, e.state
+    FROM AllReportees r  -- Recursive input table
+    JOIN Employees e
+      ON e.manager_id = r.employee_id
+  )
+SELECT COUNT(*) AS num_employees
+FROM AllReportees
+WHERE State = 'AK';
+
+-- Example of recursive count of employees reporting to 123456 in AK.
+/*-----------------+
+ | num_employees   |
+ +-----------------+
+ | 46              |
+ +-----------------*/
+```
+
+The following example accomplishes the same task using the `RECURSIVE UNION`
+pipe operator with a subquery:
+
+```zetasql
+FROM Employees
+|> WHERE employee_id = 123456
+|> RECURSIVE UNION ALL
+(
+  FROM AllReportees r  -- Recursive input table
+  |> JOIN Employees e ON e.manager_id = r.employee_id
+  |> SELECT e.*
+) AS AllReportees
+|> WHERE State = 'AK'
+|> AGGREGATE COUNT(*) AS num_employees;
+
+-- Example of recursive count of employees reporting to 123456 in AK.
+/*-----------------+
+ | num_employees   |
+ +-----------------+
+ | 46              |
+ +-----------------*/
+```
+
+You can also define recursive queries using the `RECURSIVE UNION` pipe operator
+using a subpipeline, which removes the need for an inner `FROM` clause. The
+recursive input table is scanned by the subpipeline automatically and isn't
+explicitly written in the pipe syntax:
+
+```zetasql
+FROM Employees
+|> WHERE employee_id = 123456
+|> RECURSIVE UNION ALL
+   (
+     |> JOIN Employees e ON e.manager_id = AllReportees.employee_id
+     |> SELECT e.*
+   ) AS AllReportees
+|> WHERE State = 'AK'
+|> AGGREGATE COUNT(*) AS num_employees;
+
+-- Example of recursive count of employees reporting to 123456 in AK.
+/*-----------------+
+ | num_employees   |
+ +-----------------+
+ | 46              |
+ +-----------------*/
+```
+
+It's also still possible to define recursive queries in `WITH` using pipe
+syntax. Using `RECURSIVE UNION` inside `WITH` can be clearer than using
+`WITH RECURSIVE` syntax:
+
+```zetasql
+WITH
+  AllReportees AS (
+    FROM
+      Employees
+    |> WHERE employee_id = 123456
+    |> RECURSIVE UNION ALL   -- Clearer than using a WITH RECURSIVE equivalent.
+    (
+      |> JOIN Employees e ON e.manager_id = r.employee_id
+      |> SELECT e.*
+    ) AS r -- Recursive input table
+  )
+SELECT COUNT(*) AS num_employees
+FROM AllReportees
+WHERE State = 'AK';
+
+-- Example of recursive count of employees reporting to 123456 in AK.
+/*-----------------+
+ | num_employees   |
+ +-----------------+
+ | 46              |
+ +-----------------*/
+```
+
+[datamodel-value-tables]: https://github.com/google/zetasql/blob/master/docs/data-model.md#value_tables
+
+[union-pipe-operator]: #union_pipe_operator
+
+[subpipelines]: #subpipelines
+
+[recursive-cte]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#recursive_cte
+
+[by-name-or-corresponding]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#by_name_or_corresponding
 
 ### `INTERSECT` pipe operator 
 <a id="intersect_pipe_operator"></a>
@@ -1622,160 +2163,6 @@ SELECT one_digit, two_digit FROM NumbersTable
 
 [except-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#except
 
-### `JOIN` pipe operator 
-<a id="join_pipe_operator"></a>
-
-<pre class="lang-sql prettyprint no-copy">
-|> [join_type] JOIN from_item [[AS] alias] [{on_clause | using_clause}]
-</pre>
-
-**Description**
-
-Joins rows from the input table with rows from a second table provided as an
-argument. The `JOIN` operator behaves the same as the
-[`JOIN` operation][join-operation] in standard syntax. The input table is the
-left side of the join and the `JOIN` argument is the right side of the join.
-Standard join inputs are supported, including tables, subqueries, `UNNEST`
-operations, and table-valued function (TVF) calls. Standard join modifiers like
-`LEFT`, `INNER`, and `CROSS` are allowed before the `JOIN` keyword.
-
-An alias can be assigned to the input table on the right side of the join, but
-not to the input table on the left side of the join. If an alias on the
-input table is needed, perhaps to disambiguate columns in an
-[`ON` expression][on-clause], then an alias can be added using the
-[`AS` operator][as-pipe-operator] before the `JOIN` arguments.
-
-**Example**
-
-```zetasql
-(
-  SELECT 'apples' AS item, 2 AS sales
-  UNION ALL
-  SELECT 'bananas' AS item, 5 AS sales
-)
-|> AS produce_sales
-|> LEFT JOIN
-     (
-       SELECT "apples" AS item, 123 AS id
-     ) AS produce_data
-   ON produce_sales.item = produce_data.item
-|> SELECT produce_sales.item, sales, id;
-
-/*---------+-------+------+
- | item    | sales | id   |
- +---------+-------+------+
- | apples  | 2     | 123  |
- | bananas | 5     | NULL |
- +---------+-------+------*/
-```
-
-[join-operation]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#join_types
-
-[on-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#on_clause
-
-[as-pipe-operator]: #as_pipe_operator
-
-### `CALL` pipe operator 
-<a id="call_pipe_operator"></a>
-
-<pre class="lang-sql prettyprint no-copy">
-|> <span class="kwd">CALL</span> table_function (argument [, ...]) [[AS] alias]
-</pre>
-
-**Description**
-
-Calls a [table-valued function][tvf] (TVF) that accepts at least one table as
-an argument, similar to
-[table function calls][table-function-calls] in standard syntax.
-
-TVFs in standard syntax can be called in the `FROM` clause or in a `JOIN`
-operation. These are both allowed in pipe syntax as well.
-
-In pipe syntax, TVFs that take a table argument can also be called with the
-`CALL` operator. The first table argument comes from the input table and
-must be omitted in the arguments. An optional table alias can be added for the
-output table.
-
-Multiple TVFs can be called sequentially without using nested subqueries.
-
-**Examples**
-
-Suppose you have TVFs with the following parameters:
-
-+  `tvf1(inputTable1 ANY TABLE, arg1 ANY TYPE)` and
-+  `tvf2(arg2 ANY TYPE, arg3 ANY TYPE, inputTable2 ANY TABLE)`.
-
-The following examples compare calling both TVFs on an input table
-by using standard syntax and by using the `CALL` pipe operator:
-
-```zetasql
--- Call the TVFs without using the CALL operator.
-SELECT *
-FROM
-  tvf2(arg2, arg3, TABLE tvf1(TABLE input_table, arg1));
-```
-
-```zetasql
--- Call the same TVFs with the CALL operator.
-FROM input_table
-|> CALL tvf1(arg1)
-|> CALL tvf2(arg2, arg3);
-```
-
-[tvf]: https://github.com/google/zetasql/blob/master/docs/table-functions.md#tvfs
-
-[table-function-calls]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#table_function_calls
-
-<!-- disableFinding(LINK_ID) -->
-
-### `WINDOW` pipe operator (DEPRECATED) 
-<a id="window_pipe_operator"></a>
-
-Warning: `WINDOW` pipe operator has been deprecated. Use
-`EXTEND` pipe operator instead.
-
-<pre class="lang-sql prettyprint no-copy">
-|> <span class="kwd">WINDOW</span> window_expression [[AS] alias] [, ...]
-</pre>
-
-**Description**
-
-Adds a column with the result of computing the function over some window of
-existing rows, similar to calling [window functions][window-functions] in a
-`SELECT` list in standard syntax. Existing rows and columns are unchanged. The
-window expression must include a window function with an
-[`OVER` clause][over-clause].
-
-Alternatively, you can use the [`EXTEND` operator][extend-pipe-operator] for
-window functions.
-
-**Example**
-
-```zetasql
-(
-  SELECT 'apples' AS item, 2 AS sales
-  UNION ALL
-  SELECT 'bananas' AS item, 5 AS sales
-  UNION ALL
-  SELECT 'carrots' AS item, 8 AS sales
-)
-|> WINDOW SUM(sales) OVER() AS total_sales;
-
-/*---------+-------+-------------+
- | item    | sales | total_sales |
- +---------+-------+-------------+
- | apples  | 2     | 15          |
- | bananas | 5     | 15          |
- | carrots | 8     | 15          |
- +---------+-------+-------------*/
-```
-
-[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
-
-[over-clause]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_over_clause
-
-[extend-pipe-operator]: #extend_pipe_operator
-
 ### `TABLESAMPLE` pipe operator 
 <a id="tablesample_pipe_operator"></a>
 
@@ -1800,6 +2187,102 @@ FROM LargeTable
 ```
 
 [tablesample-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#tablesample_operator
+
+### `WITH` pipe operator 
+<a id="with_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">WITH</span> [<span class="kwd">RECURSIVE</span>] alias <span class="kwd">AS</span> query, ...
+</pre>
+
+**Description**
+
+Defines one or more common table expressions (CTEs) that the rest of the query
+can reference, similar to standard [`WITH` clauses][with-clause]. Ignores the
+pipe input table and passes it through as the input to the next pipe operation.
+
+**Examples**
+
+```zetasql
+SELECT 1 AS key
+|> WITH t AS (
+    SELECT 1 AS key, 'my_value' AS value
+  )
+|> INNER JOIN t USING (key)
+
+/*---------+---------+
+ | key     | value   |
+ +---------+---------+
+ | 1       | my_value|
+ +---------+---------*/
+```
+
+```zetasql
+SELECT 1 AS key
+-- Define multiple CTEs.
+|> WITH t1 AS (
+    SELECT 2
+  ), t2 AS (
+    SELECT 3
+  )
+|> UNION ALL (FROM t1), (FROM t2)
+
+/*-----+
+ | key |
+ +-----+
+ | 1   |
+ | 2   |
+ | 3   |
+ +-----*/
+```
+
+The pipe `WITH` operator allows a trailing comma:
+
+```zetasql
+SELECT 1 AS key
+|> WITH t1 AS (
+     SELECT 2
+   ), t2 AS (
+     SELECT 3
+   ),
+|> UNION ALL (FROM t1), (FROM t2)
+
+/*-----+
+ | key |
+ +-----+
+ | 1   |
+ | 2   |
+ | 3   |
+ +-----*/
+```
+
+[Recursive queries][recursive-queries] are also supported:
+
+```zetasql
+SELECT 1 AS key
+|> WITH RECURSIVE t AS (
+    SELECT 2 AS key
+    |> UNION ALL (
+      SELECT key + 1 AS key
+      FROM t
+      WHERE key <= 3
+    )
+  )
+|> UNION ALL (FROM t)
+
+/*-----+
+ | key |
+ +-----+
+ | 1   |
+ | 2   |
+ | 3   |
+ | 4   |
+ +-----*/
+```
+
+[with-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#with_clause
+
+[recursive-queries]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#recursive_cte
 
 ### `PIVOT` pipe operator 
 <a id="pivot_pipe_operator"></a>
@@ -1873,6 +2356,114 @@ Rotates columns into rows. The `UNPIVOT` pipe operator behaves the same as the
 
 [unpivot-operator]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#unpivot_operator
 
+<!-- disableFinding(LINK_ID) -->
+
+### `WINDOW` pipe operator (DEPRECATED) 
+<a id="window_pipe_operator"></a>
+
+Warning: `WINDOW` pipe operator has been deprecated. Use
+`EXTEND` pipe operator instead.
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">WINDOW</span> window_expression [[AS] alias] [, ...]
+</pre>
+
+**Description**
+
+Adds a column with the result of computing the function over some window of
+existing rows, similar to calling [window functions][window-functions] in a
+`SELECT` list in standard syntax. Existing rows and columns are unchanged. The
+window expression must include a window function with an
+[`OVER` clause][over-clause].
+
+Alternatively, you can use the [`EXTEND` operator][extend-pipe-operator] for
+window functions.
+
+**Example**
+
+```zetasql
+(
+  SELECT 'apples' AS item, 2 AS sales
+  UNION ALL
+  SELECT 'bananas' AS item, 5 AS sales
+  UNION ALL
+  SELECT 'carrots' AS item, 8 AS sales
+)
+|> WINDOW SUM(sales) OVER() AS total_sales;
+
+/*---------+-------+-------------+
+ | item    | sales | total_sales |
+ +---------+-------+-------------+
+ | apples  | 2     | 15          |
+ | bananas | 5     | 15          |
+ | carrots | 8     | 15          |
+ +---------+-------+-------------*/
+```
+
+[window-functions]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md
+
+[over-clause]: https://github.com/google/zetasql/blob/master/docs/window-function-calls.md#def_over_clause
+
+[extend-pipe-operator]: #extend_pipe_operator
+
+### `MATCH_RECOGNIZE` pipe operator 
+<a id="match_recognize_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> <span class="kwd">MATCH_RECOGNIZE</span> (
+   [ <span class="kwd">PARTITION BY</span> partition_expr [, ... ] ]
+   ORDER BY order_expr [ { ASC | DESC } ] [ { <span class="kwd">NULLS FIRST</span> | <span class="kwd">NULLS LAST</span> } ] [, ...]
+   <span class="kwd">MEASURES</span> { measures_expr [AS] alias } [, ... ]
+   [ <span class="kwd">AFTER MATCH SKIP</span> { <span class="kwd">PAST LAST ROW</span> | <span class="kwd">TO NEXT ROW</span> } ]
+   <span class="kwd">PATTERN</span> (pattern)
+   <span class="kwd">DEFINE</span> symbol AS boolean_expr [, ... ]
+   [ OPTIONS ( [ use_longest_match = { TRUE | FALSE } ] ) ]
+)
+</pre>
+
+**Description**
+
+Filters and aggregates rows based on matches. A *match* is an ordered sequence
+of rows that match a pattern that you specify.
+Matching rows works similarly to matching with regular expressions, but
+instead of matching characters in a string, the `MATCH_RECOGNIZE` operator finds
+matches across rows in a table. The `MATCH_RECOGNIZE` pipe operator behaves the
+same as the
+[`MATCH_RECOGNIZE` clause][match-recognize-clause] in standard syntax.
+
+**Example**
+
+```zetasql
+(
+  SELECT 1 as x
+  UNION ALL
+  SELECT 2
+  UNION ALL
+  SELECT 3
+)
+|> MATCH_RECOGNIZE(
+   ORDER BY x
+   MEASURES
+     ARRAY_AGG(high.x) AS high_agg,
+     ARRAY_AGG(low.x) AS low_agg
+   AFTER MATCH SKIP TO NEXT ROW
+   PATTERN (low | high)
+   DEFINE
+     low AS x <= 2,
+     high AS x >= 2
+);
+
+/*----------+---------+
+ | high_agg | low_agg |
+ +----------+---------+
+ | NULL     | [1]     |
+ | NULL     | [2]     |
+ | [3]      | NULL    |
+ +----------+---------*/
+```
+
+[match-recognize-clause]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md#match_recognize_clause
+
 ### `ASSERT` pipe operator 
 <a id="assert_pipe_operator"></a>
 
@@ -1911,6 +2502,726 @@ FROM table
 ```
 
 [assert-statement]: https://github.com/google/zetasql/blob/master/docs/debugging-statements.md#assert
+
+### `DESCRIBE` pipe operator 
+<a id="describe_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> DESCRIBE
+</pre>
+
+**Description**
+
+Returns a textual description of the table schema, including column names and
+types, and other details about the intermediate state of the query up to that
+point. The `DESCRIBE` operator is similar to the [`DESCRIBE`
+statement][describe-statement], but the `DESCRIBE` pipe operator describes query
+metadata rather a specified object. The `DESCRIBE` operator is useful for
+inspecting and debugging a query.
+
+The input query isn't executed. The `DESCRIBE` operator returns metadata about
+the query immediately.
+
+The returned description includes the following information, when
+applicable:
+
++   Columns in the current table, with their names, types, and table aliases.
+    This result lists the columns that would be returned if the query were
+    executed up to this point. Value table columns display `<value>` in each
+    table field.
++   Table aliases, with a list of column names available under each.
++   [Pseudocolumns][pseudocolumns],
+     meaning columns that are available to
+    query but not included by default in the result table or in `SELECT *`
+    results.
++   Common table expression (CTE) names, meaning table names from `WITH`
+    clauses, and a list of columns available in each.
++   Whether the input table is a value table.
++   Whether the input table is ordered, meaning when the input table has an
+    `ORDER BY` clause that's still in effect.
+
+The output is returned as a table with one string column and one row containing
+the description. The output formatting and content can change, so be sure not to
+rely on stable formatting in the results.
+
+The `DESCRIBE` pipe operator can also be added to the end of a query in standard
+syntax to see the output schema.
+
+**Examples**
+
+As a baseline example without the `DESCRIBE` operator, the following query
+returns a variety of column values, including unnamed columns:
+
+```zetasql
+-- Baseline example without DESCRIBE.
+
+FROM
+  (SELECT 1 AS col1, 2 AS col2) AS table1,
+  (SELECT 'abc' AS col3, 1.0, 123 AS col5) AS table2
+|> EXTEND col1 + col5 AS computed, 'anonymous column';
+
+/*------+------+------+---+------+----------+------------------+
+ | col1 | col2 | col3 |   | col5 | computed |                  |
+ +------+------+------+---+------+----------+------------------+
+ | 1    | 2    | abc  | 1 | 123  | 124      | anonymous column |
+ +------+------+------+---+------+----------+------------------*/
+```
+
+The following is the same example query, but uses the `DESCRIBE` operator to
+provide details about the tables, columns, and types:
+
+```zetasql
+-- Same example with DESCRIBE to describe table aliases and columns.
+
+FROM
+  (SELECT 1 AS col1, 2 AS col2) AS table1,
+  (SELECT 'abc' AS col3, 1.0, 123 AS col5) AS table2
+|> EXTEND col1 + col5 AS computed, 'anonymous column'
+|> DESCRIBE;
+
+/*------------------------------------+
+ | Describe                           |
+ +------------------------------------+
+ | **Columns**:                       |
+ | Table Alias  Column Name  Type     |
+ | -----------  -----------  ------   |
+ | table1       col1         INT64    |
+ | table1       col2         INT64    |
+ | table2       col3         STRING   |
+ | table2       <unnamed>    DOUBLE   |
+ | table2       col5         INT64    |
+ |              computed     INT64    |
+ |              <unnamed>    STRING   |
+ |                                    |
+ | **Table Aliases**:                 |
+ | Table Alias  Columns               |
+ | -----------  --------------------- |
+ | table1       col1, col2            |
+ | table2       col3, <unnamed>, col5 |
+ +------------------------------------*/
+```
+
+The following example describes a query that uses a CTE and ordering:
+
+```zetasql
+-- Describe CTEs and ordering.
+
+WITH cte AS (SELECT 1 AS col1, 'abc' AS col2)
+FROM cte AS table1
+|> SELECT col1
+|> ORDER BY col1
+|> DESCRIBE;
+
+/*------------------------------------+
+ | Describe                           |
+ +------------------------------------+
+ | **Columns**:                       |
+ | Column Name  Type                  |
+ | -----------  -----                 |
+ | col1         INT64                 |
+ |                                    |
+ | **Common table expressions**:      |
+ | Name  Columns                      |
+ | ----  ----------                   |
+ | cte   col1, col2                   |
+ |                                    |
+ | Result is ordered.                 |
+ +------------------------------------*/
+```
+
+The following example describes a query that uses a value table:
+
+```zetasql
+-- Describe a value table.
+
+FROM (SELECT AS STRUCT 1 AS x, 'abc' AS y) AS value_table
+|> DESCRIBE;
+
+/*-----------------------------------------------------+
+ | Describe                                            |
+ +-----------------------------------------------------+
+ | **Columns**:                                        |
+ | Table Alias  Column Name  Type                      |
+ | -----------  -----------  ------------------------- |
+ | value_table  <value>      STRUCT<x INT64, y STRING> |
+ |                                                     |
+ | **Table Aliases**:                                  |
+ | Table Alias  Columns                                |
+ | -----------  -------                                |
+ | value_table  <value>                                |
+ |                                                     |
+ | Result is a value table.                            |
+ +-----------------------------------------------------*/
+```
+
+[describe-statement]: https://github.com/google/zetasql/blob/master/docs/utility-statements.md#describedesc
+
+[pseudocolumns]: https://github.com/google/zetasql/blob/master/docs/data-model.md#pseudo_columns
+
+### `IF` pipe operator 
+<a id="if_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> IF condition THEN ( subpipeline )
+   [ ELSEIF condition THEN ( subpipeline ) ] ...
+   [ ELSE ( subpipeline ) ]
+</pre>
+
+**Description**
+
+Runs operators (written as a [subpipeline][subpipelines]) conditionally,
+optionally including `ELSEIF` or `ELSE` clauses that define additional cases.
+Each case has an associated subpipeline that defines what to do if that
+case is selected.
+
+The first case with a condition that evaluates to `true` is selected. If no
+conditions are true, the `ELSE` case, if present, is selected. The subpipeline
+for the selected case is executed, and its output is passed on as the output of
+the `IF` operator. If no case is selected, the input table is passed on
+without changes.
+
+The output schema depends on which case is selected by the condition
+evaluation.
+
+The subpipelines for unselected cases aren't validated. For example, unselected
+cases can contain references to invalid column names without causing an error.
+
+The conditions used in the `IF` operator must be constant values available
+during query analysis. The following are valid value types:
+
++ `true` or `false` literals
++ [Scripting variables][script-variables]
++ SQL constants created with the [`CREATE CONSTANT`][create-constant] statement
++ Expressions using the `NOT x` [logical operator][logical-operator], where
+  `x` is a value type from this list
+
+The following value types aren't supported:
+
++ TVF arguments
++ Expressions more complex than `NOT x`
++ [Query parameters][query-parameters]
+
+**Examples**
+
+```zetasql
+FROM Produce
+|> IF true THEN
+  (
+    |> AGGREGATE COUNT(*) AS total
+  ) ELSE
+  (
+    |> SELECT *  -- Never evaluated
+  )
+|> AS Inventory;
+
+-- The first subpipeline is selected, resulting in this AGGREGATE output.
+/*---------+
+ | total   |
+ +---------+
+ | 4       |
+ +---------*/
+```
+
+```zetasql
+FROM Produce
+-- No case is selected, causing IF to be no-op.
+|> IF false THEN
+    (
+      -- This doesn't raise an error, because the case isn't evaluated.
+      |> SELECT non_existent_column
+    )
+|> SELECT *;
+
+-- The input to IF is passed on without change to the SELECT pipe operator,
+-- resulting in this output.
+/*---------+-------+-----------+
+ | item    | sales | category  |
+ +---------+-------+-----------+
+ | apples  | 2     | fruit     |
+ | carrots | 8     | vegetable |
+ | apples  | 7     | fruit     |
+ | bananas | 5     | fruit     |
+ +---------+-------+-----------*/
+```
+
+[subpipelines]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#subpipelines
+
+[script-variables]: https://github.com/google/zetasql/blob/master/docs/variables.md
+
+[query-parameters]: https://github.com/google/zetasql/blob/master/docs/variables.md#query-parameters
+
+[create-constant]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_constant
+
+[logical-operator]: https://github.com/google/zetasql/blob/master/docs/operators.md#logical_operators
+
+### `CREATE TABLE` terminal pipe operator 
+<a id="create_table_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> CREATE
+   [ OR REPLACE ]
+   [ TEMP | TEMPORARY ]
+   TABLE
+   [ IF NOT EXISTS ]
+   table_name [ ( <span class="var">table_element</span>, ... ) ]
+   [ PARTITION [ hints ] BY partition_expression, ... ]
+   [ CLUSTER [ hints ] BY cluster_expression, ... ]
+   [ OPTIONS (key=value, ...) ]
+</pre>
+
+**Description**
+
+Creates a table and populates it with the input pipe table content. The
+`CREATE TABLE` operator has the same syntax and behaves the same as the
+[`CREATE TABLE ... AS query` statement][create-table] in standard syntax.
+However, the final `AS query` is omitted in pipe syntax because the data
+instead comes from the pipe input table.
+
+The `CREATE TABLE` operator is a [terminal pipe operator][terminal-operators].
+
+**Example**
+
+```zetasql
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales GROUP BY category
+|> CREATE TEMP TABLE ShopSales;
+
+-- No output is produced. The results of AGGREGATE are collected in the
+-- temporary table ShopSales.
+```
+
+The previous example is equivalent to the following query that uses a
+standard `CREATE TABLE` statement:
+
+```zetasql
+-- Equivalent query with standard CREATE TABLE statement
+
+CREATE TEMP TABLE ShopSales AS
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales GROUP BY category;
+```
+
+[create-table]: https://github.com/google/zetasql/blob/master/docs/data-definition-language.md#create_table
+
+[terminal-operators]: #terminal_operators
+
+### `EXPORT DATA` terminal pipe operator 
+<a id="export_data_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> EXPORT DATA
+   [ OPTIONS (key=value, ...) ]
+</pre>
+
+**Description**
+
+Writes the pipe table contents to a target specified by the options. The
+`EXPORT DATA` operator operator has the same syntax and behaves the same as the
+[`EXPORT DATA ... AS query` statement][export-data] in standard syntax.
+However, the final `AS query` is omitted in pipe syntax because the data
+instead comes from the pipe input table.
+
+The `EXPORT DATA` operator is a [terminal pipe operator][terminal-operators].
+
+[export-data]: https://github.com/google/zetasql/blob/master/docs/import-export.md#export_data_statement
+
+[terminal-operators]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#terminal_operators
+
+### `INSERT` terminal pipe operator 
+<a id="insert_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> INSERT [ [ OR ] IGNORE | REPLACE | UPDATE ] [ INTO ] target_name
+   ( column[, ...] )
+   [ ASSERT_ROWS_MODIFIED m ] [ then_return_clause ]
+</pre>
+
+**Description**
+
+Inserts rows from the pipe input table into a target table. The `INSERT`
+operator has the same syntax and behaves the same as the
+[`INSERT ... SELECT` statement][insert] in standard syntax.
+However, the final query or `VALUES` is omitted in pipe syntax because the data
+instead comes from the pipe input table.
+
+The `INSERT` operator is a [terminal pipe operator][terminal-operators].
+
+**Example**
+
+```zetasql
+FROM Produce
+|> AGGREGATE SUM(sales) AS total_sales GROUP BY category
+|> INSERT INTO ShopSales;
+
+-- No output is produced. The results of AGGREGATE are inserted into the
+-- existing table ShopSales as new rows.
+```
+
+[insert]: https://github.com/google/zetasql/blob/master/docs/data-manipulation-language.md#insert_statement
+
+[terminal-operators]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#terminal_operators
+
+### `FORK` terminal pipe operator 
+<a id="fork_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+|> FORK ( subpipeline ) [, ( subpipeline )]...
+</pre>
+
+**Description**
+
+Ends the main pipeline and splits it into one or more
+[subpipelines][subpipelines]. The input table is computed once, and a copy of
+the results is passed to each subpipeline. The `FORK` operator is a [terminal
+pipe operator][terminal-operators].
+
+The `FORK` operator behaves as if the subpipelines are run sequentially, but
+without exposing any side effects from the subpipelines until the end. For
+example, if one `FORK` subpipeline creates or updates a table, other
+subpipelines won't see those changes. Side effects from terminal operators in
+subpipelines, such as the [`CREATE TABLE`][create-table-pipe-operator] or
+[`INSERT`][insert-pipe-operator] operators, are applied atomically for the
+entire statement.
+
+The output tables from the subpipelines are returned sequentially in the order
+the `FORK` subpipelines are written in the query.
+
+The `FORK` operator can't be followed by other pipe operators. The `FORK`
+operator can't be used in a subquery or anywhere a single output table is
+expected, even if the `FORK` operator has only one subpipeline.
+
+Row order in the input table is not preserved in the subpipelines.
+
+**Examples**
+
+The following example performs multiple aggregations on a common input and also
+returns the unaggregated rows, producing three separate output tables. This
+example is similar to using `GROUPING SETS` in standard syntax.
+
+```zetasql
+WITH
+  Fruit AS (
+    SELECT 'apple' AS item, 100 AS sales
+    UNION ALL
+    SELECT 'banana' AS item, 150 AS sales
+  )
+FROM Fruit
+|> FORK
+    (|> AGGREGATE COUNT(*) AS total_fruits),
+    (|> AGGREGATE COUNT(*) AS count_by_item GROUP BY item),
+    (|> SELECT item, sales);
+
+-- This query produces three output tables, one from each subpipeline:
+-- 1. The total count of fruits
+/*--------------+
+ | total_fruits |
+ +--------------+
+ | 2            |
+ +--------------*/
+
+-- 2. The count of each fruit item
+/*--------+---------------+
+ | item   | count_by_item |
+ +--------+---------------+
+ | apple  | 1             |
+ | banana | 1             |
+ +--------+---------------*/
+
+-- 3. The item and sales for each fruit
+/*--------+-------+
+ | item   | sales |
+ +--------+-------+
+ | apple  | 100   |
+ | banana | 150   |
+ +--------+-------*/
+```
+
+The `FORK` operator provides a convenient way to generate multiple outputs from
+a single statement. Without the `FORK` operator, you would need to use temporary
+tables to achieve the same result, as illustrated in the following example:
+
+```zetasql
+-- Equivalent query using temporary tables in standard syntax.
+
+-- Statement 0: Create a common table.
+CREATE TEMP TABLE Fruit
+SELECT 'apple' AS item, 100 AS sales
+UNION ALL
+SELECT 'banana' AS item, 150 AS sales;
+
+-- Statement 1: Get the total count.
+SELECT AGGREGATE COUNT(*) AS total_fruits
+FROM Fruit;
+
+-- Statement 2: Get the count of each fruit item.
+SELECT AGGREGATE COUNT(*) AS count_by_item
+GROUP BY item
+FROM Fruit;
+
+-- Statement 3: Get the raw data.
+SELECT item, sales
+FROM Fruit;
+```
+
+The following example uses the `FORK` operator to create a table in one
+subpipeline, while returning unaggregated rows as a query result in the other
+subpipeline:
+
+```zetasql
+WITH
+  Fruit AS (
+    SELECT 'apple' AS item, 100 AS sales
+    UNION ALL
+    SELECT 'banana' AS item, 150 AS sales
+  )
+FROM Fruit
+|> FORK
+    (
+      |> AGGREGATE COUNT(*) AS count_by_item GROUP BY item
+      |> CREATE TABLE FruitCounts),
+    (|> SELECT *);
+```
+
+The first subpipeline creates a `FruitCounts` table with the following rows:
+
+```zetasql
+-- Initial FruitCounts table
+/*--------+---------------+
+ | item   | count_by_item |
+ +--------+---------------+
+ | apple  | 1             |
+ | banana | 1             |
+ +--------+---------------*/
+```
+
+The second subpipeline produces the following result table:
+
+```zetasql
+-- Final result table
+/*--------+-------+
+ | item   | sales |
+ +--------+-------+
+ | apple  | 100   |
+ | banana | 150   |
+ +--------+-------*/
+```
+
+[subpipelines]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#subpipelines
+
+[terminal-operators]: #terminal_operators
+
+[create-table-pipe-operator]: #create_table_pipe_operator
+
+[insert-pipe-operator]: #insert_pipe_operator
+
+### `TEE` semi-terminal pipe operator 
+<a id="tee_pipe_operator"></a>
+
+<pre class="lang-sql prettyprint no-copy">
+-- Return the current pipe input table as an additional result table.
+|> TEE
+</pre>
+
+<pre class="lang-sql prettyprint no-copy">
+-- Run one or more subpipelines over the pipe input table and return their output as additional result tables.
+|> TEE ( subpipeline ) [, ( subpipeline ) ] ...
+</pre>
+
+**Description**
+
+Splits the main pipeline into one or more [subpipelines][subpipelines] using a
+copy of the input table, and passes the original input table to the next
+operator in the main pipeline. If the `TEE` operator is the last operator in a
+pipeline, the query returns the `TEE` output table, which is a copy of the pipe
+input table, as the query result. The `TEE` operator is a [semi-terminal pipe
+operator][semi-terminal-operators].
+
+The `TEE` operator with no arguments (`|> TEE`) outputs the current input table
+as a side output and then continues the main pipeline. This syntax is
+equivalent to using an empty subpipeline (`|> TEE ()`) and is useful for query
+debugging.
+
+The `TEE` operator behaves as if the subpipelines are run sequentially, but
+without exposing any side effects from the subpipelines until the end of
+the execution. For example, if one `TEE` subpipeline creates or updates a table,
+other subpipelines won't see those changes. Side effects from terminal operators
+in subpipelines, such as the [`CREATE TABLE`][create-table-pipe-operator] or
+[`INSERT`][insert-pipe-operator] operators, are applied atomically for the
+entire statement.
+
+The output tables from the subpipelines are returned sequentially in the order
+the `TEE` subpipelines are written in the query, before the output of the main
+pipeline that continues after `TEE`.
+
+The input table's order isn't preserved in the subpipelines or in the output of
+the `TEE` operator to the main pipeline.
+
+**Examples**
+
+The following example produces two output tables for two different aggregations
+of an input table, and then a third output table with the unaggregated rows from
+the main pipeline. This example is similar to using `GROUPING SETS` in
+standard syntax.
+
+```zetasql
+WITH
+  Fruit AS (
+    SELECT 'apple' AS item, 100 AS sales
+    UNION ALL
+    SELECT 'banana' AS item, 150 AS sales
+  )
+FROM Fruit
+|> TEE
+    (|> AGGREGATE COUNT(*) AS total_fruits),
+    (|> AGGREGATE COUNT(*) AS count_by_item GROUP BY item)
+|> SELECT *;
+
+-- This query produces three output tables, one from each subpipeline and one from the main pipeline:
+-- 1. The total count of fruits (from the first subpipeline)
+/*--------------+
+ | total_fruits |
+ +--------------+
+ | 2            |
+ +--------------*/
+
+-- 2. The count of each fruit item (from the second subpipeline)
+/*--------+---------------+
+ | item   | count_by_item |
+ +--------+---------------+
+ | apple  | 1             |
+ | banana | 1             |
+ +--------+---------------*/
+
+-- 3. The item and sales for each fruit (from the main pipeline)
+/*--------+-------+
+ | item   | sales |
+ +--------+-------+
+ | apple  | 100   |
+ | banana | 150   |
+ +--------+-------*/
+```
+
+The `TEE` operator provides a convenient way to generate multiple outputs from a
+single statement. Without the `TEE` operator, you would need to use temporary
+tables to achieve the same result, as illustrated in the following example:
+
+```zetasql
+-- Equivalent query using temporary tables in standard syntax.
+
+-- Statement 0: Create a common table.
+CREATE TEMP TABLE Fruit
+SELECT 'apple' AS item, 100 AS sales
+UNION ALL
+SELECT 'banana' AS item, 150 AS sales;
+
+-- Statement 1: Get the total count.
+SELECT AGGREGATE COUNT(*) AS total_fruits
+FROM Fruit;
+
+-- Statement 2: Get the count of each fruit item.
+SELECT AGGREGATE COUNT(*) AS count_by_item
+GROUP BY item
+FROM Fruit;
+
+-- Statement 3: Get the raw data.
+SELECT *
+FROM Fruit;
+```
+
+The following example uses the `TEE` operator for data inspection. The first
+`TEE` operator uses the no-argument form, which outputs the intermediate table
+from before the aggregation for inspection. You can also use the `TEE` operator
+with subpipelines for custom data inspection, as shown by the second `TEE`
+operator.
+
+```zetasql
+WITH
+  Fruit AS (
+    SELECT 'apple' AS item, 100 AS sales
+    UNION ALL
+    SELECT 'banana' AS item, 150 AS sales
+  )
+FROM Fruit
+|> TEE
+|> TEE
+    (|> AGGREGATE COUNT(*) AS num_rows)
+|> AGGREGATE SUM(sales) AS total_sales;
+
+-- This query produces three output tables, one from each TEE operator and one from the main pipeline:
+-- 1. The full Fruit table (from the first TEE operator)
+/*--------+-------+
+ | item   | sales |
+ +--------+-------+
+ | apple  | 100   |
+ | banana | 150   |
+ +--------+-------*/
+
+-- 2. The number of rows (from the second TEE operator)
+/*----------+
+ | num_rows |
+ +----------+
+ | 2        |
+ +----------*/
+
+-- 3. The total sales (from the main pipeline)
+/*-------------+
+ | total_sales |
+ +-------------+
+ | 250         |
+ +-------------*/
+```
+
+The following example uses the `TEE` operator to create a table in a
+subpipeline, while the main pipeline continues and returns the unaggregated
+rows as a query result:
+
+```zetasql
+WITH
+  Fruit AS (
+    SELECT 'apple' AS item, 100 AS sales
+    UNION ALL
+    SELECT 'banana' AS item, 150 AS sales
+  )
+FROM Fruit
+|> TEE (
+     |> AGGREGATE COUNT(*) AS count_by_item GROUP BY item
+     |> CREATE TABLE FruitCounts
+   )
+|> SELECT *;
+```
+
+The subpipeline creates a `FruitCounts` table with the following rows:
+
+```zetasql
+-- Initial FruitCounts table
+/*--------+---------------+
+ | item   | count_by_item |
+ +--------+---------------+
+ | apple  | 1             |
+ | banana | 1             |
+ +--------+---------------*/
+```
+
+The main pipeline produces the following result table:
+
+```zetasql
+/*--------+-------+
+ | item   | sales |
+ +--------+-------+
+ | apple  | 100   |
+ | banana | 150   |
+ +--------+-------*/
+```
+
+[subpipelines]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#subpipelines
+
+[terminal-operators]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#terminal_operators
+
+[semi-terminal-operators]: https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md#semi_terminal_operators
+
+[create-table-pipe-operator]: #create_table_pipe_operator
+
+[insert-pipe-operator]: #insert_pipe_operator
 
 [query-syntax]: https://github.com/google/zetasql/blob/master/docs/query-syntax.md
 

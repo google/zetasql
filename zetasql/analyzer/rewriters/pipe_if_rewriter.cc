@@ -65,10 +65,8 @@ class PipeIfRewriteVisitor : public ResolvedASTRewriteVisitor {
               builder.release_if_case_list()[builder.selected_case()].get())
               ->release_subpipeline();
 
-      ZETASQL_ASSIGN_OR_RETURN(scan,
-                       RewriteSubpipelineToScan(
-                           const_cast<ResolvedSubpipeline*>(subpipeline.get()),
-                           std::move(scan)));
+      ZETASQL_ASSIGN_OR_RETURN(scan, RewriteSubpipelineToScan(std::move(subpipeline),
+                                                      std::move(scan)));
     }
 
     // If the IfScan had a different column_list than the contained subpipeline

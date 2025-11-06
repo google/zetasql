@@ -62,6 +62,7 @@
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/make_node_vector.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
@@ -105,8 +106,8 @@ struct UidColumnState;
 class OuterAggregateListRewriterVisitor;
 
 // Used for generating correct error messages for SELECT WITH ANONYMIZATION and
-// SELECT WITH DIFFERENTIAL_PRIVACY.
-struct SelectWithModeName {
+// WITH DIFFERENTIAL_PRIVACY.
+struct WithModifierModeName {
   absl::string_view name;
   // Article used with name if true should use `a`.
   bool uses_a_article;
@@ -540,7 +541,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // returns an error.
   absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ChooseUidColumn(
       const ResolvedAggregateScanBase* node,
-      SelectWithModeName select_with_mode_name,
+      WithModifierModeName with_modifier_mode_name,
       const UidColumnState& per_user_visitor_uid_column_state,
       std::optional<const ResolvedExpr*> options_uid_column);
 
@@ -550,7 +551,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // column while rewriting.
   absl::StatusOr<RewritePerUserTransformResult> RewritePerUserTransform(
       const ResolvedAggregateScanBase* node,
-      SelectWithModeName select_with_mode_name,
+      WithModifierModeName with_modifier_mode_name,
       std::optional<const ResolvedExpr*> options_uid_column,
       PublicGroupsState* public_groups_state);
 
@@ -560,7 +561,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
   // columns to the rewritten columns.
   absl::StatusOr<RewriteInnerAggregateListResult> RewriteInnerAggregateList(
       const ResolvedAggregateScanBase* node,
-      SelectWithModeName select_with_mode_name,
+      WithModifierModeName with_modifier_mode_name,
       std::unique_ptr<const ResolvedExpr> inner_uid_column);
 
   // If order_by_column is initialized, then wraps node in a ProjectScan that
@@ -848,8 +849,8 @@ ResolveInnerAggregateFunctionCallForAnonFunction(
     ColumnFactory* allocator, absl::string_view select_with_identifier) {
   if (!node->function()->Is<AnonFunction>()) {
     return MakeSqlErrorAtNode(*node)
-           << "Unsupported function in SELECT WITH " << select_with_identifier
-           << " select list: " << node->function()->SQLName();
+           << "Unsupported function in " << select_with_identifier
+           << " clause: " << node->function()->SQLName();
   }
 
   if (node->function()->GetGroup() == Function::kZetaSQLFunctionGroupName &&
@@ -1779,6 +1780,18 @@ constexpr absl::string_view SetOperationTypeToString(
   }
 }
 
+absl::Status ValidateUidColumnTypeSupportsGrouping(
+    const Type* uid_column_type, const ResolvedNode& node_with_parse_location,
+    const LanguageOptions& language_options) {
+  if (!uid_column_type->SupportsGrouping(language_options)) {
+    return MakeSqlErrorAtNode(node_with_parse_location)
+           << "User id columns must support grouping, instead got type "
+           << Type::TypeKindToString(uid_column_type->kind(),
+                                     language_options.product_mode());
+  }
+  return absl::OkStatus();
+}
+
 // Rewrites the rest of the per-user scan, propagating the AnonymizationInfo()
 // userid (aka $uid column) from the base private table scan to the top node
 // returned.
@@ -1792,13 +1805,13 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   PerUserRewriterVisitor(
       ColumnFactory* allocator, TypeFactory* type_factory, Resolver* resolver,
       std::vector<std::unique_ptr<WithEntryRewriteState>>& with_entries,
-      SelectWithModeName select_with_mode_name,
+      WithModifierModeName with_modifier_mode_name,
       PublicGroupsState* public_groups_state, RewriterVisitor* parent_visitor)
       : allocator_(allocator),
         type_factory_(type_factory),
         resolver_(resolver),
         with_entries_(with_entries),
-        select_with_mode_name_(select_with_mode_name),
+        with_modifier_mode_name_(with_modifier_mode_name),
         public_groups_state_(public_groups_state),
         parent_visitor_(parent_visitor) {}
 
@@ -1911,7 +1924,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
         if (field == nullptr) {
           return MakeSqlErrorAtNode(*node)
                  << "Unable to find "
-                 << absl::AsciiStrToLower(select_with_mode_name_.name)
+                 << absl::AsciiStrToLower(with_modifier_mode_name_.name)
                  << " user ID column " << userid_column_name
                  << " in value table fields";
         }
@@ -2186,7 +2199,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     // this case.
     if (tvf_userid_column_index == -1) {
       return MakeSqlErrorAtNode(*node)
-             << "The " << absl::AsciiStrToLower(select_with_mode_name_.name)
+             << "The " << absl::AsciiStrToLower(with_modifier_mode_name_.name)
              << " userid column " << userid_column_name << " defined for TVF "
              << copy->tvf()->FullName()
              << " was not found in the output schema of the TVF";
@@ -2319,7 +2332,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 
     // Rewrite and copy the left scan.
     PerUserRewriterVisitor left_visitor(allocator_, type_factory_, resolver_,
-                                        with_entries_, select_with_mode_name_,
+                                        with_entries_, with_modifier_mode_name_,
                                         public_groups_state_, parent_visitor_);
     ZETASQL_RETURN_IF_ERROR(node->left_scan()->Accept(&left_visitor));
     const ResolvedColumn& left_uid = left_visitor.current_uid_.column;
@@ -2329,9 +2342,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     copy->set_left_scan(std::move(left_scan));
 
     // Rewrite and copy the right scan.
-    PerUserRewriterVisitor right_visitor(allocator_, type_factory_, resolver_,
-                                         with_entries_, select_with_mode_name_,
-                                         public_groups_state_, parent_visitor_);
+    PerUserRewriterVisitor right_visitor(
+        allocator_, type_factory_, resolver_, with_entries_,
+        with_modifier_mode_name_, public_groups_state_, parent_visitor_);
     ZETASQL_RETURN_IF_ERROR(node->right_scan()->Accept(&right_visitor));
     const ResolvedColumn& right_uid = right_visitor.current_uid_.column;
     found_public_groups_join_ |= right_visitor.GetFoundPublicGroupsJoin();
@@ -2604,7 +2617,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     return MakeSqlErrorAtNode(*copy) << absl::StrFormat(
                "Subqueries of %s queries must explicitly SELECT the userid "
                "column '%s'",
-               absl::AsciiStrToLower(select_with_mode_name_.name),
+               absl::AsciiStrToLower(with_modifier_mode_name_.name),
                current_uid_.ToString());
   }
 
@@ -2630,7 +2643,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
     for (const auto& input_item : node->input_item_list()) {
       PerUserRewriterVisitor input_item_visitor(
           allocator_, type_factory_, resolver_, with_entries_,
-          select_with_mode_name_, public_groups_state_, parent_visitor_);
+          with_modifier_mode_name_, public_groups_state_, parent_visitor_);
       ZETASQL_RETURN_IF_ERROR(input_item->Accept(&input_item_visitor));
       UidColumnState uid = input_item_visitor.current_uid_;
       ZETASQL_ASSIGN_OR_RETURN(
@@ -2665,9 +2678,9 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
       if (reference_uid.column.IsInitialized() !=
           uids[i].column.IsInitialized()) {
         std::string select_with_identifier_lower =
-            absl::AsciiStrToLower(select_with_mode_name_.name);
+            absl::AsciiStrToLower(with_modifier_mode_name_.name);
         absl::string_view a_or_an =
-            select_with_mode_name_.uses_a_article ? "a" : "an";
+            with_modifier_mode_name_.uses_a_article ? "a" : "an";
         return MakeSqlErrorAtNode(*node) << absl::StrFormat(
                    "Not all queries in %s are %s-enabled table "
                    "expressions; query 1 %s %s %s-enabled table "
@@ -2763,11 +2776,11 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 // As of now unsupported per-user scans
 // TODO: Provide a user-friendly error message
 /////////////////////////////////////////////////////////////////////////////
-#define UNSUPPORTED(resolved_scan)                                            \
-  absl::Status Visit##resolved_scan(const resolved_scan* node) override {     \
-    return MakeSqlErrorAtNode(*node)                                          \
-           << "Unsupported scan type inside of SELECT WITH "                  \
-           << select_with_mode_name_.name << " from clause: " #resolved_scan; \
+#define UNSUPPORTED(resolved_scan)                                         \
+  absl::Status Visit##resolved_scan(const resolved_scan* node) override {  \
+    return MakeSqlErrorAtNode(*node)                                       \
+           << "Unsupported scan type inside of "                           \
+           << with_modifier_mode_name_.name << " clause: " #resolved_scan; \
   }
   UNSUPPORTED(ResolvedAnalyticScan);
   UNSUPPORTED(ResolvedRelationArgumentScan);
@@ -2798,13 +2811,8 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   }
 
   absl::Status ValidateUidColumnSupportsGrouping(const ResolvedNode& node) {
-    if (!current_uid_.column.type()->SupportsGrouping(resolver_->language())) {
-      return MakeSqlErrorAtNode(node)
-             << "User id columns must support grouping, instead got type "
-             << Type::TypeKindToString(current_uid_.column.type()->kind(),
-                                       resolver_->language().product_mode());
-    }
-    return absl::OkStatus();
+    return ValidateUidColumnTypeSupportsGrouping(current_uid_.column.type(),
+                                                 node, resolver_->language());
   }
 
   // Replace existing columns with new columns for public groups, if they should
@@ -2823,7 +2831,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
   std::vector<std::unique_ptr<WithEntryRewriteState>>&
       with_entries_;  // unowned
 
-  SelectWithModeName select_with_mode_name_;
+  WithModifierModeName with_modifier_mode_name_;
   UidColumnState current_uid_;
   PublicGroupsState* public_groups_state_;  // unowned
   bool found_public_groups_join_ = false;
@@ -2837,7 +2845,7 @@ class PerUserRewriterVisitor : public ResolvedASTDeepCopyVisitor {
 absl::StatusOr<std::unique_ptr<const ResolvedExpr>>
 RewriterVisitor::ChooseUidColumn(
     const ResolvedAggregateScanBase* node,
-    SelectWithModeName select_with_mode_name,
+    WithModifierModeName with_modifier_mode_name,
     const UidColumnState& per_user_visitor_uid_column_state,
     std::optional<const ResolvedExpr*> options_uid_column) {
   if (options_uid_column.has_value()) {
@@ -2847,18 +2855,24 @@ RewriterVisitor::ChooseUidColumn(
                 "column set in the table metadata: "
              << per_user_visitor_uid_column_state.ToString();
     }
-    if (options_uid_column.has_value()) {
-      ResolvedASTDeepCopyVisitor deep_copy_visitor;
-      ZETASQL_RETURN_IF_ERROR(options_uid_column.value()->Accept(&deep_copy_visitor));
-      return deep_copy_visitor.ConsumeRootNode<ResolvedExpr>();
-    }
+    ZETASQL_RETURN_IF_ERROR(ValidateUidColumnTypeSupportsGrouping(
+        options_uid_column.value()->type(), *options_uid_column.value(),
+        resolver_->language()));
+    return ResolvedASTDeepCopyVisitor::Copy(options_uid_column.value());
   }
 
   if (per_user_visitor_uid_column_state.column.IsInitialized()) {
     return BuildResolvedColumnRef(per_user_visitor_uid_column_state.column);
   }
+
+  absl::string_view error_message_prefix =
+      resolver_->language().LanguageFeatureEnabled(
+          FEATURE_PIPE_AGGREGATE_WITH_DIFFERENTIAL_PRIVACY)
+          ? (with_modifier_mode_name.uses_a_article ? "A " : "An ")
+          : "A SELECT WITH ";
+
   return MakeSqlErrorAtNode(*node)
-         << "A SELECT WITH " << select_with_mode_name.name
+         << error_message_prefix << with_modifier_mode_name.name
          << " query must query data with a specified privacy unit column";
 }
 
@@ -2881,17 +2895,17 @@ struct RewritePerUserTransformResult {
 absl::StatusOr<RewritePerUserTransformResult>
 RewriterVisitor::RewritePerUserTransform(
     const ResolvedAggregateScanBase* node,
-    SelectWithModeName select_with_mode_name,
+    WithModifierModeName with_modifier_mode_name,
     std::optional<const ResolvedExpr*> options_uid_column,
     PublicGroupsState* public_groups_state) {
-  PerUserRewriterVisitor per_user_visitor(allocator_, type_factory_, resolver_,
-                                          with_entries_, select_with_mode_name,
-                                          public_groups_state, this);
+  PerUserRewriterVisitor per_user_visitor(
+      allocator_, type_factory_, resolver_, with_entries_,
+      with_modifier_mode_name, public_groups_state, this);
   ZETASQL_RETURN_IF_ERROR(node->input_scan()->Accept(&per_user_visitor));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<ResolvedScan> rewritten_scan,
                    per_user_visitor.ConsumeRootNode<ResolvedScan>());
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> inner_uid_column,
-                   ChooseUidColumn(node, select_with_mode_name,
+                   ChooseUidColumn(node, with_modifier_mode_name,
                                    per_user_visitor.uid_column_state(),
                                    std::move(options_uid_column)));
   return RewritePerUserTransformResult{
@@ -2927,11 +2941,11 @@ struct RewriteInnerAggregateListResult {
 absl::StatusOr<RewriteInnerAggregateListResult>
 RewriterVisitor::RewriteInnerAggregateList(
     const ResolvedAggregateScanBase* const node,
-    SelectWithModeName select_with_mode_name,
+    WithModifierModeName with_modifier_mode_name,
     std::unique_ptr<const ResolvedExpr> inner_uid_column) {
   std::map<ResolvedColumn, ResolvedColumn> injected_col_map;
   InnerAggregateListRewriterVisitor inner_rewriter_visitor(
-      &injected_col_map, allocator_, resolver_, select_with_mode_name.name);
+      &injected_col_map, allocator_, resolver_, with_modifier_mode_name.name);
   ZETASQL_ASSIGN_OR_RETURN(auto rewritten_aggregate_list,
                    inner_rewriter_visitor.RewriteAggregateColumns(node));
   ZETASQL_ASSIGN_OR_RETURN(std::vector<std::unique_ptr<ResolvedComputedColumn>>
@@ -3270,8 +3284,9 @@ struct DPNodeSpecificData<ResolvedAnonymizedAggregateScan> {
       "max_groups_contributed";
   static constexpr absl::string_view kMaxGroupsContributedErrorPrefix =
       "Anonymization option MAX_GROUPS_CONTRIBUTED (aka KAPPA)";
-  static constexpr SelectWithModeName kSelectWithModeName = {
-      .name = "ANONYMIZATION", .uses_a_article = false};
+  static constexpr WithModifierModeName kWithModifierModeName = {
+      .name = WithModifierModeToString(WithModifierMode::ANONYMIZATION),
+      .uses_a_article = false};
 };
 
 template <>
@@ -3295,8 +3310,9 @@ struct DPNodeSpecificData<ResolvedDifferentialPrivacyAggregateScan> {
       "max_groups_contributed";
   static constexpr absl::string_view kMaxGroupsContributedErrorPrefix =
       "Option MAX_GROUPS_CONTRIBUTED";
-  static constexpr SelectWithModeName kSelectWithModeName = {
-      .name = "DIFFERENTIAL_PRIVACY", .uses_a_article = true};
+  static constexpr WithModifierModeName kWithModifierModeName = {
+      .name = WithModifierModeToString(WithModifierMode::DIFFERENTIAL_PRIVACY),
+      .uses_a_article = true};
 };
 
 // Provided unique_users_count_column is column with type Proto
@@ -4868,7 +4884,7 @@ RewriterVisitor::BoundGroupsContributedToInputScan(
   ZETASQL_ASSIGN_OR_RETURN(
       auto rewrite_inner_aggregation_list_result,
       RewriteInnerAggregateList(
-          input_scan.get(), DPNodeSpecificData<NodeType>::kSelectWithModeName,
+          input_scan.get(), DPNodeSpecificData<NodeType>::kWithModifierModeName,
           std::move(inner_uid_column)));
   auto [uid_column, injected_col_map, inner_aggregate_list, inner_group_by_list,
         order_by_column] = std::move(rewrite_inner_aggregation_list_result);
@@ -5089,9 +5105,9 @@ RewriterVisitor::VisitResolvedDifferentialPrivacyAggregateScanTemplate(
 
   ZETASQL_ASSIGN_OR_RETURN(
       RewritePerUserTransformResult rewrite_per_user_result,
-      RewritePerUserTransform(original_node,
-                              DPNodeSpecificData<NodeType>::kSelectWithModeName,
-                              options_uid_column, public_groups_state.get()));
+      RewritePerUserTransform(
+          original_node, DPNodeSpecificData<NodeType>::kWithModifierModeName,
+          options_uid_column, public_groups_state.get()));
 
   bool has_approx_count_distinct = false;
   // We copy the original node here, because it will allow us to modify certain
@@ -5248,11 +5264,13 @@ absl::Status RewriterVisitor::VisitResolvedAggregationThresholdAggregateScan(
   // TODO: Note this does not work if both the table has a defined
   // privacy uid and a privacy unit is specified. This behaviour is yet to be
   // determined.
-  ZETASQL_ASSIGN_OR_RETURN(
-      RewritePerUserTransformResult rewrite_per_user_result,
-      RewritePerUserTransform(
-          node, {.name = "AGGREGATION_THRESHOLD", .uses_a_article = false},
-          options_uid_column, /*public_groups_state=*/nullptr));
+  ZETASQL_ASSIGN_OR_RETURN(RewritePerUserTransformResult rewrite_per_user_result,
+                   RewritePerUserTransform(
+                       node,
+                       {.name = WithModifierModeToString(
+                            WithModifierMode::AGGREGATION_THRESHOLD),
+                        .uses_a_article = false},
+                       options_uid_column, /*public_groups_state=*/nullptr));
   auto [rewritten_scan, inner_uid_column] = std::move(rewrite_per_user_result);
   // Construct a function call to count the number of distinct privacy units.
   FunctionCallBuilder builder(*analyzer_options_, *catalog_, *type_factory_);

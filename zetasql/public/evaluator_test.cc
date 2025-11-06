@@ -3420,6 +3420,67 @@ class PreparedModifyTest : public ::testing::Test {
   static constexpr char kTestValueTable[] = "test_value_table";
 };
 
+TEST_F(PreparedModifyTest, ExecutesInsertIgnoreReturnAllInsertRows) {
+  EvaluatorOptions evaluator_options;
+  // DML output returns both inserted and ignored rows.
+  evaluator_options.return_all_insert_rows_insert_ignore_dml = true;
+  // Row with int_val = 1 is ignored because it already exists in the table.
+  PreparedModify modify(
+      "insert ignore test_table(int_val, str_val) "
+      "values(1, 'one'), (3, 'three')",
+      evaluator_options);
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_INSERT_STMT);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       modify.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"test_table"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  ASSERT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(1));
+  EXPECT_EQ(iter->GetColumnValue(1), String("one"));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
+TEST_F(PreparedModifyTest, ExecutesInsertIgnoreReturnOnlyInsertedRows) {
+  EvaluatorOptions evaluator_options;
+  // DML output does not return the ignored rows.
+  evaluator_options.return_all_insert_rows_insert_ignore_dml = false;
+  // Row with int_val = 1 is ignored because it already exists in the table.
+  PreparedModify modify(
+      "insert ignore test_table(int_val, str_val) "
+      "values(1, 'one'), (3, 'three')",
+      evaluator_options);
+  ZETASQL_ASSERT_OK(modify.Prepare(analyzer_options(), catalog()));
+  ASSERT_EQ(modify.resolved_statement()->node_kind(), RESOLVED_INSERT_STMT);
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableModifyIterator> iter,
+                       modify.Execute());
+  const Table* table;
+  ZETASQL_ASSERT_OK(catalog()->FindTable({"test_table"}, &table));
+
+  EXPECT_EQ(iter->table(), table);
+  EXPECT_TRUE(iter->NextRow());
+  EXPECT_EQ(iter->GetColumnValue(0), Int64(3));
+  EXPECT_EQ(iter->GetColumnValue(1), String("three"));
+  EXPECT_FALSE(iter->GetOriginalKeyValue(0).is_valid());
+  EXPECT_EQ(iter->GetOperation(),
+            EvaluatorTableModifyIterator::Operation::kInsert);
+
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
+}
+
 TEST_F(PreparedModifyTest, ExecutesInsert) {
   PreparedModify modify(
       "insert test_table(int_val, str_val) values(3, 'three')",
@@ -6409,6 +6470,51 @@ TEST_F(PreparedQueryProtoTest, ArbitraryProtoValuedExpression) {
   // We have to deserialize the proto-valued expression twice because it is not
   // of the form column.field_path.
   EXPECT_EQ(GetNumProtoDeserializations(), 2);
+}
+
+TEST_F(PreparedQueryProtoTest, HavingMinMaxRepro) {
+  // Important: keep the ORDER BY at the end of the CTE, to ensure the test
+  // hits the desired order of operations, hitting the error of different array
+  // lengths first before resetting to a better extremal value.
+  PreparedQuery query(
+      R"(
+WITH tbl AS (
+  SELECT 1 AS k, [] AS arr UNION ALL
+  SELECT 1 AS k, [1] AS arr UNION ALL
+  SELECT 2 AS k, [1,2] AS arr UNION ALL
+  SELECT 2 AS k, [1,2] AS arr
+  ORDER BY k
+)
+SELECT
+    SAFE.ELEMENTWISE_SUM(arr HAVING MAX k) AS a
+FROM tbl
+)",
+      EvaluatorOptions());
+
+  SetupContextCallback(&query);
+  auto sample_catalog = std::make_unique<SampleCatalog>();
+  ZETASQL_ASSERT_OK(query.Prepare(AnalyzerOptions(LanguageOptions::MaximumFeatures()),
+                          sample_catalog->catalog()));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<EvaluatorTableIterator> iter,
+                       query.Execute());
+
+  EXPECT_EQ(1, iter->NumColumns());
+  EXPECT_EQ("a", iter->GetColumnName(0));
+  EXPECT_TRUE(iter->GetColumnType(0)->IsArray());
+
+  ASSERT_TRUE(iter->NextRow());
+  const Value& value = iter->GetValue(0);
+
+  // Make sure the value is *NOT* NULL. The NULL (which comes from SAFE) should
+  // have been cleared once we saw the new maximal value.
+  ASSERT_FALSE(value.is_null());
+
+  EXPECT_EQ(2, value.num_elements());
+
+  EXPECT_EQ(value.element(0), Int64(2));
+  EXPECT_EQ(value.element(1), Int64(4));
+  EXPECT_FALSE(iter->NextRow());
+  ZETASQL_EXPECT_OK(iter->Status());
 }
 
 TEST(EvaluatorTest, PreparedQueryExecuteFailedPrepare) {

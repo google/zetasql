@@ -32,7 +32,7 @@ result_analyzed:<span class="ast-node">QueryStmt</span>
   +-<span class="ast-node">ProjectScan</span>
     +-column_list=[$query.<span class="ast-col dollar_col1_1">$col1#1</span>]
     +-expr_list=
-    | +-<span class="ast-col dollar_col1_1">$col1#1</span> := Literal(type=INT64, value=1)
+    | +-<span class="ast-col-src"><span class="ast-col dollar_col1_1">$col1#1</span></span> := Literal(type=INT64, value=1)
     +-input_scan=
       +-<span class="ast-node">SingleRowScan</span>
 \
@@ -234,8 +234,8 @@ result_analyzed:<span class="ast-node">QueryStmt</span>
   +-<span class="ast-node">ProjectScan</span>
     +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=0)
-    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    | +-<span class="ast-col-src"><span class="ast-col num_1">num#1</span></span> := Constant(x, type=INT64, value=0)
+    | +-<span class="ast-col-src"><span class="ast-col num_square_2">num_square#2</span></span> :=
     |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=0)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=0)
@@ -268,8 +268,8 @@ result_analyzed:<span class="ast-node">QueryStmt</span>
   +-<span class="ast-node">ProjectScan</span>
     +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=1)
-    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    | +-<span class="ast-col-src"><span class="ast-col num_1">num#1</span></span> := Constant(x, type=INT64, value=1)
+    | +-<span class="ast-col-src"><span class="ast-col num_square_2">num_square#2</span></span> :=
     |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=1)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=1)
@@ -302,8 +302,8 @@ result_analyzed:<span class="ast-node">QueryStmt</span>
   +-<span class="ast-node">ProjectScan</span>
     +-column_list=$query.[<span class="ast-col num_1">num#1</span>, <span class="ast-col num_square_2">num_square#2</span>]
     +-expr_list=
-    | +-<span class="ast-col num_1">num#1</span> := Constant(x, type=INT64, value=2)
-    | +-<span class="ast-col num_square_2">num_square#2</span> :=
+    | +-<span class="ast-col-src"><span class="ast-col num_1">num#1</span></span> := Constant(x, type=INT64, value=2)
+    | +-<span class="ast-col-src"><span class="ast-col num_square_2">num_square#2</span></span> :=
     |   +-<span class="ast-node">FunctionCall</span>(ZetaSQL:$multiply(INT64, INT64) -&gt; INT64)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=2)
     |     +-<span class="ast-node">Constant</span>(x, type=INT64, value=2)

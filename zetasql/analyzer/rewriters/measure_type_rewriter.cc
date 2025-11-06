@@ -27,6 +27,7 @@
 #include "zetasql/public/rewriter_interface.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_node.h"
+#include "zetasql/resolved_ast/rewrite_utils.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "zetasql/base/ret_check.h"
@@ -79,8 +80,10 @@ class MeasureTypeRewriter : public Rewriter {
     const Function* any_value_fn = nullptr;
     ZETASQL_RET_CHECK_OK(catalog.FindFunction({"any_value"}, &any_value_fn,
                                       options.find_options()));
+    FunctionCallBuilder function_call_builder(options, catalog, type_factory);
     return RewriteMeasures(std::move(input), std::move(grain_scan_info_map),
-                           any_value_fn, column_factory,
+                           any_value_fn, function_call_builder,
+                           options.language(), column_factory,
                            measure_expansion_info_map);
   }
 

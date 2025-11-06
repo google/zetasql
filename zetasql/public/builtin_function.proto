@@ -26,7 +26,7 @@ option java_outer_classname = "ZetaSQLFunction";
 // A unique ID for ZetaSQL function signatures.  Resolved ZetaSQL functions
 // will provide one of these enums, and ZetaSQL implementations should map
 // them to something they can evaluate.
-// Next id: 1950
+// Next id: 1952
 enum FunctionSignatureId {
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -48,20 +48,22 @@ enum FunctionSignatureId {
   // 1500-1599 Analytic functions             (NextId: 1519)
   // 1600-1699 Misc functions                 (Fully used)
   // 1700-1799 Net functions                  (NextId: 1716)
-  // 1800-1899 More time functions            (NextId: 1872)
-  // 1900-1999 Hashing/encryption functions   (NextId: 1938)
+  // 1800-1899 More time functions            (NextId: 1874)
+  // 1900-1999 Hashing/encryption functions   (NextId: 1952)
   // 2000-2199 Geography functions            (NextId: 2096)
   // 2200-2299 Anonymization functions        (NextId: 2232)
   // 2300-2499 Numeric, more math & distances (NextId: 2394)
   // 2500-2599 Array and proto map functions  (NextId: 2561)
-  // 2600-2699 More misc functions.           (NextId: 2694)
+  // 2600-2699 More misc functions.           (Fully used)
   // 2700-2799 Aggregate functions II         (Fully used)
   // 2800-2899 Differential Privacy functions (NextId: 2840)
   // 2900-2999 Range functions                (NextId: 2921)
-  // 3000-3099 Map functions                  (NextId: 3001)
+  // 3000-3099 Map functions                  (NextId: 3020)
   // 3100-3199 Measure functions              (NextId: 3101)
   // 3200-3299 MATCH_RECOGNIZE functions      (NextId: 3207)
   // 3300-3399 Aggregate functions III        (NextId: 3303)
+  // 3400-3499 Misc functions II              (NextId: 3405)
+  // 4000-4099 Table valued functions         (NextId: 4003)
 
   // enum value                       // Related function name
   // ----------                       // ---------------------
@@ -379,6 +381,8 @@ enum FunctionSignatureId {
 
   FN_ADD_MONTHS_DATE = 1870;      // add_months(date, int64) -> date
   FN_ADD_MONTHS_DATETIME = 1871;  // add_months(datetime, int64) -> datetime
+  FN_NEXT_DAY_DATE = 1872;        // next_day(date, string) -> date
+  FN_NEXT_DAY_DATETIME = 1873;    // next_day(datetime, string) -> date
 
   FN_DATE_FROM_UNIX_DATE = 1225;  // date_from_unix_date
   FN_TIMESTAMP_FROM_INT64_SECONDS = 1289;  // timestamp_seconds
@@ -457,8 +461,8 @@ enum FunctionSignatureId {
   FN_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE =
       1869;  // parse_timestamp with precision
 
-  FN_LAST_DAY_DATE = 1843;      // last_day date
-  FN_LAST_DAY_DATETIME = 1844;  // last_day datetime
+  FN_LAST_DAY_DATE = 1843;      // last_day(date, datepart) -> date
+  FN_LAST_DAY_DATETIME = 1844;  // last_day(datetime, datepart) -> date
 
   FN_INTERVAL_CONSTRUCTOR = 1855;  // $interval
   FN_MAKE_INTERVAL = 1856;         // make_interval
@@ -1643,7 +1647,7 @@ enum FunctionSignatureId {
       3002;           // map_entries_unsorted(map<K, V>) -> array<struct<K, V>>
   FN_MAP_GET = 3003;  // map_get(map<K, V>, K, V = NULL) -> V
   FN_MAP_SUBSCRIPT = 3004;           // map<K, V>[K] -> V
-  FN_MAP_SUBSCRIPT_WITH_KEY = 3005;  // map<K, V>[{safe_}key(K)] -> V
+  FN_MAP_SUBSCRIPT_WITH_KEY = 3005;  // map<K, V>[key(K)] -> V
   FN_MAP_CONTAINS_KEY = 3006;        // map_contains_key(map<K, V>, K) -> bool
   FN_MAP_KEYS_SORTED = 3007;         // map_keys_sorted(map<K, V>) -> array<K>
   FN_MAP_KEYS_UNSORTED = 3008;       // map_keys_unsorted(map<K, V>) -> array<K>
@@ -1666,6 +1670,7 @@ enum FunctionSignatureId {
   FN_MAP_CARDINALITY = 3017;  // map_cardinality(map<K, V>) -> int64
   FN_MAP_DELETE = 3018;       // map_delete(map<K, V>, K[, ...]) -> map<K, V>
   FN_MAP_FILTER = 3019;  // map_filter(map<K, V>, (K, V) -> bool) -> map<K, V>
+  FN_MAP_SAFE_SUBSCRIPT_WITH_KEY = 3020;  // map<K, V>[SAFE_KEY(K)] -> V
 
   // Measure functions
   FN_AGG = 3100;  // agg(measure<T>) -> T
@@ -1690,4 +1695,17 @@ enum FunctionSignatureId {
   FN_ZSTD_DECOMPRESS_TO_BYTES = 2692;
   // zstd_decompress_to_string(bytes[, int64]) -> string
   FN_ZSTD_DECOMPRESS_TO_STRING = 2693;
+
+  // Table valued functions
+  FN_VECTOR_SEARCH_TVF = 4000;  // VECTOR_SEARCH(table, string, table, string,
+                                // int64, string, double, json) -> ANY TABLE
+  // tumble(table<any>, string, interval[, timestamp]) -> table<any>
+  FN_TUMBLE = 4001;
+  // hop(table<any>, string, interval, interval[, timestamp]) -> table<any>
+  FN_HOP = 4002;
+
+  // tumble(table<any>, interval[, timestamp]) -> table<any>
+  FN_TUMBLE_NO_TIMESTAMP_COL = 4003;
+  // hop(table<any>, interval, interval[, timestamp]) -> table<any>
+  FN_HOP_NO_TIMESTAMP_COL = 4004;
 }

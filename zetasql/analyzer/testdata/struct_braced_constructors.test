@@ -1675,3 +1675,39 @@ QueryStmt
     |       +-ColumnRef(type=INT32, column=T.v#1)
     +-input_scan=
       +-RelationArgumentScan(column_list=[T.v#1], name="T")
+==
+
+SELECT
+  [
+    STRUCT {
+      a: [],
+      b: ARRAY<STRUCT<x INT64>>[],
+    },
+    STRUCT {
+      a: ARRAY<STRUCT<y INT64>>[],
+      b: [],
+    }
+  ]
+--
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [ARRAY<STRUCT<a ARRAY<STRUCT<y INT64>>, b ARRAY<STRUCT<x INT64>>>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRUCT<a ARRAY<STRUCT<y INT64>>, b ARRAY<STRUCT<x INT64>>>) -> ARRAY<STRUCT<a ARRAY<STRUCT<y INT64>>, b ARRAY<STRUCT<x INT64>>>>)
+    |     +-MakeStruct
+    |     | +-type=STRUCT<a ARRAY<STRUCT<y INT64>>, b ARRAY<STRUCT<x INT64>>>
+    |     | +-field_list=
+    |     |   +-Literal(type=ARRAY<STRUCT<y INT64>>, value=[])
+    |     |   +-Literal(type=ARRAY<STRUCT<x INT64>>, value=[], has_explicit_type=TRUE)
+    |     +-MakeStruct
+    |       +-type=STRUCT<a ARRAY<STRUCT<y INT64>>, b ARRAY<STRUCT<x INT64>>>
+    |       +-field_list=
+    |         +-Literal(type=ARRAY<STRUCT<y INT64>>, value=[], has_explicit_type=TRUE)
+    |         +-Literal(type=ARRAY<STRUCT<x INT64>>, value=[])
+    +-input_scan=
+      +-SingleRowScan

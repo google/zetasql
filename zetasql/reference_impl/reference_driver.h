@@ -39,6 +39,7 @@
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/scripting/script_executor.h"
 #include "zetasql/scripting/type_aliases.h"
+#include "absl/base/attributes.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -46,7 +47,8 @@
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "google/protobuf/compiler/importer.h"
+#include "google/protobuf/descriptor.h"
+#include "zetasql/base/ret_check.h"
 
 namespace zetasql {
 
@@ -146,13 +148,12 @@ class ReferenceDriver : public TestDriver {
                                   const std::set<std::string>& proto_names,
                                   const std::set<std::string>& enum_names);
 
-  // Only used to pre-load types and functions for generating random measures.
-  absl::Status PreloadTypesAndFunctions(
-      const TestDatabase& test_db,
-      const LanguageOptions& language_options) override;
-
   // Must be called prior to ExecuteQuery().
-  absl::Status CreateDatabase(const TestDatabase& test_db) override;
+  absl::Status CreateDatabase(const TestDatabase& test_db) override {
+    ZETASQL_RET_CHECK_FAIL() << "This method should never be called. Use the proto "
+                        "overload instead.";
+  }
+  absl::Status CreateDatabase(const TestDatabaseProto& test_db_proto) override;
 
   // Set the current LanguageOptions, which will control what features and
   // functions are available and how they behave.
@@ -195,7 +196,7 @@ class ReferenceDriver : public TestDriver {
       TypeFactory* type_factory) override;
 
   // Implements TestDriver::ExecuteScript().
-  absl::StatusOr<ScriptResult> ExecuteScript(
+  absl::StatusOr<MultiStmtResult> ExecuteScript(
       const std::string& sql, const std::map<std::string, Value>& parameters,
       TypeFactory* type_factory) override;
 
@@ -226,12 +227,12 @@ class ReferenceDriver : public TestDriver {
   // even in the cause of failures in some cases.
   absl::StatusOr<Value> ExecuteStatementForReferenceDriver(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
-      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      const ExecuteStatementOptions& options,
       ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
 
   absl::StatusOr<MultiStmtResult> ExecuteGeneralizedStatementForReferenceDriver(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
-      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      const ExecuteStatementOptions& options,
       ExecuteStatementAuxOutput& aux_output, TestDatabase* database = nullptr);
 
   struct ExecuteScriptAuxOutput {
@@ -247,12 +248,14 @@ class ReferenceDriver : public TestDriver {
   //
   // 'aux_output' contains additional information. These values may provided
   // even in the cause of failures in some cases.
-  absl::StatusOr<ScriptResult> ExecuteScriptForReferenceDriver(
+  absl::StatusOr<MultiStmtResult> ExecuteScriptForReferenceDriver(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
-      const ExecuteStatementOptions& options, TypeFactory* type_factory,
+      const ExecuteStatementOptions& options,
       ExecuteScriptAuxOutput& aux_output);
 
   bool IsReferenceImplementation() const override { return true; }
+
+  TypeFactory* type_factory() override { return catalog_.type_factory(); }
 
   // Sets a new query evaluation duration that is less than
   // --reference_driver_query_eval_timeout_sec or returns an error.
@@ -261,10 +264,9 @@ class ReferenceDriver : public TestDriver {
   // Returns a pointer to the owned catalog.
   SimpleCatalog* catalog() const { return catalog_.catalog(); }
 
-  google::protobuf::compiler::Importer* importer() const { return catalog_.importer(); }
-
-  // Returns a pointer to the owned reference type factory.
-  TypeFactory* type_factory() { return type_factory_.get(); }
+  const google::protobuf::DescriptorPool* descriptor_pool() {
+    return catalog_.descriptor_pool();
+  }
 
   const absl::TimeZone GetDefaultTimeZone() const override;
   absl::Status SetDefaultTimeZone(const std::string& time_zone) override;
@@ -286,6 +288,14 @@ class ReferenceDriver : public TestDriver {
   // The LanguageOptions used by the zero-arg constructor.
   static LanguageOptions DefaultLanguageOptions();
 
+  ABSL_DEPRECATED(
+      "DO NOT USE THIS. USED ONLY FOR AN EXTERNAL LEGACY TEST"
+      "WHICH IS USING FAKE IN-MEMORY DESCRIPTORS")
+  absl::Status CreateDatabaseWithLeakyDescriptors(const TestDatabase& test_db);
+
+ private:
+  absl::Status CreateDatabaseInternal(const TestDatabase& test_db);
+
  protected:
   struct TableInfo {
     std::string table_name;
@@ -297,16 +307,15 @@ class ReferenceDriver : public TestDriver {
 
   absl::Status ExecuteScriptForReferenceDriverInternal(
       absl::string_view sql, const std::map<std::string, Value>& parameters,
-      const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      ExecuteScriptAuxOutput& aux_output, ScriptResult* result);
+      const ExecuteStatementOptions& options,
+      ExecuteScriptAuxOutput& aux_output, MultiStmtResult* result);
 
   absl::StatusOr<MultiStmtResult> ExecuteStatementForReferenceDriverInternal(
       absl::string_view sql, const AnalyzerOptions& analyzer_options,
       const std::map<std::string, Value>& parameters,
       const VariableMap& script_variables,
       const SystemVariableValuesMap& system_variables,
-      const ExecuteStatementOptions& options, TypeFactory* type_factory,
-      TestDatabase* database,
+      const ExecuteStatementOptions& options, TestDatabase* database,
       // If provide, uses this instead of calling analyzer.
       const AnalyzerOutput* analyzed_input,
       ExecuteStatementAuxOutput& aux_output);
@@ -319,7 +328,6 @@ class ReferenceDriver : public TestDriver {
   void AddTableInternal(const std::string& table_name, const TestTable& table);
 
   friend class ReferenceDriverStatementEvaluator;
-  std::unique_ptr<TypeFactory> type_factory_;
   LanguageOptions language_options_;
   absl::btree_set<ResolvedASTRewrite> enabled_rewrites_;
   std::vector<TableInfo> tables_;
@@ -331,9 +339,6 @@ class ReferenceDriver : public TestDriver {
                       std::unique_ptr<ProcedureDefinition>>
       procedures_;
   TestDatabaseCatalog catalog_;
-
-  // Maintains lifetime of objects referenced by SQL UDFs added to catalog_.
-  std::vector<std::unique_ptr<const AnalyzerOutput>> artifacts_;
 
   // Defaults to America/Los_Angeles.
   absl::TimeZone default_time_zone_;

@@ -1565,3 +1565,69 @@ select
   CAST(b'' AS zetasql_test__.CivilTimeTypesSinkPB).datetime_micros AS datetime_micros
 --
 ARRAY<STRUCT<datetime_micros DATETIME>>[{NULL}]
+==
+
+[name=next_day_date_basic]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS]
+select
+  next_day("2025-10-09", "wed"),
+  next_day("2025-10-09", "Wednesday"),
+  next_day("2025-10-09", "Thu")                      -- already a Thursday
+--
+ARRAY<STRUCT<DATE, DATE, DATE>>[{2025-10-15, 2025-10-15, 2025-10-16}]
+==
+
+[name=next_day_datetime_basic]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS,CIVIL_TIME]
+select
+  next_day(datetime "2025-10-09 01:02:03", "wed"),
+  next_day(datetime "2025-10-09 03:01:02", "Wednesday"),
+  next_day(datetime "2025-10-09 02:03:01", "Thu")        -- already a Thursday
+--
+ARRAY<STRUCT<DATE, DATE, DATE>>[{2025-10-15, 2025-10-15, 2025-10-16}]
+==
+
+[name=next_day_date_null]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS]
+select
+  next_day(cast(null as date), "Sunday"),
+  next_day("2025-09-09", cast(null as string))
+--
+ARRAY<STRUCT<DATE, DATE>>[{NULL, NULL}]
+==
+
+[name=next_day_datetime_null]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS,CIVIL_TIME]
+select
+  next_day(cast(null as datetime), "Sunday"),
+  next_day(datetime "2025-09-09 01:02:03", cast(null as string))
+--
+ARRAY<STRUCT<DATE, DATE>>[{NULL, NULL}]
+==
+
+[name=next_day_date_overflow]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS]
+select next_day("9999-12-31", "Mon")
+--
+ERROR: generic::out_of_range: Next day of 9999-12-31 resulted in an out of range date value: 2932899
+==
+
+[name=next_day_datetime_overflow]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS,CIVIL_TIME]
+select next_day(datetime "9999-12-31 11:22:33", "Mon")
+--
+ERROR: generic::out_of_range: Next day of 9999-12-31 resulted in an out of range date value: 2932899
+==
+
+[name=next_day_date_invalid]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS]
+select next_day("2025-10-09", "Moonday")
+--
+ERROR: generic::out_of_range: Invalid day of week: Moonday
+==
+
+[name=next_day_datetime_invalid]
+[required_features=ADDITIONAL_DATE_TIME_FUNCTIONS,CIVIL_TIME]
+select next_day(datetime "2025-10-09 10:20:30", "Moonday")
+--
+ERROR: generic::out_of_range: Invalid day of week: Moonday

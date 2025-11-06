@@ -261,22 +261,22 @@ ARRAY<STRUCT<STRUCT<a INT64>>>[{{1}}]
 [name=literal_struct_with_non_coercible_fields]
 select cast((5, '2014-01-01') AS STRUCT<STRING, INT32>)
 --
-ERROR: generic::out_of_range: Bad int32 value: 2014-01-01
+ERROR: generic::out_of_range: Error casting field at index 1 in STRUCT: Bad int32 value: 2014-01-01
 ==
 
 [name=literal_values_cannot_be_coerced_to_target_types]
 select cast((-1, -1) AS STRUCT<INT32, UINT32>)
 --
-ERROR: generic::out_of_range: uint32 out of range: -1
+ERROR: generic::out_of_range: Error casting field at index 1 in STRUCT: uint32 out of range: -1
 ==
 
 [name=invalid_casts_nested_inside_struct_literals]
 select cast((-1, cast(-1 AS INT32)) AS STRUCT<INT32, UINT32>)
 --
-ERROR: generic::out_of_range: uint32 out of range: -1
+ERROR: generic::out_of_range: Error casting field at index 1 in STRUCT: uint32 out of range: -1
 ==
 
 [name=non_literals_cannot_be_coerced_to_target_types]
 select cast(cast((-1, -1) AS STRUCT<INT64, INT64>) AS STRUCT<INT32, UINT32>)
 --
-ERROR: generic::out_of_range: uint32 out of range: -1
+ERROR: generic::out_of_range: Error casting field at index 1 in STRUCT: uint32 out of range: -1

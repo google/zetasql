@@ -561,6 +561,15 @@ QueryStatement [34-60]
 ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword ERROR [at 3:16]
 select a parse error;
                ^
+QueryStatement [84-107]
+  Query [84-107]
+    Select [84-107]
+      SelectList [91-107]
+        SelectColumn [91-107]
+          IntLiteral(1) [91-92]
+          Alias [93-107]
+            Identifier(valid_query) [96-107]
+\
 --
 ALTERNATION GROUP: analyze
 --
@@ -580,10 +589,36 @@ QueryStmt
 ERROR: INVALID_ARGUMENT: Function not found: an_analyzer_error [at 2:8]
 select an_analyzer_error();
        ^
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword ERROR [at 3:16]
+select a parse error;
+               ^
+QueryStmt
++-output_column_list=
+| +-$query.valid_query#1 AS valid_query [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.valid_query#1]
+    +-expr_list=
+    | +-valid_query#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+\
 --
 ALTERNATION GROUP: execute
 --
 ERROR: OUT_OF_RANGE: an execute error
+ERROR: INVALID_ARGUMENT: Function not found: an_analyzer_error [at 2:8]
+select an_analyzer_error();
+       ^
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword ERROR [at 3:16]
+select a parse error;
+               ^
++-------------+
+| valid_query |
++-------------+
+| 1           |
++-------------+
+\
 --
 ALTERNATION GROUP: parse,analyze,execute
 --
@@ -612,6 +647,47 @@ QueryStmt
       +-SingleRowScan
 
 ERROR: OUT_OF_RANGE: an execute error
+QueryStatement [34-60]
+  Query [34-60]
+    Select [34-60]
+      SelectList [41-60]
+        SelectColumn [41-60]
+          FunctionCall [41-60]
+            PathExpression [41-58]
+              Identifier(an_analyzer_error) [41-58]
+
+ERROR: INVALID_ARGUMENT: Function not found: an_analyzer_error [at 2:8]
+select an_analyzer_error();
+       ^
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword ERROR [at 3:16]
+select a parse error;
+               ^
+QueryStatement [84-107]
+  Query [84-107]
+    Select [84-107]
+      SelectList [91-107]
+        SelectColumn [91-107]
+          IntLiteral(1) [91-92]
+          Alias [93-107]
+            Identifier(valid_query) [96-107]
+
+QueryStmt
++-output_column_list=
+| +-$query.valid_query#1 AS valid_query [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.valid_query#1]
+    +-expr_list=
+    | +-valid_query#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
++-------------+
+| valid_query |
++-------------+
+| 1           |
++-------------+
+\
 ==
 
 [mode=analyze]
@@ -908,13 +984,16 @@ create function f(x int64) returns double{{| language C}};
 DESCRIBE f;
 select f(5);
 --
-ALTERNATION GROUPS:
-    analyze,
-    execute,
+ALTERNATION GROUP: analyze,
 --
 ERROR: INVALID_ARGUMENT: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]
 create function f(x int64) returns double;
 ^
+DescribeStmt(object_type="", name_path=f)
+
+ERROR: INVALID_ARGUMENT: Function not found: f [at 3:8]
+select f(5);
+       ^
 --
 ALTERNATION GROUP: analyze, language C
 --
@@ -936,6 +1015,16 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 \
+--
+ALTERNATION GROUP: execute,
+--
+ERROR: INVALID_ARGUMENT: Function must specify LANGUAGE or have a SQL body in parentheses [at 1:1]
+create function f(x int64) returns double;
+^
+ERROR: INVALID_ARGUMENT: Object not found
+ERROR: INVALID_ARGUMENT: Function not found: f [at 3:8]
+select f(5);
+       ^
 --
 ALTERNATION GROUP: execute, language C
 --
@@ -1430,19 +1519,13 @@ DeleteStmt
 Error: Only INSERT statements are supported in multi-statement queries
 ==
 
-# An empty statement is not allowed.
+# An empty statement causes no output.
 --
-ERROR: INVALID_ARGUMENT: Syntax error: Unexpected end of statement [at 1:1]
-
-^
 ==
 
-# A statement that is just a comment is not allowed.
+# A statement that is just a comment works like an empty statement.
 /* comment */
 --
-ERROR: INVALID_ARGUMENT: Syntax error: Unexpected end of statement [at 1:14]
-/* comment */
-             ^
 ==
 
 # A statement that is just a semicolon is not allowed.
@@ -1466,6 +1549,12 @@ select 2;
 ERROR: INVALID_ARGUMENT: Syntax error: Unexpected ";" [at 1:10]
 select 1;;
          ^
++---+
+|   |
++---+
+| 2 |
++---+
+\
 ==
 
 # Trailing comments are allowed.
@@ -1959,6 +2048,31 @@ CreateConstantStmt
     +-Literal(type=INT64, value=0)
 
 Constant registered.
+ERROR: OUT_OF_RANGE: abc
+CreateConstantStmt
++-name_path=c3
++-expr=
+  +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    +-Constant(c1, type=STRING, value="abcdef")
+    +-Literal(type=STRING, value="ghi")
+
+Constant registered.
+Constant evaluated.
+QueryStmt
++-output_column_list=
+| +-$query.c1#1 AS c1 [STRING]
+| +-$query.c2#2 AS c2 [BOOL]
+| +-$query.c3#3 AS c3 [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=$query.[c1#1, c2#2, c3#3]
+    +-expr_list=
+    | +-c1#1 := Constant(c1, type=STRING, value="abcdef")
+    | +-c2#2 := Constant(c2, type=BOOL, value=Uninitialized value)
+    | +-c3#3 := Constant(c3, type=STRING, value="abcdefghi")
+    +-input_scan=
+      +-SingleRowScan
+
 ERROR: OUT_OF_RANGE: abc
 ==
 
@@ -2881,3 +2995,169 @@ Error: this is an error
 +--------+------------------+
 \
 ==
+
+# Test for continuing after errors.
+[mode=analyze]
+select 1;
+select bad;
+select bad2;
+select 2;
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
+ERROR: INVALID_ARGUMENT: Unrecognized name: bad [at 2:8]
+select bad;
+       ^
+ERROR: INVALID_ARGUMENT: Unrecognized name: bad2 [at 3:8]
+select bad2;
+       ^
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=2)
+    +-input_scan=
+      +-SingleRowScan
+\
+==
+
+# Test for continuing after parse errors.
+[mode=parse]
+select 0;
+select 1 with bad tokens after;
+;
+completely bad statement;
+select 1;
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(0) [7-8]
+
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword WITH [at 2:10]
+select 1 with bad tokens after;
+         ^
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected ";" [at 3:1]
+;
+^
+ERROR: INVALID_ARGUMENT: Syntax error: Unexpected identifier "completely" [at 4:1]
+completely bad statement;
+^
+QueryStatement [70-78]
+  Query [70-78]
+    Select [70-78]
+      SelectList [77-78]
+        SelectColumn [77-78]
+          IntLiteral(1) [77-78]
+\
+==
+
+# Test for continuing after errors in mixed modes.
+[mode=parse,analyze,execute]
+select 1;
+select 2 with parse error;
+select analyze_error3;
+select error("execute_error4");
+select 5;
+--
+QueryStatement [0-8]
+  Query [0-8]
+    Select [0-8]
+      SelectList [7-8]
+        SelectColumn [7-8]
+          IntLiteral(1) [7-8]
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-SingleRowScan
+
++---+
+|   |
++---+
+| 1 |
++---+
+
+ERROR: INVALID_ARGUMENT: Syntax error: Expected ";" or end of input but got keyword WITH [at 2:10]
+select 2 with parse error;
+         ^
+QueryStatement [37-58]
+  Query [37-58]
+    Select [37-58]
+      SelectList [44-58]
+        SelectColumn [44-58]
+          PathExpression [44-58]
+            Identifier(analyze_error3) [44-58]
+
+ERROR: INVALID_ARGUMENT: Unrecognized name: analyze_error3 [at 3:8]
+select analyze_error3;
+       ^
+QueryStatement [60-90]
+  Query [60-90]
+    Select [60-90]
+      SelectList [67-90]
+        SelectColumn [67-90]
+          FunctionCall [67-90]
+            PathExpression [67-72]
+              Identifier(error) [67-72]
+            StringLiteral [73-89]
+              StringLiteralComponent("execute_error4") [73-89]
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(ZetaSQL:error(STRING) -> INT64)
+    |     +-Literal(type=STRING, value="execute_error4")
+    +-input_scan=
+      +-SingleRowScan
+
+ERROR: OUT_OF_RANGE: execute_error4
+QueryStatement [92-100]
+  Query [92-100]
+    Select [92-100]
+      SelectList [99-100]
+        SelectColumn [99-100]
+          IntLiteral(5) [99-100]
+
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 := Literal(type=INT64, value=5)
+    +-input_scan=
+      +-SingleRowScan
+
++---+
+|   |
++---+
+| 5 |
++---+
+\

@@ -38,6 +38,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -126,25 +127,41 @@ int main(int argc, char* argv[]) {
   }
   std::string sql = GetQuery(args);
   zetasql::TestDriver* test_driver = zetasql::GetComplianceTestDriver();
-  zetasql::TestDatabase test_db;
   zetasql::TypeFactory type_factory;
-  const std::vector<google::protobuf::DescriptorPool*> descriptor_pools;
-  std::vector<std::unique_ptr<const zetasql::AnnotationMap>> annotation_maps;
-  if (absl::GetFlag(FLAGS_test_db).empty()) {
-    ZETASQL_QCHECK_OK(test_driver->CreateDatabase(test_db));
-  } else {
-    zetasql::TestDatabaseProto proto;
-    zetasql_base::ReadFileToProtoOrDie(absl::GetFlag(FLAGS_test_db), &proto);
-    absl::StatusOr<zetasql::TestDatabase> db =
-        zetasql::DeserializeTestDatabase(proto, &type_factory,
-                                           descriptor_pools, annotation_maps);
-    ZETASQL_QCHECK_OK(db.status());
-    test_db = *db;
-  }
-  ZETASQL_QCHECK_OK(test_driver->CreateDatabase(test_db));
 
+  auto test_db_proto = std::make_unique<zetasql::TestDatabaseProto>();
+  if (absl::GetFlag(FLAGS_test_db).empty()) {
+    ZETASQL_QCHECK_OK(zetasql::SerializeTestDatabase(zetasql::TestDatabase{},
+                                               test_db_proto.get()));
+  } else {
+    zetasql_base::ReadFileToProtoOrDie(absl::GetFlag(FLAGS_test_db),
+                               test_db_proto.get());
+  }
+  absl::Status status = test_driver->CreateDatabase(*test_db_proto);
+  zetasql::ProtoImporter proto_importer(/*runs_as_test=*/true);
+  if (!status.ok()) {
+    if (status.code() == absl::StatusCode::kUnimplemented &&
+        status.message() ==
+            "Test driver does not support creating database from proto") {
+      // Fallback to the in-memory overload, until all external drivers are
+      // migrated to the proto overload.
+      ABSL_QCHECK(!test_driver->IsReferenceImplementation());
+      absl::StatusOr<zetasql::TestDatabase> db =
+          zetasql::DeserializeTestDatabase(*test_db_proto, &type_factory,
+                                             proto_importer.importer()->pool());
+      ZETASQL_QCHECK_OK(db.status());
+      ZETASQL_QCHECK_OK(test_driver->CreateDatabase(*db));
+    } else {
+      ZETASQL_QCHECK_OK(status);
+    }
+  }
+
+  zetasql::TypeFactory* driver_type_factory = test_driver->type_factory();
+  if (driver_type_factory == nullptr) {
+    driver_type_factory = &type_factory;
+  }
   absl::StatusOr<zetasql::Value> value = test_driver->ExecuteStatement(
-      sql, absl::GetFlag(FLAGS_parameters).parameters, &type_factory);
+      sql, absl::GetFlag(FLAGS_parameters).parameters, driver_type_factory);
   if (!value.ok()) {
     std::cout << value.status().ToString() << std::endl;
     return 1;

@@ -56,6 +56,7 @@
 #include "zetasql/public/types/measure_type.h"
 #include "zetasql/public/types/proto_type.h"
 #include "zetasql/public/types/range_type.h"
+#include "zetasql/public/types/row_type.h"
 #include "zetasql/public/types/simple_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type.h"
@@ -503,6 +504,50 @@ absl::Status TypeFactory::MakeRangeType(const google::protobuf::FieldDescriptor*
   }
   ZETASQL_RETURN_IF_ERROR(MakeRangeType(element_type, result));
   return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeRowType(const Table* table,
+                                      const std::string& table_name,
+                                      const RowType** result) {
+  *result = nullptr;
+  ZETASQL_RET_CHECK(table != nullptr);
+
+  *result = TakeOwnership(new RowType(this, table, table_name));
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeRowType(const Table* table,
+                                      const std::string& table_name,
+                                      const Type** result) {
+  return MakeRowType(table, table_name,
+                     reinterpret_cast<const RowType**>(result));
+}
+
+absl::Status TypeFactory::MakeRowType(
+    const Table* table, const std::string& table_name, bool multi_row,
+    std::vector<const Column*> bound_columns, const Table* bound_source_table,
+    std::vector<const Column*> bound_source_columns, const RowType** result) {
+  ZETASQL_RET_CHECK(table != nullptr);
+
+  // When making a join RowType, we also construct and bind in a corresponding
+  // non-join RowType as its element_type.  This is owned by the same
+  // TypeFactory.
+  const RowType* element_type =
+      TakeOwnership(new RowType(this, table, table_name));
+
+  *result = TakeOwnership(new RowType(
+      this, table, table_name, multi_row, std::move(bound_columns),
+      bound_source_table, std::move(bound_source_columns), element_type));
+  return absl::OkStatus();
+}
+
+absl::Status TypeFactory::MakeRowType(
+    const Table* table, const std::string& table_name, bool multi_row,
+    std::vector<const Column*> bound_columns, const Table* bound_source_table,
+    std::vector<const Column*> bound_source_columns, const Type** result) {
+  return MakeRowType(table, table_name, multi_row, std::move(bound_columns),
+                     bound_source_table, std::move(bound_source_columns),
+                     reinterpret_cast<const RowType**>(result));
 }
 
 absl::StatusOr<const Type*> TypeFactory::MakeMapTypeImpl(

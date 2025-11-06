@@ -597,6 +597,7 @@ cc_library(
         ":execute_query_web_server",
         "//zetasql/tools/execute_query/web:embedded_resources",
         "@civetweb",
+        "@civetweb//:civetserver",
         "@com_google_absl//absl/flags:flag",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",

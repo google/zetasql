@@ -85,6 +85,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/types/span.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/descriptor_database.h"
 #include "google/protobuf/message.h"
@@ -317,7 +318,7 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
  private:
   absl::Status ProcessMultiResult(
       const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
-      const std::vector<absl::StatusOr<Value>>& status_or_results) {
+      absl::Span<const absl::StatusOr<Value>> status_or_results) {
     absl::string_view segment_text = segment.GetSegmentText();
     if (segment_text.empty() || resolved_stmt == nullptr) {
       // The callback is also called for declarations etc
@@ -1945,18 +1946,25 @@ static absl::Status ExecuteShow(const ResolvedNode* resolved_node,
 
 static absl::StatusOr<absl::string_view> ExtractNextStatement(
     absl::string_view script, const ExecuteQueryConfig& config,
-    const ParseResumeLocation& start_location) {
+    const ParseResumeLocation& start_location,
+    ParseResumeLocation* end_location, bool* at_end_of_input) {
+  *end_location = start_location;
+  *at_end_of_input = false;
   // Use GetParseTokens to find the end of the statement.
   std::vector<ParseToken> tokens;
-  ParseResumeLocation end_location = start_location;
   ZETASQL_RETURN_IF_ERROR(
       GetParseTokens({.stop_at_end_of_statement = true,
                       .language_options = config.analyzer_options().language()},
-                     &end_location, &tokens));
+                     end_location, &tokens));
+
+  if (tokens.size() == 1 && tokens[0].IsEndOfInput()) {
+    *at_end_of_input = true;
+    return "";
+  }
 
   absl::string_view statement_text = script.substr(
       start_location.byte_position(),
-      end_location.byte_position() - start_location.byte_position());
+      end_location->byte_position() - start_location.byte_position());
 
   // Strip leading and trailing newlines.  From the web input, they show up
   // with both \n and \r.
@@ -2008,20 +2016,27 @@ static absl::Status ExecuteScript(absl::string_view script,
 }
 
 // Process the next statement from script, updating `parse_result_location`
-// and `at_end_of_input` on success.
+// and `at_end_of_input`.  Attempt to update those locations even on failure,
+// to allow continuing with the next statement.
 static absl::Status ExecuteOneQuery(absl::string_view script,
                                     ExecuteQueryConfig& config,
                                     ExecuteQueryWriter& writer,
                                     ParseResumeLocation* parse_resume_location,
                                     bool* at_end_of_input) {
-  ZETASQL_ASSIGN_OR_RETURN(
-      absl::string_view statement_text,
-      ExtractNextStatement(script, config, *parse_resume_location));
+  ParseResumeLocation start_location = *parse_resume_location;
+  ParseResumeLocation end_location = *parse_resume_location;
+  ZETASQL_ASSIGN_OR_RETURN(absl::string_view statement_text,
+                   ExtractNextStatement(script, config, *parse_resume_location,
+                                        &end_location, at_end_of_input));
+  *parse_resume_location = end_location;
+  if (*at_end_of_input) {
+    return absl::OkStatus();
+  }
   ZETASQL_RETURN_IF_ERROR(writer.statement_text(statement_text));
 
   std::unique_ptr<ParserOutput> parser_output;
   absl::StatusOr<const ASTNode*> ast = ParseSql(
-      script, config, parse_resume_location, at_end_of_input, &parser_output);
+      script, config, &start_location, at_end_of_input, &parser_output);
   if (!ast.ok()) {
     return MaybeUpdateErrorFromPayload(
         ErrorMessageOptions{
@@ -2137,11 +2152,29 @@ absl::Status ExecuteQuery(absl::string_view sql, ExecuteQueryConfig& config,
     ZETASQL_RETURN_IF_ERROR(writer.StartStatement(is_first));
     is_first = false;
 
-    // This currently stops execution on the first statement with an error.
-    // Recovering after finding the next parse_resume_location requires some
-    // new code.
-    ZETASQL_RETURN_IF_ERROR(ExecuteOneQuery(script, config, writer,
-                                    &parse_resume_location, &at_end_of_input));
+    // On failure, ExecuteOneQuery still tries to update
+    // `parse_resume_location`, so we can continue with the next statement.
+    const ParseResumeLocation old_location = parse_resume_location;
+
+    absl::Status status = ExecuteOneQuery(
+        script, config, writer, &parse_resume_location, &at_end_of_input);
+
+    if (!status.ok()) {
+      status.ErasePayload(kErrorMessageModeUrl);
+
+      // If we have a new `parse_resume_location`, we can continue with the
+      // next statement.  Otherwise, we have to fail, to avoid an infinite loop.
+      if (parse_resume_location.byte_position() >
+          old_location.byte_position()) {
+        writer.FlushStatement(at_end_of_input, status.ToString());
+      } else {
+        return status;
+      }
+    }
+    if (!at_end_of_input) {
+      ZETASQL_RET_CHECK_GT(parse_resume_location.byte_position(),
+                   old_location.byte_position());
+    }
   }
 
   return absl::OkStatus();

@@ -86,6 +86,7 @@ void GetAnonFunctions(TypeFactory* type_factory,
 
   FunctionOptions anon_options =
       FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ANONYMIZATION)
           .set_supports_over_clause(false)
           .set_supports_distinct_modifier(false)
           .set_supports_having_modifier(false)
@@ -660,7 +661,7 @@ absl::Status GetDifferentialPrivacyFunctions(
          ProductMode product_mode) {
         return absl::StrCat(
             "No matching signature for ", qualified_function_name,
-            " in SELECT WITH DIFFERENTIAL_PRIVACY context",
+            " in DIFFERENTIAL_PRIVACY context",
             (arguments.empty()
                  ? " with no arguments"
                  : absl::StrCat(" for argument types: ",

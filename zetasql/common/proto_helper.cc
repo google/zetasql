@@ -42,7 +42,7 @@ namespace {
 class StringAppendErrorCollector :
       public google::protobuf::DescriptorPool::ErrorCollector {
  public:
-  StringAppendErrorCollector() {}
+  StringAppendErrorCollector() = default;
   StringAppendErrorCollector(const StringAppendErrorCollector&) = delete;
   StringAppendErrorCollector& operator=(const StringAppendErrorCollector&)
       = delete;

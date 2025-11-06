@@ -112,14 +112,14 @@ WITH
 SELECT val, AddFourAndDivide(val, 2) AS result
 FROM numbers;
 
-/*-----+--------*
+/*-----+--------+
  | val | result |
  +-----+--------+
  | 1   | 2.5    |
  | 3   | 3.5    |
  | 4   | 4      |
  | 5   | 4.5    |
- *-----+--------*/
+ +-----+--------*/
 ```
 
 The following example shows a SQL UDF that uses the
@@ -136,11 +136,11 @@ SELECT
   AddFourAndDivideAny(3, 4) AS integer_input,
   AddFourAndDivideAny(1.59, 3.14) AS floating_point_input;
 
-/*----------------+-----------------------*
+/*----------------+-----------------------+
  | integer_input  | floating_point_input  |
  +----------------+-----------------------+
  | 1.75           | 1.7802547770700636    |
- *----------------+-----------------------*/
+ +----------------+-----------------------*/
 ```
 
 The following example shows a SQL UDF that uses the
@@ -162,12 +162,12 @@ FROM
     SELECT ['Marie', 'Skłodowska', 'Curie']
   );
 
-/*------------+-----------*
+/*------------+-----------+
  | first_name | last_name |
  +------------+-----------+
  | Fred       | Rogers    |
  | Marie      | Curie     |
- *------------+-----------*/
+ +------------+-----------*/
 ```
 
 ## JavaScript UDFs 
@@ -476,13 +476,13 @@ return x.match(re);
 SELECT val, ExtractLetters(val) AS result
 FROM UNNEST(['ab-c', 'd_e', '!']) AS val;
 
-/*-------*---------*
+/*-------*---------+
  | val   | result  |
  +-------+---------+
  | ab-c  | [a,b,c] |
  | d_e   | [d,e]   |
  | !     | NULL    |
- *-------*---------*/
+ +-------*---------*/
 ```
 
 The following example illustrates a single-statement JavaScript UDF.
@@ -499,13 +499,13 @@ AS 'return x+1;';
 SELECT val, PlusOne(val) AS result
 FROM UNNEST([1, 2, 3]) AS val;
 
-/*-----------+-----------*
+/*-----------+-----------+
  | val       | result    |
  +-----------+-----------+
  | 1         | 2         |
  | 2         | 3         |
  | 3         | 4         |
- *-----------+-----------*/
+ +-----------+-----------*/
 ```
 
 The following example illustrates a more complex multi-statement JavaScript UDF.
@@ -526,13 +526,13 @@ AS r'''
 SELECT CustomGreeting(names) as everyone
 FROM UNNEST(["Hannah", "Max", "Jakob"]) AS names;
 
-/*-----------------------*
+/*-----------------------+
  | everyone              |
  +-----------------------+
  | Good Morning, Hannah! |
  | Good Morning, Max!    |
  | Good Morning, Jakob!  |
- *-----------------------*/
+ +-----------------------*/
 ```
 
 The following example creates a persistent JavaScript UDF.
@@ -554,13 +554,13 @@ WITH numbers AS
 SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | product      |
  +-----+-----+--------------+
  | 1   | 5   | 5            |
  | 2   | 10  | 20           |
  | 3   | 15  | 45           |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 The following example creates a temporary JavaScript UDF.
@@ -582,13 +582,13 @@ WITH numbers AS
 SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | product      |
  +-----+-----+--------------+
  | 1   | 5   | 5            |
  | 2   | 10  | 20           |
  | 3   | 15  | 45           |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 You can create multiple JavaScript UDFs before a query. For example:
@@ -621,13 +621,13 @@ SELECT x,
   DivideByTwo(y) as half_y
 FROM numbers;
 
-/*-----+-----+--------------+--------+--------*
+/*-----+-----+--------------+--------+--------+
  | x   | y   | product      | half_x | half_y |
  +-----+-----+--------------+--------+--------+
  | 1   | 5   | 5            | 0.5    | 2.5    |
  | 2   | 10  | 20           | 1      | 5      |
  | 3   | 15  | 45           | 1.5    | 7.5    |
- *-----+-----+--------------+--------+--------*/
+ +-----+-----+--------------+--------+--------*/
 ```
 
 You can pass the result of a JavaScript UDF as input to another UDF.
@@ -659,13 +659,13 @@ SELECT x,
   MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | half_product |
  +-----+-----+--------------+
  | 1   | 5   | 1.25         |
  | 2   | 10  | 5            |
  | 3   | 15  | 11.25        |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 The following example shows how you can use a JavaScript UDF with
@@ -681,11 +681,11 @@ AS r'''
 
 SELECT AddValues(1, 2) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 200    |
- *--------*/
+ +--------*/
 ```
 
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals
@@ -732,13 +732,13 @@ SELECT
   SumFieldsNamedFoo(TO_JSON_STRING(t)) AS foo_sum
 FROM Input AS t;
 
-/*---------------------------------------------------------------------+---------*
+/*---------------------------------------------------------------------+---------+
  | json_row                                                            | foo_sum |
  +---------------------------------------------------------------------+---------+
  | {"s":{"foo":1,"bar":2,"baz":{"x":"foo","foo":3.14}},"foo":10}       | 14.14   |
  | {"s":null,"foo":4}                                                  | 4       |
  | {"s":{"foo":null,"bar":2,"baz":{"x":"fizz","foo":1.59}},"foo":null} | 1.59    |
- *---------------------------------------------------------------------+---------*/
+ +---------------------------------------------------------------------+---------*/
 ```
 
 ## Lua UDFs 
@@ -864,13 +864,13 @@ AS r'''
 
 SELECT Alphabet() AS characters;
 
-/*------------*
+/*------------+
  | characters |
  +------------+
  | A          |
  | B          |
  | C          |
- *------------*/
+ +------------*/
 ```
 
 The following example illustrates a single-statement Lua UDF.
@@ -887,13 +887,13 @@ AS 'return x+1;';
 SELECT val, PlusOne(val) AS result
 FROM UNNEST([1, 2, 3]) AS val;
 
-/*-----------+-----------*
+/*-----------+-----------+
  | val       | result    |
  +-----------+-----------+
  | 1         | 2         |
  | 2         | 3         |
  | 3         | 4         |
- *-----------+-----------*/
+ +-----------+-----------*/
 ```
 
 The following example illustrates a multi-statement Lua UDF.
@@ -912,11 +912,11 @@ AS r'''
 
 SELECT CustomGreeting(13) AS message;
 
-/*---------------*
+/*---------------+
  | message       |
  +---------------+
  | Good Evening! |
- *---------------*/
+ +---------------*/
 ```
 
 The following example creates a persistent Lua UDF.
@@ -938,13 +938,13 @@ WITH numbers AS
 SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | product      |
  +-----+-----+--------------+
  | 1   | 5   | 5            |
  | 2   | 10  | 20           |
  | 3   | 15  | 45           |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 The following example creates a temporary Lua UDF.
@@ -966,13 +966,13 @@ WITH numbers AS
 SELECT x, y, MultiplyInputs(x, y) as product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | product      |
  +-----+-----+--------------+
  | 1   | 5   | 5            |
  | 2   | 10  | 20           |
  | 3   | 15  | 45           |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 You can create multiple Lua UDFs before a query. For example:
@@ -1005,13 +1005,13 @@ SELECT x,
   DivideByTwo(y) as half_y
 FROM numbers;
 
-/*-----+-----+--------------+--------+--------*
+/*-----+-----+--------------+--------+--------+
  | x   | y   | product      | half_x | half_y |
  +-----+-----+--------------+--------+--------+
  | 1   | 5   | 5            | 0.5    | 2.5    |
  | 2   | 10  | 20           | 1      | 5      |
  | 3   | 15  | 45           | 1.5    | 7.5    |
- *-----+-----+--------------+--------+--------*/
+ +-----+-----+--------------+--------+--------*/
 ```
 
 You can pass the result of a Lua UDF as input to another UDF.
@@ -1043,13 +1043,13 @@ SELECT x,
   MultiplyInputs(DivideByTwo(x), DivideByTwo(y)) as half_product
 FROM numbers;
 
-/*-----+-----+--------------*
+/*-----+-----+--------------+
  | x   | y   | half_product |
  +-----+-----+--------------+
  | 1   | 5   | 1.25         |
  | 2   | 10  | 5            |
  | 3   | 15  | 11.25        |
- *-----+-----+--------------*/
+ +-----+-----+--------------*/
 ```
 
 The following example shows how you can use a Lua UDF with
@@ -1065,11 +1065,11 @@ AS r'''
 
 SELECT AddValues(1, 2) AS result;
 
-/*--------*
+/*--------+
  | result |
  +--------+
  | 200    |
- *--------*/
+ +--------*/
 ```
 
 [quoted-literals]: https://github.com/google/zetasql/blob/master/docs/lexical.md#string_and_bytes_literals

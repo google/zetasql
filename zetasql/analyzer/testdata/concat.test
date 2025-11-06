@@ -432,11 +432,11 @@ ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for operator ||
   Argument types: STRING, INT64
-  Signature: STRING || STRING
+  Signature: STRING || ([STRING, ...])
     Argument 2: Unable to coerce type INT64 to expected type STRING
-  Signature: BYTES || BYTES
+  Signature: BYTES || ([BYTES, ...])
     Argument 1: Unable to coerce type STRING to expected type BYTES
-  Signature: (ARRAY<T1>) || (ARRAY<T1>)
+  Signature: (ARRAY<T1>) || ([ARRAY<T1>, ...])
     Argument 1: expected array type but found STRING [at 1:8]
 SELECT 'abc' || 2
        ^
@@ -463,11 +463,11 @@ SELECT ARRAY<INT32>[1] || 2
 --
 ERROR: No matching signature for operator ||
   Argument types: ARRAY<INT32>, INT64
-  Signature: STRING || STRING
+  Signature: STRING || ([STRING, ...])
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type STRING
-  Signature: BYTES || BYTES
+  Signature: BYTES || ([BYTES, ...])
     Argument 1: Unable to coerce type ARRAY<INT32> to expected type BYTES
-  Signature: (ARRAY<T1>) || (ARRAY<T1>)
+  Signature: (ARRAY<T1>) || ([ARRAY<T1>, ...])
     Argument 2: expected array type but found INT64 [at 1:8]
 SELECT ARRAY<INT32>[1] || 2
        ^
@@ -478,11 +478,11 @@ SELECT ["abc"] || [2]
 --
 ERROR: No matching signature for operator ||
   Argument types: ARRAY<STRING>, ARRAY<INT64>
-  Signature: STRING || STRING
+  Signature: STRING || ([STRING, ...])
     Argument 1: Unable to coerce type ARRAY<STRING> to expected type STRING
-  Signature: BYTES || BYTES
+  Signature: BYTES || ([BYTES, ...])
     Argument 1: Unable to coerce type ARRAY<STRING> to expected type BYTES
-  Signature: (ARRAY<T1>) || (ARRAY<T1>)
+  Signature: (ARRAY<T1>) || ([ARRAY<T1>, ...])
     Unable to find common supertype for templated argument <T1>
       Input types for <T1>: {INT64, STRING} [at 1:8]
 SELECT ["abc"] || [2]

@@ -907,6 +907,34 @@ void AddBlockForDdlChunk(ChunkBlock* previous_block, Chunk* ddl_chunk) {
   previous_block->AddSameLevelChunk(ddl_chunk);
 }
 
+// Adds a chunk block for a chained method call, deciding whether to indent it
+// or keep it at the same level as the previous part of the chain.
+// previous_chunk: The chunk before the method call.
+void AddBlockForChainedMethodCalls(Chunk* const previous_chunk,
+                                   Chunk* dot_chunk) {
+  Chunk* anchor = nullptr;
+  if (previous_chunk->FirstToken().Is(
+          Token::Type::CHAINED_METHOD_DOT_SEPARATOR)) {
+    // Case 1: Previous chunk is .METHOD()
+    anchor = previous_chunk;
+  } else if (previous_chunk->ClosesParenOrBracketBlock() &&
+             previous_chunk->HasMatchingOpeningChunk() &&
+             previous_chunk->MatchingOpeningChunk()->FirstToken().Is(
+                 Token::Type::CHAINED_METHOD_DOT_SEPARATOR)) {
+    // Case 2: Previous chunk is ')' closing .METHOD(...)
+    anchor = previous_chunk->MatchingOpeningChunk();
+  }
+
+  if (anchor != nullptr) {
+    // If we found an anchor, add the new method call at the same level.
+    anchor->ChunkBlock()->AddSameLevelChunk(dot_chunk);
+  } else {
+    // Default case: This is the first method call in a chain, or
+    // previous chunk is unrelated. Indent the new method call relative
+    // to the expression it's being called on.
+    previous_chunk->ChunkBlock()->AddIndentedChunk(dot_chunk);
+  }
+}
 }  // namespace
 
 absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
@@ -983,6 +1011,9 @@ absl::Status ComputeChunkBlocksForChunks(ChunkBlockFactory* block_factory,
       } else {
         chunk_block->AddIndentedChunk(&chunk);
       }
+    } else if (chunk.FirstToken().Is(
+                   Token::Type::CHAINED_METHOD_DOT_SEPARATOR)) {
+      AddBlockForChainedMethodCalls(&previous_chunk, &chunk);
     } else if (chunk.FirstKeyword() == ".") {
       if (previous_chunk.StartsWithChainableOperator() ||
           previous_chunk.FirstKeyword() == "=") {

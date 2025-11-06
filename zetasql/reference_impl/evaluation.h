@@ -113,6 +113,10 @@ struct EvaluationOptions {
   // EXISTS subquery even after seeing the first row, to flag non-determinism
   // if some subsequent row produces an error.
   bool return_early_from_exists_subquery = false;
+
+  // If true, the reference implementation will return all rows for INSERT
+  // IGNORE DML statements, including the rows that were not inserted.
+  bool return_all_insert_rows_insert_ignore_dml = false;
 };
 
 class ProtoFieldReader;

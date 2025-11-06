@@ -404,7 +404,7 @@ TEST(MapTest, FormatValueContentSQLExpressionMode) {
         test_values::Map({{Value::Float(1.5), Value::Double(2.5)}});
     EXPECT_EQ(
         map_value.type()->FormatValueContent(map_value.GetContent(), options),
-        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, FLOAT64>>[(CAST(1.5 AS FLOAT), 2.5)]))");
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, FLOAT64>>[(CAST(1.5 AS FLOAT32), 2.5)]))");
   }
 
   // MAP with FLOATs and use_external_float32 = true
@@ -429,7 +429,7 @@ TEST(MapTest, FormatValueContentSQLExpressionMode) {
         {{Value::Float(1.5), test_values::Array({Value::Float(2.5)})}});
     EXPECT_EQ(
         map_value.type()->FormatValueContent(map_value.GetContent(), options),
-        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT, ARRAY<FLOAT>>>[(CAST(1.5 AS FLOAT), ARRAY<FLOAT>[CAST(2.5 AS FLOAT)])]))");
+        R"(MAP_FROM_ARRAY(ARRAY<STRUCT<FLOAT32, ARRAY<FLOAT32>>>[(CAST(1.5 AS FLOAT32), ARRAY<FLOAT32>[CAST(2.5 AS FLOAT32)])]))");
   }
 
   // MAP with FLOAT in nested container and use_external_float32 = true

@@ -15,8 +15,10 @@
 //
 
 #include "zetasql/compliance/test_driver.h"
+#include "zetasql/public/options.pb.h"
 #include "zetasql/reference_impl/reference_driver.h"
 #include "zetasql/reference_impl/rewrite_flags.h"
+#include "zetasql/resolved_ast/resolved_node_kind.pb.h"
 #include "absl/flags/flag.h"
 
 namespace zetasql {
@@ -32,6 +34,7 @@ TestDriver* GetComplianceTestDriver() {
   // configurations specified inside each test when testing the reference
   // implementation itself and generating golden outputs.
   auto options = ReferenceDriver::DefaultLanguageOptions();
+  options.EnableLanguageFeature(FEATURE_COLLATION_SUPPORT);
   options.AddSupportedStatementKind(RESOLVED_GENERALIZED_QUERY_STMT);
   options.AddSupportedStatementKind(RESOLVED_GENERALIZED_QUERY_SUBPIPELINE);
   return new ReferenceDriver(options, absl::GetFlag(FLAGS_rewrites));

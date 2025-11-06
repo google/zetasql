@@ -7642,3 +7642,25 @@ FROM
 ERROR: UNPIVOT is not allowed with array scans [at 5:3]
   UNPIVOT(a FOR b IN ((c))) AS x
   ^
+==
+
+# WHERE aggregate filtering not supported for PIVOT expressions.
+[language_features=MAXIMUM,+PIVOT,+AGGREGATE_FILTERING]
+SELECT * FROM (SELECT Key, Value FROM KeyValue)
+PIVOT(COUNT(Value WHERE true) FOR Key IN (0, 1));
+--
+ERROR: PIVOT expression cannot use aggregate filtering WHERE clause [at 2:7]
+PIVOT(COUNT(Value WHERE true) FOR Key IN (0, 1));
+      ^
+==
+
+# HAVING aggregate filtering not supported for PIVOT expressions.
+# Since PIVOT doesn't support GROUP BY modifiers, the error message reflects
+# the GROUP BY clause being unsupported.
+[language_features=MAXIMUM,+PIVOT,+AGGREGATE_FILTERING]
+SELECT * FROM (SELECT Key, Value FROM KeyValue)
+PIVOT(COUNT(Key GROUP BY Key HAVING true) FOR Key IN (0, 1));
+--
+ERROR: PIVOT expression cannot be a multi-level aggregate function call [at 2:7]
+PIVOT(COUNT(Key GROUP BY Key HAVING true) FOR Key IN (0, 1));
+      ^

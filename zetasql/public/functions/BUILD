@@ -272,7 +272,7 @@ cc_library(
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
         "@com_googlesource_code_re2//:re2",
-        "@icu//:common",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -491,6 +491,8 @@ cc_library(
         "//zetasql/public/proto:type_annotation_cc_proto",
         "//zetasql/public/types:timestamp_util",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -569,7 +571,7 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:span",
-        "@icu//:headers",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -820,7 +822,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
         "@com_googlesource_code_re2//:re2",
-        "@icu//:headers",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -1090,7 +1092,7 @@ cc_library(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
-        "@icu//:headers",
+        "@icu//icu4c/source/common:headers",
     ],
 )
 
@@ -1214,6 +1216,9 @@ cc_library(
         "@boringssl//:crypto",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_farmhash//:farmhash_fingerprint",
     ],

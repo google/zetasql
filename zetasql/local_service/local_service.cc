@@ -33,6 +33,7 @@
 #include "zetasql/parser/parse_tree_serializer.h"
 #include "zetasql/proto/simple_catalog.pb.h"
 #include "zetasql/public/builtin_function.h"
+#include "zetasql/public/builtin_function_options.h"
 #include "zetasql/public/evaluator.h"
 #include "zetasql/public/formatter_options.h"
 #include "zetasql/public/function.h"
@@ -43,6 +44,7 @@
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/sql_formatter.h"
 #include "zetasql/public/table_from_proto.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/type.pb.h"
 #include "zetasql/public/value.h"
@@ -50,8 +52,10 @@
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/sql_builder.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -280,7 +284,7 @@ class InternalPreparedQueryState : public GenericState {
 
   static absl::StatusOr<std::unique_ptr<InternalPreparedQueryState>>
   CreateAndPrepareQuery(
-      const std::string& sql, const AnalyzerOptionsProto& options_proto,
+      absl::string_view sql, const AnalyzerOptionsProto& options_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       SimpleCatalog* catalog,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids = {},
@@ -343,7 +347,7 @@ class InternalPreparedModifyState : public GenericState {
 
   static absl::StatusOr<std::unique_ptr<InternalPreparedModifyState>>
   CreateAndPrepareModify(
-      const std::string& sql, const AnalyzerOptionsProto& options_proto,
+      absl::string_view sql, const AnalyzerOptionsProto& options_proto,
       const std::vector<const google::protobuf::DescriptorPool*>& pools,
       SimpleCatalog* catalog,
       absl::flat_hash_set<int64_t> owned_descriptor_pool_ids = {},
@@ -450,9 +454,7 @@ class RegisteredCatalogState : public GenericState {
 
   // Ideally, this would be const, however, the zetasql analyzer API
   // requires this be mutable (even though it does ever mutate anything).
-  SimpleCatalog* GetCatalog() {
-    return catalog_.get();
-  }
+  SimpleCatalog* GetCatalog() { return catalog_.get(); }
 
   const absl::flat_hash_set<int64_t>& owned_descriptor_pool_ids() const {
     return owned_descriptor_pool_ids_;
@@ -551,7 +553,7 @@ absl::Status ZetaSqlLocalServiceImpl::Prepare(const PrepareRequest& request,
 
 template <>
 absl::Status ZetaSqlLocalServiceImpl::CreateAndPrepare(
-    const std::string& sql, const AnalyzerOptionsProto& options,
+    absl::string_view sql, const AnalyzerOptionsProto& options,
     std::shared_ptr<RegisteredCatalogState> catalog_state,
     std::vector<const google::protobuf::DescriptorPool*> pools,
     absl::flat_hash_set<int64_t> owned_descriptor_pool_ids,
@@ -613,7 +615,7 @@ absl::Status ZetaSqlLocalServiceImpl::PrepareQuery(
 
 template <>
 absl::Status ZetaSqlLocalServiceImpl::CreateAndPrepare(
-    const std::string& sql, const AnalyzerOptionsProto& options,
+    absl::string_view sql, const AnalyzerOptionsProto& options,
     std::shared_ptr<RegisteredCatalogState> catalog_state,
     std::vector<const google::protobuf::DescriptorPool*> pools,
     absl::flat_hash_set<int64_t> owned_descriptor_pool_ids,
@@ -672,7 +674,7 @@ absl::Status ZetaSqlLocalServiceImpl::PrepareModify(
 
 template <>
 absl::Status ZetaSqlLocalServiceImpl::CreateAndPrepare(
-    const std::string& sql, const AnalyzerOptionsProto& options,
+    absl::string_view sql, const AnalyzerOptionsProto& options,
     std::shared_ptr<RegisteredCatalogState> catalog_state,
     std::vector<const google::protobuf::DescriptorPool*> pools,
     absl::flat_hash_set<int64_t> owned_descriptor_pool_ids,
@@ -1324,9 +1326,9 @@ absl::Status ZetaSqlLocalServiceImpl::ExtractTableNamesFromNextStatement(
   ParseResumeLocation location =
       ParseResumeLocation::FromProto(request.parse_resume_location());
 
-  LanguageOptions language_options = request.has_options() ?
-      LanguageOptions(request.options()) :
-      LanguageOptions();
+  LanguageOptions language_options = request.has_options()
+                                         ? LanguageOptions(request.options())
+                                         : LanguageOptions();
 
   bool at_end_of_input;
   zetasql::TableNamesSet table_names;
@@ -1471,16 +1473,23 @@ absl::Status ZetaSqlLocalServiceImpl::GetBuiltinFunctions(
     GetBuiltinFunctionsResponse* resp) {
   TypeFactory factory;
   absl::flat_hash_map<std::string, std::unique_ptr<Function>> functions;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>>
+      table_valued_functions;
   BuiltinFunctionOptions options(proto);
   absl::flat_hash_map<std::string, const Type*> types;
 
-  ZETASQL_RETURN_IF_ERROR(
-      GetBuiltinFunctionsAndTypes(options, factory, functions, types));
+  ZETASQL_RETURN_IF_ERROR(GetBuiltinFunctionsAndTypes(options, factory, functions,
+                                              types, table_valued_functions));
 
   FileDescriptorSetMap file_descriptor_set_map;
   for (const auto& function : functions) {
     ZETASQL_RETURN_IF_ERROR(function.second->Serialize(&file_descriptor_set_map,
                                                resp->add_function()));
+  }
+
+  for (const auto& table_valued_function : table_valued_functions) {
+    ZETASQL_RETURN_IF_ERROR(table_valued_function.second->Serialize(
+        &file_descriptor_set_map, resp->add_table_valued_function()));
   }
 
   auto& response_types = *resp->mutable_types();
@@ -1514,7 +1523,7 @@ absl::Status ZetaSqlLocalServiceImpl::GetAnalyzerOptions(
 }
 
 absl::Status ZetaSqlLocalServiceImpl::Parse(const ParseRequest& request,
-    ParseResponse* response) {
+                                              ParseResponse* response) {
   auto language_options =
       request.has_options()
           ? std::make_unique<LanguageOptions>(request.options())

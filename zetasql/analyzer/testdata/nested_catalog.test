@@ -1,8 +1,4 @@
-# The ExtractTableNames tests don't generally work on these queries because
-# these tables are listed in the catalog under multiple names, and FullName()
-# doesn't match what shows up in the query.
 [default language_features=MAXIMUM]
-[default no_test_extract_table_names]
 
 select key from NestedKeyValue;
 --
@@ -11,16 +7,18 @@ select key from NestedKeyValue;
                 ^
 ==
 
-select key from nested_catalog.NestedKeyValue;
+# Unlike others below, this table is uniquely in the nested catalog, so
+# ExtractTableNames can be tested.
+select key from nested_catalog.KeyValueNested;
 --
 QueryStmt
 +-output_column_list=
-| +-KeyValue.Key#1 AS key [INT64]
+| +-KeyValueNested.Key#1 AS key [INT64]
 +-query=
   +-ProjectScan
-    +-column_list=[KeyValue.Key#1]
+    +-column_list=[KeyValueNested.Key#1]
     +-input_scan=
-      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0])
+      +-TableScan(column_list=[KeyValueNested.Key#1], table=nested_catalog.KeyValueNested, column_index_list=[0])
 ==
 
 select key from nested_catalog;
@@ -37,7 +35,11 @@ select nested_catalog;
        ^
 ==
 
+# The ExtractTableNames tests don't generally work on these queries because
+# these tables are listed in the catalog under multiple names, and FullName()
+# doesn't match what shows up in the query.
 # Java does not support recursive catalog.
+[default no_test_extract_table_names]
 [no_java]
 select key from recursive_catalog.nested_catalog;
 --

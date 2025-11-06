@@ -52,7 +52,7 @@ class SQLConstant : public Constant {
       const ::zetasql::ResolvedCreateConstantStmt* create_constant_statement,
       std::unique_ptr<SQLConstant>* sql_constant);
 
-  ~SQLConstant() override {}
+  ~SQLConstant() override = default;
 
   // This class is neither copyable nor assignable.
   SQLConstant(const SQLConstant& other_constant_with_value) = delete;

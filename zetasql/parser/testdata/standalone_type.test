@@ -939,7 +939,7 @@ ARRAY<{{| }}>
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:6]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:6]
 ARRAY<>
      ^
 --
@@ -954,7 +954,7 @@ RANGE<{{| }}>
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:6]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:6]
 RANGE<>
      ^
 --
@@ -1068,25 +1068,25 @@ ARRAY<STRUCT<a BOOL, b ARRAY<>{{| }}>{{| }}>
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:29]
 ARRAY<STRUCT<a BOOL, b ARRAY<>>>
                             ^
 --
 ALTERNATION GROUP:  
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:29]
 ARRAY<STRUCT<a BOOL, b ARRAY<>> >
                             ^
 --
 ALTERNATION GROUP:  ,
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:29]
 ARRAY<STRUCT<a BOOL, b ARRAY<> >>
                             ^
 --
 ALTERNATION GROUP:  , 
 --
-ERROR: Syntax error: Expected "<" but got "<" [at 1:29]
+ERROR: Syntax error: Expected "<" but got "<>" [at 1:29]
 ARRAY<STRUCT<a BOOL, b ARRAY<> > >
                             ^
 ==

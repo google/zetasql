@@ -947,53 +947,6 @@ class FunctionCallBuilder {
   Coercer coercer_;
 };
 
-// Contains helper functions for building components of the ResolvedAST when
-// rewriting LIKE ANY and LIKE ALL expressions. It will be used in the case:
-// <input> LIKE {{ANY|ALL}} <subquery>
-class LikeAnyAllSubqueryScanBuilder {
- public:
-  LikeAnyAllSubqueryScanBuilder(const AnalyzerOptions* analyzer_options,
-                                Catalog* catalog, ColumnFactory* column_factory,
-                                TypeFactory* type_factory)
-      : analyzer_options_(analyzer_options),
-        catalog_(catalog),
-        fn_builder_(*analyzer_options, *catalog, *type_factory),
-        column_factory_(column_factory) {}
-
-  // Builds the AggregateScan of the ResolvedAST for a
-  // <input> LIKE {{ANY|ALL}} <subquery>
-  // expression as detailed at (broken link)
-  // Maps to:
-  // AggregateScan
-  //   +-input_scan=SubqueryScan  // User input subquery
-  //     +-pattern_col#2=subquery_column
-  //   +-like_agg_col#3=AggregateFunctionCall(
-  //         LOGICAL_OR/AND(input_expr#1 LIKE pattern_col#2) -> BOOL)
-  //           // OR for ANY, AND for ALL
-  //   +-null_agg_col#4=AggregateFunctionCall(
-  //         LOGICAL_OR(pattern_col#2 IS NULL) -> BOOL)
-  // in the ResolvedAST
-  absl::StatusOr<std::unique_ptr<ResolvedAggregateScan>> BuildAggregateScan(
-      ResolvedColumn& input_column, ResolvedColumn& subquery_column,
-      std::unique_ptr<const ResolvedScan> input_scan,
-      ResolvedSubqueryExpr::SubqueryType subquery_type);
-
- private:
-  // Constructs a ResolvedAggregateFunctionCall for a LOGICAL_OR/AND function
-  // for use in the LIKE ANY/ALL rewriter
-  //
-  // The signature for the built-in function "logical_or" or "logical_and" must
-  // be available in <catalog> or an error status is returned
-  absl::StatusOr<std::unique_ptr<const ResolvedAggregateFunctionCall>>
-  AggregateLogicalOperation(FunctionSignatureId context_id,
-                            std::unique_ptr<const ResolvedExpr> expression);
-
-  const AnalyzerOptions* analyzer_options_;
-  Catalog* catalog_;
-  FunctionCallBuilder fn_builder_;
-  ColumnFactory* column_factory_;
-};
-
 bool IsBuiltInFunctionIdEq(const ResolvedFunctionCallBase* function_call,
                            FunctionSignatureId function_signature_id);
 
@@ -1012,6 +965,20 @@ zetasql_base::StatusBuilder MakeUnimplementedErrorAtNode(const ResolvedNode* nod
 // `column_set` because they're internal columns to `node`.
 absl::StatusOr<absl::flat_hash_set<ResolvedColumn>> GetCorrelatedColumnSet(
     const ResolvedNode& node);
+
+// Checks each expression in the `expressions` list for correlated column
+// references that link to a scope outside of that expression. This check is
+// performed by leveraging zetasql::GetCorrelatedColumnSet for each
+// expression.
+// If any expression contains such an external correlation, this function
+// returns a user-facing 'Unimplemented' error, including the location of the
+// `tvf_node`. Otherwise, it returns OkStatus.
+// See the comment for zetasql::GetCorrelatedColumnSet for details on how
+// external correlations are distinguished from internal ones (like those within
+// nested subqueries).
+absl::Status ValidateArgumentsDoNotContainCorrelation(
+    const ResolvedTVFScan* tvf_node, absl::string_view function_name,
+    absl::Span<const ResolvedExpr* /*absl_nonnull*/ const> expressions);
 
 // Wrapper to help build a ResolvedColumnRef for the given column.
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(

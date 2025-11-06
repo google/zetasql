@@ -14,14 +14,12 @@
 # limitations under the License.
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
-load("@com_google_protobuf//:protobuf.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-
-# Placeholder: load py_binary
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
 load("//zetasql/resolved_ast:build_rules.bzl", "gen_resolved_ast_files")
 
 DEFAULT_VISIBILITY = ["//zetasql:zetasql_implementation"]
@@ -39,8 +37,8 @@ py_binary(
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/flags",
         "@io_abseil_py//absl/logging",
-        "@jinja//:jinja2",
-        "@markupsafe",
+        "@pypi//jinja2",
+        "@pypi//markupsafe",
     ],
 )
 
@@ -261,8 +259,23 @@ cc_library(
         "//zetasql/common:errors",
         "//zetasql/common:thread_stack",
         "//zetasql/public:catalog",
+        "//zetasql/public/types:type",
         "@com_google_absl//absl/status:statusor",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "resolved_ast_comparator_test",
+    srcs = ["resolved_ast_comparator_test.cc"],
+    deps = [
+        ":comparator",
+        ":resolved_ast",
+        "//zetasql/base/testing:status_matchers",
+        "//zetasql/base/testing:zetasql_gtest_main",
+        "//zetasql/public/annotation:collation",
+        "//zetasql/public/types",
+        "//zetasql/public/types:type",
     ],
 )
 
@@ -316,6 +329,7 @@ cc_library(
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public:value",
+        "//zetasql/public:with_modifier_mode",
         "//zetasql/public/annotation:collation",
         "//zetasql/public/types",
         "@com_google_absl//absl/algorithm:container",
@@ -611,7 +625,7 @@ java_proto_library(
 
 py_proto_library(
     name = "resolved_ast_enums_py_pb2",
-    srcs = ["resolved_ast_enums.proto"],
+    deps = [":resolved_ast_enums_proto"],
 )
 
 proto_library(

@@ -189,10 +189,10 @@ absl::Status ResolveColumnForMeasureExpression(
       return absl::OkStatus();
     }
     ZETASQL_RET_CHECK(column->GetType() != nullptr);
-    if (column->GetType()->IsMeasureType()) {
-      return absl::InvalidArgumentError(
-          absl::StrCat("Measure expression: ", measure_expr,
-                       " cannot reference measure column: ", column->Name()));
+    if (IsOrContainsMeasure(column->GetType())) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Measure expression: ", measure_expr, " cannot reference column: ",
+          column->Name(), " which contains a measure type"));
     }
     resolved_expr_out =
         MakeResolvedExpressionColumn(column->GetType(), column_name);
@@ -290,9 +290,8 @@ absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpressionInternal(
 
   // Mark the analyzer options that we are in a context specific to analyzing
   // a measure expression.
-  InternalAnalyzerOptions::
-      SetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(
-          analyzer_options, true);
+  analyzer_options
+      .SetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(true);
 
   // Disable all rewriters when analyzing measure expressions. These rewriters
   // may result in a measure expression query shapes that the measure expression
@@ -331,7 +330,11 @@ absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpressionInternal(
   // Validate the resolved measure expression.
   const ResolvedExpr* resolved_expr = local_analyzer_output->resolved_expr();
   ZETASQL_RET_CHECK(resolved_expr != nullptr);
-  ZETASQL_RETURN_IF_ERROR(ValidateMeasureExpression(measure_expr, *resolved_expr));
+  // TODO: b/350555383 - Modify the public API to accept a measure column name
+  // and pass it to `ValidateMeasureExpression`.
+  ZETASQL_RETURN_IF_ERROR(ValidateMeasureExpression(measure_expr, *resolved_expr,
+                                            analyzer_options.language(),
+                                            /*measure_column_name=*/""));
   analyzer_output = std::move(local_analyzer_output);
   return resolved_expr;
 }

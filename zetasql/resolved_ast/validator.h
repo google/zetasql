@@ -33,6 +33,7 @@
 #include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_function.h"
 #include "zetasql/public/types/type.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -420,6 +421,11 @@ class Validator {
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedGetJsonField* get_json_field);
 
+  absl::Status ValidateResolvedGetRowFieldExpr(
+      const std::set<ResolvedColumn>& visible_columns,
+      const std::set<ResolvedColumn>& visible_parameters,
+      const ResolvedGetRowField* get_row_field);
+
   absl::Status ValidateResolvedFlatten(
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
@@ -496,6 +502,10 @@ class Validator {
       absl::Span<const std::unique_ptr<const ResolvedOutputColumn>>
           output_column_list,
       bool is_value_table);
+
+  absl::Status ValidateResolvedOutputSchema(
+      absl::Span<const ResolvedColumn> visible_columns,
+      const ResolvedOutputSchema* output_schema);
 
   absl::Status ValidateResolvedCreateSchemaStmt(
       const ResolvedCreateSchemaStmt* stmt);
@@ -770,6 +780,12 @@ class Validator {
   absl::Status ValidateResolvedSubpipelineInputScan(
       const ResolvedSubpipelineInputScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
+
+  absl::Status ValidateResolvedSubpipelineStmt(
+      const ResolvedSubpipelineStmt* subpipeline_stmt);
+
+  absl::Status ValidateResolvedStatementWithPipeOperatorsStmt(
+      const ResolvedStatementWithPipeOperatorsStmt* stmt);
 
   absl::Status ValidateResolvedWithPartitionColumns(
       const ResolvedWithPartitionColumns* with_partition_columns,
@@ -1076,6 +1092,10 @@ class Validator {
   absl::Status ValidateAggregateScanHasNoAggFunctionCall(
       const ResolvedAggregateScanBase* scan);
 
+  // Validates that the given feature is enabled for WITH modifier.
+  absl::Status ValidateFeatureIsEnabledForWithModifier(LanguageFeature feature,
+                                                       WithModifierMode mode);
+
   absl::Status ValidateResolvedCreateSequenceStmt(
       const ResolvedCreateSequenceStmt* stmt);
 
@@ -1087,11 +1107,6 @@ class Validator {
   }
 
   std::string RecordContext();
-
-  // Certain scans (e.g. ResolvedAggregateScan) are not allowed to emit MEASURE
-  // typed columns. Return an error if `scan` is not allowed to emit MEASURE
-  // typed and a MEASURE typed column is found in its `column_list`.
-  absl::Status ValidateScanCanEmitMeasureColumns(const ResolvedScan* scan);
 
   // Clears internal Validator state from prior validation.
   // `in_multi_stmt` indicates this is being called for a sub-statement inside a

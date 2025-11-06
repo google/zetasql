@@ -139,6 +139,28 @@ std::string ValidFieldInfoMap::DebugString(absl::string_view indent) const {
   return debug_string;
 }
 
+absl::Status NameTarget::SetupPrecomputedColumnIfNeeded(
+    ColumnReferenceContext context) {
+  ZETASQL_RET_CHECK(IsColumn()) << DebugString();
+  if (!delayed_column_info_.has_value() ||
+      delayed_column_info_->precompute_callback == nullptr) {
+    return absl::OkStatus();
+  }
+
+  ZETASQL_RET_CHECK(delayed_column_info_->precompute_callback != nullptr);
+  ZETASQL_ASSIGN_OR_RETURN(
+      ResolvedColumn column,
+      delayed_column_info_->precompute_callback(std::move(context)));
+  column_ = column;
+
+  // Make sure we do not call the callback again.
+  // The NameTarget should just look like any other column now, except for the
+  // extra info about its SelectColumnState.
+  delayed_column_info_->precompute_callback = nullptr;
+
+  return absl::OkStatus();
+}
+
 std::string NamedColumn::DebugString() const {
   return absl::StrCat(
       IsInternalAlias(name_) ? "<unnamed>" : ToIdentifierLiteral(name_), " ",
@@ -254,11 +276,15 @@ void NameScope::AddRangeVariable(IdString name, const NameListPtr& scan_columns,
   AddNameTarget(name, NameTarget(scan_columns, is_pattern_variable));
 }
 
-bool NameScope::LookupName(
-    IdString name, NameTarget* found,
-    CorrelatedColumnsSetList* correlated_columns_sets) const {
+bool NameScope::LookupName(IdString name, NameTarget* found,
+                           CorrelatedColumnsSetList* correlated_columns_sets,
+                           const std::vector<ExprResolutionInfo*>**
+                               out_lateral_column_reference_observers) const {
   if (correlated_columns_sets != nullptr) {
     correlated_columns_sets->clear();
+  }
+  if (out_lateral_column_reference_observers != nullptr) {
+    *out_lateral_column_reference_observers = nullptr;
   }
 
   const NameScope* current = this;
@@ -315,6 +341,15 @@ bool NameScope::LookupName(
           }
         }
       }
+      // Collect the lateral reference observers for the target.
+      // Those are the ExprResolutionInfo objects at the same level of `current`
+      // which need to know that the current expression references this
+      // NameTarget, even from within a subquery, in order to track properties
+      // such as `has_aggregation`, etc.
+      if (out_lateral_column_reference_observers != nullptr) {
+        *out_lateral_column_reference_observers =
+            &current->lateral_column_reference_observers_;
+      }
 
       return true;
     }
@@ -362,6 +397,8 @@ absl::Status NameScope::LookupNamePath(
     const char* problem_string, bool in_strict_mode,
     CorrelatedColumnsSetList& correlated_columns_sets, int* num_names_consumed,
     std::optional<IdString>& out_referenced_pattern_variable,
+    const std::vector<ExprResolutionInfo*>*&
+        out_lateral_column_reference_observers,
     NameTarget* target_out) const {
   const IdString first_name = path_expr.GetFirstIdString();
 
@@ -370,7 +407,8 @@ absl::Status NameScope::LookupNamePath(
   NameTarget target;
   // This call to LookupName() populates correlated_columns_sets if
   // the lookup resolves to a correlated column.
-  if (LookupName(first_name, &target, &correlated_columns_sets)) {
+  if (LookupName(first_name, &target, &correlated_columns_sets,
+                 &out_lateral_column_reference_observers)) {
     if (in_strict_mode && target.IsImplicit()) {
       return MakeSqlErrorAt(path_expr.first_name())
              << "Alias " << ToIdentifierLiteral(first_name)
@@ -565,7 +603,6 @@ absl::Status NameScope::LookupNamePath(
 
       case NameTarget::EXPLICIT_COLUMN:
       case NameTarget::IMPLICIT_COLUMN: {
-        // The first name is a column, so return the target.
         *target_out = target;
         *num_names_consumed = 1;
         break;
@@ -1497,6 +1534,45 @@ absl::Status NameList::AddColumn(
   if (!IsInternalAlias(name)) {
     name_scope_.AddColumn(name, column, is_explicit);
   }
+  return absl::OkStatus();
+}
+
+absl::Status NameList::AddDelayedColumn(IdString name, bool is_explicit,
+                                        DelayedColumnInfo delayed_column_info) {
+  ZETASQL_RET_CHECK(!IsInternalAlias(name));
+  ZETASQL_RET_CHECK(!is_value_table()) << "Cannot add more columns to a value table";
+  // Assign an invalid ID while this column is uninitialized.
+  size_t index = columns_.size();
+  columns_.emplace_back(name, ResolvedColumn(), is_explicit);
+
+  ZETASQL_RET_CHECK(!columns_[index].column().IsInitialized())
+      << "Column " << name.ToStringView()
+      << " already initialized: " << columns_[index].column().DebugString();
+
+  // Augment the callback to update this name list accordingly.
+  auto initial_callback = std::move(delayed_column_info.precompute_callback);
+  delayed_column_info.precompute_callback =
+      [initial_callback = std::move(initial_callback), index,
+       this](ColumnReferenceContext context) -> absl::StatusOr<ResolvedColumn> {
+    const NamedColumn& named_column = columns_[index];
+
+    // The NameTarget may have been copied. If the callback had been called
+    // already, do not perform it again.
+    if (named_column.column().IsInitialized()) {
+      return named_column.column();
+    }
+
+    // This is the first time, invoke `initial_callback`.
+    ZETASQL_ASSIGN_OR_RETURN(ResolvedColumn column, initial_callback(context));
+
+    // Update the column with the correct ResolvedColumn, in its place.
+    columns_[index] =
+        NamedColumn(named_column.name(), column, named_column.is_explicit(),
+                    named_column.excluded_field_names());
+    return column;
+  };
+  name_scope_.AddNameTarget(
+      name, NameTarget(is_explicit, std::move(delayed_column_info)));
   return absl::OkStatus();
 }
 

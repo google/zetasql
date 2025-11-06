@@ -103,19 +103,26 @@ static absl::StatusOr<const Type*> ComputePathCreateType(
     const FunctionSignature& signature,
     absl::Span<const InputArgumentType> arguments,
     const AnalyzerOptions& analyzer_options) {
-  ZETASQL_RET_CHECK_GE(arguments.size(), 1);
-  ZETASQL_RET_CHECK(absl::c_all_of(arguments, [](const InputArgumentType& arg) {
-    return arg.type()->IsGraphElement();
-  }));
+  absl::Span<const InputArgumentType> graph_element_arguments = arguments;
+  while (!graph_element_arguments.empty() &&
+         !graph_element_arguments.back().type()->IsGraphElement()) {
+    graph_element_arguments =
+        graph_element_arguments.subspan(0, graph_element_arguments.size() - 1);
+  }
+  ZETASQL_RET_CHECK(!graph_element_arguments.empty());
+  ZETASQL_RET_CHECK(
+      absl::c_all_of(graph_element_arguments, [](const InputArgumentType& arg) {
+        return arg.type()->IsGraphElement();
+      }));
   InputArgumentTypeSet node_types;
   InputArgumentTypeSet edge_types;
-  for (int i = 0; i < arguments.size(); ++i) {
+  for (int i = 0; i < graph_element_arguments.size(); ++i) {
     if (i % 2 == 0) {
-      ZETASQL_RET_CHECK(arguments[i].type()->AsGraphElement()->IsNode());
-      node_types.Insert(arguments[i]);
+      ZETASQL_RET_CHECK(graph_element_arguments[i].type()->AsGraphElement()->IsNode());
+      node_types.Insert(graph_element_arguments[i]);
     } else {
-      ZETASQL_RET_CHECK(arguments[i].type()->AsGraphElement()->IsEdge());
-      edge_types.Insert(arguments[i]);
+      ZETASQL_RET_CHECK(graph_element_arguments[i].type()->AsGraphElement()->IsEdge());
+      edge_types.Insert(graph_element_arguments[i]);
     }
   }
   Coercer coercer(type_factory, &analyzer_options.language(), catalog);
@@ -348,11 +355,13 @@ void GetGraphFunctions(TypeFactory* type_factory,
                      .set_compute_result_type_callback(ComputePathNodeType));
 
   InsertFunction(functions, options, "path", Function::SCALAR,
-                 {{ARG_TYPE_ARBITRARY,
-                   {ARG_TYPE_GRAPH_NODE,
-                    {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
-                    {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
-                   FN_PATH_CREATE}},
+                 {
+                     {ARG_TYPE_ARBITRARY,
+                      {ARG_TYPE_GRAPH_NODE,
+                       {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
+                       {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
+                      FN_PATH_CREATE},
+                 },
                  FunctionOptions()
                      .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
                      .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
@@ -384,18 +393,21 @@ void GetGraphFunctions(TypeFactory* type_factory,
                      .set_supports_safe_error_mode(false)
                      .set_sql_name("IS_SIMPLE"));
 
-  InsertFunction(functions, options, "$unchecked_path", Function::SCALAR,
-                 {{ARG_TYPE_ARBITRARY,
-                   {ARG_TYPE_GRAPH_NODE,
-                    {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
-                    {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
-                   FN_UNCHECKED_PATH_CREATE,
-                   FunctionSignatureOptions().set_is_internal(true)}},
-                 FunctionOptions()
-                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
-                     .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
-                     .set_supports_safe_error_mode(false)
-                     .set_compute_result_type_callback(ComputePathCreateType));
+  InsertFunction(
+      functions, options, "$unchecked_path", Function::SCALAR,
+      {
+          {ARG_TYPE_ARBITRARY,
+           {ARG_TYPE_GRAPH_NODE,
+            {ARG_TYPE_GRAPH_EDGE, FunctionArgumentType::REPEATED},
+            {ARG_TYPE_GRAPH_NODE, FunctionArgumentType::REPEATED}},
+           FN_UNCHECKED_PATH_CREATE,
+           FunctionSignatureOptions().set_is_internal(true)},
+      },
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
+          .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH_PATH_TYPE)
+          .set_supports_safe_error_mode(false)
+          .set_compute_result_type_callback(ComputePathCreateType));
 
   InsertFunction(
       functions, options, "$path_concat", Function::SCALAR,

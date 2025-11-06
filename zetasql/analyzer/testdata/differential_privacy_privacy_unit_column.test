@@ -1,5 +1,5 @@
 # Selecting privacy unit column from table.
-[default language_features=MAXIMUM,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+NUMERIC_TYPE]
+[default language_features=NONE,+DIFFERENTIAL_PRIVACY,+NAMED_ARGUMENTS,+NUMERIC_TYPE]
 [default enabled_ast_rewrites=DEFAULTS,+ANONYMIZATION]
 select with differential_privacy options(privacy_unit_column=`int64`) count(*)
 from SimpleTypes;
@@ -879,3 +879,87 @@ QueryStmt
         +-group_selection_threshold_expr=
           +-ColumnRef(type=INT64, column=$differential_privacy.$group_selection_threshold_col#8)
 ==
+
+# In case the `privacy_unit_column` option does not support grouping, we return
+# an error. The rewriter must be able to group by the `privacy_unit_column` for
+# contribution bounding.
+[parse_location_record_type=PARSE_LOCATION_RECORD_CODE_SEARCH]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
+  privacy_unit_column = struct_col)
+grp
+FROM (
+  SELECT (
+    SELECT AS STRUCT
+      1 AS first_dimension,
+      'a' AS second_dimension
+  ) AS struct_col,
+  'group1' AS grp
+)
+GROUP BY grp;
+--
+[PRE-REWRITE AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.grp#6 AS grp [STRING]
++-query=
+  +-ProjectScan
+    +-parse_location=0-231
+    +-column_list=[$groupby.grp#6]
+    +-input_scan=
+      +-DifferentialPrivacyAggregateScan
+        +-column_list=[$groupby.grp#6]
+        +-input_scan=
+        | +-ProjectScan
+        |   +-parse_location=92-216
+        |   +-column_list=$subquery1.[struct_col#4, grp#5]
+        |   +-expr_list=
+        |   | +-struct_col#4 :=
+        |   | | +-SubqueryExpr
+        |   | |   +-parse_location=105-179
+        |   | |   +-type=STRUCT<first_dimension INT64, second_dimension STRING>
+        |   | |   +-subquery_type=SCALAR
+        |   | |   +-subquery=
+        |   | |     +-ProjectScan
+        |   | |       +-parse_location=105-179
+        |   | |       +-column_list=[$make_struct.$struct#3]
+        |   | |       +-expr_list=
+        |   | |       | +-$struct#3 :=
+        |   | |       |   +-MakeStruct
+        |   | |       |     +-type=STRUCT<first_dimension INT64, second_dimension STRING>
+        |   | |       |     +-field_list=
+        |   | |       |       +-ColumnRef(type=INT64, column=$expr_subquery.first_dimension#1)
+        |   | |       |       +-ColumnRef(type=STRING, column=$expr_subquery.second_dimension#2)
+        |   | |       +-input_scan=
+        |   | |         +-ProjectScan
+        |   | |           +-column_list=$expr_subquery.[first_dimension#1, second_dimension#2]
+        |   | |           +-expr_list=
+        |   | |           | +-first_dimension#1 := Literal(parse_location=128-129, type=INT64, value=1)
+        |   | |           | +-second_dimension#2 := Literal(parse_location=156-159, type=STRING, value="a")
+        |   | |           +-input_scan=
+        |   | |             +-SingleRowScan
+        |   | +-grp#5 := Literal(parse_location=201-209, type=STRING, value="group1")
+        |   +-input_scan=
+        |     +-SingleRowScan
+        +-group_by_list=
+        | +-grp#6 := ColumnRef(parse_location=79-82, type=STRING, column=$subquery1.grp#5)
+        +-option_list=
+          +-privacy_unit_column=
+            +-parse_location=45-77
+            +-ColumnRef(parse_location=67-77, type=STRUCT<first_dimension INT64, second_dimension STRING>, column=$subquery1.struct_col#4)
+[REPLACED_LITERALS]
+SELECT WITH DIFFERENTIAL_PRIVACY OPTIONS (
+  privacy_unit_column = struct_col)
+grp
+FROM (
+  SELECT (
+    SELECT AS STRUCT
+      @_p0_INT64 AS first_dimension,
+      @_p1_STRING AS second_dimension
+  ) AS struct_col,
+  @_p2_STRING AS grp
+)
+GROUP BY grp;
+
+Rewrite ERROR: User id columns must support grouping, instead got type STRUCT [at 2:25]
+  privacy_unit_column = struct_col)
+                        ^

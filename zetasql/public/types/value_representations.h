@@ -205,12 +205,12 @@ class ValueContentOrderedListRef final
 
   const ValueContentOrderedList* value() const { return container_.get(); }
 
-  const uint64_t physical_byte_size() const {
+  uint64_t physical_byte_size() const {
     return sizeof(ValueContentOrderedListRef) +
            container_->physical_byte_size();
   }
 
-  const bool preserves_order() const { return preserves_order_; }
+  bool preserves_order() const { return preserves_order_; }
 
  private:
   const std::unique_ptr<ValueContentOrderedList> container_;
@@ -245,11 +245,11 @@ class ProtoRep final
 class GeographyRef final
     : public zetasql_base::refcount::CompactReferenceCounted<GeographyRef, int64_t> {
  public:
-  GeographyRef() {}
+  GeographyRef() = default;
   GeographyRef(const GeographyRef&) = delete;
   GeographyRef& operator=(const GeographyRef&) = delete;
 
-  const uint64_t physical_byte_size() const {
+  uint64_t physical_byte_size() const {
     return sizeof(GeographyRef);
   }
 };
@@ -260,7 +260,7 @@ class GeographyRef final
 class NumericRef final
     : public zetasql_base::refcount::CompactReferenceCounted<NumericRef, int64_t> {
  public:
-  NumericRef() {}
+  NumericRef() = default;
   explicit NumericRef(const NumericValue& value) : value_(value) {}
 
   NumericRef(const NumericRef&) = delete;
@@ -278,7 +278,7 @@ class NumericRef final
 class BigNumericRef final
     : public zetasql_base::refcount::CompactReferenceCounted<BigNumericRef, int64_t> {
  public:
-  BigNumericRef() {}
+  BigNumericRef() = default;
   explicit BigNumericRef(const BigNumericValue& value) : value_(value) {}
 
   BigNumericRef(const BigNumericRef&) = delete;
@@ -315,7 +315,7 @@ class TimestampPicosRef final
 class IntervalRef final
     : public zetasql_base::refcount::CompactReferenceCounted<IntervalRef, int64_t> {
  public:
-  IntervalRef() {}
+  IntervalRef() = default;
   explicit IntervalRef(const IntervalValue& value) : value_(value) {}
 
   IntervalRef(const IntervalRef&) = delete;
@@ -360,7 +360,7 @@ class JSONRef final
     : public zetasql_base::refcount::CompactReferenceCounted<JSONRef, int64_t> {
  public:
   // Constructs a JSON value holding a null JSON document.
-  JSONRef() {}
+  JSONRef() = default;
   // Constructs a JSON value holding an unparsed JSON string. The constructor
   // does not verify if 'str' is a valid JSON document.
   explicit JSONRef(std::string value) : value_(std::move(value)) {}
@@ -414,7 +414,7 @@ class JSONRef final
 class TokenListRef final
     : public zetasql_base::refcount::CompactReferenceCounted<TokenListRef, int64_t> {
  public:
-  TokenListRef() {}
+  TokenListRef() = default;
   explicit TokenListRef(tokens::TokenList value) : value_(std::move(value)) {}
 
   TokenListRef(const TokenListRef&) = delete;

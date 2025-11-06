@@ -714,9 +714,11 @@ absl::Status GetArrayFindFunctions(
         FN_ARRAY_OFFSET_LAMBDA,
         SetDefinitionForInlining(kArrayOffsetLambdaSql)
             .set_uses_operation_collation()}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ARRAY_FIND_FUNCTIONS)
+          .set_supports_safe_error_mode(
+              options.language_options.LanguageFeatureEnabled(
+                  FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
       /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayOffsetsSql = R"sql(
@@ -750,9 +752,11 @@ absl::Status GetArrayFindFunctions(
                    FN_ARRAY_OFFSETS_LAMBDA,
                    SetDefinitionForInlining(kArrayOffsetsLambdaSql)
                        .set_uses_operation_collation()}},
-                 FunctionOptions().set_supports_safe_error_mode(
-                     options.language_options.LanguageFeatureEnabled(
-                         FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+                 FunctionOptions()
+                     .AddRequiredLanguageFeature(FEATURE_ARRAY_FIND_FUNCTIONS)
+                     .set_supports_safe_error_mode(
+                         options.language_options.LanguageFeatureEnabled(
+                             FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   constexpr absl::string_view kArrayFindSql = R"sql(
       IF(
@@ -819,9 +823,11 @@ absl::Status GetArrayFindFunctions(
         FN_ARRAY_FIND_LAMBDA,
         SetDefinitionForInlining(kArrayFindLambdaSql)
             .set_uses_operation_collation()}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ARRAY_FIND_FUNCTIONS)
+          .set_supports_safe_error_mode(
+              options.language_options.LanguageFeatureEnabled(
+                  FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)),
       /*types_to_insert=*/{array_find_mode_type}));
 
   constexpr absl::string_view kArrayFindAllSql = R"sql(
@@ -858,9 +864,11 @@ absl::Status GetArrayFindFunctions(
         FN_ARRAY_FIND_ALL_LAMBDA,
         SetDefinitionForInlining(kArrayFindAllLambdaSql)
             .set_uses_operation_collation()}},
-      FunctionOptions().set_supports_safe_error_mode(
-          options.language_options.LanguageFeatureEnabled(
-              FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
+      FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ARRAY_FIND_FUNCTIONS)
+          .set_supports_safe_error_mode(
+              options.language_options.LanguageFeatureEnabled(
+                  FEATURE_SAFE_FUNCTION_CALL_WITH_LAMBDA_ARGS)));
 
   return absl::OkStatus();
 }
@@ -1711,6 +1719,7 @@ absl::Status GetArrayZipFunctions(
   return InsertFunctionAndTypes(
       functions, types, options, "array_zip", Function::SCALAR, signatures,
       FunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_ARRAY_ZIP)
           .set_supports_safe_error_mode(
               // `supports_safe_error_mode` is set at the function level, not
               // the signature level. So, even though ARRAY_ZIP has signatures

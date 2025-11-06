@@ -78,7 +78,7 @@ using parser::MacroExpansionMode;
 class RunParserTest : public ::testing::Test {
  public:  // Pointer-to-member-function usage requires public member functions
   // Valid options in the case cases:
-  //   mode - "statement" (default) or "expression" or "type" or "subpipeline"
+  //   mode - "statement" (default) or "expression" or "type"
   const std::string kModeOption = "mode";
   // Strips off the trailing newlines added at the end of a test query when set
   // to true. On false (default) does nothing.
@@ -691,6 +691,16 @@ class RunParserTest : public ::testing::Test {
 
     // The NodeKind on the AST should match that in the extracted properties.
     ASTNodeKind found_statement_kind = statement->node_kind();
+    if (found_statement_kind == AST_STATEMENT_WITH_PIPE_OPERATORS) {
+      // ASTStatementWithPipeOperators isn't detected in GetNextStatementKind
+      // because it's a wrapper holding pipe operator suffixes.
+      // Unwrap it to get the underlying statement kind which is identified
+      // from the statement prefix.
+      found_statement_kind =
+          statement->GetAsOrDie<ASTStatementWithPipeOperators>()
+              ->statement()
+              ->node_kind();
+    }
     EXPECT_EQ(found_statement_kind, extracted_statement_properties.node_kind);
     if (found_statement_kind != extracted_statement_properties.node_kind) {
       test_outputs->push_back(absl::StrCat(
@@ -956,13 +966,12 @@ class RunParserTest : public ::testing::Test {
                        .stability = GetDefaultErrorMessageStability()},
                       parser_output));
     } else if (mode == "expression") {
+      ZETASQL_ASSIGN_OR_RETURN(ParserOptions expr_parser_options, GetParserOptions());
       ZETASQL_RETURN_IF_ERROR(
-          ParseExpression(test_case, parser_options, parser_output));
+          ParseExpression(test_case, expr_parser_options, parser_output));
     } else if (mode == "type") {
-      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, parser_options, parser_output));
-    } else if (mode == "subpipeline") {
-      ZETASQL_RETURN_IF_ERROR(
-          ParseSubpipeline(test_case, parser_options, parser_output));
+      ZETASQL_ASSIGN_OR_RETURN(ParserOptions type_parser_options, GetParserOptions());
+      ZETASQL_RETURN_IF_ERROR(ParseType(test_case, type_parser_options, parser_output));
     } else {
       return ::zetasql_base::UnknownErrorBuilder() << "Invalid parse mode: " << mode;
     }

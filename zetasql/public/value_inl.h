@@ -65,6 +65,7 @@
 #include "zetasql/base/map_util.h"
 #include "zetasql/base/compact_reference_counted.h"
 #include "zetasql/base/ret_check.h"
+#include "zetasql/base/status_macros.h"
 
 namespace zetasql {
 
@@ -173,7 +174,8 @@ class Value::GraphElementValue final
                     std::vector<Value> properties,
                     ValidPropertyNameToIndexMap property_name_to_index,
                     std::vector<std::string> labels,
-                    std::string definition_name)
+                    std::string definition_name
+                    )
       : type_(type),
         identifier_(std::move(identifier)),
         properties_(std::move(properties)),
@@ -190,7 +192,8 @@ class Value::GraphElementValue final
                     std::vector<std::string> labels,
                     std::string definition_name,
                     std::string source_node_identifier,
-                    std::string dest_node_identifier)
+                    std::string dest_node_identifier
+                    )
       : type_(type),
         identifier_(std::move(identifier)),
         properties_(std::move(properties)),
@@ -289,14 +292,16 @@ class Value::GraphElementValue final
   int64_t num_elements() const override { return properties_.num_elements(); }
 
   uint64_t physical_byte_size() const override {
-    return absl::c_accumulate(
-        labels_,
-        sizeof(GraphElementValue) + identifier_.length() +
-            definition_name_.length() + source_node_identifier_.length() +
-            dest_node_identifier_.length() + properties_.physical_byte_size(),
-        [](uint64_t size, absl::string_view label) {
-          return size + label.length();
-        });
+    return absl::c_accumulate(labels_,
+                              sizeof(GraphElementValue) + identifier_.length() +
+                                  definition_name_.length() +
+                                  source_node_identifier_.length() +
+                                  dest_node_identifier_.length() +
+                                  properties_.physical_byte_size()
+                              ,
+                              [](uint64_t size, absl::string_view label) {
+                                return size + label.length();
+                              });
   }
 
   // GraphElementContainer implementation:
@@ -433,7 +438,8 @@ inline const Value& Value::operator=(const Value& that) {
 #pragma GCC diagnostic ignored "-Wclass-memaccess"
 #endif
 inline Value::Value(Value&& that) noexcept {  // NOLINT(build/c++11)
-  memcpy(this, &that, sizeof(Value));
+  memcpy(static_cast<void*>(this), static_cast<const void*>(&that),
+         sizeof(Value));
   // Invalidate 'that' to disable its destructor.
   that.metadata_ = Metadata::Invalid();
 }
@@ -445,7 +451,8 @@ inline Value::Value(Value&& that) noexcept {  // NOLINT(build/c++11)
 inline Value& Value::operator=(Value&& that) noexcept {  // NOLINT(build/c++11)
   // Clear "this" to destroy all pointers.
   Clear();
-  memcpy(this, &that, sizeof(Value));
+  memcpy(static_cast<void*>(this), static_cast<const void*>(&that),
+         sizeof(Value));
   // Invalidate 'that' to disable its destructor.
   that.metadata_ = Metadata::Invalid();
   return *this;
@@ -576,7 +583,9 @@ inline absl::StatusOr<Value> Value::MakeGraphNode(
   return MakeGraphElement(graph_element_type, std::string(identifier),
                           labels_and_properties, std::string(definition_name),
                           /*source_node_identifier=*/"",
-                          /*dest_node_identifier=*/"");
+                          /*dest_node_identifier=*/
+                          ""
+  );
 }
 
 inline absl::StatusOr<Value> Value::MakeGraphEdge(
@@ -587,7 +596,8 @@ inline absl::StatusOr<Value> Value::MakeGraphEdge(
   return MakeGraphElement(graph_element_type, std::string(identifier),
                           labels_and_properties, std::string(definition_name),
                           std::string(source_node_identifier),
-                          std::string(dest_node_identifier));
+                          std::string(dest_node_identifier)
+  );
 }
 
 inline absl::StatusOr<Value> Value::MakeMap(

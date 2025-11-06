@@ -46,7 +46,7 @@ ResolvedASTRewriteVisitor::DefaultVisit(
  # set default_visit_ns = namespace(found=false)
  # for field in (node.fields + node.inherited_fields)
   {# TODO: Handle enums and other similar things? #}
-  # if (field.is_node_ptr or field.is_node_vector or field.is_resolved_column or field.is_resolved_column_vector) and default_visit_ns.found == false
+  # if (field.is_node_ptr or field.is_node_vector or field.include_scalar_rewriter) and default_visit_ns.found == false
    {# The first time we actually need a builder, create one. #}
    # set default_visit_ns.found=true
   {{node.builder_name}} builder = ToBuilder(std::move(node));
@@ -81,7 +81,7 @@ ResolvedASTRewriteVisitor::DefaultVisit(
                  std::move(tmp)));
     builder.set_{{field.name}}(std::move(tmp));
   }
-  # elif field.is_resolved_column_vector
+  # elif field.include_scalar_rewriter and field.is_vector
   if (!builder.{{field.name}}().empty()) {
     {{field.member_type}} tmp = builder.release_{{field.name}}();
     for (int i = 0; i < tmp.size(); ++i) {
@@ -89,7 +89,7 @@ ResolvedASTRewriteVisitor::DefaultVisit(
     }
     builder.set_{{field.name}}(std::move(tmp));
   }
-  # elif field.is_resolved_column
+  # elif field.include_scalar_rewriter and not field.is_vector
   builder.set_{{field.name}}(DefaultVisit(builder.{{field.name}}()));
   # endif
  # endfor
@@ -108,6 +108,12 @@ absl::StatusOr<ResolvedColumn>
 ResolvedASTRewriteVisitor::DefaultVisit(ResolvedColumn column) {
   ZETASQL_RETURN_IF_ERROR(PreVisitResolvedColumn(column));
   return PostVisitResolvedColumn(std::move(column));
+}
+
+absl::StatusOr<const Type*>
+ResolvedASTRewriteVisitor::DefaultVisit(const Type* type) {
+  ZETASQL_RETURN_IF_ERROR(PreVisitType(type));
+  return PostVisitType(type);
 }
 # endif
 

@@ -518,6 +518,74 @@ std::vector<FunctionTestCall> GetFunctionTestsLastDay() {
       };
 }
 
+std::vector<FunctionTestCall> GetFunctionTestsNextDay() {
+  struct testcase {
+    std::string input;
+    std::string dow;
+    std::string result;
+    absl::StatusCode code = absl::StatusCode::kOk;
+  };
+  std::vector<testcase> testcases = {
+      // Test every day of the week (including the case that the input day is
+      // already that day of week).
+      {"2025-09-30", "Mon", "2025-10-06"},
+      {"2025-09-30", "Monday", "2025-10-06"},
+      {"2025-09-30", "Tue", "2025-10-07"},  // Already a Tuesday.
+      {"2025-09-30", "Tuesday", "2025-10-07"},
+      {"2025-09-30", "Wed", "2025-10-01"},
+      {"2025-09-30", "Wednesday", "2025-10-01"},
+      {"2025-09-30", "Thu", "2025-10-02"},
+      {"2025-09-30", "Thursday", "2025-10-02"},
+      {"2025-09-30", "Fri", "2025-10-03"},
+      {"2025-09-30", "Friday", "2025-10-03"},
+      {"2025-09-30", "Sat", "2025-10-04"},
+      {"2025-09-30", "Saturday", "2025-10-04"},
+      {"2025-09-30", "Sun", "2025-10-05"},
+      {"2025-09-30", "Sunday", "2025-10-05"},
+      // Test some case and length combinations.
+      {"2025-09-08", "fRiDAY", "2025-09-12"},
+      {"2025-09-08", "FRI", "2025-09-12"},
+      // Test invalid day of week.
+      {"2025-09-19", "Ahoy", "2025-09-19", absl::StatusCode::kOutOfRange},
+      // Test near- and out-of-range.
+      {"0001-01-01", "Mon", "0001-01-08"},
+      {"9999-12-24", "Fri", "9999-12-31"},
+      {"9999-12-31", "Wed", "9999-12-31", absl::StatusCode::kOutOfRange},
+  };
+  auto next_day_date_test = [](QueryParamsWithResult params) {
+    return FunctionTestCall(
+        "next_day",
+        params.AddRequiredFeature(FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS));
+  };
+  auto next_day_datetime_test = [](QueryParamsWithResult params) {
+    return FunctionTestCall(
+        "next_day",
+        params.AddRequiredFeatures(
+            {FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS, FEATURE_CIVIL_TIME}));
+  };
+
+  std::vector<FunctionTestCall> tests;
+  // Tests for NULL params.
+  tests.push_back(
+      next_day_date_test({{NullDate(), String("Sun")}, NullDate()}));
+  tests.push_back(next_day_date_test(
+      {{DateFromStr("1998-09-04"), NullString()}, NullDate()}));
+  tests.push_back(next_day_date_test({{NullDate(), NullString()}, NullDate()}));
+
+  // The DATE and DATETIME tests.
+  for (auto& tc : testcases) {
+    tests.push_back(next_day_date_test({{DateFromStr(tc.input), String(tc.dow)},
+                                        DateFromStr(tc.result),
+                                        tc.code}));
+    tests.push_back(next_day_datetime_test(
+        {{DatetimeFromStr(tc.input + " 01:33:12"), String(tc.dow)},
+         DateFromStr(tc.result),
+         tc.code}));
+  }
+
+  return tests;
+}
+
 std::vector<FunctionTestCall> GetFunctionTestsAddMonths() {
   struct testcase {
     std::string input;

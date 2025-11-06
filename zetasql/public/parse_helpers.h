@@ -61,6 +61,8 @@ absl::Status IsValidNextStatementSyntax(
 // Returns a ResolvedNodeKind enum for one of the subclasses of
 // ResolvedStatement.  e.g. RESOLVED_QUERY_STMT or RESOLVED_EXPLAIN_STMT.
 //
+// For a subpipeline (starting with "|>"), returns RESOLVED_SUBPIPELINE_STMT.
+//
 // If <input> cannot be any known statement type, returns RESOLVED_LITERAL
 // (a non-statement) as a sentinel.
 ResolvedNodeKind GetStatementKind(
@@ -146,6 +148,15 @@ absl::Status GetNextStatementProperties(
 // statement, `*at_end_of_input` will be set to true and the byte offset will
 // point to the end of the input.  Otherwise, `*at_end_of_input` will be set
 // to false and the byte offset will point to the character after the semicolon.
+//
+// Note: This function identifies statement boundaries primarily by semicolons.
+// Procedural statements (e.g., BEGIN...END blocks) can internally contain
+// multiple statements, each terminated by a semicolon. Using SkipNextStatement
+// on a string containing such a procedural statement may result in the
+// skipping logic concluding prematurely at the first encountered semicolon
+// within the block, rather than at the end of the entire procedural statement.
+// Therefore, it is not recommended to use this function within procedural
+// statements, since the skip result might not be a real statement boundary.
 absl::Status SkipNextStatement(ParseResumeLocation* resume_location,
                                bool* at_end_of_input);
 
@@ -198,6 +209,23 @@ GetTopLevelTableNameFromNextDDLStatement(
 absl::StatusOr<std::vector<absl::string_view> >
 ListSelectColumnExpressionsFromFinalSelectClause(
     absl::string_view sql, const LanguageOptions& language_options);
+
+#ifndef SWIG
+// Returns function names referenced in the given SQL statement.
+// Performs a lightweight and best-effort extraction of things that look like
+// function names from the given SQL statement. There may be some
+// false-negatives or false-positives due to details which cannot be determined
+// without fully analyzing the query; if correctness is a requirement, then code
+// should build a Catalog and call the Analyzer APIs instead. This function will
+// filter out some false-positives due to language features that look like
+// functions in the syntax (e.g. `FLATTEN(...)`), but which are actually not
+// functions.
+// The returned set contains the function name parts as lower case in a vector,
+// e.g. {{"foo"}, {"bar", "baz"}, {"z", "fn", "qux"}}.
+absl::StatusOr<absl::flat_hash_set<std::vector<std::string>>>
+ListReferencedFunctionsInStatement(absl::string_view sql,
+                                   const LanguageOptions& language_options);
+#endif  // SWIG
 
 }  // namespace zetasql
 

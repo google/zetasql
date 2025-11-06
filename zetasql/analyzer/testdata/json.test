@@ -282,7 +282,7 @@ SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][KEY("a")]
 --
 ALTERNATION GROUP: SAFE_KEY("a")
 --
-ERROR: Subscript access using [KEY(STRING)] is not supported on values of type JSON [at 2:49]
+ERROR: Subscript access using [SAFE_KEY(STRING)] is not supported on values of type JSON [at 2:49]
 SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[0][SAFE_KEY("a")]
                                                 ^
 ==
@@ -305,13 +305,13 @@ SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[ORDINAL(1)]["a"]
 --
 ALTERNATION GROUP: SAFE_OFFSET(0)
 --
-ERROR: Subscript access using [OFFSET(INT64)] is not supported on values of type JSON [at 2:46]
+ERROR: Subscript access using [SAFE_OFFSET(INT64)] is not supported on values of type JSON [at 2:46]
 SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[SAFE_OFFSET(0)]["a"]
                                              ^
 --
 ALTERNATION GROUP: SAFE_ORDINAL(1)
 --
-ERROR: Subscript access using [ORDINAL(INT64)] is not supported on values of type JSON [at 2:46]
+ERROR: Subscript access using [SAFE_ORDINAL(INT64)] is not supported on values of type JSON [at 2:46]
 SELECT (JSON '[{"a": "foo"}, {"a": "bar"}]')[SAFE_ORDINAL(1)]["a"]
                                              ^
 ==

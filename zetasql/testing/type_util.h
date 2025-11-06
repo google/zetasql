@@ -20,8 +20,7 @@
 #include <string>
 #include <vector>
 
-#include "absl/base/attributes.h"
-#include "google/protobuf/compiler/importer.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 
@@ -35,13 +34,8 @@ bool HasFloatingPointNumber(const zetasql::Type* type);
 
 // Returns the list of complex Types used during compliance testing.
 std::vector<const Type*> ZetaSqlComplexTestTypes(
-    zetasql::TypeFactory* type_factory, google::protobuf::compiler::Importer* importer);
-
-// This is only here until external callers are migrated to the proper overload
-// which accepts an importer.
-ABSL_DEPRECATED("Use the overload that accepts an importer.")
-std::vector<const Type*> ZetaSqlComplexTestTypes(
-    zetasql::TypeFactory* type_factory);
+    zetasql::TypeFactory* type_factory,
+    const ::google::protobuf::DescriptorPool* descriptor_pool);
 
 // Returns the list of proto files used during compliance testing to create
 // complex types.

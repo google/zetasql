@@ -1688,33 +1688,51 @@ select 'a' LIKE ALL (select 'a')
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 1 LIKE {{ANY|SOME|ALL}} (select 1)
+select 1 {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select 1)
 --
-ALTERNATION GROUP: ANY
+ALTERNATION GROUP: LIKE,ANY
 --
 ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
 select 1 LIKE ANY (select 1)
        ^
 --
-ALTERNATION GROUP: SOME
+ALTERNATION GROUP: LIKE,SOME
 --
 ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
 select 1 LIKE SOME (select 1)
        ^
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: LIKE,ALL
 --
 ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
 select 1 LIKE ALL (select 1)
        ^
+--
+ALTERNATION GROUP: NOT LIKE,ANY
+--
+ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
+select 1 NOT LIKE ANY (select 1)
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,SOME
+--
+ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
+select 1 NOT LIKE SOME (select 1)
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+ERROR: Cannot execute a LIKE expression subquery with types INT64 and INT64 [at 1:8]
+select 1 NOT LIKE ALL (select 1)
+       ^
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 'a' LIKE {{ANY|SOME|ALL}} (select 'a')
+select 'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select 'a')
 --
 ALTERNATION GROUPS:
-    ANY
-    SOME
+    LIKE,ANY
+    LIKE,SOME
 --
 QueryStmt
 +-output_column_list=
@@ -1740,7 +1758,7 @@ QueryStmt
       +-SingleRowScan
 
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: LIKE,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -1765,14 +1783,66 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
+--
+ALTERNATION GROUPS:
+    NOT LIKE,ANY
+    NOT LIKE,SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ANY
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="a")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#1]
+    |         +-expr_list=
+    |         | +-$col1#1 := Literal(type=STRING, value="a")
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ALL
+    |     +-in_expr=
+    |     | +-Literal(type=STRING, value="a")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#1]
+    |         +-expr_list=
+    |         | +-$col1#1 := Literal(type=STRING, value="a")
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select b'a' LIKE {{ANY|SOME|ALL}} (select b'a')
+select b'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select b'a')
 --
 ALTERNATION GROUPS:
-    ANY
-    SOME
+    LIKE,ANY
+    LIKE,SOME
 --
 QueryStmt
 +-output_column_list=
@@ -1798,7 +1868,7 @@ QueryStmt
       +-SingleRowScan
 
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: LIKE,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -1823,74 +1893,134 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 
+--
+ALTERNATION GROUPS:
+    NOT LIKE,ANY
+    NOT LIKE,SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ANY
+    |     +-in_expr=
+    |     | +-Literal(type=BYTES, value=b"a")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#1]
+    |         +-expr_list=
+    |         | +-$col1#1 := Literal(type=BYTES, value=b"a")
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#2 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#2]
+    +-expr_list=
+    | +-$col1#2 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ALL
+    |     +-in_expr=
+    |     | +-Literal(type=BYTES, value=b"a")
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#1]
+    |         +-expr_list=
+    |         | +-$col1#1 := Literal(type=BYTES, value=b"a")
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select b'a' LIKE {{ANY|SOME|ALL}} (select 'test')
+select b'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select 'test')
 --
-ALTERNATION GROUP: ANY
+ALTERNATION GROUP: LIKE,ANY
 --
 ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
 select b'a' LIKE ANY (select 'test')
        ^
 --
-ALTERNATION GROUP: SOME
+ALTERNATION GROUP: LIKE,SOME
 --
 ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
 select b'a' LIKE SOME (select 'test')
        ^
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: LIKE,ALL
 --
 ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
 select b'a' LIKE ALL (select 'test')
        ^
+--
+ALTERNATION GROUP: NOT LIKE,ANY
+--
+ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
+select b'a' NOT LIKE ANY (select 'test')
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,SOME
+--
+ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
+select b'a' NOT LIKE SOME (select 'test')
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+ERROR: Cannot execute a LIKE expression subquery with types BYTES and STRING [at 1:8]
+select b'a' NOT LIKE ALL (select 'test')
+       ^
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 'a' NOT LIKE ANY (select 'b')
+select 'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select 'a', 'b')
 --
-QueryStmt
-+-output_column_list=
-| +-$query.$col1#2 AS `$col1` [BOOL]
-+-query=
-  +-ProjectScan
-    +-column_list=[$query.$col1#2]
-    +-expr_list=
-    | +-$col1#2 :=
-    |   +-SubqueryExpr
-    |     +-type=BOOL
-    |     +-subquery_type=LIKE_ANY
-    |     +-in_expr=
-    |     | +-Literal(type=STRING, value="a")
-    |     +-subquery=
-    |       +-ProjectScan
-    |         +-column_list=[$expr_subquery.$col1#1]
-    |         +-expr_list=
-    |         | +-$col1#1 := Literal(type=STRING, value="b")
-    |         +-input_scan=
-    |           +-SingleRowScan
-    +-input_scan=
-      +-SingleRowScan
-
-==
-
-[language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 'a' NOT LIKE {{ANY|SOME|ALL}} (select 'a', 'b')
+ALTERNATION GROUP: LIKE,ANY
 --
-ALTERNATION GROUP: ANY
+ERROR: Subquery of a LIKE expression must have only one output column [at 1:21]
+select 'a' LIKE ANY (select 'a', 'b')
+                    ^
+--
+ALTERNATION GROUP: LIKE,SOME
+--
+ERROR: Subquery of a LIKE expression must have only one output column [at 1:22]
+select 'a' LIKE SOME (select 'a', 'b')
+                     ^
+--
+ALTERNATION GROUP: LIKE,ALL
+--
+ERROR: Subquery of a LIKE expression must have only one output column [at 1:21]
+select 'a' LIKE ALL (select 'a', 'b')
+                    ^
+--
+ALTERNATION GROUP: NOT LIKE,ANY
 --
 ERROR: Subquery of a LIKE expression must have only one output column [at 1:25]
 select 'a' NOT LIKE ANY (select 'a', 'b')
                         ^
 --
-ALTERNATION GROUP: SOME
+ALTERNATION GROUP: NOT LIKE,SOME
 --
 ERROR: Subquery of a LIKE expression must have only one output column [at 1:26]
 select 'a' NOT LIKE SOME (select 'a', 'b')
                          ^
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: NOT LIKE,ALL
 --
 ERROR: Subquery of a LIKE expression must have only one output column [at 1:25]
 select 'a' NOT LIKE ALL (select 'a', 'b')
@@ -1898,11 +2028,14 @@ select 'a' NOT LIKE ALL (select 'a', 'b')
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 'a' LIKE {{ANY|SOME|ALL}} ( (select 'a'), (select 'b') )
+# This is not a subquery, leaving the LIKE_ANY_SOME_ALL_SUBQUERY feature
+# enabled to ensure that the output is related to the input rather than the
+# LIKE_ANY_SOME_ALL_SUBQUERY feature being enabled.
+select 'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} ( (select 'a'), (select 'b') )
 --
 ALTERNATION GROUPS:
-    ANY
-    SOME
+    LIKE,ANY
+    LIKE,SOME
 --
 QueryStmt
 +-output_column_list=
@@ -2033,7 +2166,7 @@ QueryStmt
     +-input_scan=
       +-SingleRowScan
 --
-ALTERNATION GROUP: ALL
+ALTERNATION GROUP: LIKE,ALL
 --
 QueryStmt
 +-output_column_list=
@@ -2164,14 +2297,285 @@ QueryStmt
     |               +-SingleRowScan
     +-input_scan=
       +-SingleRowScan
+--
+ALTERNATION GROUPS:
+    NOT LIKE,ANY
+    NOT LIKE,SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_any(STRING, repeated(2) STRING) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-SubqueryExpr
+    |     | +-type=STRING
+    |     | +-subquery_type=SCALAR
+    |     | +-subquery=
+    |     |   +-ProjectScan
+    |     |     +-column_list=[$expr_subquery.$col1#1]
+    |     |     +-expr_list=
+    |     |     | +-$col1#1 := Literal(type=STRING, value="a")
+    |     |     +-input_scan=
+    |     |       +-SingleRowScan
+    |     +-SubqueryExpr
+    |       +-type=STRING
+    |       +-subquery_type=SCALAR
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[$expr_subquery.$col1#2]
+    |           +-expr_list=
+    |           | +-$col1#2 := Literal(type=STRING, value="b")
+    |           +-input_scan=
+    |             +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#10]
+    |         +-expr_list=
+    |         | +-$col1#10 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#4)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#9]
+    |         |         +-expr_list=
+    |         |         | +-$col1#9 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#4, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg1#7)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#8)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#7, $agg2#8]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#6]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#6]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#7 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#4, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#6)
+    |         |               +-$agg2#8 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#4, patterns#5]
+    |             +-expr_list=
+    |             | +-input#4 := Literal(type=STRING, value="a")
+    |             | +-patterns#5 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-SubqueryExpr
+    |             |     | +-type=STRING
+    |             |     | +-subquery_type=SCALAR
+    |             |     | +-subquery=
+    |             |     |   +-ProjectScan
+    |             |     |     +-column_list=[$expr_subquery.$col1#1]
+    |             |     |     +-expr_list=
+    |             |     |     | +-$col1#1 := Literal(type=STRING, value="a")
+    |             |     |     +-input_scan=
+    |             |     |       +-SingleRowScan
+    |             |     +-SubqueryExpr
+    |             |       +-type=STRING
+    |             |       +-subquery_type=SCALAR
+    |             |       +-subquery=
+    |             |         +-ProjectScan
+    |             |           +-column_list=[$expr_subquery.$col1#2]
+    |             |           +-expr_list=
+    |             |           | +-$col1#2 := Literal(type=STRING, value="b")
+    |             |           +-input_scan=
+    |             |             +-SingleRowScan
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-FunctionCall(ZetaSQL:$not_like_all(STRING, repeated(2) STRING) -> BOOL)
+    |     +-Literal(type=STRING, value="a")
+    |     +-SubqueryExpr
+    |     | +-type=STRING
+    |     | +-subquery_type=SCALAR
+    |     | +-subquery=
+    |     |   +-ProjectScan
+    |     |     +-column_list=[$expr_subquery.$col1#1]
+    |     |     +-expr_list=
+    |     |     | +-$col1#1 := Literal(type=STRING, value="a")
+    |     |     +-input_scan=
+    |     |       +-SingleRowScan
+    |     +-SubqueryExpr
+    |       +-type=STRING
+    |       +-subquery_type=SCALAR
+    |       +-subquery=
+    |         +-ProjectScan
+    |           +-column_list=[$expr_subquery.$col1#2]
+    |           +-expr_list=
+    |           | +-$col1#2 := Literal(type=STRING, value="b")
+    |           +-input_scan=
+    |             +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=SCALAR
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#10]
+    |         +-expr_list=
+    |         | +-$col1#10 :=
+    |         |   +-SubqueryExpr
+    |         |     +-type=BOOL
+    |         |     +-subquery_type=SCALAR
+    |         |     +-parameter_list=
+    |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#4)
+    |         |     | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5)
+    |         |     +-subquery=
+    |         |       +-ProjectScan
+    |         |         +-column_list=[$expr_subquery.$col1#9]
+    |         |         +-expr_list=
+    |         |         | +-$col1#9 :=
+    |         |         |   +-FunctionCall(ZetaSQL:$case_no_value(repeated(4) BOOL, repeated(4) BOOL, BOOL) -> BOOL)
+    |         |         |     +-FunctionCall(ZetaSQL:$or(BOOL, repeated(1) BOOL) -> BOOL)
+    |         |         |     | +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRING>) -> BOOL)
+    |         |         |     | | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |         |     | +-FunctionCall(ZetaSQL:$equal(INT64, INT64) -> BOOL)
+    |         |         |     |   +-FunctionCall(ZetaSQL:array_length(ARRAY<STRING>) -> INT64)
+    |         |         |     |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |         |     |   +-Literal(type=INT64, value=0)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         |     +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |         |     | +-ColumnRef(type=STRING, column=$subquery1.input#4, is_correlated=TRUE)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |         |     | +-ColumnRef(type=BOOL, column=$aggregate.$agg1#7)
+    |         |         |     +-Literal(type=BOOL, value=false)
+    |         |         |     +-ColumnRef(type=BOOL, column=$aggregate.$agg2#8)
+    |         |         |     +-Literal(type=BOOL, value=NULL)
+    |         |         |     +-Literal(type=BOOL, value=true)
+    |         |         +-input_scan=
+    |         |           +-AggregateScan
+    |         |             +-column_list=$aggregate.[$agg1#7, $agg2#8]
+    |         |             +-input_scan=
+    |         |             | +-ArrayScan
+    |         |             |   +-column_list=[$array.pattern#6]
+    |         |             |   +-array_expr_list=
+    |         |             |   | +-ColumnRef(type=ARRAY<STRING>, column=$subquery1.patterns#5, is_correlated=TRUE)
+    |         |             |   +-element_column_list=[$array.pattern#6]
+    |         |             +-aggregate_list=
+    |         |               +-$agg1#7 :=
+    |         |               | +-AggregateFunctionCall(ZetaSQL:logical_and(BOOL) -> BOOL)
+    |         |               |   +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+    |         |               |     +-FunctionCall(ZetaSQL:$like(STRING, STRING) -> BOOL)
+    |         |               |       +-ColumnRef(type=STRING, column=$subquery1.input#4, is_correlated=TRUE)
+    |         |               |       +-ColumnRef(type=STRING, column=$array.pattern#6)
+    |         |               +-$agg2#8 :=
+    |         |                 +-AggregateFunctionCall(ZetaSQL:logical_or(BOOL) -> BOOL)
+    |         |                   +-FunctionCall(ZetaSQL:$is_null(STRING) -> BOOL)
+    |         |                     +-ColumnRef(type=STRING, column=$array.pattern#6)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$subquery1.[input#4, patterns#5]
+    |             +-expr_list=
+    |             | +-input#4 := Literal(type=STRING, value="a")
+    |             | +-patterns#5 :=
+    |             |   +-FunctionCall(ZetaSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
+    |             |     +-SubqueryExpr
+    |             |     | +-type=STRING
+    |             |     | +-subquery_type=SCALAR
+    |             |     | +-subquery=
+    |             |     |   +-ProjectScan
+    |             |     |     +-column_list=[$expr_subquery.$col1#1]
+    |             |     |     +-expr_list=
+    |             |     |     | +-$col1#1 := Literal(type=STRING, value="a")
+    |             |     |     +-input_scan=
+    |             |     |       +-SingleRowScan
+    |             |     +-SubqueryExpr
+    |             |       +-type=STRING
+    |             |       +-subquery_type=SCALAR
+    |             |       +-subquery=
+    |             |         +-ProjectScan
+    |             |           +-column_list=[$expr_subquery.$col1#2]
+    |             |           +-expr_list=
+    |             |           | +-$col1#2 := Literal(type=STRING, value="b")
+    |             |           +-input_scan=
+    |             |             +-SingleRowScan
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-SingleRowScan
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
 select *
 from TestTable T
 where T.KitchenSink.string_val
-      LIKE ANY
+      {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}}
       (select * from T.KitchenSink.repeated_string_val)
+--
+ALTERNATION GROUPS:
+    LIKE,ANY
+    LIKE,SOME
 --
 QueryStmt
 +-output_column_list=
@@ -2213,7 +2617,137 @@ QueryStmt
                     |   +-field_descriptor=repeated_string_val
                     |   +-default_value=[]
                     +-element_column_list=[$array.repeated_string_val#4]
-
+--
+ALTERNATION GROUP: LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
+        +-filter_expr=
+          +-SubqueryExpr
+            +-type=BOOL
+            +-subquery_type=LIKE_ALL
+            +-parameter_list=
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            +-in_expr=
+            | +-GetProtoField
+            |   +-type=STRING
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   +-field_descriptor=string_val
+            |   +-default_value="default_name"
+            +-subquery=
+              +-ProjectScan
+                +-column_list=[$array.repeated_string_val#4]
+                +-input_scan=
+                  +-ArrayScan
+                    +-column_list=[$array.repeated_string_val#4]
+                    +-array_expr_list=
+                    | +-GetProtoField
+                    |   +-type=ARRAY<STRING>
+                    |   +-expr=
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |   +-field_descriptor=repeated_string_val
+                    |   +-default_value=[]
+                    +-element_column_list=[$array.repeated_string_val#4]
+--
+ALTERNATION GROUPS:
+    NOT LIKE,ANY
+    NOT LIKE,SOME
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
+        +-filter_expr=
+          +-SubqueryExpr
+            +-type=BOOL
+            +-subquery_type=NOT_LIKE_ANY
+            +-parameter_list=
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            +-in_expr=
+            | +-GetProtoField
+            |   +-type=STRING
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   +-field_descriptor=string_val
+            |   +-default_value="default_name"
+            +-subquery=
+              +-ProjectScan
+                +-column_list=[$array.repeated_string_val#4]
+                +-input_scan=
+                  +-ArrayScan
+                    +-column_list=[$array.repeated_string_val#4]
+                    +-array_expr_list=
+                    | +-GetProtoField
+                    |   +-type=ARRAY<STRING>
+                    |   +-expr=
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |   +-field_descriptor=repeated_string_val
+                    |   +-default_value=[]
+                    +-element_column_list=[$array.repeated_string_val#4]
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-TestTable.key#1 AS key [INT32]
+| +-TestTable.TestEnum#2 AS TestEnum [ENUM<zetasql_test__.TestEnum>]
+| +-TestTable.KitchenSink#3 AS KitchenSink [PROTO<zetasql_test__.KitchenSinkPB>]
++-query=
+  +-ProjectScan
+    +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+    +-input_scan=
+      +-FilterScan
+        +-column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3]
+        +-input_scan=
+        | +-TableScan(column_list=TestTable.[key#1, TestEnum#2, KitchenSink#3], table=TestTable, column_index_list=[0, 1, 2], alias="T")
+        +-filter_expr=
+          +-SubqueryExpr
+            +-type=BOOL
+            +-subquery_type=NOT_LIKE_ALL
+            +-parameter_list=
+            | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            +-in_expr=
+            | +-GetProtoField
+            |   +-type=STRING
+            |   +-expr=
+            |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+            |   +-field_descriptor=string_val
+            |   +-default_value="default_name"
+            +-subquery=
+              +-ProjectScan
+                +-column_list=[$array.repeated_string_val#4]
+                +-input_scan=
+                  +-ArrayScan
+                    +-column_list=[$array.repeated_string_val#4]
+                    +-array_expr_list=
+                    | +-GetProtoField
+                    |   +-type=ARRAY<STRING>
+                    |   +-expr=
+                    |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+                    |   +-field_descriptor=repeated_string_val
+                    |   +-default_value=[]
+                    +-element_column_list=[$array.repeated_string_val#4]
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_ARRAY]
@@ -2378,16 +2912,51 @@ QueryStmt
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-select 'a' LIKE ANY (select NULL)
+select 'a' {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (select NULL)
+--
+ALTERNATION GROUP: LIKE,ANY
 --
 ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
 select 'a' LIKE ANY (select NULL)
        ^
+--
+ALTERNATION GROUP: LIKE,SOME
+--
+ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
+select 'a' LIKE SOME (select NULL)
+       ^
+--
+ALTERNATION GROUP: LIKE,ALL
+--
+ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
+select 'a' LIKE ALL (select NULL)
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,ANY
+--
+ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
+select 'a' NOT LIKE ANY (select NULL)
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,SOME
+--
+ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
+select 'a' NOT LIKE SOME (select NULL)
+       ^
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+ERROR: Cannot execute a LIKE expression subquery with types STRING and INT64 [at 1:8]
+select 'a' NOT LIKE ALL (select NULL)
+       ^
 ==
 
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_SUBQUERY]
-SELECT KitchenSink.string_val LIKE ANY (SELECT CONCAT(KitchenSink.string_val, TestTable.KitchenSink.MIXED_case)) FROM TestTable;
-
+SELECT KitchenSink.string_val {{LIKE|NOT LIKE}} {{ANY|SOME|ALL}} (SELECT CONCAT(KitchenSink.string_val, TestTable.KitchenSink.MIXED_case)) FROM TestTable;
+--
+ALTERNATION GROUPS:
+    LIKE,ANY
+    LIKE,SOME
 --
 QueryStmt
 +-output_column_list=
@@ -2400,6 +2969,143 @@ QueryStmt
     |   +-SubqueryExpr
     |     +-type=BOOL
     |     +-subquery_type=LIKE_ANY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-in_expr=
+    |     | +-GetProtoField
+    |     |   +-type=STRING
+    |     |   +-expr=
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   +-field_descriptor=string_val
+    |     |   +-default_value="default_name"
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#4]
+    |         +-expr_list=
+    |         | +-$col1#4 :=
+    |         |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |         |     +-GetProtoField
+    |         |     | +-type=STRING
+    |         |     | +-expr=
+    |         |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |     | +-field_descriptor=string_val
+    |         |     | +-default_value="default_name"
+    |         |     +-GetProtoField
+    |         |       +-type=STRING
+    |         |       +-expr=
+    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |       +-field_descriptor=MIXED_case
+    |         |       +-default_value=""
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+--
+ALTERNATION GROUP: LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=LIKE_ALL
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-in_expr=
+    |     | +-GetProtoField
+    |     |   +-type=STRING
+    |     |   +-expr=
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   +-field_descriptor=string_val
+    |     |   +-default_value="default_name"
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#4]
+    |         +-expr_list=
+    |         | +-$col1#4 :=
+    |         |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |         |     +-GetProtoField
+    |         |     | +-type=STRING
+    |         |     | +-expr=
+    |         |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |     | +-field_descriptor=string_val
+    |         |     | +-default_value="default_name"
+    |         |     +-GetProtoField
+    |         |       +-type=STRING
+    |         |       +-expr=
+    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |       +-field_descriptor=MIXED_case
+    |         |       +-default_value=""
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+--
+ALTERNATION GROUPS:
+    NOT LIKE,ANY
+    NOT LIKE,SOME
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ANY
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     +-in_expr=
+    |     | +-GetProtoField
+    |     |   +-type=STRING
+    |     |   +-expr=
+    |     |   | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
+    |     |   +-field_descriptor=string_val
+    |     |   +-default_value="default_name"
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$expr_subquery.$col1#4]
+    |         +-expr_list=
+    |         | +-$col1#4 :=
+    |         |   +-FunctionCall(ZetaSQL:concat(STRING, repeated(1) STRING) -> STRING)
+    |         |     +-GetProtoField
+    |         |     | +-type=STRING
+    |         |     | +-expr=
+    |         |     | | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |     | +-field_descriptor=string_val
+    |         |     | +-default_value="default_name"
+    |         |     +-GetProtoField
+    |         |       +-type=STRING
+    |         |       +-expr=
+    |         |       | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3, is_correlated=TRUE)
+    |         |       +-field_descriptor=MIXED_case
+    |         |       +-default_value=""
+    |         +-input_scan=
+    |           +-SingleRowScan
+    +-input_scan=
+      +-TableScan(column_list=[TestTable.KitchenSink#3], table=TestTable, column_index_list=[2])
+--
+ALTERNATION GROUP: NOT LIKE,ALL
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#5 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#5]
+    +-expr_list=
+    | +-$col1#5 :=
+    |   +-SubqueryExpr
+    |     +-type=BOOL
+    |     +-subquery_type=NOT_LIKE_ALL
     |     +-parameter_list=
     |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=TestTable.KitchenSink#3)
     |     +-in_expr=
@@ -3430,7 +4136,7 @@ QueryStmt
 # TODO: Collation/Annotation specific ZetaSQL analyzer tests are not working as expected while executed in java mode
 [no_java]
 [language_features=NONE,+LIKE_ANY_SOME_ALL,+LIKE_ANY_SOME_ALL_ARRAY,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
-# Collation for like any/some/all with mix of collated and non collated arguments in the patterns array
+# Collation for like any/some/all unnest with mix of collated and non collated arguments in the patterns array
 SELECT 'a' LIKE {{ANY|SOME|ALL}} UNNEST(['a', COLLATE('A', 'und:ci')])
 --
 ALTERNATION GROUPS:

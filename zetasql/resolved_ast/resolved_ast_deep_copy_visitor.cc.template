@@ -153,6 +153,14 @@ ResolvedASTDeepCopyVisitor::CopyVisit{{node.name}}(
   if (parse_location != nullptr) {
     copy.get()->SetParseLocationRange(*parse_location);
   }
+  // Set keyword parse location range if it was previously set, as this is not a
+  // constructor arg.
+  const auto operator_keyword_parse_location =
+      node->GetOperatorKeywordLocationRangeOrNULL();
+  if (operator_keyword_parse_location != nullptr) {
+    copy.get()->SetOperatorKeywordLocationRange(
+        *operator_keyword_parse_location);
+  }
 
   // Add the non-abstract node to the stack.
   PushNodeToStack(std::move(copy));

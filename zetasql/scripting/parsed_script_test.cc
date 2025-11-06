@@ -29,9 +29,12 @@
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
+#include "zetasql/public/error_helpers.h"
 #include "zetasql/public/id_string.h"
+#include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
 #include "zetasql/public/parse_location.h"
+#include "zetasql/scripting/control_flow_graph.h"
 #include "zetasql/scripting/type_aliases.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -51,6 +54,10 @@ namespace {
 
 using ::testing::_;
 using ::testing::HasSubstr;
+using ::testing::Pair;
+using ::testing::TestWithParam;
+using ::testing::UnorderedElementsAre;
+using ::testing::ValuesIn;
 using ::zetasql_base::testing::IsOk;
 using ::zetasql_base::testing::StatusIs;
 
@@ -152,7 +159,7 @@ class TestCase {
 };
 
 class ScriptValidationTest
-    : public ::testing::TestWithParam<std::variant<TestCase, TestInput>> {
+    : public TestWithParam<std::variant<TestCase, TestInput>> {
  public:
   void SetUp() override {
     ValueWithTypeParameter vtp;
@@ -608,7 +615,383 @@ std::vector<std::variant<TestCase, TestInput>> GetScripts() {
 }
 
 INSTANTIATE_TEST_CASE_P(RunScriptValidationTest, ScriptValidationTest,
-                        ::testing::ValuesIn(GetScripts()));
+                        ValuesIn(GetScripts()));
+
+TEST(ParsedScript, VariablesInScopeAtNode_TopLevel) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  ParsedScriptOptions parsed_script_options = {
+      .system_variables_allowed_before_declare = {"sysvar1"}};
+
+  constexpr absl::string_view kScript = R"(
+    DECLARE x DEFAULT 23;
+    SELECT x;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), parsed_script_options));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTStatement* decl_stmt = parsed_script->script()->statement_list()[0];
+  const ASTStatement* select_stmt =
+      parsed_script->script()->statement_list()[1];
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, decl_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_CurrentNodeIsVarDecl) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  ParsedScriptOptions parsed_script_options = {
+      .system_variables_allowed_before_declare = {"sysvar1"}};
+
+  constexpr absl::string_view kScript = R"(
+    DECLARE x INT64;
+    DECLARE y INT64; -- We are here
+    DECLARE z INT64;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), parsed_script_options));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTStatement* x_decl = parsed_script->script()->statement_list()[0];
+  const ASTStatement* y_decl = parsed_script->script()->statement_list()[1];
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(y_decl, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = x_decl->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+
+  // At y's declaration, only variable x is in scope. y is not in scope because
+  // y's declaration has not happened yet (it's about to happen), and z's
+  // declaration is definitely not reached.
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, x_decl)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_TopLevelWithSysVarAssignment) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  ParsedScriptOptions parsed_script_options = {
+      .system_variables_allowed_before_declare = {"sysvar1"}};
+
+  constexpr absl::string_view kScript = R"(
+    SET @@sysvar1 = 3;
+    DECLARE x DEFAULT 23;
+    SELECT x;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), parsed_script_options));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTStatement* decl_stmt = parsed_script->script()->statement_list()[1];
+  const ASTStatement* select_stmt =
+      parsed_script->script()->statement_list()[2];
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, decl_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_BlockScope) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    BEGIN
+      DECLARE x DEFAULT 23;
+      SELECT x;
+    END;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTBeginEndBlock* begin = parsed_script->script()
+                                      ->statement_list()[0]
+                                      ->GetAsOrDie<ASTBeginEndBlock>();
+  const ASTStatement* decl_stmt = begin->statement_list()[0];
+  const ASTStatement* select_stmt = begin->statement_list()[1];
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, decl_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_NestedBlockScope) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    BEGIN
+      DECLARE x DEFAULT 23;
+      BEGIN
+        DECLARE y DEFAULT 24;
+        SELECT x, y;
+      END;
+    END;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTBeginEndBlock* outer_begin = parsed_script->script()
+                                            ->statement_list()[0]
+                                            ->GetAsOrDie<ASTBeginEndBlock>();
+  const ASTStatement* outer_decl_stmt = outer_begin->statement_list()[0];
+  const ASTBeginEndBlock* inner_begin =
+      outer_begin->statement_list()[1]->GetAsOrDie<ASTBeginEndBlock>();
+  const ASTStatement* inner_decl_stmt = inner_begin->statement_list()[0];
+  const ASTStatement* select_stmt = inner_begin->statement_list()[1];
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = outer_decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+  IdString var_y = inner_decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_y.ToStringView(), "y");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, outer_decl_stmt),
+                                         Pair(var_y, inner_decl_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_BlockVariableOutOfScope) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    BEGIN
+      DECLARE x DEFAULT 23;
+      BEGIN
+        DECLARE y DEFAULT 24;
+      END;
+      SELECT x;
+    END;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTBeginEndBlock* outer_begin = parsed_script->script()
+                                            ->statement_list()[0]
+                                            ->GetAsOrDie<ASTBeginEndBlock>();
+  const ASTStatement* outer_decl_stmt = outer_begin->statement_list()[0];
+  const ASTBeginEndBlock* inner_begin =
+      outer_begin->statement_list()[1]->GetAsOrDie<ASTBeginEndBlock>();
+  const ASTStatement* inner_decl_stmt = inner_begin->statement_list()[0];
+  const ASTQueryStatement* select_stmt =
+      outer_begin->statement_list()[2]->GetAsOrDie<ASTQueryStatement>();
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  IdString var_x = outer_decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+  IdString var_y = inner_decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_y.ToStringView(), "y");
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, outer_decl_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_ForLoopBody) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    FOR x IN (SELECT 1) DO
+      SELECT x;
+    END FOR;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTForInStatement* for_stmt = parsed_script->script()
+                                          ->statement_list()[0]
+                                          ->GetAsOrDie<ASTForInStatement>();
+  const ASTQueryStatement* select_stmt =
+      for_stmt->body()->statement_list(0)->GetAsOrDie<ASTQueryStatement>();
+  IdString var_x = for_stmt->variable()->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(select_stmt, ControlFlowNode::Kind::kDefault);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_x, for_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_ForLoopAdvancement) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    DECLARE y INT64;
+    FOR x IN (SELECT 1) DO
+      SELECT x;
+    END FOR;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTStatement* decl_stmt = parsed_script->script()->statement_list()[0];
+  const ASTForInStatement* for_stmt = parsed_script->script()
+                                          ->statement_list()[1]
+                                          ->GetAsOrDie<ASTForInStatement>();
+  IdString var_x = for_stmt->variable()->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+  IdString var_y = decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_y.ToStringView(), "y");
+
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(for_stmt, ControlFlowNode::Kind::kForAdvance);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_y, decl_stmt),
+                                         Pair(var_x, for_stmt)));
+}
+
+TEST(ParsedScript, VariablesInScopeAtNode_ForLoopInitialization) {
+  LanguageOptions language_options;
+  language_options.EnableMaximumLanguageFeatures();
+
+  constexpr absl::string_view kScript = R"(
+    DECLARE y INT64;
+    FOR x IN (SELECT 1) DO
+      SELECT x;
+    END FOR;
+  )";
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ParsedScript> parsed_script,
+      ParsedScript::Create(kScript, ParserOptions(language_options),
+                           ErrorMessageOptions(), ParsedScriptOptions{}));
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ControlFlowGraph> graph,
+      ControlFlowGraph::Create(parsed_script->script(), kScript));
+
+  const ASTStatement* decl_stmt = parsed_script->script()->statement_list()[0];
+  const ASTForInStatement* for_stmt = parsed_script->script()
+                                          ->statement_list()[1]
+                                          ->GetAsOrDie<ASTForInStatement>();
+  IdString var_x = for_stmt->variable()->GetAsIdString();
+  ASSERT_EQ(var_x.ToStringView(), "x");
+  IdString var_y = decl_stmt->GetAsOrDie<ASTVariableDeclaration>()
+                       ->variable_list()
+                       ->identifier_list()[0]
+                       ->GetAsIdString();
+  ASSERT_EQ(var_y.ToStringView(), "y");
+
+  const ControlFlowNode* cfg_node =
+      graph->GetControlFlowNode(for_stmt, ControlFlowNode::Kind::kForInitial);
+
+  ZETASQL_ASSERT_OK_AND_ASSIGN(ParsedScript::VariableCreationMap vars,
+                       parsed_script->GetVariablesInScopeAtNode(cfg_node));
+  EXPECT_THAT(vars, UnorderedElementsAre(Pair(var_y, decl_stmt)));
+}
 
 }  // namespace
 }  // namespace testing

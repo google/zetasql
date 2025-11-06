@@ -99,10 +99,8 @@ std::string PathExpressionSpan::ToIdentifierPathString(
 
 ParseLocationRange PathExpressionSpan::GetParseLocationRange() {
   ParseLocationRange parse_location_range;
-  parse_location_range.set_start(
-      node_.name(start_index_)->GetParseLocationRange().start());
-  parse_location_range.set_end(
-      node_.name(end_index_ - 1)->GetParseLocationRange().end());
+  parse_location_range.set_start(node_.name(start_index_)->location().start());
+  parse_location_range.set_end(node_.name(end_index_ - 1)->location().end());
   return parse_location_range;
 }
 

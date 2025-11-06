@@ -15,16 +15,13 @@
 #
 
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
-load("//bazel:bison.bzl", "genyacc")
-load("//bazel:flex.bzl", "genlex")
+load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@rules_python//python:py_binary.bzl", "py_binary")
+load("@rules_python//python:py_library.bzl", "py_library")
+load("@rules_python//python:py_test.bzl", "py_test")
 load("//bazel:textmapper.bzl", "tm_syntax")
-
-# Placeholder: load py_binary
-# Placeholder: load py_library
-# Placeholder: load py_test
 load(":builddefs.bzl", "gen_parser_test")
 
 package(
@@ -167,8 +164,8 @@ py_binary(
         ":generator_utils",
         "@io_abseil_py//absl:app",
         "@io_abseil_py//absl/flags",
-        "@jinja//:jinja2",
-        "@markupsafe",
+        "@pypi//jinja2",
+        "@pypi//markupsafe",
     ],
 )
 
@@ -254,7 +251,6 @@ cc_library(
         ":parser_mode",
         ":token",
         ":token_with_location",
-        "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
@@ -323,8 +319,6 @@ cc_library(
         ":ast_enums_cc_proto",
         ":ast_node_factory",
         ":bison_parser_generated_lib",
-        ":flex_istream",
-        ":flex_tokenizer",
         ":keywords",
         ":lookahead_transformer",
         ":parse_tree",
@@ -332,7 +326,7 @@ cc_library(
         ":tm_parser",
         ":token",
         ":token_with_location",
-        "//bazel:flex",
+        ":tokenizer",
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
@@ -420,35 +414,21 @@ cc_library(
 )
 
 cc_library(
-    name = "flex_tokenizer",
+    name = "tokenizer",
     srcs = [
-        "flex_tokenizer.cc",
-        "flex_tokenizer.cc.inc",
-        "flex_tokenizer.flex.cc",
+        "tokenizer.cc",
     ],
     hdrs = [
-        "flex_tokenizer.h",
-    ],
-    copts = [
-        # Flex generates switches with implicit fallthrough. We must turn this
-        # warning off for the generated flex code to compile.
-        "-Wno-implicit-fallthrough",
+        "tokenizer.h",
     ],
     deps = [
-        ":flex_istream",
         ":tm_lexer",
-        "//bazel:flex",
         "//zetasql/base:check",
-        "//zetasql/base:ret_check",
         "//zetasql/base:status",
-        "//zetasql/common:errors",
         "//zetasql/public:parse_location",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/flags:flag",
-        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
     ],
 )
 
@@ -465,9 +445,9 @@ cc_library(
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
         "//zetasql/common:errors",
-        "//zetasql/parser/macros:flex_token_provider",
         "//zetasql/parser/macros:macro_catalog",
         "//zetasql/parser/macros:macro_expander",
+        "//zetasql/parser/macros:token_provider",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_location",
@@ -560,7 +540,6 @@ cc_library(
         ":parser_mode",
         ":token",
         ":token_with_location",
-        "//bazel:flex",
         "//zetasql/base",
         "//zetasql/base:arena",
         "//zetasql/base:arena_allocator",
@@ -592,27 +571,6 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
-        "@com_google_absl//absl/types:span",
-    ],
-)
-
-cc_library(
-    name = "flex_istream",
-    hdrs = ["flex_istream.h"],
-    deps = ["@com_google_absl//absl/strings"],
-)
-
-cc_test(
-    name = "flex_istream_test",
-    srcs = ["flex_istream_test.cc"],
-    deps = [
-        ":flex_istream",
-        "//zetasql/base/testing:status_matchers",
-        "//zetasql/base/testing:zetasql_gtest_main",
-        "//zetasql/public:parse_helpers",
-        "//zetasql/public:parse_resume_location",
-        "@com_google_absl//absl/log",
-        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:span",
     ],
 )
@@ -844,7 +802,6 @@ cc_test(
     name = "keywords_test",
     srcs = ["keywords_test.cc"],
     data = [
-        "flex_tokenizer.l",
         "zetasql.tm",
     ],
     deps = [
@@ -892,16 +849,6 @@ cc_test(
         ":parse_tree",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
-    ],
-)
-
-# Flex lexer
-genlex(
-    name = "flex_tokenizer_generated",
-    src = "flex_tokenizer.l",
-    out = "flex_tokenizer.flex.cc",
-    includes = [
-        "tm_token.h",
     ],
 )
 

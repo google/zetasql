@@ -45,7 +45,7 @@ class ColumnAllowEmptyName : public Column {
       : name_(name),
         full_name_(absl::StrCat(table_name, ".", name)),
         type_(type) {}
-  ~ColumnAllowEmptyName() override {}
+  ~ColumnAllowEmptyName() override = default;
 
   std::string Name() const override { return name_; }
   std::string FullName() const override { return full_name_; }
@@ -87,7 +87,7 @@ class TableWithAnonymousAndDuplicatedColumnNames : public Table {
       }
     }
   }
-  ~TableWithAnonymousAndDuplicatedColumnNames() override {}
+  ~TableWithAnonymousAndDuplicatedColumnNames() override = default;
 
   std::string Name() const override { return name_; }
   std::string FullName() const override { return name_; }

@@ -258,14 +258,14 @@ EXECUTE IMMEDIATE
   );
 
 -- The table looks similar to the following:
-/*------------------+------------------*
+/*------------------+------------------+
  | title            | publish_date     |
  +------------------+------------------+
  | Hamlet           | 1599             |
  | Ulysses          | 1922             |
  | Emma             | 1815             |
  | Middlemarch      | 1871             |
- *------------------+------------------*/
+ +------------------+------------------*/
 
 -- Save the publish date of the earliest book, Hamlet, to a variable called
 -- first_date.
@@ -763,11 +763,11 @@ SELECT x;
 This example outputs the following:
 
 ```zetasql
-/*----*
+/*----+
  | x  |
  +----+
  | 10 |
- *----*/
+ +----*/
 ```
 
 ### `REPEAT`
@@ -812,23 +812,23 @@ END <span class="kwd">REPEAT</span>;
 This example outputs the following:
 
 ```zetasql
-/*---*
+/*---+
  | x |
  +---+
  | 1 |
- *---*/
+ +---*/
 
-/*---*
+/*---+
  | x |
  +---+
  | 2 |
- *---*/
+ +---*/
 
-/*---*
+/*---+
  | x |
  +---+
  | 3 |
- *---*/
+ +---*/
 ```
 
 ### `WHILE`

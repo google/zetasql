@@ -529,6 +529,17 @@ class StatementEvaluator {
     // By default no additional work is needed.
     return absl::OkStatus();
   }
+
+  // Notifies that the validation is terminated. Validation refers to
+  // dry_run=true.
+  // This method is called for the following cases:
+  // - When a conditional branch is encountered.
+  // - When a loop control goes back to the beginning of the loop.
+  // - When a query result is required to continue validation.
+  virtual absl::Status OnValidationTerminated(
+      const ScriptExecutor& executor, const zetasql::ASTNode* current_node) {
+    return absl::OkStatus();
+  }
 };
 
 class MemoryLimitOptions {

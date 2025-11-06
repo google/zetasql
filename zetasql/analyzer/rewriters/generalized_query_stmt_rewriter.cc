@@ -400,7 +400,11 @@ absl::StatusOr<std::unique_ptr<const ResolvedNode>>
 GeneralizedQueryStmtRewriteVisitor::PostVisitResolvedGeneralizedQueryStmt(
     std::unique_ptr<const ResolvedGeneralizedQueryStmt> node) {
   ZETASQL_RET_CHECK_EQ(statement_list_stack_.size(), 1);
-  ZETASQL_RET_CHECK_EQ(current_statement_list().size(), 1);
+  // This can be empty if we have a ResolvedGeneralizdQueryStmt with no side
+  // outputs.  This doesn't normally happen, except for ResolvedSubpipelineStmt,
+  // which always gets rewritten to ResolvedGeneralizdQueryStmt because it
+  // doesn't track whether the subpipeline had generalized operators or not.
+  ZETASQL_RET_CHECK_LE(current_statement_list().size(), 1);
   // First collects all the side output statements.
   std::vector<std::unique_ptr<const ResolvedStatement>> statement_list =
       std::move(current_statement_list()).flatten();
@@ -459,12 +463,18 @@ GeneralizedQueryStmtRewriteVisitor::PostVisitResolvedGeneralizedQueryStmt(
         output_schema.is_value_table(), std::move(query)));
   }
 
+  std::unique_ptr<const ResolvedStatement> new_statement;
   ZETASQL_RET_CHECK(!statement_list.empty());
   if (statement_list.size() == 1) {
-    return std::move(statement_list[0]);
+    new_statement = std::move(statement_list[0]);
   } else {
-    return MakeResolvedMultiStmt(std::move(statement_list));
+    new_statement = MakeResolvedMultiStmt(std::move(statement_list));
   }
+  // Propagate statement-level hints from the outer ResolvedGeneralizedQueryStmt
+  // to the outer ResolvedMultiStmt.
+  const_cast<ResolvedStatement*>(new_statement.get())
+      ->set_hint_list(builder.release_hint_list());
+  return new_statement;
 }
 
 absl::Status

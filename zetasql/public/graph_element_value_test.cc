@@ -14,6 +14,7 @@
 // limitations under the License.
 //
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "zetasql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "zetasql/base/check.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -64,31 +66,41 @@ class GraphElementValueTest
   absl::StatusOr<Value> MakeStaticGraphElementByType(
       const GraphElementType* type, std::string identifier,
       std::vector<Value::Property> properties, std::vector<std::string> labels,
-      std::string definition_name) {
-    return IsNode()
-               ? Value::MakeGraphNode(
-                     type, std::move(identifier),
-                     Value::GraphElementLabelsAndProperties{
-                         .static_labels = std::move(labels),
-                         .static_properties = std::move(properties)},
-                     std::move(definition_name))
-               : Value::MakeGraphEdge(
-                     type, std::move(identifier),
-                     Value::GraphElementLabelsAndProperties{
-                         .static_labels = std::move(labels),
-                         .static_properties = std::move(properties)},
-                     std::move(definition_name), "src_node_id", "dst_node_id");
+      std::string definition_name
+  ) {
+    return IsNode() ? Value::MakeGraphNode(
+                          type, std::move(identifier),
+                          Value::GraphElementLabelsAndProperties{
+                              .static_labels = std::move(labels),
+                              .static_properties = std::move(properties)},
+                          std::move(definition_name)
+                          )
+                    : Value::MakeGraphEdge(
+                          type, std::move(identifier),
+                          Value::GraphElementLabelsAndProperties{
+                              .static_labels = std::move(labels),
+                              .static_properties = std::move(properties)},
+                          std::move(definition_name), "src_node_id",
+                          "dst_node_id"
+                      );
   }
 
   Value MakeElement(absl::Span<const std::string> graph_reference,
                     std::string identifier,
                     std::vector<Value::Property> properties,
                     absl::Span<const std::string> labels,
-                    std::string definition_name) {
-    return IsNode() ? GraphNode(graph_reference, identifier, properties, labels,
-                                definition_name)
-                    : GraphEdge(graph_reference, identifier, properties, labels,
-                                definition_name, "src_node_id", "dst_node_id");
+                    std::string definition_name
+  ) {
+    auto value =
+        IsNode() ? GraphNode(graph_reference, identifier, properties, labels,
+                             definition_name
+                             )
+                 : GraphEdge(graph_reference, identifier, properties, labels,
+                             definition_name, "src_node_id",
+                             "dst_node_id"
+                   );
+    ZETASQL_CHECK_OK(value);
+    return *value;
   }
 
   absl::StatusOr<Value> MakeDynamicGraphElementByType(
@@ -538,9 +550,10 @@ TEST(GraphElementValueTest,
 TEST(GraphElementValueTest, GraphNodeSpecificTest) {
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value node =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node,
       GraphNode({"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
-                {"label1", "label2"}, "ElementTable");
+                {"label1", "label2"}, "ElementTable"));
   EXPECT_TRUE(node.IsNode());
   EXPECT_FALSE(node.IsEdge());
   EXPECT_DEBUG_DEATH(node.GetSourceNodeIdentifier(), "Not an edge");
@@ -561,9 +574,11 @@ TEST(GraphElementValueTest, GraphNodeSpecificTest) {
 TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value edge = GraphEdge(
-      {"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
-      {"label1", "label2"}, "ElementTable", "src_node_id", "dst_node_id");
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value edge,
+      GraphEdge({"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
+                {"label1", "label2"}, "ElementTable", "src_node_id",
+                "dst_node_id"));
   EXPECT_FALSE(edge.IsNode());
   EXPECT_TRUE(edge.IsEdge());
   EXPECT_EQ(edge.GetSourceNodeIdentifier(), "src_node_id");
@@ -593,35 +608,41 @@ TEST(GraphElementValueTest, GraphEdgeSpecificTest) {
 TEST(GraphElementValueTest, NestedGraphElementTest) {
   const Value p0_value = Value::String("v0");
   const Value p1_value = Value::Int32(1);
-  const Value node =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node,
       GraphNode({"graph_name"}, "id", {{"p0", p0_value}, {"p1", p1_value}},
-                {"label"}, "ElementTable");
-  const Value nested_node = GraphNode({"graph_name"}, "id2", {{"p", node}},
-                                      {"label"}, "ElementTable");
+                {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value nested_node,
+                       GraphNode({"graph_name"}, "id2", {{"p", node}},
+                                 {"label"}, "ElementTable"));
   ZETASQL_EXPECT_OK(nested_node.FindValidPropertyValueByName("p"));
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestSameValue) {
-  const Value node1 =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
-  const Value node2 =
+                {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
+                {"label"}, "ElementTable"));
   EXPECT_TRUE(node1.Equals(node2));
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestSameValueWithNulls) {
-  const Value node1 =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::NullInt32()}},
-                {"label"}, "ElementTable");
-  const Value node2 =
+                {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::NullInt32()}},
-                {"label"}, "ElementTable");
+                {"label"}, "ElementTable"));
   EXPECT_TRUE(node1.Equals(node2));
 }
 
@@ -638,14 +659,16 @@ TEST_P(GraphElementValueTest, ValueContentEqualsTestDifferentValue) {
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestDifferentValueWithNulls) {
-  const Value node1 =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::NullInt32()}},
-                {"label"}, "ElementTable");
-  const Value node2 =
+                {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node2,
       GraphNode({"graph_name"}, "id2",
                 {{"p0", Value::String("v0")}, {"p1", Value::Int32(2)}},
-                {"label"}, "ElementTable");
+                {"label"}, "ElementTable"));
   EXPECT_FALSE(node1.Equals(node2));
 }
 
@@ -662,15 +685,17 @@ TEST_P(GraphElementValueTest, ValueContentEqualsTestDifferentIdentifier) {
 }
 
 TEST(GraphElementValueTest, ValueContentEqualsTestDifferentColumns) {
-  const Value node1 =
+  ZETASQL_ASSERT_OK_AND_ASSIGN(
+      const Value node1,
       GraphNode({"graph_name"}, "id1",
                 {{"p0", Value::String("v0")}, {"p1", Value::Int32(1)}},
-                {"label"}, "ElementTable");
-  const Value node2 = GraphNode({"graph_name"}, "id1",
-                                {{"p0", Value::String("v0")},
-                                 {"p1", Value::Int32(1)},
-                                 {"p2", Value::Bool(true)}},
-                                {"label"}, "ElementTable");
+                {"label"}, "ElementTable"));
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const Value node2,
+                       GraphNode({"graph_name"}, "id1",
+                                 {{"p0", Value::String("v0")},
+                                  {"p1", Value::Int32(1)},
+                                  {"p2", Value::Bool(true)}},
+                                 {"label"}, "ElementTable"));
   EXPECT_FALSE(node1.Equals(node2));
 }
 

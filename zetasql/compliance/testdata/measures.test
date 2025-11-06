@@ -820,3 +820,140 @@ FROM ( SELECT 1 ) CROSS JOIN
 ( SELECT price, measure_array_agg_price_respect_nulls FROM MeasureTable_SingleKey LIMIT 0 )
 --
 ARRAY<STRUCT<ARRAY<>, ARRAY<>>>[{ARRAY<INT64>(NULL), ARRAY<INT64>(NULL)}]
+==
+
+[name=measure_propagation_past_left_outer_join]
+[required_features=ENABLE_MEASURES,MULTILEVEL_AGGREGATION,AGGREGATE_FILTERING,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG(T2.measure_country_count),
+  COUNT(* GROUP BY T2.country),
+  AGG(T2.measure_array_agg_nullable_str_respect_nulls),
+  ARRAY_AGG(T2.nullable_str RESPECT NULLS)
+FROM (
+  SELECT *
+  FROM MeasureTable_SingleKey
+) AS T1 LEFT OUTER JOIN (
+  SELECT *
+  FROM MeasureTable_SingleKey
+  WHERE key <= 5
+) AS T2
+ON T1.key = T2.key
+--
+ARRAY<STRUCT<INT64, INT64, ARRAY<>, ARRAY<>>>[
+  {
+    2,
+    3,
+    ARRAY<STRING>[unknown order:NULL, "not_null", "not_null", NULL, "not_null"],
+    ARRAY<STRING>[unknown order:
+      "not_null",
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      "not_null",
+      NULL,
+      NULL,
+      "not_null",
+      NULL
+    ]
+  }
+]
+==
+
+[name=measure_propagation_past_right_outer_join]
+[required_features=ENABLE_MEASURES,MULTILEVEL_AGGREGATION,AGGREGATE_FILTERING,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG(T1.measure_country_count),
+  COUNT(* GROUP BY T1.country),
+  AGG(T1.measure_array_agg_nullable_str_respect_nulls),
+  ARRAY_AGG(T1.nullable_str RESPECT NULLS)
+FROM (
+  SELECT *
+  FROM MeasureTable_SingleKey
+  WHERE key <= 5
+) AS T1 RIGHT OUTER JOIN (
+  SELECT *
+  FROM MeasureTable_SingleKey
+) AS T2
+ON T1.key = T2.key
+--
+ARRAY<STRUCT<INT64, INT64, ARRAY<>, ARRAY<>>>[
+  {
+    2,
+    3,
+    ARRAY<STRING>[unknown order:NULL, "not_null", "not_null", "not_null", NULL],
+    ARRAY<STRING>[unknown order:
+      "not_null",
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      "not_null",
+      "not_null",
+      NULL,
+      NULL,
+      NULL
+    ]
+  }
+]
+==
+
+[name=measure_propagation_past_full_outer_join]
+[required_features=ENABLE_MEASURES,MULTILEVEL_AGGREGATION,AGGREGATE_FILTERING,NULL_HANDLING_MODIFIER_IN_AGGREGATE]
+SELECT
+  AGG(T1.measure_country_count),
+  COUNT(* GROUP BY T1.country),
+  AGG(T1.measure_array_agg_nullable_str_respect_nulls),
+  ARRAY_AGG(T1.nullable_str RESPECT NULLS),
+  AGG(T2.measure_country_count),
+  COUNT(* GROUP BY T2.country),
+  AGG(T2.measure_array_agg_nullable_str_respect_nulls),
+  ARRAY_AGG(T2.nullable_str RESPECT NULLS)
+FROM (
+  SELECT *
+  FROM MeasureTable_SingleKey
+  WHERE key <= 5
+) AS T1 FULL OUTER JOIN (
+  SELECT *
+  FROM MeasureTable_SingleKey
+  WHERE key >= 3 AND key <= 8
+) AS T2
+ON T1.key = T2.key
+--
+ARRAY<STRUCT<INT64, INT64, ARRAY<>, ARRAY<>, INT64, INT64, ARRAY<>, ARRAY<>>>[
+  {
+    2,
+    3,
+    ARRAY<STRING>[unknown order:NULL, "not_null", "not_null", "not_null", NULL],
+    ARRAY<STRING>[unknown order:
+      "not_null",
+      NULL,
+      NULL,
+      NULL,
+      "not_null",
+      "not_null",
+      NULL,
+      NULL
+    ],
+    3,
+    4,
+    ARRAY<STRING>[unknown order:
+      NULL,
+      "not_null",
+      "not_null",
+      "not_null",
+      "not_null",
+      NULL
+    ],
+    ARRAY<STRING>[unknown order:
+      "not_null",
+      NULL,
+      NULL,
+      "not_null",
+      "not_null",
+      NULL,
+      NULL,
+      "not_null"
+    ]
+  }
+]

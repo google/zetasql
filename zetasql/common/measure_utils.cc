@@ -173,8 +173,12 @@ class MeasureAggregateExtractor : public ResolvedASTDeepCopyVisitor {
 // - UDFs may be referenced, but not UDAs or TVFs.
 class MeasureExpressionValidator : public ResolvedASTVisitor {
  public:
-  explicit MeasureExpressionValidator(absl::string_view measure_expr_str)
-      : measure_expr_str_(measure_expr_str) {}
+  explicit MeasureExpressionValidator(absl::string_view measure_expr_str,
+                                      const LanguageOptions& language_options,
+                                      absl::string_view measure_column_name)
+      : measure_expr_str_(measure_expr_str),
+        language_options_(language_options),
+        measure_column_name_(measure_column_name) {}
 
   absl::Status Validate(const ResolvedExpr& measure_expr) {
     // Copy the measure expression
@@ -249,11 +253,20 @@ class MeasureExpressionValidator : public ResolvedASTVisitor {
                 "with a HAVING filter clause: "
              << measure_expr_str_;
     }
-    if (!node->function()->IsZetaSQLBuiltin()) {
-        return zetasql_base::InvalidArgumentErrorBuilder()
-             << "Measure expression must not reference UDA; "
-                "found: "
-             << node->function()->Name();
+    // Disallow measure expressions from referencing UDAs unless UDAs support
+    // GROUP BY modifiers.
+    if (!language_options_.LanguageFeatureEnabled(
+            FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS)) {
+      std::string col_name_or_empty =
+          measure_column_name_.empty()
+              ? ""
+              : absl::StrCat(" for column ", measure_column_name_);
+      if (!node->function()->IsZetaSQLBuiltin()) {
+          return zetasql_base::InvalidArgumentErrorBuilder()
+               << "Measure expression" << col_name_or_empty
+               << " must not reference UDA; found: "
+               << node->function()->Name();
+      }
     }
     return DefaultVisit(node);
   }
@@ -268,6 +281,8 @@ class MeasureExpressionValidator : public ResolvedASTVisitor {
 
  private:
   absl::string_view measure_expr_str_;
+  const LanguageOptions& language_options_;
+  absl::string_view measure_column_name_;
 };
 
 }  // namespace
@@ -346,7 +361,8 @@ absl::StatusOr<std::unique_ptr<const ResolvedExpr>> ExtractTopLevelAggregates(
       std::move(measure_expr), extracted_aggregates, column_factory);
 }
 
-absl::Status ValidateScanCanEmitMeasureColumns(const ResolvedScan* scan) {
+absl::Status ValidateScanCanEmitMeasureColumns(
+    const ResolvedScan* scan, const LanguageOptions& language_options) {
   // These are the only scan kinds that can emit measure columns. We use an
   // allow list instead of a deny list to ensure any new scan kinds don't
   // accidentally allow measure column emission.
@@ -390,24 +406,39 @@ absl::Status ValidateScanCanEmitMeasureColumns(const ResolvedScan* scan) {
            << it->DebugString() << " of type " << it->type()->DebugString();
   }
   // Scan is allow listed and emits measure columns. This is generally valid,
-  // but we need an additional check for JOIN scans. Only INNER JOINs can
-  // currently emit measure columns; outer JOIN support relies on aggregate
-  // filtering which is still in-development.
-  if (scan->node_kind() == RESOLVED_JOIN_SCAN) {
-    const ResolvedJoinScan* join_scan = scan->GetAs<ResolvedJoinScan>();
-    ZETASQL_RET_CHECK(join_scan != nullptr);
-    if (join_scan->join_type() != ResolvedJoinScan::INNER) {
-      return zetasql_base::InternalErrorBuilder()
-             << scan->node_kind_string() << " cannot emit column "
-             << it->DebugString() << " of type " << it->type()->DebugString();
+  // but we need an additional check for JOIN and Arrays scans. Only INNER JOINs
+  // can emit measure columns if aggregate filtering is not enabled.
+  if (!language_options.LanguageFeatureEnabled(FEATURE_AGGREGATE_FILTERING)) {
+    if (scan->node_kind() == RESOLVED_JOIN_SCAN) {
+      const ResolvedJoinScan* join_scan = scan->GetAs<ResolvedJoinScan>();
+      ZETASQL_RET_CHECK(join_scan != nullptr);
+      if (join_scan->join_type() != ResolvedJoinScan::INNER) {
+        return zetasql_base::InternalErrorBuilder()
+               << scan->node_kind_string() << " cannot emit column "
+               << it->DebugString() << " of type " << it->type()->DebugString();
+      }
+    }
+
+    if (scan->node_kind() == RESOLVED_ARRAY_SCAN) {
+      const ResolvedArrayScan* array_scan = scan->GetAs<ResolvedArrayScan>();
+      ZETASQL_RET_CHECK(array_scan != nullptr);
+      if (array_scan->is_outer()) {
+        return zetasql_base::InternalErrorBuilder()
+               << scan->node_kind_string() << " cannot emit column "
+               << it->DebugString() << " of type " << it->type()->DebugString();
+      }
     }
   }
+
   return absl::OkStatus();
 }
 
 absl::Status ValidateMeasureExpression(absl::string_view measure_expr,
-                                       const ResolvedExpr& resolved_expr) {
-  MeasureExpressionValidator validator(measure_expr);
+                                       const ResolvedExpr& resolved_expr,
+                                       const LanguageOptions& language_options,
+                                       absl::string_view column_name) {
+  MeasureExpressionValidator validator(measure_expr, language_options,
+                                       column_name);
   return validator.Validate(resolved_expr);
 }
 

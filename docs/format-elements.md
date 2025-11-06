@@ -524,11 +524,11 @@ Examples:
 ```zetasql
 SELECT FORMAT_DATE("%b-%d-%Y", DATE "2008-12-25") AS formatted;
 
-/*-------------*
+/*-------------+
  | formatted   |
  +-------------+
  | Dec-25-2008 |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
@@ -536,62 +536,62 @@ SELECT
   FORMAT_DATETIME("%c", DATETIME "2008-12-25 15:30:00")
   AS formatted;
 
-/*--------------------------*
+/*--------------------------+
  | formatted                |
  +--------------------------+
  | Thu Dec 25 15:30:00 2008 |
- *--------------------------*/
+ +--------------------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_TIME("%R", TIME "15:30:00") as formatted_time;
 
-/*----------------*
+/*----------------+
  | formatted_time |
  +----------------+
  | 15:30          |
- *----------------*/
+ +----------------*/
 ```
 
 ```zetasql
 SELECT FORMAT_TIMESTAMP("%b %Y %Ez", TIMESTAMP "2008-12-25 15:30:00+00")
   AS formatted;
 
-/*-----------------*
+/*-----------------+
  | formatted       |
  +-----------------+
  | Dec 2008 +00:00 |
- *-----------------*/
+ +-----------------*/
 ```
 
 ```zetasql
 SELECT PARSE_DATE("%Y%m%d", "20081225") AS parsed;
 
-/*------------*
+/*------------+
  | parsed     |
  +------------+
  | 2008-12-25 |
- *------------*/
+ +------------*/
 ```
 
 ```zetasql
 SELECT PARSE_DATETIME('%Y-%m-%d %H:%M:%S', '1998-10-18 13:45:55') AS datetime;
 
-/*---------------------*
+/*---------------------+
  | datetime            |
  +---------------------+
  | 1998-10-18 13:45:55 |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT PARSE_TIME('%I:%M:%S %p', '2:23:38 pm') AS parsed_time
 
-/*-------------*
+/*-------------+
  | parsed_time |
  +-------------+
  | 14:23:38    |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
@@ -599,11 +599,11 @@ SELECT PARSE_TIMESTAMP("%c", "Thu Dec 25 07:30:00 2008") AS parsed;
 
 -- Display of results may differ, depending upon the environment and
 -- time zone where this query was executed.
-/*---------------------------------------------*
+/*---------------------------------------------+
  | parsed                                      |
  +---------------------------------------------+
  | 2008-12-25 07:30:00.000 America/Los_Angeles |
- *---------------------------------------------*/
+ +---------------------------------------------*/
 ```
 
 ## Format clause for CAST 
@@ -728,11 +728,11 @@ result is `NULL`. Format elements are case-insensitive.
 ```zetasql
 SELECT CAST(b'\x48\x65\x6c\x6c\x6f' AS STRING FORMAT 'ASCII') AS bytes_to_string;
 
-/*-----------------*
+/*-----------------+
  | bytes_to_string |
  +-----------------+
  | Hello           |
- *-----------------*/
+ +-----------------*/
 ```
 
 ### Format string as bytes 
@@ -845,11 +845,11 @@ SELECT CAST('Hello' AS BYTES FORMAT 'ASCII') AS string_to_bytes
 
 -- Displays the bytes output value (b'\x48\x65\x6c\x6c\x6f').
 
-/*-------------------------*
+/*-------------------------+
  | string_to_bytes         |
  +-------------------------+
  | b'\x48\x65\x6c\x6c\x6f' |
- *-------------------------*/
+ +-------------------------*/
 ```
 
 ### Format date and time as string 
@@ -989,11 +989,11 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'YYYY') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 2018                |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format month part as string 
@@ -1076,11 +1076,11 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(DATE '2018-01-30' AS STRING FORMAT 'MONTH') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | JANUARY             |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format day part as string 
@@ -1180,11 +1180,11 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(DATE '2018-02-15' AS STRING FORMAT 'DD') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 15                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format hour part as string 
@@ -1263,21 +1263,21 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH24') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 21                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'HH12') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 09                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format minute part as string 
@@ -1336,11 +1336,11 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'MI') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 30                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format second part as string 
@@ -1426,21 +1426,21 @@ contain a value specified by a format element.
 ```zetasql
 SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'SS') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 25                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT CAST(TIME '21:30:25.16' AS STRING FORMAT 'FF2') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 16                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format meridian indicator part as string 
@@ -1544,22 +1544,22 @@ contain a value specified by a format element.
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
 SELECT CAST(TIME '21:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | PM                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'AM') AS date_time_to_string;
 SELECT CAST(TIME '01:30:00' AS STRING FORMAT 'PM') AS date_time_to_string;
 
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | AM                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format time zone part as string 
@@ -1633,11 +1633,11 @@ contain a value specified by a format element.
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH') AS date_time_to_string;
 
 -- Results depend upon where this query was executed.
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | -08                 |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
@@ -1645,22 +1645,22 @@ SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZH' AT TIME
 AS date_time_to_string;
 
 -- Because the time zone is specified, the result is always the same.
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | +05                 |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
 SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM') AS date_time_to_string;
 
 -- Results depend upon where this query was executed.
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 00                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 ```zetasql
@@ -1668,11 +1668,11 @@ SELECT CAST(TIMESTAMP '2008-12-25 00:00:00+00:00' AS STRING FORMAT 'TZM' AT TIME
 AS date_time_to_string;
 
 -- Because the time zone is specified, the result is always the same.
-/*---------------------*
+/*---------------------+
  | date_time_to_string |
  +---------------------+
  | 30                  |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format literal as string 
@@ -1963,11 +1963,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('18-12-03' AS DATE FORMAT 'YY-MM-DD') AS string_to_date
 
-/*----------------*
+/*----------------+
  | string_to_date |
  +----------------+
  | 2018-12-03     |
- *----------------*/
+ +----------------*/
 ```
 
 #### Format string as month part 
@@ -2060,11 +2060,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('DEC 03, 2018' AS DATE FORMAT 'MON DD, YYYY') AS string_to_date
 
-/*----------------*
+/*----------------+
  | string_to_date |
  +----------------+
  | 2018-12-03     |
- *----------------*/
+ +----------------*/
 ```
 
 #### Format string as day part 
@@ -2133,11 +2133,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('DECEMBER 03, 2018' AS DATE FORMAT 'MONTH DD, YYYY') AS string_to_date
 
-/*----------------*
+/*----------------+
  | string_to_date |
  +----------------+
  | 2018-12-03     |
- *----------------*/
+ +----------------*/
 ```
 
 #### Format string as hour part 
@@ -2230,11 +2230,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('15:30' AS TIME FORMAT 'HH24:MI') AS string_to_date_time
 
-/*---------------------*
+/*---------------------+
  | string_to_date_time |
  +---------------------+
  | 15:30:00            |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format string as minute part 
@@ -2305,11 +2305,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI P.M.') AS string_to_date_time
 
-/*---------------------*
+/*---------------------+
  | string_to_date_time |
  +---------------------+
  | 15:30:00            |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format string as second part 
@@ -2409,11 +2409,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('01:05:07.16' AS TIME FORMAT 'HH24:MI:SS.FF1') AS string_to_date_time
 
-/*---------------------*
+/*---------------------+
  | string_to_date_time |
  +---------------------+
  | 01:05:07.2          |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format string as meridian indicator part 
@@ -2493,11 +2493,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('03:30 P.M.' AS TIME FORMAT 'HH:MI A.M.') AS string_to_date_time
 
-/*---------------------*
+/*---------------------+
  | string_to_date_time |
  +---------------------+
  | 15:30:00            |
- *---------------------*/
+ +---------------------*/
 ```
 
 #### Format string as time zone part 
@@ -2584,11 +2584,11 @@ The data type to which the string was cast. This can be:
 ```zetasql
 SELECT CAST('2020.06.03 00:00:53+00' AS TIMESTAMP FORMAT 'YYYY.MM.DD HH:MI:SSTZH') AS string_to_date_time
 
-/*----------------------------*
+/*----------------------------+
  | as_timestamp               |
  +----------------------------+
  | 2020-06-03 00:00:53.110+00 |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 #### Format string as literal 
@@ -2705,7 +2705,7 @@ otherwise a space. To suppress blank characters and trailing zeroes, use the
 SELECT input, CAST(input AS STRING FORMAT '$999,999.999') AS output
 FROM UNNEST([1.2, 12.3, 123.456, 1234.56, -12345.678, 1234567.89]) AS input
 
-/*------------+---------------*
+/*------------+---------------+
  |   input    |    output     |
  +------------+---------------+
  |        1.2 |        $1.200 |
@@ -2714,7 +2714,7 @@ FROM UNNEST([1.2, 12.3, 123.456, 1234.56, -12345.678, 1234567.89]) AS input
  |    1234.56 |    $1,234.560 |
  | -12345.678 |  -$12,345.678 |
  | 1234567.89 |  $###,###.### |
- *------------+---------------*/
+ +------------+---------------*/
 ```
 
 #### Format digits as string 
@@ -2812,11 +2812,11 @@ SELECT
   CAST(12 AS STRING FORMAT '999') as a,
   CAST(-12 AS STRING FORMAT '999') as b;
 
-/*------+------*
+/*------+------+
  | a    | b    |
  +------+------+
  |   12 |  -12 |
- *------+------*/
+ +------+------*/
 ```
 
 #### Format decimal point as string 
@@ -2862,11 +2862,11 @@ mutually exclusive. At most one can appear in the format string.
 ```zetasql
 SELECT CAST(12.5 AS STRING FORMAT '99.99') as a;
 
-/*--------*
+/*--------+
  | a      |
  +--------+
  |  12.50 |
- *--------*/
+ +--------*/
 ```
 
 #### Format sign as string 
@@ -2953,11 +2953,11 @@ SELECT
   CAST(12 AS STRING FORMAT 'S99') as a,
   CAST(-12 AS STRING FORMAT 'S99') as b;
 
-/*-----+-----*
+/*-----+-----+
  | a   | b   |
  +-----+-----+
  | +12 | -12 |
- *-----+-----*/
+ +-----+-----*/
 ```
 
 #### Format currency symbol as string 
@@ -3021,11 +3021,11 @@ SELECT
   CAST(12 AS STRING FORMAT '$99') as a,
   CAST(-12 AS STRING FORMAT '$99') as b;
 
-/*------+------*
+/*------+------+
  | a    | b    |
  +------+------+
  |  $12 | -$12 |
- *------+------*/
+ +------+------*/
 ```
 
 #### Format group separator as string 
@@ -3070,11 +3070,11 @@ The following format elements output a group separator.
 ```zetasql
 SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
 
-/*----------*
+/*----------+
  | a        |
  +----------+
  |    1,234 |
- *----------*/
+ +----------*/
 ```
 
 #### Other numeric format elements 
@@ -3166,11 +3166,11 @@ SELECT CAST(1234 AS STRING FORMAT '999,999') as a;
 ```zetasql
 SELECT CAST(-123456 AS STRING FORMAT '9.999EEEE') as a;"
 
-/*------------*
+/*------------+
  | a          |
  +------------+
  | -1.235E+05 |
- *------------*/
+ +------------*/
 ```
 
 ### About BASE encoding 

@@ -43,9 +43,10 @@ import javax.annotation.Nullable;
  *
  * <p>More information in zetasql/public/table_valued_function.h
  */
-public abstract class TableValuedFunction implements Serializable {
+public class TableValuedFunction implements Serializable {
 
   private final ImmutableList<String> namePath;
+  private final String group;
   private final ImmutableList<FunctionSignature> signatures;
   private final ImmutableList<TVFRelation.Column> columns;
   @Nullable private final String customContext;
@@ -63,6 +64,7 @@ public abstract class TableValuedFunction implements Serializable {
    */
   protected TableValuedFunction(
       ImmutableList<String> namePath,
+      String group,
       ImmutableList<FunctionSignature> signatures,
       ImmutableList<TVFRelation.Column> columns,
       @Nullable String customContext,
@@ -70,6 +72,7 @@ public abstract class TableValuedFunction implements Serializable {
       TableValuedFunctionOptionsProto options) {
     checkArgument(!signatures.isEmpty());
     this.namePath = namePath;
+    this.group = group;
     this.signatures = signatures;
     this.columns = columns;
     this.customContext = customContext;
@@ -82,7 +85,17 @@ public abstract class TableValuedFunction implements Serializable {
       TableValuedFunctionProto proto,
       ImmutableList<? extends DescriptorPool> pools,
       TypeFactory typeFactory) {
+    // Deserialize here if type is `BASIS_TVF` otherwise dispatch to corresponding class.
     switch (proto.getType()) {
+      case BASIS_TVF:
+        return new TableValuedFunction(
+            ImmutableList.copyOf(proto.getNamePathList()),
+            proto.getGroup(),
+            deserializeSignatures(proto, pools),
+            ImmutableList.of(),
+            null,
+            null,
+            proto.getOptions());
       case FIXED_OUTPUT_SCHEMA_TVF:
         return FixedOutputSchemaTVF.deserialize(proto, pools, typeFactory);
       case FORWARD_INPUT_SCHEMA_TO_OUTPUT_SCHEMA_TVF:
@@ -102,7 +115,11 @@ public abstract class TableValuedFunction implements Serializable {
   /** Serializes this table-valued function to a protocol buffer. */
   public TableValuedFunctionProto serialize(FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
     TableValuedFunctionProto.Builder builder =
-        TableValuedFunctionProto.newBuilder().addAllNamePath(namePath).setOptions(options);
+        TableValuedFunctionProto.newBuilder()
+            .addAllNamePath(namePath)
+            .setOptions(options)
+            .setGroup(group)
+            .setType(getType());
     for (FunctionSignature signature : signatures) {
       builder.addSignatures(signature.serialize(fileDescriptorSetsBuilder));
     }
@@ -120,6 +137,7 @@ public abstract class TableValuedFunction implements Serializable {
       builder.setVolatility(getVolatility());
     }
     switch (getType()) {
+      case BASIS_TVF:
       // TODO - Set the output schema of FixedOutputSchemaTVF in proto custom context.
       // Currently the output schema is ignored while serialization and the deserializer uses the
       // schema from resultType of the FunctionSignature.
@@ -150,7 +168,9 @@ public abstract class TableValuedFunction implements Serializable {
     return builder.build();
   }
 
-  abstract FunctionEnums.TableValuedFunctionType getType();
+  FunctionEnums.TableValuedFunctionType getType() {
+    return FunctionEnums.TableValuedFunctionType.BASIS_TVF;
+  }
 
   public String getName() {
     return namePath.get(namePath.size() - 1);
@@ -158,6 +178,14 @@ public abstract class TableValuedFunction implements Serializable {
 
   public ImmutableList<String> getNamePath() {
     return namePath;
+  }
+
+  public String getGroup() {
+    return group;
+  }
+
+  public boolean isZetaSQLBuiltin() {
+    return group.equals(Function.ZETASQL_FUNCTION_GROUP_NAME);
   }
 
   /**
@@ -179,7 +207,12 @@ public abstract class TableValuedFunction implements Serializable {
   }
 
   public String getFullName(boolean includeGroup) {
-    return Joiner.on('.').join(namePath);
+    String pathname = Joiner.on('.').join(namePath);
+    if (includeGroup && !group.isEmpty()) {
+      return group + ":" + pathname;
+    } else {
+      return pathname;
+    }
   }
 
   @Nullable
@@ -265,6 +298,7 @@ public abstract class TableValuedFunction implements Serializable {
         TableValuedFunctionOptionsProto options) {
       super(
           ImmutableList.copyOf(namePath),
+          /* group= */ "",
           ImmutableList.copyOf(signatures),
           ImmutableList.of(),
           /* customContext= */ null,
@@ -389,6 +423,7 @@ public abstract class TableValuedFunction implements Serializable {
         TableValuedFunctionOptionsProto options) {
       super(
           ImmutableList.copyOf(namePath),
+          /* group= */ "",
           ImmutableList.copyOf(signatures),
           ImmutableList.of(),
           customContext,
@@ -453,6 +488,7 @@ public abstract class TableValuedFunction implements Serializable {
         TableValuedFunctionOptionsProto options) {
       super(
           namePath,
+          /* group= */ "",
           ImmutableList.of(signature),
           ImmutableList.of(),
           /* customContext= */ null,
@@ -557,6 +593,7 @@ public abstract class TableValuedFunction implements Serializable {
         TableValuedFunctionOptionsProto options) {
       super(
           ImmutableList.copyOf(namePath),
+          /* group= */ "",
           ImmutableList.copyOf(signatures),
           ImmutableList.copyOf(columns),
           customContext,

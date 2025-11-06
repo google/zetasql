@@ -54,6 +54,7 @@
 #include "zetasql/public/sql_function.h"
 #include "zetasql/public/sql_tvf.h"
 #include "zetasql/public/sql_view.h"
+#include "zetasql/public/table_valued_function.h"
 #include "zetasql/public/templated_sql_tvf.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_factory.h"
@@ -189,8 +190,8 @@ absl::Status LazyResolutionCatalog::FindObject(
     // LazyResolutionCatalogs cannot have sub-catalogs, so return not found.
     return ObjectNotFoundError<ObjectType>(name_path);
   }
-  ZETASQL_RETURN_IF_ERROR(lookup_object_method(name_path.back(), &local_lazy_object,
-                                       options));
+  ZETASQL_RETURN_IF_ERROR(
+      lookup_object_method(name_path.back(), &local_lazy_object, options));
   // We found the object.  If it's not valid then return.
   ZETASQL_RETURN_IF_ERROR(local_lazy_object->resolution_status());
   if (!local_lazy_object->NeedsResolution()) {
@@ -233,9 +234,8 @@ absl::Status LazyResolutionCatalog::FindObject(
 
     AnalyzerOptions analyzer_options(analyzer_options_);
     analyzer_options.set_find_options(options);
-    resolution_status =
-        lazy_resolution_object->ResolveAndUpdateIfNeeded(
-            analyzer_options, resolution_catalog_.get(), type_factory_);
+    resolution_status = lazy_resolution_object->ResolveAndUpdateIfNeeded(
+        analyzer_options, resolution_catalog_.get(), type_factory_);
 
     // We have fully resolved this object (either successfully or with
     // an error).  As we leave this block, the object will get popped
@@ -381,15 +381,14 @@ std::string LazyResolutionCatalog::ConstantsDebugString(bool verbose) const {
   std::string debug_string;
   absl::StrAppend(&debug_string, "LazyResolutionConstants:\n");
   for (const auto& constant : constants_) {
-    absl::StrAppend(&debug_string,
-                    constant.first, ": ",
+    absl::StrAppend(&debug_string, constant.first, ": ",
                     constant.second->DebugString(verbose), "\n");
   }
   return debug_string;
 }
 
-std::vector<const LazyResolutionFunction*>
-    LazyResolutionCatalog::functions() const {
+std::vector<const LazyResolutionFunction*> LazyResolutionCatalog::functions()
+    const {
   std::vector<const LazyResolutionFunction*> functions;
   functions.reserve(functions_.size());
   for (const auto& function : functions_) {
@@ -408,8 +407,8 @@ LazyResolutionCatalog::table_valued_functions() const {
   return table_functions;
 }
 
-std::vector<const LazyResolutionConstant*>
-LazyResolutionCatalog::constants() const {
+std::vector<const LazyResolutionConstant*> LazyResolutionCatalog::constants()
+    const {
   std::vector<const LazyResolutionConstant*> constants;
   constants.reserve(constants_.size());
   for (const auto& constant : constants_) {
@@ -458,21 +457,21 @@ ParseLocationPoint LazyResolutionObject::StartParseLocationPoint() const {
 std::string LazyResolutionObject::TypeName(bool capitalized) const {
   std::string type_name = "<unsupported type>";
   if (parser_output_->statement()->node_kind() ==
-        AST_CREATE_CONSTANT_STATEMENT) {
+      AST_CREATE_CONSTANT_STATEMENT) {
     if (capitalized) {
       type_name = "Constant";
     } else {
       type_name = "constant";
     }
   } else if (parser_output_->statement()->node_kind() ==
-          AST_CREATE_FUNCTION_STATEMENT) {
+             AST_CREATE_FUNCTION_STATEMENT) {
     if (capitalized) {
       type_name = "Function";
     } else {
       type_name = "function";
     }
   } else if (parser_output_->statement()->node_kind() ==
-                 AST_CREATE_TABLE_FUNCTION_STATEMENT) {
+             AST_CREATE_TABLE_FUNCTION_STATEMENT) {
     if (capitalized) {
       type_name = "Table function";
     } else {
@@ -528,8 +527,8 @@ const ResolvedCreateStatement* LazyResolutionObject::ResolvedStatement() const {
       analyzer_output_->resolved_statement() == nullptr) {
     return nullptr;
   }
-  return analyzer_output_->resolved_statement()->
-      GetAs<const ResolvedCreateStatement>();
+  return analyzer_output_->resolved_statement()
+      ->GetAs<const ResolvedCreateStatement>();
 }
 
 const std::vector<absl::Status>*
@@ -678,16 +677,19 @@ LazyResolutionFunction::CreateImpl(
       parser_output->statement()->GetAs<ASTCreateFunctionStatement>();
 
   // LazyResolutionFunctions only support functions with single-part names.
-  ZETASQL_RET_CHECK_EQ(1,
-               ast_create_function_statement->function_declaration()->name()->
-                 num_names())
+  ZETASQL_RET_CHECK_EQ(1, ast_create_function_statement->function_declaration()
+                      ->name()
+                      ->num_names())
       << "LazyResolutionFunctions only support functions with single-part "
       << "function names, but found: "
-      << ast_create_function_statement->function_declaration()->name()->
-           ToIdentifierPathString();
+      << ast_create_function_statement->function_declaration()
+             ->name()
+             ->ToIdentifierPathString();
 
-  const ASTIdentifier* function_name = ast_create_function_statement->
-      function_declaration()->name()->first_name();
+  const ASTIdentifier* function_name =
+      ast_create_function_statement->function_declaration()
+          ->name()
+          ->first_name();
 
   return absl::WrapUnique(new LazyResolutionFunction(
       function_name, parse_resume_location,
@@ -794,14 +796,15 @@ std::string LazyResolutionFunction::DebugString(bool verbose, bool include_ast,
   // minimize test differences, and should be removed in a subsequent CL.
   std::string debug_string;
   absl::StrAppend(
-      &debug_string,
-      lazy_resolution_object_.IsPrivate() ? "PRIVATE " : "",
+      &debug_string, lazy_resolution_object_.IsPrivate() ? "PRIVATE " : "",
       ((function_ != nullptr)
-       ? function_->DebugString(verbose)
-       : absl::StrCat(SQLFunction::kSQLFunctionGroup, ":", Name(),
-                      (resolution_status().ok() ? ""
-                       : absl::StrCat("\nERROR: ",
-                                      FormatError(resolution_status()))))));
+           ? function_->DebugString(verbose)
+           : absl::StrCat(
+                 SQLFunction::kSQLFunctionGroup, ":", Name(),
+                 (resolution_status().ok()
+                      ? ""
+                      : absl::StrCat("\nERROR: ",
+                                     FormatError(resolution_status()))))));
 
   // TODO: The flags here don't work quite right, since if
   // !<include_ast> then <include_sql> is completely ignored.  Fix this, or
@@ -835,8 +838,8 @@ void LazyResolutionFunction::set_status_when_resolution_attempted(
 
 const ResolvedCreateFunctionStmt* LazyResolutionFunction::ResolvedStatement()
     const {
-  return lazy_resolution_object_.ResolvedStatement()->
-      GetAs<const ResolvedCreateFunctionStmt>();
+  return lazy_resolution_object_.ResolvedStatement()
+      ->GetAs<const ResolvedCreateFunctionStmt>();
 }
 
 const ResolvedExpr* LazyResolutionFunction::FunctionExpression() const {
@@ -852,8 +855,9 @@ std::vector<std::string> LazyResolutionFunction::ArgumentNames() const {
       parser_output->statement()->GetAs<ASTCreateFunctionStatement>();
 
   const absl::Span<const ASTFunctionParameter* const>& parameters =
-      ast_create_function_statement->function_declaration()->parameters()->
-          parameter_entries();
+      ast_create_function_statement->function_declaration()
+          ->parameters()
+          ->parameter_entries();
   std::vector<std::string> argument_names(parameters.size());
   int i = 0;
   for (const ASTFunctionParameter* parameter : parameters) {
@@ -864,7 +868,7 @@ std::vector<std::string> LazyResolutionFunction::ArgumentNames() const {
 }
 
 const std::vector<std::unique_ptr<const ResolvedComputedColumn>>*
-    LazyResolutionFunction::AggregateExpressionList() const {
+LazyResolutionFunction::AggregateExpressionList() const {
   if (mode_ == FunctionEnums::AGGREGATE && ResolvedStatement() != nullptr) {
     return &ResolvedStatement()->aggregate_expression_list();
   }
@@ -923,15 +927,16 @@ LazyResolutionTableFunction::CreateImpl(
 
   // LazyResolutionTableFunctions only support table functions with
   // single-part names.
-  ZETASQL_RET_CHECK_EQ(
-      1, ast_create_table_function_statement->function_declaration()->name()->
-           num_names())
+  ZETASQL_RET_CHECK_EQ(1, ast_create_table_function_statement->function_declaration()
+                      ->name()
+                      ->num_names())
       << "LazyResolutionTableFunctions only support table functions with "
       << "single-part function names";
 
   const ASTIdentifier* table_function_name =
-      ast_create_table_function_statement->function_declaration()->
-          name()->first_name();
+      ast_create_table_function_statement->function_declaration()
+          ->name()
+          ->first_name();
   return absl::WrapUnique(new LazyResolutionTableFunction(
       table_function_name, parse_resume_location,
       templated_expression_resume_location, std::move(parser_output),
@@ -990,6 +995,9 @@ absl::Status LazyResolutionTableFunction::ResolveAndUpdateIfNeeded(
       table_function_ = std::move(sql_tvf);
     }
   }
+  // User-defined tvfs often use CamelCase. Upper casing makes it
+  // unreadable.
+  table_function_->mutable_tvf_options().set_uses_upper_case_sql_name(false);
   table_function_->set_statement_context(statement_context());
   return absl::OkStatus();
 }
@@ -1016,16 +1024,16 @@ std::string LazyResolutionTableFunction::DebugString(bool verbose) const {
   // be removed in a subsequent CL.
   std::string debug_string;
   absl::StrAppend(
-      &debug_string,
-      lazy_resolution_object_.IsPrivate() ? "PRIVATE " : "",
+      &debug_string, lazy_resolution_object_.IsPrivate() ? "PRIVATE " : "",
       "TVF:",
       (table_function_ != nullptr
-       ? table_function_->DebugString()
-       : absl::StrCat(
-             Name(),
-             (resolution_status().ok() ? ""
-              : absl::StrCat("\nERROR: ",
-                             FormatError(resolution_status()))))));
+           ? table_function_->DebugString()
+           : absl::StrCat(
+                 Name(),
+                 (resolution_status().ok()
+                      ? ""
+                      : absl::StrCat("\nERROR: ",
+                                     FormatError(resolution_status()))))));
 
   const std::vector<absl::Status>* deprecation_warnings =
       AnalyzerDeprecationWarnings();
@@ -1058,9 +1066,9 @@ void LazyResolutionTableFunction::set_status_when_resolution_attempted(
 }
 
 const ResolvedCreateTableFunctionStmt*
-    LazyResolutionTableFunction::ResolvedStatement() const {
-  return lazy_resolution_object_.ResolvedStatement()->
-      GetAs<const ResolvedCreateTableFunctionStmt>();
+LazyResolutionTableFunction::ResolvedStatement() const {
+  return lazy_resolution_object_.ResolvedStatement()
+      ->GetAs<const ResolvedCreateTableFunctionStmt>();
 }
 
 const std::vector<absl::Status>*
@@ -1187,7 +1195,7 @@ std::string LazyResolutionConstant::DebugString(bool verbose) const {
   }
   absl::StrAppend(&debug_string, " (",
                   ResolvedType() == nullptr ? "unknown type"
-                  : ResolvedType()->DebugString(),
+                                            : ResolvedType()->DebugString(),
                   ")");
   const absl::Status status = resolution_or_evaluation_status();
   if (!status.ok()) {

@@ -700,6 +700,16 @@ OrderByAndLimitInAggregateRewriterVisitor::HandleAggregateFunctionCall(
         "Aggregate functions with GROUP BY modifiers are not supported in "
         "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
   }
+  if (aggregate_function_call->where_expr() != nullptr) {
+    return absl::UnimplementedError(
+        "Aggregate functions with a WHERE filter modifier are not supported in "
+        "ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
+  }
+  if (aggregate_function_call->having_expr() != nullptr) {
+    return absl::UnimplementedError(
+        "Aggregate functions with a HAVING filter modifier are not supported "
+        "in ORDER_BY_AND_LIMIT_IN_AGGREGATE rewriter");
+  }
 
   // Columns used in the HAVING clause are used in the same context as the
   // original aggregates so we don't need any special handling for the refs they

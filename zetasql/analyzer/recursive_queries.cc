@@ -113,7 +113,7 @@ class FindTableReferencesVisitor : public NonRecursiveParseTreeVisitor {
       ContainerHash<std::vector<IdString>, IdStringCaseHash>,
       ContainerEquals<std::vector<IdString>, IdStringCaseEqualFunc>>;
 
-  FindTableReferencesVisitor() {}
+  FindTableReferencesVisitor() = default;
   FindTableReferencesVisitor(const FindTableReferencesVisitor&) = delete;
   FindTableReferencesVisitor& operator=(const FindTableReferencesVisitor&) =
       delete;
@@ -259,7 +259,7 @@ class WithEntrySorter {
     } stage;
   };
 
-  WithEntrySorter() {}
+  WithEntrySorter() = default;
 
   absl::StatusOr<WithEntrySortResult> RunInternal(
       const ASTWithClause* with_clause);

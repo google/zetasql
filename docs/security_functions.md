@@ -54,10 +54,10 @@ For more information about identities, see
 ```zetasql
 SELECT SESSION_USER() as user;
 
-/*----------------------*
+/*----------------------+
  | user                 |
  +----------------------+
  | jdoe@example.com     |
- *----------------------*/
+ +----------------------*/
 ```
 

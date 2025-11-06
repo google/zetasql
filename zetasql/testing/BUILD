@@ -159,12 +159,12 @@ cc_library(
     hdrs = ["type_util.h"],
     deps = [
         "//zetasql/base:check",
+        "//zetasql/compliance:test_util",
         "//zetasql/public:type",
         "//zetasql/public:type_cc_proto",
         "//zetasql/public/types",
         "//zetasql/testdata:test_proto3_cc_proto",
         "//zetasql/testdata:test_schema_cc_proto",
-        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_googleapis//google/type:date_cc_proto",

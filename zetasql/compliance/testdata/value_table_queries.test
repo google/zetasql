@@ -187,8 +187,9 @@ ARRAY<STRUCT<foo INT64, bar STRING>>[unknown order:{2, "def"}, {1, "abc"}]
 SELECT AS `zetasql_test__.KitchenSinkPB` 5 int64_key_1, 6 int64_key_2
 UNION ALL
 SELECT pb FROM TestTable
+ORDER BY int64_key_1
 --
-ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[unknown order:
+ARRAY<PROTO<zetasql_test__.KitchenSinkPB>>[known order:
   {
     int64_key_1: 5
     int64_key_2: 6

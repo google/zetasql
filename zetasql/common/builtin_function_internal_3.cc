@@ -1101,22 +1101,29 @@ void GetMiscellaneousFunctions(TypeFactory* type_factory,
   // and that the canonical representations in the ResolvedAST are the
   // CONCAT/ARRAY_CONCAT function calls based on the types of the arguments.
   FunctionArgumentTypeOptions concat_option;
+  FunctionArgumentTypeOptions concat_option_repeated;
   if (options.language_options.LanguageFeatureEnabled(
           zetasql::FEATURE_CONCAT_MIXED_TYPES)) {
     concat_option.set_allow_coercion_from(&CanStringConcatCoerceFrom);
+    concat_option_repeated.set_allow_coercion_from(&CanStringConcatCoerceFrom);
   }
+  concat_option_repeated.set_cardinality(FunctionArgumentType::REPEATED);
 
   InsertFunction(
       functions, options, "$concat_op", SCALAR,
       {{string_type,
-        {{string_type, concat_option}, {string_type, concat_option}},
+        {{string_type, concat_option}, {string_type, concat_option_repeated}},
         FN_CONCAT_OP_STRING},
-       {bytes_type, {bytes_type, bytes_type}, FN_CONCAT_OP_BYTES},
+       {bytes_type,
+        {bytes_type, {bytes_type, FunctionArgumentType::REPEATED}},
+        FN_CONCAT_OP_BYTES},
        {ARG_ARRAY_TYPE_ANY_1,
-        {ARG_ARRAY_TYPE_ANY_1, ARG_ARRAY_TYPE_ANY_1},
+        {ARG_ARRAY_TYPE_ANY_1,
+         {ARG_ARRAY_TYPE_ANY_1, FunctionArgumentType::REPEATED}},
         FN_ARRAY_CONCAT_OP},
        {ARG_TYPE_GRAPH_PATH,
-        {ARG_TYPE_GRAPH_PATH, ARG_TYPE_GRAPH_PATH},
+        {ARG_TYPE_GRAPH_PATH,
+         {ARG_TYPE_GRAPH_PATH, FunctionArgumentType::REPEATED}},
         FN_CONCAT_OP_PATH,
         FunctionSignatureOptions()
             .AddRequiredLanguageFeature(FEATURE_SQL_GRAPH)
@@ -1342,6 +1349,9 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
   // algebrizer.cc.
   std::vector<FunctionSignatureOnHeap> subscript_function_signatures;
   std::vector<FunctionSignatureOnHeap> subscript_with_key_function_signatures;
+  std::vector<FunctionSignatureOnHeap>
+      safe_subscript_with_key_function_signatures;
+
   if (options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
     const Type* int64_type = type_factory->get_int64();
     const Type* json_type = types::JsonType();
@@ -1366,6 +1376,13 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
          FunctionSignatureOptions()
              .set_rejects_collation()
              .AddRequiredLanguageFeature(FEATURE_MAP_TYPE)});
+    safe_subscript_with_key_function_signatures.push_back(
+        {ARG_TYPE_ANY_2,
+         {ARG_MAP_TYPE_ANY_1_2, ARG_TYPE_ANY_1},
+         FN_MAP_SAFE_SUBSCRIPT_WITH_KEY,
+         FunctionSignatureOptions()
+             .set_rejects_collation()
+             .AddRequiredLanguageFeature(FEATURE_MAP_TYPE)});
   }
 
   InsertFunction(functions, options, "$subscript", Function::SCALAR,
@@ -1381,33 +1398,70 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
   InsertFunction(functions, options, "$subscript_with_key", Function::SCALAR,
                  subscript_with_key_function_signatures,
                  FunctionOptions()
-                     .set_supports_safe_error_mode(true)
-                     .set_get_sql_callback(&SubscriptWithKeyFunctionSQL)
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithKeyFunctionSQL, /*safe=*/false))
                      .set_hide_supported_signatures(true)
                      .set_no_matching_signature_callback(
                          absl::bind_front(&NoMatchingSignatureForSubscript,
                                           /*offset_or_ordinal=*/"KEY")));
+
+  InsertFunction(functions, options, "$safe_subscript_with_key",
+                 Function::SCALAR, safe_subscript_with_key_function_signatures,
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithKeyFunctionSQL, /*safe=*/true))
+                     .set_hide_supported_signatures(true)
+                     .set_no_matching_signature_callback(
+                         absl::bind_front(&NoMatchingSignatureForSubscript,
+                                          /*offset_or_ordinal=*/"SAFE_KEY"))
+                     .AddRequiredLanguageFeature(FEATURE_SAFE_FUNCTION_CALL));
 
   // No types currently support generic subscript OFFSET or ORDINAL
   const std::vector<FunctionSignatureOnHeap> empty_signatures;
   InsertFunction(functions, options, "$subscript_with_offset", Function::SCALAR,
                  empty_signatures,
                  FunctionOptions()
-                     .set_supports_safe_error_mode(true)
-                     .set_get_sql_callback(&SubscriptWithOffsetFunctionSQL)
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithOffsetFunctionSQL, /*safe=*/false))
                      .set_hide_supported_signatures(true)
                      .set_no_matching_signature_callback(
                          absl::bind_front(&NoMatchingSignatureForSubscript,
                                           /*offset_or_ordinal=*/"OFFSET")));
+  InsertFunction(functions, options, "$safe_subscript_with_offset",
+                 Function::SCALAR, empty_signatures,
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithOffsetFunctionSQL, /*safe=*/true))
+                     .set_hide_supported_signatures(true)
+                     .set_no_matching_signature_callback(
+                         absl::bind_front(&NoMatchingSignatureForSubscript,
+                                          /*offset_or_ordinal=*/"SAFE_OFFSET"))
+                     .AddRequiredLanguageFeature(FEATURE_SAFE_FUNCTION_CALL));
   InsertFunction(functions, options, "$subscript_with_ordinal",
                  Function::SCALAR, empty_signatures,
                  FunctionOptions()
-                     .set_supports_safe_error_mode(true)
-                     .set_get_sql_callback(&SubscriptWithOrdinalFunctionSQL)
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithOrdinalFunctionSQL, /*safe=*/false))
                      .set_hide_supported_signatures(true)
                      .set_no_matching_signature_callback(
                          absl::bind_front(&NoMatchingSignatureForSubscript,
                                           /*offset_or_ordinal=*/"ORDINAL")));
+  InsertFunction(functions, options, "$safe_subscript_with_ordinal",
+                 Function::SCALAR, empty_signatures,
+                 FunctionOptions()
+                     .set_supports_safe_error_mode(false)
+                     .set_get_sql_callback(absl::bind_front(
+                         &SubscriptWithOrdinalFunctionSQL, /*safe=*/true))
+                     .set_hide_supported_signatures(true)
+                     .set_no_matching_signature_callback(
+                         absl::bind_front(&NoMatchingSignatureForSubscript,
+                                          /*offset_or_ordinal=*/"SAFE_ORDINAL"))
+                     .AddRequiredLanguageFeature(FEATURE_SAFE_FUNCTION_CALL));
 }
 
 namespace {

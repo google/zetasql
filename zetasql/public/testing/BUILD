@@ -31,7 +31,6 @@ cc_library(
         "//zetasql/common:options_utils",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
-        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_file_based_test_driver//file_based_test_driver:test_case_options",

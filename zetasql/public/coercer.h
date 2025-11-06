@@ -18,12 +18,15 @@
 #define ZETASQL_PUBLIC_COERCER_H_
 
 #include "zetasql/public/function.h"
+#include "zetasql/public/input_argument_type.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/signature_match_result.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/types/type.h"
 #include "zetasql/public/value.h"
-#include "absl/time/time.h"
+#include "absl/base/attributes.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 
 namespace zetasql {
 

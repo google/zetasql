@@ -308,6 +308,8 @@ public final class FunctionArgumentType implements Serializable {
         return "ANY GRAPH";
       case ARG_TYPE_GRAPH_PATH:
         return "<graph_path>";
+      case ARG_TYPE_SEQUENCE:
+        return "ANY SEQUENCE";
       case __SignatureArgumentKind__switch_must_have_a_default__:
       default:
         return "UNKNOWN_ARG_KIND";

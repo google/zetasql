@@ -2836,13 +2836,13 @@ SELECT ROUND(NUMERIC "1", 1, 1);
 --
 ERROR: No matching signature for function ROUND
   Argument types: NUMERIC, INT64, INT64
-  Signature: ROUND(FLOAT)
+  Signature: ROUND(FLOAT32)
     Signature accepts at most 1 argument, found 3 arguments
   Signature: ROUND(FLOAT64)
     Signature accepts at most 1 argument, found 3 arguments
   Signature: ROUND(NUMERIC)
     Signature accepts at most 1 argument, found 3 arguments
-  Signature: ROUND(FLOAT, INT64)
+  Signature: ROUND(FLOAT32, INT64)
     Signature accepts at most 2 arguments, found 3 arguments
   Signature: ROUND(FLOAT64, INT64)
     Signature accepts at most 2 arguments, found 3 arguments

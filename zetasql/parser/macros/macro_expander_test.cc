@@ -31,10 +31,10 @@
 #include "zetasql/base/arena.h"
 #include "zetasql/base/testing/status_matchers.h"
 #include "zetasql/parser/macros/diagnostic.h"
-#include "zetasql/parser/macros/flex_token_provider.h"
 #include "zetasql/parser/macros/macro_catalog.h"
 #include "zetasql/parser/macros/quoting.h"
 #include "zetasql/parser/macros/standalone_macro_expansion.h"
+#include "zetasql/parser/macros/token_provider.h"
 #include "zetasql/parser/parse_tree.h"
 #include "zetasql/parser/parser.h"
 #include "zetasql/parser/parser_mode.h"
@@ -283,12 +283,11 @@ static absl::StatusOr<ExpansionOutput> ExpandMacros(
         .diagnostic_options = {
             .error_message_options = {
                 .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}}) {
-  return MacroExpander::ExpandMacros(std::make_unique<FlexTokenProvider>(
-                                         kTopFileName, text, /*start_offset=*/0,
-                                         /*end_offset=*/std::nullopt,
-                                         /*offset_in_original_input=*/0,
-                                         /*force_flex=*/false),
-                                     macro_catalog, macro_expander_options);
+  return MacroExpander::ExpandMacros(
+      std::make_unique<TokenProvider>(kTopFileName, text, /*start_offset=*/0,
+                                      /*end_offset=*/std::nullopt,
+                                      /*offset_in_original_input=*/0),
+      macro_catalog, macro_expander_options);
 }
 
 static absl::StatusOr<ExpansionOutput> ExpandMacros(
@@ -298,11 +297,10 @@ static absl::StatusOr<ExpansionOutput> ExpandMacros(
         .error_message_options = {
             .mode = ErrorMessageMode::ERROR_MESSAGE_ONE_LINE}}) {
   return MacroExpander::ExpandMacros(
-      std::make_unique<FlexTokenProvider>(kTopFileName, text,
-                                          /*start_offset=*/0,
-                                          /*end_offset=*/std::nullopt,
-                                          /*offset_in_original_input=*/0,
-                                          /*force_flex=*/false),
+      std::make_unique<TokenProvider>(kTopFileName, text,
+                                      /*start_offset=*/0,
+                                      /*end_offset=*/std::nullopt,
+                                      /*offset_in_original_input=*/0),
       macro_catalog,
       {
           .is_strict = is_strict,
@@ -417,11 +415,10 @@ TEST(MacroExpanderTest, ErrorsCanPrintLocation_EmptyFileNames) {
 
   EXPECT_THAT(
       MacroExpander::ExpandMacros(
-          std::make_unique<FlexTokenProvider>("", "$m2()",
-                                              /*start_offset=*/0,
-                                              /*end_offset=*/std::nullopt,
-                                              /*offset_in_original_input=*/0,
-                                              /*force_flex=*/false),
+          std::make_unique<TokenProvider>("", "$m2()",
+                                          /*start_offset=*/0,
+                                          /*end_offset=*/std::nullopt,
+                                          /*offset_in_original_input=*/0),
           macro_catalog,
           {.is_strict = true,
            .diagnostic_options =
@@ -498,11 +495,10 @@ TEST(MacroExpanderTest, TracksCountOfUnexpandedTokensConsumedIncludingEOF) {
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO empty", macro_catalog);
 
-  auto token_provider = std::make_unique<FlexTokenProvider>(
+  auto token_provider = std::make_unique<TokenProvider>(
       kTopFileName, "\t$empty\r\n$empty$empty",
       /*start_offset=*/0, /*end_offset=*/std::nullopt,
-      /*offset_in_original_input=*/0,
-      /*force_flex=*/false);
+      /*offset_in_original_input=*/0);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   StackFrame::StackFrameFactory stack_frame_factory;
   MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),
@@ -520,10 +516,9 @@ TEST(MacroExpanderTest,
   MacroCatalog macro_catalog;
   RegisterMacros("DEFINE MACRO m 1 2 3", macro_catalog);
 
-  auto token_provider = std::make_unique<FlexTokenProvider>(
+  auto token_provider = std::make_unique<TokenProvider>(
       kTopFileName, "$m", /*start_offset=*/0,
-      /*end_offset=*/std::nullopt, /*offset_in_original_input=*/0,
-      /*force_flex=*/false);
+      /*end_offset=*/std::nullopt, /*offset_in_original_input=*/0);
   auto arena = std::make_unique<zetasql_base::UnsafeArena>(/*block_size=*/1024);
   StackFrame::StackFrameFactory stack_frame_factory;
   MacroExpander expander(std::move(token_provider), macro_catalog, arena.get(),

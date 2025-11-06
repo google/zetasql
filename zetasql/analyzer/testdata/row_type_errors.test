@@ -1,0 +1,509 @@
+# This has tests for error cases where ROW types are not allowed.
+# All tests run on both KeyValue{{Lazy|FindOnly}}, and mostly get
+# the same errors for both.
+#
+# TODO Enable default testing modes.
+[default language_features=MAXIMUM,+ROW_TYPE]
+[default no_run_deserializer]
+[default no_run_sqlbuilder]
+[default no_java]
+FROM KeyValue{{Lazy|FindOnly}}
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Returning expressions of type ROW is not allowed [at 1:1]
+FROM KeyValueLazy
+^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Returning expressions of type ROW is not allowed [at 1:1]
+FROM KeyValueFindOnly
+^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT kv
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Returning expressions of type ROW is not allowed [at 1:1]
+FROM KeyValueLazy kv
+^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Returning expressions of type ROW is not allowed [at 1:1]
+FROM KeyValueFindOnly kv
+^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT kv=kv
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:11]
+|> SELECT kv=kv
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT DISTINCT kv
+--
+ERROR: Column kv of type ROW cannot be used in SELECT DISTINCT [at 2:20]
+|> SELECT DISTINCT kv
+                   ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> AGGREGATE COUNT(*)
+   GROUP BY kv
+--
+ERROR: Grouping by expressions of type ROW is not allowed [at 3:13]
+   GROUP BY kv
+            ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> ORDER BY kv
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: ORDER BY does not support expressions of type ROW<KeyValueLazy> [at 2:13]
+|> ORDER BY kv
+            ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: ORDER BY does not support expressions of type ROW<KeyValueFindOnly> [at 2:13]
+|> ORDER BY kv
+            ^
+==
+
+(FROM KeyValue{{Lazy|FindOnly}} kv)
+UNION ALL
+(FROM KeyValue{{Lazy|FindOnly}} kv)
+|> AGGREGATE COUNT(*)
+--
+ALTERNATION GROUP: Lazy,Lazy
+--
+ERROR: Column 1 in UNION ALL has incompatible types: ROW<KeyValueLazy>, ROW<KeyValueLazy> [at 3:2]
+(FROM KeyValueLazy kv)
+ ^
+--
+ALTERNATION GROUP: Lazy,FindOnly
+--
+ERROR: Column 1 in UNION ALL has incompatible types: ROW<KeyValueLazy>, ROW<KeyValueFindOnly> [at 3:2]
+(FROM KeyValueFindOnly kv)
+ ^
+--
+ALTERNATION GROUP: FindOnly,Lazy
+--
+ERROR: Column 1 in UNION ALL has incompatible types: ROW<KeyValueFindOnly>, ROW<KeyValueLazy> [at 3:2]
+(FROM KeyValueLazy kv)
+ ^
+--
+ALTERNATION GROUP: FindOnly,FindOnly
+--
+ERROR: Column 1 in UNION ALL has incompatible types: ROW<KeyValueFindOnly>, ROW<KeyValueFindOnly> [at 3:2]
+(FROM KeyValueFindOnly kv)
+ ^
+==
+
+(FROM KeyValue{{Lazy|FindOnly}} kv)
+INTERSECT ALL
+(FROM KeyValue{{Lazy|FindOnly}} kv)
+--
+ALTERNATION GROUP: Lazy,Lazy
+--
+ERROR: Column 1 in INTERSECT ALL has incompatible types: ROW<KeyValueLazy>, ROW<KeyValueLazy> [at 3:2]
+(FROM KeyValueLazy kv)
+ ^
+--
+ALTERNATION GROUP: Lazy,FindOnly
+--
+ERROR: Column 1 in INTERSECT ALL has incompatible types: ROW<KeyValueLazy>, ROW<KeyValueFindOnly> [at 3:2]
+(FROM KeyValueFindOnly kv)
+ ^
+--
+ALTERNATION GROUP: FindOnly,Lazy
+--
+ERROR: Column 1 in INTERSECT ALL has incompatible types: ROW<KeyValueFindOnly>, ROW<KeyValueLazy> [at 3:2]
+(FROM KeyValueLazy kv)
+ ^
+--
+ALTERNATION GROUP: FindOnly,FindOnly
+--
+ERROR: Column 1 in INTERSECT ALL has incompatible types: ROW<KeyValueFindOnly>, ROW<KeyValueFindOnly> [at 3:2]
+(FROM KeyValueFindOnly kv)
+ ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> AGGREGATE {{COUNT(kv)|MIN(kv)|SUM(kv)|ARRAY_AGG(kv)|AGG(kv)}}
+--
+ALTERNATION GROUPS:
+    Lazy,COUNT(kv)
+    FindOnly,COUNT(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:20]
+|> AGGREGATE COUNT(kv)
+                   ^
+--
+ALTERNATION GROUPS:
+    Lazy,MIN(kv)
+    FindOnly,MIN(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:18]
+|> AGGREGATE MIN(kv)
+                 ^
+--
+ALTERNATION GROUPS:
+    Lazy,SUM(kv)
+    FindOnly,SUM(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:18]
+|> AGGREGATE SUM(kv)
+                 ^
+--
+ALTERNATION GROUPS:
+    Lazy,ARRAY_AGG(kv)
+    FindOnly,ARRAY_AGG(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:24]
+|> AGGREGATE ARRAY_AGG(kv)
+                       ^
+--
+ALTERNATION GROUPS:
+    Lazy,AGG(kv)
+    FindOnly,AGG(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:18]
+|> AGGREGATE AGG(kv)
+                 ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> select {{coalesce(kv)|if(true,kv,kv)|ifnull(kv,kv)}}
+--
+ALTERNATION GROUPS:
+    Lazy,coalesce(kv)
+    FindOnly,coalesce(kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:20]
+|> select coalesce(kv)
+                   ^
+--
+ALTERNATION GROUPS:
+    Lazy,if(true,kv,kv)
+    FindOnly,if(true,kv,kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:19]
+|> select if(true,kv,kv)
+                  ^
+--
+ALTERNATION GROUPS:
+    Lazy,ifnull(kv,kv)
+    FindOnly,ifnull(kv,kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:18]
+|> select ifnull(kv,kv)
+                 ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> AGGREGATE COUNT(DISTINCT kv)
+--
+ERROR: ROW-typed values cannot be passed as function arguments [at 2:29]
+|> AGGREGATE COUNT(DISTINCT kv)
+                            ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT STRUCT(kv)
+--
+ERROR: STRUCT type cannot contain ROW-type values [at 2:11]
+|> SELECT STRUCT(kv)
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT (kv,kv)
+--
+ERROR: STRUCT type cannot contain ROW-type values [at 2:11]
+|> SELECT (kv,kv)
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT AS STRUCT 1,kv,2
+--
+ERROR: SELECT AS STRUCT cannot contain ROW-typed values [at 2:11]
+|> SELECT AS STRUCT 1,kv,2
+          ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> SELECT [kv]
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: No matching signature for operator ARRAY[...]
+  Argument types: ROW<KeyValueLazy>
+  Signature: [T1, ...][]
+    Argument 1: expected T1, found ROW<KeyValueLazy>: which is not allowed for ANY arguments [at 2:11]
+|> SELECT [kv]
+          ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: No matching signature for operator ARRAY[...]
+  Argument types: ROW<KeyValueFindOnly>
+  Signature: [T1, ...][]
+    Argument 1: expected T1, found ROW<KeyValueFindOnly>: which is not allowed for ANY arguments [at 2:11]
+|> SELECT [kv]
+          ^
+==
+
+SELECT ARRAY(SELECT kv FROM KeyValue{{Lazy|FindOnly}} kv)
+|> SELECT 1
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Cannot use array subquery with column of type ROW<KeyValueLazy> [at 1:8]
+SELECT ARRAY(SELECT kv FROM KeyValueLazy kv)
+       ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Cannot use array subquery with column of type ROW<KeyValueFindOnly> [at 1:8]
+SELECT ARRAY(SELECT kv FROM KeyValueFindOnly kv)
+       ^
+==
+
+INSERT INTO KeyValue{{Lazy|FindOnly}}{{| (key)}}
+VALUES (null)
+--
+ALTERNATION GROUP: Lazy,
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+INSERT INTO KeyValueLazy
+            ^
+--
+ALTERNATION GROUP: Lazy, (key)
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+INSERT INTO KeyValueLazy (key)
+            ^
+--
+ALTERNATION GROUP: FindOnly,
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+INSERT INTO KeyValueFindOnly
+            ^
+--
+ALTERNATION GROUP: FindOnly, (key)
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+INSERT INTO KeyValueFindOnly (key)
+            ^
+==
+
+# TODO: Making unqualified names work is in a later change.
+UPDATE KeyValue{{Lazy|FindOnly}} kv
+SET {{|kv.}}key=5
+WHERE true
+--
+ALTERNATION GROUPS:
+    Lazy,
+    Lazy,kv.
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:8]
+UPDATE KeyValueLazy kv
+       ^
+--
+ALTERNATION GROUPS:
+    FindOnly,
+    FindOnly,kv.
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:8]
+UPDATE KeyValueFindOnly kv
+       ^
+==
+
+UPDATE KeyValue{{Lazy|FindOnly}} kv
+SET kv=null
+WHERE true
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:8]
+UPDATE KeyValueLazy kv
+       ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:8]
+UPDATE KeyValueFindOnly kv
+       ^
+==
+
+# TODO: Making unqualified names work is in a later change.
+DELETE FROM KeyValue{{Lazy|FindOnly}} kv
+WHERE {{|kv.}}key=5
+--
+ALTERNATION GROUPS:
+    Lazy,
+    Lazy,kv.
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+DELETE FROM KeyValueLazy kv
+            ^
+--
+ALTERNATION GROUPS:
+    FindOnly,
+    FindOnly,kv.
+--
+ERROR: Tables with ROW type don't support DML statements [at 1:13]
+DELETE FROM KeyValueFindOnly kv
+            ^
+==
+
+# These will become errors when the statement works.
+TABLE KeyValue{{Lazy|FindOnly}}
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: TABLE statements are not supported [at 1:1]
+TABLE KeyValueLazy
+^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: TABLE statements are not supported [at 1:1]
+TABLE KeyValueFindOnly
+^
+==
+
+# ALTER TABLE currently works because it doesn't even look up the table.
+ALTER TABLE KeyValueXXX
+SET OPTIONS(x=5)
+--
+AlterTableSetOptionsStmt
++-name_path=KeyValueXXX
++-option_list=
+  +-x := Literal(type=INT64, value=5)
+==
+
+ALTER {{SEARCH|VECTOR}} INDEX idx ON KeyValue{{Lazy|FindOnly}}
+SET OPTIONS(x=5)
+--
+ALTERNATION GROUP: SEARCH,Lazy
+--
+ERROR: Tables with ROW type don't support ALTER INDEX [at 1:27]
+ALTER SEARCH INDEX idx ON KeyValueLazy
+                          ^
+--
+ALTERNATION GROUP: SEARCH,FindOnly
+--
+ERROR: Tables with ROW type don't support ALTER INDEX [at 1:27]
+ALTER SEARCH INDEX idx ON KeyValueFindOnly
+                          ^
+--
+ALTERNATION GROUP: VECTOR,Lazy
+--
+ERROR: Tables with ROW type don't support ALTER INDEX [at 1:27]
+ALTER VECTOR INDEX idx ON KeyValueLazy
+                          ^
+--
+ALTERNATION GROUP: VECTOR,FindOnly
+--
+ERROR: Tables with ROW type don't support ALTER INDEX [at 1:27]
+ALTER VECTOR INDEX idx ON KeyValueFindOnly
+                          ^
+==
+
+CREATE INDEX idx ON KeyValue{{Lazy|FindOnly}} (key)
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Tables with ROW type don't support CREATE INDEX [at 1:21]
+CREATE INDEX idx ON KeyValueLazy (key)
+                    ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Tables with ROW type don't support CREATE INDEX [at 1:21]
+CREATE INDEX idx ON KeyValueFindOnly (key)
+                    ^
+==
+
+FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValue{{Lazy|FindOnly}})
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: Tables with ROW type don't support TVF argument [at 1:51]
+FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValueLazy)
+                                                  ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: Tables with ROW type don't support TVF argument [at 1:51]
+FROM tvf_one_relation_arg_with_fixed_output(TABLE KeyValueFindOnly)
+                                                  ^
+==
+
+FROM tvf_one_relation_arg_with_fixed_output((FROM KeyValue{{Lazy|FindOnly}}))
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: TVF table argument cannot include a column of type ROW<KeyValueLazy> [at 1:6]
+FROM tvf_one_relation_arg_with_fixed_output((FROM KeyValueLazy))
+     ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: TVF table argument cannot include a column of type ROW<KeyValueFindOnly> [at 1:6]
+FROM tvf_one_relation_arg_with_fixed_output((FROM KeyValueFindOnly))
+     ^
+==
+
+# UNNEST only works for ROW types for join columns
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> JOIN UNNEST(kv)
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: UNNEST not allowed for value with type ROW<KeyValueLazy> when the value is not a join column [at 2:16]
+|> JOIN UNNEST(kv)
+               ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: UNNEST not allowed for value with type ROW<KeyValueFindOnly> when the value is not a join column [at 2:16]
+|> JOIN UNNEST(kv)
+               ^
+==
+
+# UNNEST only works for ROW types for join columns
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> JOIN UNNEST(kv) WITH OFFSET
+--
+ALTERNATION GROUP: Lazy
+--
+ERROR: UNNEST not allowed for value with type ROW<KeyValueLazy> when the value is not a join column [at 2:16]
+|> JOIN UNNEST(kv) WITH OFFSET
+               ^
+--
+ALTERNATION GROUP: FindOnly
+--
+ERROR: UNNEST not allowed for value with type ROW<KeyValueFindOnly> when the value is not a join column [at 2:16]
+|> JOIN UNNEST(kv) WITH OFFSET
+               ^
+==
+
+FROM KeyValue{{Lazy|FindOnly}} kv
+|> JOIN UNNEST(kv, kv)
+--
+ERROR: Multi-argument UNNEST not allowed for value with ROW type [at 2:16]
+|> JOIN UNNEST(kv, kv)
+               ^

@@ -295,9 +295,9 @@ FilebasedSQLTestFileOptions::ProcessTestCase(absl::string_view test_case,
       .With(reason("Failed to load protos or enums"));
 
   if (!options_->GetString(kParameters).empty()) {
-    ZETASQL_RETURN_IF_ERROR(ParseTestFileParameters(
-                        options_->GetString(kParameters), reference_driver_,
-                        reference_driver_->type_factory(), &case_opts->params_))
+    ZETASQL_RETURN_IF_ERROR(ParseTestFileParameters(options_->GetString(kParameters),
+                                            reference_driver_,
+                                            &case_opts->params_))
         .With(reason("Failed to generate parameters"));
   }
 

@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <iterator>
@@ -3996,6 +3997,7 @@ absl::StatusOr<Value> DMLInsertValueExpr::Eval(
   ZETASQL_RETURN_IF_ERROR(resolved_node_->CheckFieldsAccessed());
 
   if (!context->options().return_all_rows_for_dml &&
+      !context->options().return_all_insert_rows_insert_ignore_dml &&
       stmt()->insert_mode() == ResolvedInsertStmt::OR_IGNORE) {
     // INSERT IGNORE inserts only new rows, others are ignored.
     // Number of rows modified must match the number of rows actually inserted.
@@ -4366,7 +4368,8 @@ absl::StatusOr<int64_t> DMLInsertValueExpr::InsertRows(
         dml_returning_rows.erase(dml_returning_rows.begin() + i);
       }
       // Erase the rows that were not inserted because they already exist.
-      if (stmt()->insert_mode() == ResolvedInsertStmt::OR_IGNORE) {
+      if (stmt()->insert_mode() == ResolvedInsertStmt::OR_IGNORE &&
+          !context->options().return_all_insert_rows_insert_ignore_dml) {
         rows_to_insert.erase(rows_to_insert.begin() + rows_ignored_indexes[i]);
       }
     }
@@ -4676,8 +4679,13 @@ bool NewGraphElementExpr::Eval(absl::Span<const TupleData* const> params,
     ZETASQL_RET_CHECK(dynamic_property_values.front().type()->IsJson())
         .With(kErrorAdaptor);
     if (!dynamic_property_values.front().is_null()) {
-      prop_json =
-          JSONValue::CopyFrom(dynamic_property_values.front().json_value());
+      auto prop_json_or_status = JSONValue::ParseJSONString(
+          dynamic_property_values.front().json_string());
+      if (!prop_json_or_status.ok()) {
+        *status = prop_json_or_status.status();
+        return false;
+      }
+      prop_json = *std::move(prop_json_or_status);
     }
     dynamic_properties = prop_json.GetConstRef();
   }

@@ -239,6 +239,11 @@ void Unparser::visitASTHintedStatement(const ASTHintedStatement* node,
   visitASTChildren(node, data);
 }
 
+void Unparser::visitASTStatementWithPipeOperators(
+    const ASTStatementWithPipeOperators* node, void* data) {
+  visitASTChildren(node, data);
+}
+
 void Unparser::visitASTExplainStatement(const ASTExplainStatement* node,
                                         void* data) {
   print("EXPLAIN");
@@ -248,6 +253,11 @@ void Unparser::visitASTExplainStatement(const ASTExplainStatement* node,
 void Unparser::visitASTQueryStatement(const ASTQueryStatement* node,
                                       void* data) {
   visitASTQuery(node->query(), data);
+}
+
+void Unparser::visitASTSubpipelineStatement(const ASTSubpipelineStatement* node,
+                                            void* data) {
+  visitASTChildren(node, data);
 }
 
 void Unparser::visitASTFunctionParameter(const ASTFunctionParameter* node,

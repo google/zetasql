@@ -86,6 +86,17 @@ static std::vector<SelectableCatalog*>* InitSelectableCatalogsVector() {
         return absl::OkStatus();
       }));
 
+  catalogs->push_back(new SelectableCatalog(
+      "tpch_graph", "TPCH tables with semantic graph",
+      [](const LanguageOptions&, CatalogAcceptor* acceptor) -> absl::Status {
+        static auto* catalog = new absl::StatusOr<std::unique_ptr<Catalog>>(
+            MakeTpchCatalog(/*with_semantic_graph=*/true));
+
+        ZETASQL_RETURN_IF_ERROR(catalog->status());
+        acceptor->Accept(catalog->value().get());
+        return absl::OkStatus();
+      }));
+
   return catalogs.release();
 }
 

@@ -442,3 +442,35 @@ ARRAY<STRUCT<string STRING, INT64>>[unknown order:
   {"evenstring", 8800},
   {"oddstring", 8800}
 ]
+==
+
+[required_features=MULTILEVEL_AGGREGATION]
+[name=multi_level_agg_prove_non_equivalence]
+WITH OriginalTable AS (
+  SELECT 1 AS grain_key, 5 AS Y, 100 AS X1, 200 AS X2
+  UNION ALL
+  SELECT 2 AS grain_key, 30 AS Y, 500 AS X1, 800 AS X2
+), TableWithDuplicates AS (
+  SELECT
+    grain_key, Y, X1, X2
+  FROM OriginalTable CROSS JOIN UNNEST([1, 2, 3]) AS array_index
+)
+SELECT
+  AVG(
+    SUM(ANY_VALUE(X1) GROUP BY grain_key) +
+    SUM(ANY_VALUE(X2) GROUP BY grain_key)
+    GROUP BY Y
+  ) AS grain_locking_today,
+  AVG(
+    ANY_VALUE(
+      SUM(X1) + SUM(X2)
+      GROUP BY Y
+    )
+    GROUP BY grain_key
+  ) AS proposed_alternate_grain_locking
+FROM TableWithDuplicates
+--
+ARRAY<STRUCT<
+        grain_locking_today DOUBLE,
+        proposed_alternate_grain_locking DOUBLE
+      >>[{800, 2400}]

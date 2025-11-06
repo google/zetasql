@@ -2408,7 +2408,7 @@ TEST(ValidateTest, EdgeTableMissingEdgeReferenceColumn) {
       strategy, "Node reference node_input_table has no edge column list");
 }
 
-TEST(ValidateTest, DifferentialPrivacyAggregateScanSelectWithModes) {
+TEST(ValidateTest, DifferentialPrivacyAggregateScanWithModifierModes) {
   IdStringPool pool;
   auto dp_function =
       std::make_unique<Function>("count", "test_group", Function::AGGREGATE);
@@ -4060,7 +4060,7 @@ TEST(ValidatorTest, UnsetArgumentScanContainsColumnsReturnsError) {
       FunctionArgumentTypeList{relation_arg_type},
       /*context_ptr=*/nullptr);
 
-  FixedOutputSchemaTVF tvf({"tvf0"}, fn_signature, tvf_relation);
+  FixedOutputSchemaTVF tvf({"tvf0"}, {fn_signature}, tvf_relation);
 
   auto signature = std::make_shared<TVFSignature>(
       std::vector<TVFInputArgumentType>{TVFInputArgumentType(tvf_relation)},

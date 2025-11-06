@@ -893,10 +893,39 @@ ERROR: Multi-level aggregation is not yet supported. [at 4:22]
 --
 ALTERNATION GROUP: ,+MULTILEVEL_AGGREGATION
 --
-ERROR: Horizontal aggregates do not support multi-level aggregation. [at 4:22]
+ERROR: Horizontal aggregates do not support multi-level aggregation [at 4:22]
   let z = SUM(MIN(x) GROUP BY y)
                      ^
+==
 
+# Horizontal aggregation does not support WHERE aggregate filtering.
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+MULTILEVEL_AGGREGATION,+AGGREGATE_FILTERING]
+SELECT * from graph_table(aml
+  let x = [1,2,3]
+  let y = 4
+  let z = SUM(x WHERE true)
+  return z
+)
+--
+ERROR: Horizontal aggregates do not support WHERE clause aggregate filtering [at 4:17]
+  let z = SUM(x WHERE true)
+                ^
+==
+
+# Horizontal aggregation does not support HAVING aggregate filtering.
+# Since horizontal aggregates also don't support multi-level aggregation,
+# the error message is the same as for multi-level aggregation.
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+MULTILEVEL_AGGREGATION,+AGGREGATE_FILTERING]
+SELECT * from graph_table(aml
+  let x = [1,2,3]
+  let y = 4
+  let z = SUM(MIN(x) GROUP BY y HAVING true)
+  return z
+)
+--
+ERROR: Horizontal aggregates do not support multi-level aggregation [at 4:22]
+  let z = SUM(MIN(x) GROUP BY y HAVING true)
+                     ^
 ==
 
 [language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+WITH_EXPRESSION]

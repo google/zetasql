@@ -311,11 +311,20 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
   LanguageOptions product_internal;
   product_internal.set_product_mode(ProductMode::PRODUCT_INTERNAL);
 
+  LanguageOptions product_external_dp_enabled;
+  product_external_dp_enabled.set_product_mode(ProductMode::PRODUCT_EXTERNAL);
+  product_external_dp_enabled.EnableLanguageFeature(
+      FEATURE_DIFFERENTIAL_PRIVACY);
+
   LanguageOptions product_external_report_enabled = product_external;
+  product_external_report_enabled.EnableLanguageFeature(
+      FEATURE_DIFFERENTIAL_PRIVACY);
   product_external_report_enabled.EnableLanguageFeature(
       FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
 
   LanguageOptions product_internal_report_enabled = product_internal;
+  product_internal_report_enabled.EnableLanguageFeature(
+      FEATURE_DIFFERENTIAL_PRIVACY);
   product_internal_report_enabled.EnableLanguageFeature(
       FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
 
@@ -324,6 +333,8 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
 
   LanguageOptions proto_base_enabled_report_enabled;
   proto_base_enabled_report_enabled.EnableLanguageFeature(FEATURE_PROTO_BASE);
+  proto_base_enabled_report_enabled.EnableLanguageFeature(
+      FEATURE_DIFFERENTIAL_PRIVACY);
   proto_base_enabled_report_enabled.EnableLanguageFeature(
       FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
 
@@ -360,12 +371,12 @@ TEST(EnumTypeTest, EnumTypeIsSupported) {
       types::
           DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
               .value()
-              ->IsSupportedType(product_external));
+              ->IsSupportedType(product_external_dp_enabled));
   EXPECT_TRUE(
       types::
           DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType()
               .value()
-              ->IsSupportedType(product_internal));
+              ->IsSupportedType(product_external_dp_enabled));
 
   EXPECT_TRUE(
       types::NormalizeModeEnumType()->IsSupportedType(product_external));

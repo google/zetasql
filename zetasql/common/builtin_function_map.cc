@@ -187,6 +187,7 @@ enum class KeyOrValueSelector {
 
 static absl::Status CheckOrderableMapArgumentConstraint(
     absl::string_view fn_name, int map_arg_idx, KeyOrValueSelector key_or_value,
+    const FunctionSignature& unused_matched_signature,
     absl::Span<const InputArgumentType> arguments,
     const LanguageOptions& language_options) {
   ZETASQL_RET_CHECK_EQ(arguments.size(), 1);
@@ -426,7 +427,7 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                        .set_sql(kMapKeysSortedSql))},
       },
       FunctionOptions()
-          .set_pre_resolution_argument_constraint(absl::bind_front(
+          .set_post_resolution_argument_constraint(absl::bind_front(
               CheckOrderableMapArgumentConstraint, "MAP_KEYS_SORTED",
               /*map_arg_idx=*/0, KeyOrValueSelector::kKey))
           .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
@@ -473,7 +474,7 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                        .set_sql(kMapValuesSortedSql))},
       },
       FunctionOptions()
-          .set_pre_resolution_argument_constraint(absl::bind_front(
+          .set_post_resolution_argument_constraint(absl::bind_front(
               CheckOrderableMapArgumentConstraint, "MAP_VALUES_SORTED", 0,
               KeyOrValueSelector::kValue))
           .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
@@ -513,7 +514,7 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
                        .set_sql(kMapValuesSortedByKeySql))},
       },
       FunctionOptions()
-          .set_pre_resolution_argument_constraint(absl::bind_front(
+          .set_post_resolution_argument_constraint(absl::bind_front(
               CheckOrderableMapArgumentConstraint, "MAP_VALUES_SORTED_BY_KEY",
               0, KeyOrValueSelector::kKey))
           .AddRequiredLanguageFeature(FEATURE_MAP_TYPE));
@@ -603,19 +604,16 @@ void GetMapCoreFunctions(TypeFactory* type_factory,
         input_map IS NULL,
         NULL,
         MAP_FROM_ARRAY(
-          ARRAY(
-            SELECT map_entry
-            FROM
-              (
-                SELECT
-                  map_entry,
-                  map_entry.key AS map_entry_key,
-                  map_entry.value AS map_entry_value
-                FROM UNNEST(MAP_ENTRIES_UNSORTED(input_map)) AS map_entry
-              )
-            WHERE condition(map_entry_key, map_entry_value)
-          )))
+          ARRAY_FILTER(
+              MAP_ENTRIES_UNSORTED(input_map),
+              map_entry -> WITH(
+                              key AS map_entry.key,
+                              value AS map_entry.value,
+                              condition(key,value))
+          )
+        )
       )
+    )
     )sql";
   InsertFunction(
       functions, options, "map_filter", Function::SCALAR,

@@ -52,6 +52,29 @@ TEST(ZetaSqlTextmapperLexerTest, TestCopy) {
   EXPECT_EQ(lexer.Text(), "1");
 }
 
+TEST(ZetaSqlTextmapperLexerTest, TestLastFunctions) {
+  Lexer lexer = Lexer(ParserMode::kNextStatement, "filename", "SELECT a.1b",
+                      /*start_offset=*/0, LanguageOptions(),
+                      /*macro_expansion_mode=*/MacroExpansionMode::kNone,
+                      /*macro_catalog=*/nullptr, /*arena=*/nullptr);
+  EXPECT_EQ(lexer.Next(), Token::KW_SELECT);
+  EXPECT_EQ(lexer.Last(), Token::KW_SELECT);
+  EXPECT_EQ(lexer.Last(), Token::KW_SELECT);
+  EXPECT_EQ(lexer.Text(), "SELECT");
+  EXPECT_EQ(lexer.LastTokenLocation().start().GetByteOffset(), 0);
+  EXPECT_EQ(lexer.LastTokenLocation().end().GetByteOffset(), 6);
+  EXPECT_FALSE(lexer.LastLastTokenLocation().IsValid());
+
+  EXPECT_EQ(lexer.Next(), Token::IDENTIFIER);
+  EXPECT_EQ(lexer.Last(), Token::IDENTIFIER);
+  EXPECT_EQ(lexer.Last(), Token::IDENTIFIER);
+  EXPECT_EQ(lexer.Text(), "a");
+  EXPECT_EQ(lexer.LastTokenLocation().start().GetByteOffset(), 7);
+  EXPECT_EQ(lexer.LastTokenLocation().end().GetByteOffset(), 8);
+  EXPECT_EQ(lexer.LastLastTokenLocation().start().GetByteOffset(), 0);
+  EXPECT_EQ(lexer.LastLastTokenLocation().end().GetByteOffset(), 6);
+}
+
 TEST(ZetaSqlTextmapperLexerTest, TestDotIdentifier) {
   TextMapperLexerAdapter lexer =
       TextMapperLexerAdapter(ParserMode::kTokenizer, "filename", "SELECT a.1b",

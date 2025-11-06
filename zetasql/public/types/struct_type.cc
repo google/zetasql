@@ -133,7 +133,7 @@ bool StructType::SupportsPartitioningImpl(
   return true;
 }
 
-StructType::~StructType() {}
+StructType::~StructType() = default;
 
 bool StructType::SupportsOrdering(const LanguageOptions& language_options,
                                   std::string* type_description) const {

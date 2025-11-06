@@ -2548,3 +2548,63 @@ MultiStmt
     | +-KeyValue.Value#2 AS Value [STRING]
     +-query=
       +-WithRefScan(column_list=KeyValue.[Key#1, Value#2], with_query_name="$tee_cte_1")
+==
+
+# A hint on the generalized statement propagates to the ResolvedMultiStmt.
+@{hint=1}
+FROM KeyValue
+|> TEE (|> SELECT value)
+--
+GeneralizedQueryStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-output_schema=
+| +-OutputSchema
+|   +-output_column_list=
+|     +-KeyValue.Key#1 AS Key [INT64]
+|     +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-PipeTeeScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+    | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    +-subpipeline_list=
+      +-GeneralizedQuerySubpipeline
+        +-subpipeline=
+        | +-Subpipeline
+        |   +-scan=
+        |     +-ProjectScan
+        |       +-column_list=[KeyValue.Value#2]
+        |       +-input_scan=
+        |         +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
+        +-output_schema=
+          +-OutputSchema
+            +-output_column_list=
+              +-KeyValue.Value#2 AS value [STRING]
+
+
+[REWRITTEN AST]
+MultiStmt
++-hint_list=
+| +-hint := Literal(type=INT64, value=1)
++-statement_list=
+  +-CreateWithEntryStmt
+  | +-with_entry=
+  |   +-WithEntry
+  |     +-with_query_name="$tee_cte_1"
+  |     +-with_subquery=
+  |       +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+  +-QueryStmt
+  | +-output_column_list=
+  | | +-KeyValue.Value#2 AS value [STRING]
+  | +-query=
+  |   +-ProjectScan
+  |     +-column_list=[KeyValue.Value#2]
+  |     +-input_scan=
+  |       +-WithRefScan(column_list=KeyValue.[Key#1, Value#2], with_query_name="$tee_cte_1")
+  +-QueryStmt
+    +-output_column_list=
+    | +-KeyValue.Key#1 AS Key [INT64]
+    | +-KeyValue.Value#2 AS Value [STRING]
+    +-query=
+      +-WithRefScan(column_list=KeyValue.[Key#1, Value#2], with_query_name="$tee_cte_1")

@@ -22,10 +22,14 @@
 
 #include "zetasql/common/testing/proto_matchers.h"
 #include "zetasql/base/testing/status_matchers.h"
+#include "zetasql/public/function_signature.h"
+#include "zetasql/public/types/type.h"
 #include "zetasql/public/types/type_deserializer.h"
+#include "zetasql/public/types/type_factory.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/strings/str_cat.h"
+#include "google/protobuf/descriptor.h"
 
 namespace zetasql {
 
@@ -97,12 +101,13 @@ TEST(ProcedureTest, GetFunctionSignatureMismatchErrorMessage) {
 
 TEST(ProcedureTest, InvalidSignatureTest) {
   TypeFactory factory;
-  EXPECT_DEBUG_DEATH(Procedure procedure(
-      {"invalid_signature"},
-      {factory.get_int64(),
-          {{factory.get_int64(), FunctionArgumentType::REPEATED},
-           {factory.get_int64(), FunctionArgumentType::OPTIONAL}},
-      -1}),
+  EXPECT_DEBUG_DEATH(
+      Procedure procedure(
+          {"invalid_signature"},
+          {factory.get_int64(),
+           {{factory.get_int64(), FunctionArgumentType::REPEATED},
+            {factory.get_int64(), FunctionArgumentType::OPTIONAL}},
+           -1}),
       ".*The number of repeated arguments \\(1\\) must be greater than "
       "the number of optional arguments \\(1\\).*");
 }

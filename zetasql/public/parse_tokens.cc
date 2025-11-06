@@ -82,7 +82,7 @@ static absl::Status ConvertBisonToken(parser::Token bison_token,
       break;
 
     case parser::Token::SEMICOLON: {
-      // The Flex tokenizer may include some whitespace in the ; token.
+      // The tokenizer may include some whitespace in the ; token.
       // We don't want to include that in the image.
       ParseLocationRange adjusted_location = location;
       adjusted_location.set_end(ParseLocationPoint::FromByteOffset(
@@ -151,7 +151,7 @@ static absl::Status ConvertBisonToken(parser::Token bison_token,
     case parser::Token::COMMENT: {
       std::string comment(image);
       if (comment[0] != '/') {
-        // The Flex rule for the comment will match trailing whitespaces. The
+        // The lexer rule for the comment will match trailing whitespaces. The
         // input might contain '\n', '\r' or combination of the two, so we strip
         // the original whitespace and then add back a '\n' to normalize the
         // token.
@@ -207,20 +207,21 @@ static absl::Status ConvertBisonToken(parser::Token bison_token,
       }
       break;
 
-    case parser::Token::INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE: {
-      // Find the start of the identifier and report the error there.
-      ZETASQL_RET_CHECK_GE(image.size(), 2);
-      int start = static_cast<int>(image.size() - 1);
-      while (start >= 0 && !isdigit(image[start]) && image[start] != '.') {
-        start--;
-      }
-      // Identifier starts at index `start + 1`.
-      ZETASQL_RET_CHECK_GE(start, 0);
-      ParseLocationPoint point = ParseLocationPoint::FromByteOffset(
-          location.start().filename(),
-          location.start().GetByteOffset() + start + 1);
-      return MakeSqlErrorAtPoint(point)
-             << "Syntax error: Missing whitespace between literal and alias";
+    case Token::ATTACHED_ALIAS: {
+      // This token looks like an alias but it was attached to the preceding
+      // token. In the production parser, this will generate an error. Re-attach
+      // it so that tools like formatters don't accidentally insert a space
+      // formatting an error query into a valid query.
+      ZETASQL_RET_CHECK(!parse_tokens->empty());
+      ParseToken previous = parse_tokens->back();
+      parse_tokens->pop_back();
+      ParseLocationRange combined_location(previous.GetLocationRange().start(),
+                                           location.end());
+      std::string combined_image = absl::StrCat(previous.GetImage(), image);
+      parse_tokens->emplace_back(
+          combined_location, previous.IsAdjacentToPreviousToken(),
+          std::move(combined_image), ParseToken::KEYWORD);
+      break;
     }
 
     default:

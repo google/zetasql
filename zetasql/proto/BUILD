@@ -14,9 +14,9 @@
 # limitations under the License.
 #
 
-load("@com_github_grpc_grpc//bazel:python_rules.bzl", "py_proto_library")
 load("@com_google_protobuf//bazel:java_proto_library.bzl", "java_proto_library")
 load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_python//python:proto.bzl", "py_proto_library")
 
 # Package for non-public protos.
 package(default_visibility = ["//zetasql/base:zetasql_implementation"])
@@ -52,6 +52,7 @@ proto_library(
         "//zetasql/public:simple_connection_proto",
         "//zetasql/public:simple_constant_proto",
         "//zetasql/public:simple_model_proto",
+        "//zetasql/public:simple_sequence_proto",
         "//zetasql/public:simple_table_proto",
         "//zetasql/public:type_proto",
     ],

@@ -40,21 +40,7 @@ struct MeasureColumnDef {
   bool is_pseudo_column = false;
 };
 
-// Analyzes `measure_expr` against non-measure columns of `table` and returns
-// the resolved expression.
-//
-// `measure_expr` is an aggregate expression that defines the measure; see
-// (broken link) for details.
-//
-// Pre-conditions:
-//   - `table` must not have any duplicate column names.
-//   - `analyzer_options` must not have any expression columns or a lookup
-//     expression callback.
-//
-// Post-conditions:
-//   - `analyzer_output` will be populated with the resolved expression; the
-//     caller must ensure that `analyzer_output` outlives the returned
-//     ResolvedExpr.
+// Implements core logic for `AnalyzeMeasureExpression`.
 absl::StatusOr<const ResolvedExpr*> AnalyzeMeasureExpressionInternal(
     absl::string_view measure_expr, const Table& table, Catalog& catalog,
     TypeFactory& type_factory, AnalyzerOptions analyzer_options,

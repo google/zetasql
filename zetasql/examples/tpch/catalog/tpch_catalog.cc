@@ -47,7 +47,9 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/time/time.h"
@@ -65,16 +67,17 @@ namespace zetasql {
 // I found copies of these in various places with varying NOT NULL constraints.
 // I'm not sure which version is official, but these constraints aren't
 // supported or used here anyway so they are just commented out.
+// I added appropriate PRIMARY KEY definitions.
 static const char* kCreateRegion =
     R"(CREATE TABLE Region (
-  R_REGIONKEY UINT64, -- NOT NULL
+  R_REGIONKEY UINT64 PRIMARY KEY, -- NOT NULL
   R_NAME STRING,
   R_COMMENT STRING,
 ))";
 
 static const char* kCreateNation =
     R"(CREATE TABLE Nation (
-  N_NATIONKEY UINT64, -- NOT NULL
+  N_NATIONKEY UINT64 PRIMARY KEY, -- NOT NULL
   N_NAME STRING,
   N_REGIONKEY UINT64, -- NOT NULL
   N_COMMENT STRING,
@@ -82,7 +85,7 @@ static const char* kCreateNation =
 
 static const char* kCreateCustomer =
     R"(CREATE TABLE Customer (
-  C_CUSTKEY UINT64, -- NOT NULL
+  C_CUSTKEY UINT64 PRIMARY KEY, -- NOT NULL
   C_NAME STRING,
   C_ADDRESS STRING,
   C_NATIONKEY UINT64, -- NOT NULL
@@ -94,7 +97,7 @@ static const char* kCreateCustomer =
 
 static const char* kCreateSupplier =
     R"(CREATE TABLE Supplier (
-  S_SUPPKEY UINT64, -- NOT NULL
+  S_SUPPKEY UINT64 PRIMARY KEY, -- NOT NULL
   S_NAME STRING,
   S_ADDRESS STRING,
   S_NATIONKEY UINT64,
@@ -105,7 +108,7 @@ static const char* kCreateSupplier =
 
 static const char* kCreateOrders =
     R"(CREATE TABLE Orders (
-  O_ORDERKEY UINT64, -- NOT NULL
+  O_ORDERKEY UINT64 PRIMARY KEY, -- NOT NULL
   O_CUSTKEY UINT64, -- NOT NULL
   O_ORDERSTATUS STRING,
   O_TOTALPRICE DOUBLE,
@@ -133,12 +136,13 @@ static const char* kCreateLineItem =
   L_RECEIPTDATE DATE,
   L_SHIPINSTRUCT STRING,
   L_SHIPMODE STRING,
-  L_COMMENT STRING
+  L_COMMENT STRING,
+  PRIMARY KEY(L_ORDERKEY, L_LINENUMBER)
 ))";
 
 static const char* kCreatePart =
     R"(CREATE TABLE Part (
-  P_PARTKEY UINT64, -- NOT NULL
+  P_PARTKEY UINT64 PRIMARY KEY, -- NOT NULL
   P_NAME STRING,
   P_MFGR STRING,
   P_BRAND STRING,
@@ -156,6 +160,7 @@ static const char* kCreatePartSupp =
   PS_AVAILQTY INT64,
   PS_SUPPLYCOST DOUBLE,
   PS_COMMENT STRING,
+  PRIMARY KEY(PS_PARTKEY, PS_SUPPKEY)
 ))";
 
 // This stores the data parsed from CSV and pre-processed for one TPCH table.
@@ -178,7 +183,20 @@ static ParsedTpchTableDataHolder::value_type MakeParsedTpchTableData(
       riegeli::Maker<riegeli::StringReader>(contents),
       riegeli::CsvReaderBase::Options().set_field_separator('|'));
 
-  const int num_columns = table.NumColumns();
+  // We expect the join column pseudo-columns are at the end.
+  // `num_columns` will be the number of non-pseudo-columns.
+  const int total_num_columns = table.NumColumns();
+  int num_columns = total_num_columns;
+  while (num_columns > 0 &&
+         table.GetColumn(num_columns - 1)->IsPseudoColumn()) {
+    --num_columns;
+  }
+  // Columns before the pseudo-columns are all non-pseudo-columns.
+  // The data file has content for non-pseudo-columns only.
+  ZETASQL_RET_CHECK_GT(num_columns, 0);
+  for (int i = 0; i < num_columns; ++i) {
+    ZETASQL_RET_CHECK(!table.GetColumn(i)->IsPseudoColumn()) << i;
+  }
 
   // Values are in column_major order.
   std::vector<std::shared_ptr<std::vector<Value>>> column_values(num_columns);
@@ -267,7 +285,9 @@ MakeIteratorFactoryFromCsvFile(const absl::string_view contents,
     std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
     column_values.reserve(column_idxs.size());
     for (const int column_idx : column_idxs) {
+      ZETASQL_RET_CHECK_LT(column_idx, table.NumColumns());
       columns.push_back(table.GetColumn(column_idx));
+      ZETASQL_RET_CHECK_LT(column_idx, data->column_values.size());
       column_values.push_back(data->column_values[column_idx]);
     }
 
@@ -284,8 +304,172 @@ MakeIteratorFactoryFromCsvFile(const absl::string_view contents,
   return factory;
 }
 
-absl::StatusOr<std::unique_ptr<SimpleCatalog>> MakeTpchCatalog() {
-  auto catalog = std::make_unique<SimpleCatalog>("");
+// Find Columns by name and return the corresponding vector.
+// Fail if the columns don't exist.
+static absl::StatusOr<const std::vector<const Column*>> FindColumns(
+    const Table* table, absl::Span<const std::string> column_names) {
+  std::vector<const Column*> columns;
+  for (const std::string& column_name : column_names) {
+    columns.push_back(table->FindColumnByName(column_name));
+    ZETASQL_RET_CHECK(columns.back() != nullptr) << column_name;
+  }
+  return columns;
+}
+
+// Add or remove "s" from `name` to make it `plural` or not.
+static std::string MakePlural(std::string name, bool plural) {
+  bool has_s = absl::EndsWith(name, "s");
+  if (plural && !has_s) {
+    absl::StrAppend(&name, "s");
+  } else if (!plural && has_s) {
+    name.pop_back();
+  }
+  return name;
+}
+
+// Add a join column in one direction from `table` to `target_table`.
+static absl::Status AddOneJoinColumn(
+    SimpleTable* table, const Table* target_table, bool is_multi,
+    const Type* target_type, const SimpleColumn::Attributes& attributes) {
+  std::string column_name = MakePlural(target_table->Name(), is_multi);
+
+  // Loop only if we hit the `continue` to add a second alias column.
+  while (true) {
+    ZETASQL_RET_CHECK_OK(table->AddColumn(std::make_unique<SimpleColumn>(
+        table->FullName(), column_name, target_type, attributes)));
+
+    // `Order` is a reserved keyword, which makes it awkward to query.
+    // Add another pseudo-column `Order_` as an alias for that column.
+    // I'm not sure what name would be most convenient.
+    if (column_name == "Order") {
+      column_name = "Order_";
+      continue;
+    }
+    break;
+  }
+
+  return absl::OkStatus();
+}
+
+// Add the join column in both directions between `table1` and `table2`.
+// This takes const pointers to the Tables for convenience, so the
+// const_cast isn't required on all the callers.
+static absl::Status AddJoinColumn(const Table* table1_const,
+                                  const Table* table2_const,
+                                  const std::vector<std::string>& column_names1,
+                                  const std::vector<std::string>& column_names2,
+                                  bool is_multi1, bool is_multi2,
+                                  TypeFactory* type_factory) {
+  // These became `const Table*` when passed through the Catalog, but we know
+  // they are the SimpleTables we added.
+  SimpleTable* table1 =
+      const_cast<SimpleTable*>(table1_const->GetAs<SimpleTable>());
+  SimpleTable* table2 =
+      const_cast<SimpleTable*>(table2_const->GetAs<SimpleTable>());
+
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<const Column*> columns1,
+                   FindColumns(table1, column_names1));
+  ZETASQL_ASSIGN_OR_RETURN(std::vector<const Column*> columns2,
+                   FindColumns(table2, column_names2));
+
+  const RowType* row_type1;
+  const RowType* row_type2;
+  ZETASQL_RET_CHECK_OK(type_factory->MakeRowType(table1, table1->FullName(), is_multi1,
+                                         columns1, table2, columns2,
+                                         &row_type1));
+  ZETASQL_RET_CHECK_OK(type_factory->MakeRowType(table2, table2->FullName(), is_multi2,
+                                         columns2, table1, columns1,
+                                         &row_type2));
+
+  SimpleColumn::Attributes attributes2 = {
+      .is_pseudo_column = true,
+      .is_writable_column = false,
+      .join_column =
+          Column::JoinColumnAttributes(columns2, table1, columns2, is_multi2)};
+
+  // Add join column from table1 to table2.
+  ZETASQL_RETURN_IF_ERROR(AddOneJoinColumn(
+      table1, table2, is_multi2, row_type2,
+      SimpleColumn::Attributes{.is_pseudo_column = true,
+                               .is_writable_column = false,
+                               .join_column = Column::JoinColumnAttributes(
+                                   columns1, table2, columns2, is_multi2)}));
+
+  // Add join column from table2 to table1.
+  ZETASQL_RETURN_IF_ERROR(AddOneJoinColumn(
+      table2, table1, is_multi1, row_type1,
+      SimpleColumn::Attributes{.is_pseudo_column = true,
+                               .is_writable_column = false,
+                               .join_column = Column::JoinColumnAttributes(
+                                   columns2, table1, columns1, is_multi1)}));
+
+  return absl::OkStatus();
+}
+
+// Add join columns for all foreign key relationships in the tpch schema.
+static absl::Status AddJoinColumns(SimpleCatalog* catalog) {
+  const Table *table_Region, *table_LineItem, *table_Nation, *table_Customer,
+      *table_Supplier, *table_Orders, *table_Part, *table_PartSupp;
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Region"}, &table_Region));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"LineItem"}, &table_LineItem));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Nation"}, &table_Nation));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Customer"}, &table_Customer));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Supplier"}, &table_Supplier));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Orders"}, &table_Orders));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"Part"}, &table_Part));
+  ZETASQL_RETURN_IF_ERROR(catalog->FindTable({"PartSupp"}, &table_PartSupp));
+
+  TypeFactory* type_factory = catalog->type_factory();
+
+  ZETASQL_RETURN_IF_ERROR(
+      AddJoinColumn(table_Customer, table_Orders, {"c_custkey"}, {"o_custkey"},
+                    /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Orders, table_LineItem, {"o_orderkey"}, {"l_orderkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Region, table_Nation, {"r_regionkey"}, {"n_regionkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Nation, table_Supplier, {"n_nationkey"}, {"s_nationkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Nation, table_Customer, {"n_nationkey"}, {"c_nationkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Supplier, table_PartSupp, {"s_suppkey"}, {"ps_suppkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(
+      AddJoinColumn(table_Part, table_PartSupp, {"p_partkey"}, {"ps_partkey"},
+                    /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(
+      AddJoinColumn(table_PartSupp, table_LineItem,
+                    {"ps_partkey", "ps_suppkey"}, {"l_partkey", "l_suppkey"},
+                    /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  // Joins from Lineitem directly to Part and Supplier might not be part of the
+  // official schema but they seem convenient.
+  ZETASQL_RETURN_IF_ERROR(
+      AddJoinColumn(table_Part, table_LineItem, {"p_partkey"}, {"l_partkey"},
+                    /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  ZETASQL_RETURN_IF_ERROR(AddJoinColumn(
+      table_Supplier, table_LineItem, {"s_suppkey"}, {"l_suppkey"},
+      /*is_multi1=*/false, /*is_multi2=*/true, type_factory));
+
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleCatalog>> MakeTpchCatalog(
+    bool with_semantic_graph) {
+  auto catalog = std::make_unique<SimpleCatalog>("tpch_catalog");
 
   AnalyzerOptions analyzer_options;
   analyzer_options.mutable_language()->AddSupportedStatementKind(
@@ -316,6 +500,10 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> MakeTpchCatalog() {
 
     table->SetEvaluatorTableIteratorFactory(MakeIteratorFactoryFromCsvFile(
         kTableDefinitions[i][1], *table, &parsed_datas[i]));
+  }
+
+  if (with_semantic_graph) {
+    ZETASQL_RETURN_IF_ERROR(AddJoinColumns(catalog.get()));
   }
 
   return catalog;

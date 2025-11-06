@@ -61,7 +61,7 @@ java_library(
         "//zetasql/testdata:bad_test_schema_java_proto",
         "//zetasql/testdata:test_proto3_java_proto",
         "//zetasql/testdata:test_schema_java_proto",
-        "@maven//:io_grpc_grpc_core",
+        "@io_grpc_grpc_java//core",
         "@maven//:joda_time_joda_time",
         "@maven//:junit_junit",
         "@maven//:com_google_truth_truth",

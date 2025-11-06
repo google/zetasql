@@ -57,7 +57,7 @@ EnumType::EnumType(const TypeFactory* factory,
   ABSL_CHECK(enum_descriptor_ != nullptr);
 }
 
-EnumType::~EnumType() {}
+EnumType::~EnumType() = default;
 
 bool EnumType::EqualsForSameKind(const Type* that, bool equivalent) const {
   const EnumType* other = that->AsEnum();
@@ -255,7 +255,9 @@ absl::StatusOr<bool> EnumType::IsSupported(
     const LanguageOptions& language_options) const {
   if (Equivalent(types::DifferentialPrivacyReportFormatEnumType())) {
     return language_options.LanguageFeatureEnabled(
-        FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
+               FEATURE_DIFFERENTIAL_PRIVACY) &&
+           language_options.LanguageFeatureEnabled(
+               FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
   }
   // If below enums were not created as a builtin type, falls through to
   // the generic logic below.
@@ -272,15 +274,16 @@ absl::StatusOr<bool> EnumType::IsSupported(
     return language_options.LanguageFeatureEnabled(FEATURE_RANGE_TYPE);
   }
 
-  if (language_options.LanguageFeatureEnabled(FEATURE_PROTO_BASE)) {
-    return true;
-  }
-
   ZETASQL_ASSIGN_OR_RETURN(
       const EnumType* count_distinct_contribution_bounding_strategy_enum_type,
       types::
           DifferentialPrivacyCountDistinctContributionBoundingStrategyEnumType());  // NOLINT
   if (Equivalent(count_distinct_contribution_bounding_strategy_enum_type)) {
+    return language_options.LanguageFeatureEnabled(
+        FEATURE_DIFFERENTIAL_PRIVACY);
+  }
+
+  if (language_options.LanguageFeatureEnabled(FEATURE_PROTO_BASE)) {
     return true;
   }
 

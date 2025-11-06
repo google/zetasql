@@ -3486,6 +3486,7 @@ ERROR: Ordinals are not allowed in MATCH_RECOGNIZE ORDER BY clause [at 2:12]
            ^
 ==
 
+[language_features=MAXIMUM,-JSON_TYPE_COMPARISON]
 # ORDER BY expressions must be of an orderable type. JSON is not orderable.
 select * from KeyValue MATCH_RECOGNIZE(
   ORDER BY JSON'{"f":1}'
@@ -3495,7 +3496,7 @@ select * from KeyValue MATCH_RECOGNIZE(
     A AS length(value) < 10
 )
 --
-ERROR: Ordering by expressions of type JSON is not allowed [at 2:12]
+ERROR: Ordering by expressions of type JSON is not allowed [at 3:12]
   ORDER BY JSON'{"f":1}'
            ^
 ==

@@ -1096,6 +1096,18 @@ class Algebrizer {
   absl::StatusOr<std::unique_ptr<ExprArg>> AlgebrizeCreateWithEntryStmt(
       const ResolvedCreateWithEntryStmt* create_with_stmt);
 
+  // Algebrize the WHERE filtering expression for an aggregate function call
+  // `expr`.
+  // `filter` is an existing filtering expression that should be ANDed with the
+  // WHERE filter.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeAggregateWhereFilterExpr(
+      const ResolvedExpr* expr, std::unique_ptr<ValueExpr> filter);
+
+  // Algebrize the HAVING (post-aggregate) filtering expression for an aggregate
+  // function call `expr`.
+  absl::StatusOr<std::unique_ptr<ValueExpr>> AlgebrizeAggregateHavingFilterExpr(
+      const ResolvedExpr* expr);
+
   // Represents a named or positional parameter.
   class Parameter {
    public:

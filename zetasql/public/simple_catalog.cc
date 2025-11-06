@@ -41,6 +41,7 @@
 #include "zetasql/public/simple_constant.pb.h"
 #include "zetasql/public/simple_model.pb.h"
 #include "zetasql/public/simple_property_graph.h"
+#include "zetasql/public/simple_sequence.pb.h"
 #include "zetasql/public/simple_table.pb.h"
 #include "zetasql/public/sql_view.h"
 #include "zetasql/public/strings.h"
@@ -838,6 +839,18 @@ bool SimpleCatalog::AddOwnedConnectionIfNotPresent(
   return true;
 }
 
+bool SimpleCatalog::AddOwnedSequenceIfNotPresent(
+    std::unique_ptr<const Sequence> sequence) {
+  absl::MutexLock l(&mutex_);
+  if (!zetasql_base::InsertIfNotPresent(&sequences_,
+                               absl::AsciiStrToLower(sequence->Name()),
+                               sequence.get())) {
+    return false;
+  }
+  owned_sequences_.push_back(std::move(sequence));
+  return true;
+}
+
 void SimpleCatalog::AddOwnedPropertyGraph(
     std::unique_ptr<const PropertyGraph> property_graph) {
   absl::MutexLock l(&mutex_);
@@ -1232,8 +1245,8 @@ absl::Status SimpleCatalog::DeserializeImpl(
   }
 
   for (const SimpleCatalogProto& catalog_proto : proto.catalog()) {
-    std::unique_ptr<SimpleCatalog> sub_catalog(
-        new SimpleCatalog(catalog_proto.name(), type_factory()));
+    std::unique_ptr<SimpleCatalog> sub_catalog =
+        std::make_unique<SimpleCatalog>(catalog_proto.name(), type_factory());
     ZETASQL_RETURN_IF_ERROR(sub_catalog->DeserializeImpl(catalog_proto,
                                                  type_deserializer, catalog));
     if (!AddOwnedCatalogIfNotPresent(catalog_proto.name(),
@@ -1241,6 +1254,16 @@ absl::Status SimpleCatalog::DeserializeImpl(
       return ::zetasql_base::InvalidArgumentErrorBuilder()
              << "Duplicate catalog '" << catalog_proto.name()
              << "' in serialized catalog";
+    }
+  }
+
+  for (const SimpleSequenceProto& sequence_proto : proto.sequence()) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<Sequence> sequence,
+                     SimpleSequence::Deserialize(sequence_proto));
+    const std::string name = sequence->Name();
+    if (!AddOwnedSequenceIfNotPresent(std::move(sequence))) {
+      return ::zetasql_base::InvalidArgumentErrorBuilder()
+             << "Duplicate sequence '" << name << "' in serialized catalog";
     }
   }
 
@@ -1355,8 +1378,8 @@ absl::StatusOr<std::unique_ptr<SimpleCatalog>> SimpleCatalog::Deserialize(
     const absl::Span<const google::protobuf::DescriptorPool* const> pools,
     zetasql::TypeFactory* type_factory,
     const ExtendedTypeDeserializer* extended_type_deserializer) {
-  std::unique_ptr<SimpleCatalog> catalog(
-      new SimpleCatalog(proto.name(), type_factory));
+  std::unique_ptr<SimpleCatalog> catalog =
+      std::make_unique<SimpleCatalog>(proto.name(), type_factory);
   ZETASQL_RETURN_IF_ERROR(
       catalog->DeserializeImpl(proto,
                                TypeDeserializer(catalog->type_factory(), pools,
@@ -1405,6 +1428,8 @@ absl::Status SimpleCatalog::SerializeImpl(
       constants_.begin(), constants_.end());
   const absl::flat_hash_map<std::string, const Connection*> connections(
       connections_.begin(), connections_.end());
+  const absl::btree_map<std::string, const Sequence*> sequences(
+      sequences_.begin(), sequences_.end());
 
   for (const auto& entry : tables) {
     const std::string& table_name = entry.first;
@@ -1459,6 +1484,19 @@ absl::Status SimpleCatalog::SerializeImpl(
       continue;
     }
     *proto->add_custom_tvf() = tvf_proto;
+  }
+
+  for (const auto& entry : sequences) {
+    const Sequence* const sequence = entry.second;
+    if (!sequence->Is<SimpleSequence>()) {
+      return ::zetasql_base::UnknownErrorBuilder()
+             << "Cannot serialize non-SimpleSequence " << sequence->FullName();
+    }
+    const SimpleSequence* const simple_sequence =
+        sequence->GetAs<SimpleSequence>();
+    SimpleSequenceProto sequence_proto;
+    ZETASQL_RETURN_IF_ERROR(simple_sequence->Serialize(&sequence_proto));
+    *proto->add_sequence() = sequence_proto;
   }
 
   for (const auto& entry : procedures) {
@@ -1734,8 +1772,8 @@ SimpleTable::SimpleTable(absl::string_view name,
                          const int64_t serialization_id)
     : name_(name), id_(serialization_id) {
   for (const NameAndType& name_and_type : columns) {
-    std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
+    std::unique_ptr<SimpleColumn> column = std::make_unique<SimpleColumn>(
+        name_, name_and_type.first, name_and_type.second);
     ZETASQL_CHECK_OK(AddColumn(column.release(), true /* is_owned */));
   }
 }
@@ -1816,6 +1854,10 @@ absl::Status SimpleTable::AddColumn(const Column* column, bool is_owned) {
   return absl::OkStatus();
 }
 
+absl::Status SimpleTable::AddColumn(std::unique_ptr<const Column> column) {
+  return AddColumn(column.release(), /*is_owned=*/true);
+}
+
 absl::Status SimpleTable::SetPrimaryKey(std::vector<int> primary_key) {
   for (int column_index : primary_key) {
     if (column_index < 0 || column_index >= NumColumns()) {
@@ -1887,7 +1929,9 @@ void SimpleTable::SetContents(absl::Span<const std::vector<Value>> rows) {
     std::vector<std::shared_ptr<const std::vector<Value>>> column_values;
     column_values.reserve(column_idxs.size());
     for (const int column_idx : column_idxs) {
+      ZETASQL_RET_CHECK_LT(column_idx, NumColumns());
       columns.push_back(GetColumn(column_idx));
+      ZETASQL_RET_CHECK_LT(column_idx, column_major_contents_.size());
       column_values.push_back(column_major_contents_[column_idx]);
     }
     std::unique_ptr<EvaluatorTableIterator> iter(
@@ -1960,8 +2004,8 @@ absl::Status SimpleTable::Serialize(
 
 absl::StatusOr<std::unique_ptr<SimpleTable>> SimpleTable::Deserialize(
     const SimpleTableProto& proto, const TypeDeserializer& type_deserializer) {
-  std::unique_ptr<SimpleTable> table(
-      new SimpleTable(proto.name(), proto.serialization_id()));
+  std::unique_ptr<SimpleTable> table =
+      std::make_unique<SimpleTable>(proto.name(), proto.serialization_id());
   if (!proto.full_name().empty() && proto.full_name() != table->Name()) {
     ZETASQL_RETURN_IF_ERROR(table->set_full_name(proto.full_name()));
   }
@@ -2111,10 +2155,21 @@ absl::StatusOr<std::unique_ptr<SimpleSQLView>> SimpleSQLView::Create(
   auto view = absl::WrapUnique(
       new SimpleSQLView(name, security, is_value_table, query));
   for (int i = 0; i < columns.size(); ++i) {
-    view->AddColumn(std::make_unique<SimpleColumn>(
-        std::string(name), columns[i].name, columns[i].type));
+    ZETASQL_RETURN_IF_ERROR(view->AddColumn(std::make_unique<SimpleColumn>(
+        std::string(name), columns[i].name, columns[i].type)));
   }
   return view;
+}
+
+absl::Status SimpleSQLView::AddColumn(std::unique_ptr<const Column> column) {
+  if (column_names_.contains(column->Name())) {
+    return absl::AlreadyExistsError(
+        absl::StrCat("Duplicate column name: ", column->Name()));
+  }
+  column_names_.insert(column->Name());
+  columns_map_[column->Name()] = column.get();
+  owned_columns_.emplace_back(std::move(column));
+  return absl::OkStatus();
 }
 
 // static
@@ -2171,13 +2226,13 @@ SimpleModel::SimpleModel(std::string name, absl::Span<const NameAndType> inputs,
                          const int64_t id)
     : name_(std::move(name)), id_(id) {
   for (const NameAndType& name_and_type : inputs) {
-    std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
+    std::unique_ptr<SimpleColumn> column = std::make_unique<SimpleColumn>(
+        name_, name_and_type.first, name_and_type.second);
     ZETASQL_CHECK_OK(AddInput(column.release(), true /* is_owned */));
   }
   for (const NameAndType& name_and_type : outputs) {
-    std::unique_ptr<SimpleColumn> column(
-        new SimpleColumn(name_, name_and_type.first, name_and_type.second));
+    std::unique_ptr<SimpleColumn> column = std::make_unique<SimpleColumn>(
+        name_, name_and_type.first, name_and_type.second);
     ZETASQL_CHECK_OK(AddOutput(column.release(), true /* is_owned */));
   }
 }
@@ -2225,6 +2280,9 @@ absl::Status SimpleModel::AddInput(const Column* column, bool is_owned) {
   }
   return absl::OkStatus();
 }
+absl::Status SimpleModel::AddInput(std::unique_ptr<const Column> column) {
+  return AddInput(column.release(), /*is_owned=*/true);
+}
 
 absl::Status SimpleModel::AddOutput(const Column* column, bool is_owned) {
   std::unique_ptr<const Column> column_owner;
@@ -2242,6 +2300,9 @@ absl::Status SimpleModel::AddOutput(const Column* column, bool is_owned) {
     owned_inputs_outputs_.emplace_back(std::move(column_owner));
   }
   return absl::OkStatus();
+}
+absl::Status SimpleModel::AddOutput(std::unique_ptr<const Column> column) {
+  return AddOutput(column.release(), /*is_owned=*/true);
 }
 
 absl::Status SimpleModel::Serialize(
@@ -2276,14 +2337,14 @@ absl::StatusOr<std::unique_ptr<SimpleModel>> SimpleModel::Deserialize(
   for (const SimpleColumnProto& input_proto : proto.input()) {
     ZETASQL_ASSIGN_OR_RETURN(const Type* type,
                      type_deserializer.Deserialize(input_proto.type()));
-    inputs.push_back(std::make_pair(input_proto.name(), type));
+    inputs.emplace_back(input_proto.name(), type);
   }
 
   std::vector<NameAndType> outputs;
   for (const SimpleColumnProto& output_proto : proto.output()) {
     ZETASQL_ASSIGN_OR_RETURN(const Type* type,
                      type_deserializer.Deserialize(output_proto.type()));
-    outputs.push_back(std::make_pair(output_proto.name(), type));
+    outputs.emplace_back(output_proto.name(), type);
   }
 
   return std::make_unique<SimpleModel>(proto.name(), inputs, outputs,
@@ -2298,6 +2359,18 @@ void SimpleConnection::Serialize(SimpleConnectionProto* proto) const {
 std::unique_ptr<SimpleConnection> SimpleConnection::Deserialize(
     const SimpleConnectionProto& proto) {
   return std::make_unique<SimpleConnection>(proto.name());
+}
+
+absl::Status SimpleSequence::Serialize(SimpleSequenceProto* proto) const {
+  proto->Clear();
+  proto->set_name(Name());
+  proto->set_full_name(FullName());
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::unique_ptr<SimpleSequence>> SimpleSequence::Deserialize(
+    const SimpleSequenceProto& proto) {
+  return std::make_unique<SimpleSequence>(proto.full_name());
 }
 
 }  // namespace zetasql

@@ -129,38 +129,6 @@ ARRAY<STRUCT<a INT64, b INT64, depth INT64>>[known order:
   {2, 4, 2}
 ]
 ==
-[name=multiple_recursive_refs]
-[required_features=WITH_RECURSIVE,RELAXED_WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
-WITH RECURSIVE t AS (
-    SELECT 1 AS a, 2 AS b UNION ALL
-    SELECT 1 AS a, 2 AS b
-  ), t2 AS (
-    SELECT a, b FROM t
-    UNION ALL (
-      SELECT a + 10, b + 1 FROM t2
-      UNION ALL
-      SELECT a + 100, b + 100 FROM t2
-    )
-  ) WITH DEPTH BETWEEN 0 AND 2
-SELECT * FROM t2;
---
-ARRAY<STRUCT<a INT64, b INT64, depth INT64>>[unknown order:
-  {1, 2, 0},
-  {1, 2, 0},
-  {101, 102, 1},
-  {11, 3, 1},
-  {101, 102, 1},
-  {11, 3, 1},
-  {111, 103, 2},
-  {201, 202, 2},
-  {111, 103, 2},
-  {201, 202, 2},
-  {21, 4, 2},
-  {111, 103, 2},
-  {21, 4, 2},
-  {111, 103, 2}
-]
-==
 [name=cte_right_operand_of_left_join]
 [required_features=WITH_RECURSIVE,RELAXED_WITH_RECURSIVE,WITH_RECURSIVE_DEPTH_MODIFIER]
 WITH RECURSIVE

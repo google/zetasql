@@ -50,9 +50,6 @@ enum class ParserMode {
   // Parse one type. No support for parsing multiple types.
   kType,
 
-  // Parse one subpipeline. No support for parsing multiple subpipelines.
-  kSubpipeline,
-
   // No mode token is returned. This is used for raw tokenization.
   kTokenizer,
 

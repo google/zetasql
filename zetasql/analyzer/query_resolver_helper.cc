@@ -40,10 +40,10 @@
 #include "zetasql/public/id_string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
-#include "zetasql/public/select_with_mode.h"
 #include "zetasql/public/strings.h"
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
+#include "zetasql/public/with_modifier_mode.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node_kind.pb.h"
@@ -293,9 +293,10 @@ std::string SelectColumnState::DebugString(absl::string_view indent) const {
                        ? resolved_computed_column->DebugString()
                        : "<null>"),
                   "\n");
-  absl::StrAppend(&debug_string, indent, "has_aggregation: ", has_aggregation,
-                  "\n");
-  absl::StrAppend(&debug_string, indent, "has_analytic: ", has_analytic, "\n");
+  absl::StrAppend(&debug_string, indent,
+                  "has_aggregation: ", expr_findings.has_aggregation, "\n");
+  absl::StrAppend(&debug_string, indent,
+                  "has_analytic: ", expr_findings.has_analytic, "\n");
   absl::StrAppend(&debug_string, indent,
                   "is_group_by_column: ", is_group_by_column, "\n");
   absl::StrAppend(&debug_string, indent, "resolved_select_column: ",
@@ -311,14 +312,33 @@ std::string SelectColumnState::DebugString(absl::string_view indent) const {
   return debug_string;
 }
 
+void LateralReferenceState::MarkAsReferencedLaterally() {
+  is_referenced_laterally_ = true;
+  if (dot_star_source_expr_info_ != nullptr) {
+    dot_star_source_expr_info_->MarkAsReferencedLaterally();
+  }
+}
+
+void LateralReferenceState::PinToPreGroupingContext() {
+  is_pinned_to_pre_grouping_context_ = true;
+  for (SelectColumnState* select_col : referenced_select_columns_) {
+    select_col->lateral_reference_state->PinToPreGroupingContext();
+  }
+  if (dot_star_source_expr_info_ != nullptr) {
+    dot_star_source_expr_info_->PinToPreGroupingContext();
+  }
+}
+
 void SelectColumnStateList::AddSelectColumn(
     const ASTSelectColumn* ast_select_column, IdString alias, bool is_explicit,
-    bool has_aggregation, bool has_analytic, bool has_volatile,
+    ExprFindings expr_findings,
     std::unique_ptr<const ResolvedExpr> resolved_expr,
     DotStarSourceExprInfo* dot_star_source_expr_info) {
   AddSelectColumn(std::make_unique<SelectColumnState>(
-      ast_select_column, alias, is_explicit, has_aggregation, has_analytic,
-      has_volatile, std::move(resolved_expr), dot_star_source_expr_info));
+      ast_select_column, alias, is_explicit, expr_findings,
+      std::move(resolved_expr),
+      /*columns_referenced_laterally=*/std::vector<SelectColumnState*>(),
+      dot_star_source_expr_info));
 }
 
 absl::Status SelectColumnStateList::ReplaceSelectColumn(
@@ -402,7 +422,7 @@ absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
   // 'SCALAR_FUNCTION(...) WITH GROUP ROWS (...)'.
   if (select_column_state->contains_outer_group_rows_or_group_by_modifiers &&
       !expr_resolution_info->allows_aggregation) {
-    ZETASQL_RET_CHECK(select_column_state->has_aggregation);
+    ZETASQL_RET_CHECK(select_column_state->expr_findings.has_aggregation);
     return MakeSqlErrorAt(ast_location)
            << "Column " << column_description
            << " contains a GROUP ROWS subquery or a GROUP BY modifier, which "
@@ -412,7 +432,7 @@ absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
                    ? " after SELECT DISTINCT"
                    : "");
   }
-  if (select_column_state->has_aggregation &&
+  if (select_column_state->expr_findings.has_aggregation &&
       !expr_resolution_info->allows_aggregation) {
     return MakeSqlErrorAt(ast_location)
            << "Column " << column_description
@@ -422,7 +442,7 @@ absl::Status SelectColumnStateList::ValidateAggregateAndAnalyticSupport(
                    ? " after SELECT DISTINCT"
                    : "");
   }
-  if (select_column_state->has_analytic &&
+  if (select_column_state->expr_findings.has_analytic &&
       !expr_resolution_info->allows_analytic) {
     return MakeSqlErrorAt(ast_location)
            << "Column " << column_description
@@ -680,7 +700,7 @@ absl::Status QueryResolutionInfo::SelectListColumnHasAnalytic(
   for (const std::unique_ptr<SelectColumnState>& select_column_state :
        select_column_state_list_->select_column_state_list()) {
     if (select_column_state->resolved_select_column == column) {
-      *has_analytic = select_column_state->has_analytic;
+      *has_analytic = select_column_state->expr_findings.has_analytic;
       return absl::OkStatus();
     }
   }
@@ -863,20 +883,8 @@ std::string QueryResolutionInfo::DebugString() const {
   absl::StrAppend(&debug_string,
                   "is_group_by_all: ", group_by_info_.is_group_by_all, "\n");
 
-  const absl::string_view select_with_mode_str = [&] {
-    switch (select_with_mode_) {
-      case SelectWithMode::NONE:
-        return "NONE";
-      case SelectWithMode::ANONYMIZATION:
-        return "ANONYMIZATION";
-      case SelectWithMode::DIFFERENTIAL_PRIVACY:
-        return "DIFFERENTIAL_PRIVACY";
-      case SelectWithMode::AGGREGATION_THRESHOLD:
-        return "AGGREGATION_THRESHOLD";
-    }
-  }();
-  absl::StrAppend(&debug_string, "select_with_mode: ", select_with_mode_str,
-                  "\n");
+  absl::StrAppend(&debug_string, "with_modifier_mode: ",
+                  WithModifierModeToString(with_modifier_mode_), "\n");
   absl::StrAppend(&debug_string, "group_by_column_state_list(size ",
                   group_by_info_.group_by_column_state_list.size(), "):\n");
   for (const GroupByColumnState& group_by_column_state :

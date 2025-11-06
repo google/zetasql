@@ -89,9 +89,9 @@ cc_library(
 )
 
 cc_library(
-    name = "flex_token_provider",
-    srcs = ["flex_token_provider.cc"],
-    hdrs = ["flex_token_provider.h"],
+    name = "token_provider",
+    srcs = ["token_provider.cc"],
+    hdrs = ["token_provider.h"],
     visibility = [
         "//zetasql/parser:__pkg__",
         "//zetasql/tools/execute_query:__pkg__",
@@ -100,9 +100,9 @@ cc_library(
         ":token_provider_base",
         "//zetasql/base:check",
         "//zetasql/base:status",
-        "//zetasql/parser:flex_tokenizer",
         "//zetasql/parser:token",
         "//zetasql/parser:token_with_location",
+        "//zetasql/parser:tokenizer",
         "//zetasql/public:parse_location",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -110,10 +110,10 @@ cc_library(
 )
 
 cc_test(
-    name = "flex_token_provider_test",
-    srcs = ["flex_token_provider_test.cc"],
+    name = "token_provider_test",
+    srcs = ["token_provider_test.cc"],
     deps = [
-        ":flex_token_provider",
+        ":token_provider",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
         "//zetasql/parser:lookahead_transformer",  # build_cleaner: keep
@@ -186,11 +186,11 @@ cc_test(
     srcs = ["macro_expander_test.cc"],
     deps = [
         ":diagnostic",
-        ":flex_token_provider",
         ":macro_catalog",
         ":macro_expander",
         ":quoting",
         ":standalone_macro_expansion",
+        ":token_provider",
         "//zetasql/base:arena",
         "//zetasql/base/testing:status_matchers",
         "//zetasql/base/testing:zetasql_gtest_main",
@@ -254,9 +254,9 @@ cc_library(
         "//zetasql/tools/execute_query:__pkg__",
     ],
     deps = [
-        ":flex_token_provider",
         ":macro_catalog",
         ":macro_expander",
+        ":token_provider",
         "//zetasql/public:options_cc_proto",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

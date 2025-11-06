@@ -740,11 +740,11 @@ The `value` parameter can represent:
 ```zetasql
 SELECT BIT_CAST_TO_UINT32(-1) as UINT32_value, BIT_CAST_TO_INT32(BIT_CAST_TO_UINT32(-1)) as bit_cast_value;
 
-/*---------------+----------------------*
+/*---------------+----------------------+
  | UINT32_value  | bit_cast_value       |
  +---------------+----------------------+
  | 4294967295    | -1                   |
- *---------------+----------------------*/
+ +---------------+----------------------*/
 ```
 
 ## `BIT_CAST_TO_INT64`
@@ -773,11 +773,11 @@ The `value` parameter can represent:
 ```zetasql
 SELECT BIT_CAST_TO_UINT64(-1) as UINT64_value, BIT_CAST_TO_INT64(BIT_CAST_TO_UINT64(-1)) as bit_cast_value;
 
-/*-----------------------+----------------------*
+/*-----------------------+----------------------+
  | UINT64_value          | bit_cast_value       |
  +-----------------------+----------------------+
  | 18446744073709551615  | -1                   |
- *-----------------------+----------------------*/
+ +-----------------------+----------------------*/
 ```
 
 ## `BIT_CAST_TO_UINT32`
@@ -806,11 +806,11 @@ The `value` parameter can represent:
 ```zetasql
 SELECT -1 as UINT32_value, BIT_CAST_TO_UINT32(-1) as bit_cast_value;
 
-/*--------------+----------------------*
+/*--------------+----------------------+
  | UINT32_value | bit_cast_value       |
  +--------------+----------------------+
  | -1           | 4294967295           |
- *--------------+----------------------*/
+ +--------------+----------------------*/
 ```
 
 ## `BIT_CAST_TO_UINT64`
@@ -839,11 +839,11 @@ The `value` parameter can represent:
 ```zetasql
 SELECT -1 as INT64_value, BIT_CAST_TO_UINT64(-1) as bit_cast_value;
 
-/*--------------+----------------------*
+/*--------------+----------------------+
  | INT64_value  | bit_cast_value       |
  +--------------+----------------------+
  | -1           | 18446744073709551615 |
- *--------------+----------------------*/
+ +--------------+----------------------*/
 ```
 
 ## `CAST` 
@@ -1393,21 +1393,21 @@ integers:
 ```zetasql
 SELECT '0x123' as hex_value, CAST('0x123' as INT64) as hex_to_int;
 
-/*-----------+------------*
+/*-----------+------------+
  | hex_value | hex_to_int |
  +-----------+------------+
  | 0x123     | 291        |
- *-----------+------------*/
+ +-----------+------------*/
 ```
 
 ```zetasql
 SELECT '-0x123' as hex_value, CAST('-0x123' as INT64) as hex_to_int;
 
-/*-----------+------------*
+/*-----------+------------+
  | hex_value | hex_to_int |
  +-----------+------------+
  | -0x123    | -291       |
- *-----------+------------*/
+ +-----------+------------*/
 ```
 
 ### CAST AS INTERVAL
@@ -1459,7 +1459,7 @@ FROM UNNEST([
   'PT10H20M30,456S'
 ]) input
 
-/*--------------------+--------------------*
+/*--------------------+--------------------+
  | input              | output             |
  +--------------------+--------------------+
  | 1-2 3 10:20:30.456 | 1-2 3 10:20:30.456 |
@@ -1467,7 +1467,7 @@ FROM UNNEST([
  | 10:20:30           | 0-0 0 10:20:30     |
  | P1Y2M3D            | 1-2 3 0:0:0        |
  | PT10H20M30,456S    | 0-0 0 10:20:30.456 |
- *--------------------+--------------------*/
+ +--------------------+--------------------*/
 ```
 
 ### CAST AS NUMERIC 
@@ -1607,7 +1607,7 @@ SELECT
     AS zetasql.examples.music.Award)
   AS award_col
 
-/*---------------------------------------------------------*
+/*---------------------------------------------------------+
  | award_col                                               |
  +---------------------------------------------------------+
  | {                                                       |
@@ -1616,7 +1616,7 @@ SELECT
  |   type { award_name: "Best Artist" category: "Artist" } |
  |   type { award_name: "Best Album" category: "Album" }   |
  | }                                                       |
- *---------------------------------------------------------*/
+ +---------------------------------------------------------*/
 ```
 
 ### CAST AS RANGE
@@ -1659,11 +1659,11 @@ SELECT CAST(
   '[2020-01-01, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
 
-/*----------------------------------------*
+/*----------------------------------------+
  | string_to_range                        |
  +----------------------------------------+
  | [DATE '2020-01-01', DATE '2020-01-02') |
- *----------------------------------------*/
+ +----------------------------------------*/
 ```
 
 ```zetasql
@@ -1671,11 +1671,11 @@ SELECT CAST(
   '[2014-09-27 12:30:00.45, 2016-10-17 11:15:00.33)'
   AS RANGE<DATETIME>) AS string_to_range
 
-/*------------------------------------------------------------------------*
+/*------------------------------------------------------------------------+
  | string_to_range                                                        |
  +------------------------------------------------------------------------+
  | [DATETIME '2014-09-27 12:30:00.45', DATETIME '2016-10-17 11:15:00.33') |
- *------------------------------------------------------------------------*/
+ +------------------------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -1684,11 +1684,11 @@ SELECT CAST(
   AS RANGE<TIMESTAMP>) AS string_to_range
 
 -- Results depend upon where this query was executed.
-/*--------------------------------------------------------------------------*
+/*--------------------------------------------------------------------------+
  | string_to_range                                                          |
  +--------------------------------------------------------------------------+
  | [TIMESTAMP '2014-09-27 12:30:00+08', TIMESTAMP '2016-10-17 11:15:00+08') |
- *--------------------------------------------------------------------------*/
+ +--------------------------------------------------------------------------*/
 ```
 
 ```zetasql
@@ -1696,11 +1696,11 @@ SELECT CAST(
   '[UNBOUNDED, 2020-01-02)'
   AS RANGE<DATE>) AS string_to_range
 
-/*--------------------------------*
+/*--------------------------------+
  | string_to_range                |
  +--------------------------------+
  | [UNBOUNDED, DATE '2020-01-02') |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 ```zetasql
@@ -1708,11 +1708,11 @@ SELECT CAST(
   '[2020-01-01, NULL)'
   AS RANGE<DATE>) AS string_to_range
 
-/*--------------------------------*
+/*--------------------------------+
  | string_to_range                |
  +--------------------------------+
  | [DATE '2020-01-01', UNBOUNDED) |
- *--------------------------------*/
+ +--------------------------------*/
 ```
 
 ### CAST AS STRING 
@@ -1771,7 +1771,8 @@ of these data types:
 The format clause for `STRING` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
 to use during formatting of a `TIMESTAMP`. If this optional clause isn't
-included when formatting a `TIMESTAMP`, your current time zone is used.
+included when formatting a `TIMESTAMP`, the default time zone,
+which is implementation defined, is used.
 
 For more information, see the following topics:
 
@@ -1888,21 +1889,21 @@ For more information, see the following topics:
 ```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING) AS current_date
 
-/*---------------*
+/*---------------+
  | current_date  |
  +---------------+
  | 2021-03-09    |
- *---------------*/
+ +---------------*/
 ```
 
 ```zetasql
 SELECT CAST(CURRENT_DATE() AS STRING FORMAT 'DAY') AS current_day
 
-/*-------------*
+/*-------------+
  | current_day |
  +-------------+
  | MONDAY      |
- *-------------*/
+ +-------------*/
 ```
 
 ```zetasql
@@ -1911,11 +1912,11 @@ SELECT CAST(
   AS STRING FORMAT 'YYYY-MM-DD HH24:MI:SS TZH:TZM') AS date_time_to_string
 
 -- Results depend upon where this query was executed.
-/*------------------------------*
+/*------------------------------+
  | date_time_to_string          |
  +------------------------------+
  | 2008-12-24 16:00:00 -08:00   |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 ```zetasql
@@ -1925,21 +1926,21 @@ SELECT CAST(
   AT TIME ZONE 'Asia/Kolkata') AS date_time_to_string
 
 -- Because the time zone is specified, the result is always the same.
-/*------------------------------*
+/*------------------------------+
  | date_time_to_string          |
  +------------------------------+
  | 2008-12-25 05:30:00 +05:30   |
- *------------------------------*/
+ +------------------------------*/
 ```
 
 ```zetasql
 SELECT CAST(INTERVAL 3 DAY AS STRING) AS interval_to_string
 
-/*--------------------*
+/*--------------------+
  | interval_to_string |
  +--------------------+
  | 0-0 3 0:0:0        |
- *--------------------*/
+ +--------------------*/
 ```
 
 ```zetasql
@@ -1947,11 +1948,11 @@ SELECT CAST(
   INTERVAL "1-2 3 4:5:6.789" YEAR TO SECOND
   AS STRING) AS interval_to_string
 
-/*--------------------*
+/*--------------------+
  | interval_to_string |
  +--------------------+
  | 1-2 3 4:5:6.789    |
- *--------------------*/
+ +--------------------*/
 ```
 
 ### CAST AS STRUCT
@@ -2067,8 +2068,8 @@ the cast. You can use the format clause in this section if `expression` is a
 
 The format clause for `TIMESTAMP` has an additional optional clause called
 `AT TIME ZONE timezone_expr`, which you can use to specify a specific time zone
-to use during formatting. If this optional clause isn't included, your
-current time zone is used.
+to use during formatting. If this optional clause isn't included, the default
+time zone, which is implementation defined, is used.
 
 **Conversion rules**
 
@@ -2139,11 +2140,11 @@ The following example casts a string-formatted timestamp as a timestamp:
 SELECT CAST("2020-06-02 17:00:53.110+00:00" AS TIMESTAMP) AS as_timestamp
 
 -- Results depend upon where this query was executed.
-/*----------------------------*
+/*----------------------------+
  | as_timestamp               |
  +----------------------------+
  | 2020-06-03 00:00:53.110+00 |
- *----------------------------*/
+ +----------------------------*/
 ```
 
 The following examples cast a string-formatted date and time as a timestamp.
@@ -2200,29 +2201,29 @@ decimal point.
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_BIGNUMERIC("123.45") AS parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 123.45 |
- *--------*/
+ +--------*/
 
 -- This example shows how a string with an exponent is parsed.
 SELECT PARSE_BIGNUMERIC("123.456E37") AS parsed;
 
-/*-----------------------------------------*
+/*-----------------------------------------+
  | parsed                                  |
  +-----------------------------------------+
  | 123400000000000000000000000000000000000 |
- *-----------------------------------------*/
+ +-----------------------------------------*/
 
 -- This example shows the rounding when digits after the decimal point exceeds 38.
 SELECT PARSE_BIGNUMERIC("1.123456789012345678901234567890123456789") as parsed;
 
-/*------------------------------------------*
+/*------------------------------------------+
  | parsed                                   |
  +------------------------------------------+
  | 1.12345678901234567890123456789012345679 |
- *------------------------------------------*/
+ +------------------------------------------*/
 ```
 
 This function is similar to using the [`CAST AS BIGNUMERIC`][cast-bignumeric]
@@ -2319,11 +2320,11 @@ sign and the number:
 ```zetasql
 SELECT PARSE_BIGNUMERIC("  -  12.34 ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | -12.34 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with an exponent as well as the sign after the
@@ -2332,11 +2333,11 @@ number:
 ```zetasql
 SELECT PARSE_BIGNUMERIC("12.34e-1-") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | -1.234 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with multiple commas in the integer part of the
@@ -2345,11 +2346,11 @@ number:
 ```zetasql
 SELECT PARSE_BIGNUMERIC("  1,2,,3,.45 + ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 123.45 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with a decimal point and no digits in the whole
@@ -2358,11 +2359,11 @@ number part:
 ```zetasql
 SELECT PARSE_BIGNUMERIC(".1234  ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 0.1234 |
- *--------*/
+ +--------*/
 ```
 
 **Examples of invalid inputs**
@@ -2432,29 +2433,29 @@ decimal point.
 -- This example shows how a string with a decimal point is parsed.
 SELECT PARSE_NUMERIC("123.45") AS parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 123.45 |
- *--------*/
+ +--------*/
 
 -- This example shows how a string with an exponent is parsed.
 SELECT PARSE_NUMERIC("12.34E27") as parsed;
 
-/*-------------------------------*
+/*-------------------------------+
  | parsed                        |
  +-------------------------------+
  | 12340000000000000000000000000 |
- *-------------------------------*/
+ +-------------------------------*/
 
 -- This example shows the rounding when digits after the decimal point exceeds 9.
 SELECT PARSE_NUMERIC("1.0123456789") as parsed;
 
-/*-------------*
+/*-------------+
  | parsed      |
  +-------------+
  | 1.012345679 |
- *-------------*/
+ +-------------*/
 ```
 
 This function is similar to using the [`CAST AS NUMERIC`][cast-numeric] function
@@ -2552,11 +2553,11 @@ sign and the number:
 ```zetasql
 SELECT PARSE_NUMERIC("  -  12.34 ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | -12.34 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with an exponent as well as the sign after the
@@ -2565,11 +2566,11 @@ number:
 ```zetasql
 SELECT PARSE_NUMERIC("12.34e-1-") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | -1.234 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with multiple commas in the integer part of the
@@ -2578,11 +2579,11 @@ number:
 ```zetasql
 SELECT PARSE_NUMERIC("  1,2,,3,.45 + ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 123.45 |
- *--------*/
+ +--------*/
 ```
 
 This example shows an input with a decimal point and no digits in the whole
@@ -2591,11 +2592,11 @@ number part:
 ```zetasql
 SELECT PARSE_NUMERIC(".1234  ") as parsed;
 
-/*--------*
+/*--------+
  | parsed |
  +--------+
  | 0.1234 |
- *--------*/
+ +--------*/
 ```
 
 **Examples of invalid inputs**
@@ -2667,11 +2668,11 @@ an error because the query is invalid.
 ```zetasql
 SELECT SAFE_CAST("apple" AS INT64) AS not_a_number;
 
-/*--------------*
+/*--------------+
  | not_a_number |
  +--------------+
  | NULL         |
- *--------------*/
+ +--------------*/
 ```
 
 Some casts can include a [format clause][formatting-syntax], which provides

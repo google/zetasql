@@ -18,11 +18,11 @@
 #define ZETASQL_PUBLIC_ANALYZER_OUTPUT_PROPERTIES_H_
 
 #include "zetasql/public/options.pb.h"
-#include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/target_syntax.h"
 #include "absl/base/attributes.h"
 #include "absl/container/btree_set.h"
-#include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
+#include "absl/strings/string_view.h"
 
 namespace zetasql {
 
@@ -53,11 +53,31 @@ class AnalyzerOutputProperties {
     return relevant_rewrites_.contains(rewrite);
   }
 
+  // Adds a feature label to the analyzer output properties. Feature labels
+  // provide visibility of feature use on (broken link) and in data
+  // that query engines log for analysis. This API should only be used to log
+  // labels for features that are not obvious in the ResolvedAST produced by the
+  // Resolver. Features that are evident in the ResolvedAST should have their
+  // labels added by the `zetasql::ComplianceLabelExtractor` which can run
+  // out of band to not affect compilation latency.
+  //
+  // `feature_label` must be a string literal or constexpr string_view so that
+  // its backing string data is statically allocated. `AnalyzerOutputProperties`
+  // will not copy the data.
+  void AddFeatureLabel(absl::string_view feature_label)
+  {
+    feature_labels_.insert(feature_label);
+  }
+  const absl::flat_hash_set<absl::string_view>& feature_labels() const {
+    return feature_labels_;
+  }
+
  private:
   // Defined in zetasql/common/internal_analyzer_output_properties.h.
   friend class InternalAnalyzerOutputProperties;
 
   absl::btree_set<ResolvedASTRewrite> relevant_rewrites_;
+  absl::flat_hash_set<absl::string_view> feature_labels_;
   TargetSyntaxMap target_syntax_;
 };
 

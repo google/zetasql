@@ -74,8 +74,8 @@ class LessComparatorWithCollation {
 template <typename PercentileType, typename W = PercentileType>
 class PercentileEvaluator {
  public:
-  // For PercentileType = double, Weight = long double by default; can be
-  // overridden by the template parameter W to double.
+  // For PercentileType = double, Weight = double by default; can be
+  // overridden by the template parameter W to long double (deprecated).
   // For PercentileType = NumericValue, Weight = NumericValue.
   // For PercentileType = BigNumericValue, Weight = BigNumericValue.
   using Weight = W;
@@ -325,6 +325,9 @@ class PercentileHelper<double, Weight> {
 };
 
 extern template class PercentileHelper<double, double>;
+
+// DEPRECATED.
+// TODO: Remove this extern template declaration.
 extern template class PercentileHelper<double, long double>;
 
 template <>

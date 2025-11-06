@@ -39,6 +39,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "zetasql/base/map_util.h"
@@ -103,6 +104,8 @@ class TableNameResolver {
   absl::Status FindInScriptNode(const ASTNode* node);
 
   absl::Status FindInQueryStatement(const ASTQueryStatement* statement);
+  absl::Status FindInSubpipelineStatement(
+      const ASTSubpipelineStatement* statement);
 
   absl::Status FindInCreateViewStatement(
       const ASTCreateViewStatement* statement);
@@ -378,12 +381,29 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
       }
       break;
 
+    case AST_SUBPIPELINE_STATEMENT:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_SUBPIPELINE_STMT)) {
+        return FindInSubpipelineStatement(
+            static_cast<const ASTSubpipelineStatement*>(statement));
+      }
+      break;
+
     case AST_EXPLAIN_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
               RESOLVED_EXPLAIN_STMT)) {
         const ASTExplainStatement* explain =
             static_cast<const ASTExplainStatement*>(statement);
         return FindInStatement(explain->statement());
+      }
+      break;
+
+    case AST_STATEMENT_WITH_PIPE_OPERATORS:
+      if (analyzer_options_->language().SupportsStatementKind(
+              RESOLVED_STATEMENT_WITH_PIPE_OPERATORS_STMT)) {
+        const ASTStatementWithPipeOperators* ast_stmt =
+            static_cast<const ASTStatementWithPipeOperators*>(statement);
+        return FindInStatement(ast_stmt->statement());
       }
       break;
 
@@ -1156,6 +1176,30 @@ absl::Status TableNameResolver::FindInQueryStatement(
   return FindInQuery(statement->query(), /*visible_aliases=*/{});
 }
 
+absl::Status TableNameResolver::FindInSubpipelineStatement(
+    const ASTSubpipelineStatement* statement) {
+  AliasSet visible_aliases;
+  const Table* input_table =
+      analyzer_options_->default_table_for_subpipeline_stmt();
+  if (input_table != nullptr) {
+    // The input table is scanned, and is available as a range variable.
+    visible_aliases.insert(absl::AsciiStrToLower(input_table->Name()));
+
+    // We don't have a FullName() that returns a path so we have to split it
+    // on the dots.  This isn't correct if there are embedded dots but it's the
+    // best we have right now.
+    std::vector<std::string> table_path =
+        absl::StrSplit(input_table->FullName(), '.');
+    zetasql_base::InsertIfNotPresent(table_names_, table_path);
+  }
+
+  AliasSet new_aliases = visible_aliases;
+  ZETASQL_RETURN_IF_ERROR(
+      FindInPipeOperatorList(statement->subpipeline()->pipe_operator_list(),
+                             visible_aliases, &new_aliases));
+  return absl::OkStatus();
+}
+
 absl::Status TableNameResolver::FindInCreateViewStatement(
     const ASTCreateViewStatement* statement) {
   if (statement->recursive()) {
@@ -1635,8 +1679,8 @@ absl::Status TableNameResolver::FindInParenthesizedJoin(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   const ASTJoin* join = parenthesized_join->join();
   // In parenthesized joins, we can't see names from outside the parentheses.
-  std::unique_ptr<AliasSet> join_visible_aliases(
-      new AliasSet(external_visible_aliases));
+  std::unique_ptr<AliasSet> join_visible_aliases =
+      std::make_unique<AliasSet>(external_visible_aliases);
   ZETASQL_RETURN_IF_ERROR(FindInJoin(join, external_visible_aliases,
                              join_visible_aliases.get()));
   for (const std::string& alias : *join_visible_aliases) {

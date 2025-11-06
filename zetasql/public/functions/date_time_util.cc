@@ -41,7 +41,9 @@
 #include "zetasql/public/pico_time.h"
 #include "zetasql/public/time_zone_util.h"
 #include "zetasql/public/types/timestamp_util.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/optimization.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -136,6 +138,34 @@ class UserString {
 
   absl::string_view str_;
 };
+
+static absl::StatusOr<absl::Weekday> GetWeekdayFromString(
+    absl::string_view dow) {
+  static const absl::NoDestructor<
+      absl::flat_hash_map<std::string, absl::Weekday>>
+      weekday_map({
+          {"SUNDAY", absl::Weekday::sunday},
+          {"SUN", absl::Weekday::sunday},
+          {"MONDAY", absl::Weekday::monday},
+          {"MON", absl::Weekday::monday},
+          {"TUESDAY", absl::Weekday::tuesday},
+          {"TUE", absl::Weekday::tuesday},
+          {"WEDNESDAY", absl::Weekday::wednesday},
+          {"WED", absl::Weekday::wednesday},
+          {"THURSDAY", absl::Weekday::thursday},
+          {"THU", absl::Weekday::thursday},
+          {"FRIDAY", absl::Weekday::friday},
+          {"FRI", absl::Weekday::friday},
+          {"SATURDAY", absl::Weekday::saturday},
+          {"SAT", absl::Weekday::saturday},
+      });
+
+  std::string upper_dow = absl::AsciiStrToUpper(dow);
+  if (auto it = weekday_map->find(upper_dow); it != weekday_map->end()) {
+    return it->second;
+  }
+  return MakeEvalError() << "Invalid day of week: " << dow;
+}
 
 }  // namespace
 
@@ -1596,6 +1626,35 @@ absl::Status LastDayOfDatetime(const DatetimeValue& datetime,
   ZETASQL_RETURN_IF_ERROR(ExtractFromDatetime(DATE, datetime, &date));
   ZETASQL_RETURN_IF_ERROR(LastDayOfDate(date, part, output));
   return absl::OkStatus();
+}
+
+absl::Status NextDayOfDate(int32_t date, absl::string_view dow,
+                           int32_t* output) {
+  if (!IsValidDate(date)) {
+    return MakeEvalError() << "Invalid date value: " << date;
+  }
+  ZETASQL_ASSIGN_OR_RETURN(absl::Weekday weekday, GetWeekdayFromString(dow));
+  absl::CivilDay civil_day = EpochDaysToCivilDay(date);
+  absl::CivilDay next_day = absl::NextWeekday(civil_day, weekday);
+  *output = CivilDayToEpochDays(next_day);
+  if (!IsValidDate(*output)) {
+    return MakeEvalError() << "Next day of " << DateErrorString(date)
+                           << " resulted in an out of range date value: "
+                           << *output;
+  }
+  return absl::OkStatus();
+}
+
+absl::Status NextDayOfDatetime(const DatetimeValue& datetime,
+                               absl::string_view dow, int32_t* output) {
+  if (!datetime.IsValid()) {
+    return MakeEvalError() << "Invalid datetime value: "
+                           << datetime.DebugString();
+  }
+  int32_t date;
+  ZETASQL_RETURN_IF_ERROR(
+      ConstructDate(datetime.Year(), datetime.Month(), datetime.Day(), &date));
+  return NextDayOfDate(date, dow, output);
 }
 
 absl::Status AddMonths(int32_t date, int64_t months, int32_t* output) {
@@ -5482,6 +5541,7 @@ absl::StatusOr<std::string> AddPicosecondsInFormatString(
   // The state machine works as follows:
   // - In state kDefault:
   //   - Input is "%E", state is changed to kPercentEParsed.
+  //   - Input is "%%", state is unchanged.
   //   - Otherwise, state is unchanged.
   // - In state kPercentEParsed:
   //   - Input is "*S" (or "*f"). "%E*S" (or "%E*f") is found. State is changed
@@ -5514,6 +5574,11 @@ absl::StatusOr<std::string> AddPicosecondsInFormatString(
             format_string[i + 1] == 'E') {
           state = kPercentEParsed;
           idx_percent_e = i;
+          i += 2;
+        } else if (i + 1 < format_string.length() && format_string[i] == '%' &&
+                   format_string[i + 1] == '%') {
+          format_string_with_picos.push_back('%');
+          format_string_with_picos.push_back('%');
           i += 2;
         } else {
           format_string_with_picos.push_back(format_string[i]);

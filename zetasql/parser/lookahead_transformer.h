@@ -238,11 +238,6 @@ class LookaheadTransformer final {
   ABSL_MUST_USE_RESULT Token SetOverrideErrorAndReturnEof(
       absl::string_view error_message, const Location& error_location);
 
-  // Returns whether `lookahead_1_` contains a Token::EOI that represents the
-  // real end of input. For example, if `lookahead_1_` errors, its token kind
-  // is Token::EOI but it does not represent the real end of input.
-  bool Lookahead1IsRealEndOfInput() const;
-
   // This determines the first token returned to the parser, which determines
   // the mode that we'll run in.
   ParserMode mode_;
@@ -313,15 +308,6 @@ class LookaheadTransformer final {
   // state.
   bool IsInTemplatedTypeState() const;
 
-  // If the current token is an integer or float literal followed by an
-  // identifier without spaces, updates the token kind of the current token to
-  // be Token::INVALID_LITERAL_PRECEDING_IDENTIFIER_NO_SPACE and returns it.
-  // Otherwise returns the current token kind.
-  //
-  // This function should only be called when under the `kTokenizer` or
-  // `kTokenizerPreserveComments` mode.
-  Token EmitInvalidLiteralPrecedesIdentifierTokenIfApplicable();
-
   // Applies token transformations for `current_token_` and returns the new
   // token kind. Should only be called when `current_token_` holds '.'.
   Token TransformDotSymbol();
@@ -378,10 +364,10 @@ class LookaheadTransformer final {
   // The lookahead buffer slot for token N+3.
   std::optional<TokenWithOverrideError> lookahead_3_;
 
-  // The TextMapperLexerAdapter allows the Flex lexer state to be
+  // The TextMapperLexerAdapter allows the lexer state to be
   // consumed by multiple lookahead streams and replayed by the main parse.
   //
-  // The first stage of the Textmapper integration re-uses the Flex lexer. This
+  // The first stage of the Textmapper integration re-uses the lexer. This
   // wrapper allows the lookahead functionality of Textmapper to restart the
   // lexer. This field is not used at all except in Textmapper lookahead mode.
   friend class TextMapperLexerAdapter;

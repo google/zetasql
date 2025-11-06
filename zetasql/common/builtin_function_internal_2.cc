@@ -177,29 +177,6 @@ static std::string ExtractSignatureText(
       ")");
 }
 
-static std::string ExtractSupportedSignatures(
-    absl::string_view explicit_datepart_name,
-    const LanguageOptions& language_options, const Function& function) {
-  std::string supported_signatures;
-  for (const FunctionSignature& signature : function.signatures()) {
-    // Ignore deprecated signatures, and signatures that include
-    // unsupported data types.
-    if (signature.HasUnsupportedType(language_options)) {
-      // We must check for unsupported types since some engines do not
-      // support the DATETIME/TIME types yet.
-      continue;
-    }
-    if (!supported_signatures.empty()) {
-      absl::StrAppend(&supported_signatures, "; ");
-    }
-    absl::StrAppend(
-        &supported_signatures,
-        ExtractSignatureText(explicit_datepart_name, language_options, function,
-                             signature));
-  }
-  return supported_signatures;
-}
-
 void GetDatetimeExtractFunctions(TypeFactory* type_factory,
                                  const ZetaSQLBuiltinFunctionOptions& options,
                                  NameToFunctionMap* functions) {
@@ -798,7 +775,7 @@ void GetDatetimeAddSubFunctions(TypeFactory* type_factory,
           FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS));
 }
 
-void GetDatetimeDiffTruncLastFunctions(
+void GetDatetimeDiffTruncLastNextFunctions(
     TypeFactory* type_factory, const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   const Type* date_type = type_factory->get_date();
@@ -948,6 +925,59 @@ void GetDatetimeDiffTruncLastFunctions(
         FunctionOptions().set_pre_resolution_argument_constraint(
             absl::bind_front(&CheckLastDayArguments, "LAST_DAY")));
   }
+
+  constexpr absl::string_view kNextDayDateSQL = R"sql(
+    CASE
+      WHEN date_arg IS NULL OR dow_arg IS NULL
+        THEN NULL
+      WHEN LOWER(dow_arg) IN ('mon', 'monday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(MONDAY))
+      WHEN LOWER(dow_arg) IN ('tue', 'tuesday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(TUESDAY))
+      WHEN LOWER(dow_arg) IN ('wed', 'wednesday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(WEDNESDAY))
+      WHEN LOWER(dow_arg) IN ('thu', 'thursday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(THURSDAY))
+      WHEN LOWER(dow_arg) IN ('fri', 'friday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(FRIDAY))
+      WHEN LOWER(dow_arg) IN ('sat', 'saturday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(SATURDAY))
+      WHEN LOWER(dow_arg) IN ('sun', 'sunday')
+        THEN DATE_TRUNC(DATE_ADD(date_arg, INTERVAL 1 WEEK), WEEK(SUNDAY))
+      ELSE
+        ERROR(CONCAT('Unknown day of week: ', dow_arg))
+      END
+  )sql";
+
+  constexpr absl::string_view kNextDayDatetimeSQL = R"sql(
+    NEXT_DAY(DATE(datetime_arg), dow_arg)
+  )sql";
+
+  InsertFunction(
+      functions, options, "next_day", SCALAR,
+      {
+          {date_type,
+           {FunctionArgumentType(
+                date_type, FunctionArgumentTypeOptions().set_argument_name(
+                               "date_arg", kPositionalOnly)),
+            FunctionArgumentType(
+                string_type, FunctionArgumentTypeOptions().set_argument_name(
+                                 "dow_arg", kPositionalOnly))},
+           FN_NEXT_DAY_DATE,
+           SetDefinitionForInlining(kNextDayDateSQL)},
+          {date_type,
+           {FunctionArgumentType(
+                datetime_type, FunctionArgumentTypeOptions().set_argument_name(
+                                   "datetime_arg", kPositionalOnly)),
+            FunctionArgumentType(
+                string_type, FunctionArgumentTypeOptions().set_argument_name(
+                                 "dow_arg", kPositionalOnly))},
+           FN_NEXT_DAY_DATETIME,
+           SetDefinitionForInlining(kNextDayDatetimeSQL)
+               .AddRequiredLanguageFeature(FEATURE_CIVIL_TIME)},
+      },
+      FunctionOptions().AddRequiredLanguageFeature(
+          FEATURE_ADDITIONAL_DATE_TIME_FUNCTIONS));
 }
 
 void GetDatetimeBucketFunctions(TypeFactory* type_factory,
@@ -1179,7 +1209,7 @@ void GetDatetimeFunctions(TypeFactory* type_factory,
   GetDatetimeExtractFunctions(type_factory, options, functions);
   GetDatetimeFormatFunctions(type_factory, options, functions);
   GetDatetimeAddSubFunctions(type_factory, options, functions);
-  GetDatetimeDiffTruncLastFunctions(type_factory, options, functions);
+  GetDatetimeDiffTruncLastNextFunctions(type_factory, options, functions);
   GetDatetimeBucketFunctions(type_factory, options, functions);
 
   GetTimeAndDatetimeConstructionAndConversionFunctions(type_factory, options,

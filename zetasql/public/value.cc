@@ -250,7 +250,7 @@ Value::Value(const ExtendedType* extended_type, const ValueContent& value) {
   SetContent(value);
 }
 
-const absl::StatusOr<UuidValue> Value::uuid_value() const {
+absl::StatusOr<UuidValue> Value::uuid_value() const {
   ZETASQL_RET_CHECK_EQ(TYPE_UUID, metadata_.type_kind()) << "Not a uuid type";
   ZETASQL_RET_CHECK(!metadata_.is_null()) << "Null value";
   return uuid_ptr_->value();
@@ -341,7 +341,8 @@ absl::StatusOr<Value> Value::MakeGraphElement(
     const GraphElementType* graph_element_type, std::string identifier,
     const GraphElementLabelsAndProperties& labels_and_properties,
     std::string definition_name, std::string source_node_identifier,
-    std::string dest_node_identifier) {
+    std::string dest_node_identifier
+) {
   // Validates the identifiers.
   ZETASQL_RET_CHECK(!identifier.empty()) << "Empty identifier";
   ZETASQL_RET_CHECK_EQ(graph_element_type->IsNode(), source_node_identifier.empty())
@@ -401,13 +402,16 @@ absl::StatusOr<Value> Value::MakeGraphElement(
           ? std::make_unique<GraphElementValue>(
                 graph_element_type, std::move(identifier),
                 std::move(property_values), std::move(property_name_to_index),
-                std::move(sorted_labels), std::move(definition_name))
+                std::move(sorted_labels),
+                std::move(definition_name)
+                )
           : std::make_unique<GraphElementValue>(
                 graph_element_type, std::move(identifier),
                 std::move(property_values), std::move(property_name_to_index),
                 std::move(sorted_labels), std::move(definition_name),
                 std::move(source_node_identifier),
-                std::move(dest_node_identifier));
+                std::move(dest_node_identifier)
+            );
   Value result(graph_element_type, /*is_null=*/false,
                /*order_kind=*/kIgnoresOrder);
   result.container_ptr_ = new internal::ValueContentOrderedListRef(
@@ -418,7 +422,7 @@ absl::StatusOr<Value> Value::MakeGraphElement(
 absl::StatusOr<Value> Value::MakeGraphPath(const GraphPathType* graph_path_type,
                                            std::vector<Value> graph_elements) {
   ZETASQL_RET_CHECK_EQ(graph_elements.size() % 2, 1)
-      << "Path must have an odd number of graph elements, has "
+      << "Path must have an odd number of graph elements, but got "
       << graph_elements.size() << " graph elements";
   for (int i = 0; i < graph_elements.size(); ++i) {
     ZETASQL_RET_CHECK(!graph_elements[i].is_null())

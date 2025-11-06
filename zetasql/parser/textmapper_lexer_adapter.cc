@@ -28,6 +28,7 @@
 #include "zetasql/parser/parser_mode.h"
 #include "zetasql/parser/tm_token.h"
 #include "zetasql/public/language_options.h"
+#include "zetasql/public/parse_location.h"
 #include "absl/base/attributes.h"
 #include "zetasql/base/check.h"
 #include "absl/status/statusor.h"
@@ -78,6 +79,14 @@ ABSL_MUST_USE_RESULT Token TextMapperLexerAdapter::Next() {
   }
 
   return last_token_.kind;
+}
+
+ABSL_MUST_USE_RESULT ParseLocationRange
+TextMapperLexerAdapter::LastLastTokenLocation() const {
+  if (tokenizer_->lookback_1_.has_value()) {
+    return tokenizer_->lookback_1_->token.location;
+  }
+  return ParseLocationRange();
 }
 
 }  // namespace zetasql::parser

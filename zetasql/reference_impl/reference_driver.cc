@@ -121,18 +121,13 @@ ABSL_FLAG(bool, reference_driver_enable_differential_privacy, false,
           "If true, enable the ZetaSQL new Differential Privacy syntax"
           "feature. See (broken link).");
 
-// TODO: b/439843654 - Remove this once MULTILEVEL_AGGREGATION_ON_UDAS is
-// removed from development.
-ABSL_FLAG(bool, reference_driver_enable_multilevel_aggregation_on_udas, false,
-          "If true, enable multilevel aggregation on UDAs in the reference "
-          "driver.");
-
 namespace zetasql {
 
 LanguageOptions ReferenceDriver::DefaultLanguageOptions() {
   LanguageOptions options;
   options.EnableMaximumLanguageFeatures();
   absl::Status status = options.EnableReservableKeyword("GRAPH_TABLE");
+  status.Update(options.EnableReservableKeyword("MATCH_RECOGNIZE"));
   ZETASQL_DCHECK_OK(status);  // This status is not ok if "GRAPH_TABLE" is not a keyword
   options.SetSupportedStatementKinds(Algebrizer::GetSupportedStatementKinds());
   options.set_product_mode(
@@ -145,10 +140,8 @@ LanguageOptions ReferenceDriver::DefaultLanguageOptions() {
 ReferenceDriver::ReferenceDriver(
     LanguageOptions options,
     absl::btree_set<ResolvedASTRewrite> enabled_rewrites)
-    : type_factory_(new TypeFactory),
-      language_options_(std::move(options)),
+    : language_options_(std::move(options)),
       enabled_rewrites_(std::move(enabled_rewrites)),
-      catalog_(type_factory_.get()),
       default_time_zone_(GetDefaultDefaultTimeZone()),
       statement_evaluation_timeout_(absl::Seconds(
           absl::GetFlag(FLAGS_reference_driver_query_eval_timeout_sec))) {
@@ -169,11 +162,6 @@ ReferenceDriver::ReferenceDriver(
         zetasql::FEATURE_DIFFERENTIAL_PRIVACY);
     language_options_.EnableLanguageFeature(
         zetasql::FEATURE_DIFFERENTIAL_PRIVACY_REPORT_FUNCTIONS);
-  }
-  if (absl::GetFlag(
-          FLAGS_reference_driver_enable_multilevel_aggregation_on_udas)) {
-    language_options_.EnableLanguageFeature(
-        zetasql::FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS);
   }
 
   // Optional evaluator features need to be enabled "manually" here since we do
@@ -293,15 +281,26 @@ void ReferenceDriver::AddTableInternal(const std::string& table_name,
   tables_.push_back(table_info);
 }
 
-absl::Status ReferenceDriver::PreloadTypesAndFunctions(
-    const TestDatabase& test_db, const LanguageOptions& language_options) {
-  ZETASQL_RETURN_IF_ERROR(catalog_.CreateCatalogAndPreloadTypesAndFunctions(test_db));
-  return catalog_.SetLanguageOptions(language_options);
+absl::Status ReferenceDriver::CreateDatabase(
+    const TestDatabaseProto& test_db_proto) {
+  ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabase(test_db_proto));
+  ZETASQL_ASSIGN_OR_RETURN(TestDatabase test_db,
+                   DeserializeTestDatabase(test_db_proto, type_factory(),
+                                           descriptor_pool()));
+  return CreateDatabaseInternal(test_db);
 }
 
-absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
-  ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabase(test_db));
+absl::Status ReferenceDriver::CreateDatabaseWithLeakyDescriptors(
+    const TestDatabase& test_db) {
+  ZETASQL_RETURN_IF_ERROR(catalog_.SetTestDatabaseWithLeakyDescriptors(test_db));
+  return CreateDatabaseInternal(test_db);
+}
+
+absl::Status ReferenceDriver::CreateDatabaseInternal(
+    const TestDatabase& test_db) {
   ZETASQL_RETURN_IF_ERROR(catalog_.SetLanguageOptions(language_options_));
+  ZETASQL_RETURN_IF_ERROR(
+      catalog_.AddUdfsForMeasureDefinitions(test_db, language_options_));
   ZETASQL_RETURN_IF_ERROR(catalog_.AddTablesWithMeasures(test_db, language_options_));
 
   // Replace tables to the catalog.
@@ -322,7 +321,7 @@ absl::Status ReferenceDriver::CreateDatabase(const TestDatabase& test_db) {
   for (const auto& [tvf_name, create_stmt] : test_db.tvfs) {
     ZETASQL_RETURN_IF_ERROR(AddTVFFromCreateTableFunction(
         create_stmt, analyzer_options, /*allow_persistent=*/true,
-        artifacts_.emplace_back(), *catalog_.catalog()));
+        catalog_.sql_object_artifacts().emplace_back(), *catalog_.catalog()));
   }
 
   for (const auto& [_, graph_ddl] : test_db.property_graph_defs) {
@@ -375,10 +374,9 @@ absl::Status ReferenceDriver::AddSqlConstants(
       language);
   analyzer_options.set_constant_evaluator(&constant_evaluator);
   for (const std::string& create_constant : create_constant_stmts) {
-    artifacts_.emplace_back();
-    ZETASQL_RETURN_IF_ERROR(
-        AddConstantFromCreateConstant(create_constant, analyzer_options,
-                                      artifacts_.back(), *catalog_.catalog()));
+    ZETASQL_RETURN_IF_ERROR(AddConstantFromCreateConstant(
+        create_constant, analyzer_options,
+        catalog_.sql_object_artifacts().emplace_back(), *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -390,18 +388,14 @@ absl::Status ReferenceDriver::AddSqlUdfs(
   LanguageOptions language = language_options_;
   language.AddSupportedStatementKind(RESOLVED_CREATE_FUNCTION_STMT);
   language.EnableLanguageFeature(FEATURE_CREATE_AGGREGATE_FUNCTION);
-  // TODO: b/439843654 - Remove this once MULTILEVEL_AGGREGATION_ON_UDAS is
-  // removed from development.
-  language.EnableLanguageFeature(FEATURE_MULTILEVEL_AGGREGATION_ON_UDAS);
   AnalyzerOptions analyzer_options(language);
   analyzer_options.set_default_time_zone(default_time_zone_);
   analyzer_options.set_enabled_rewrites({});
   for (const std::string& create_function : create_function_stmts) {
-    artifacts_.emplace_back();
     ZETASQL_RETURN_IF_ERROR(AddFunctionFromCreateFunction(
         create_function, analyzer_options, /*allow_persistent_function=*/false,
-        &function_options, artifacts_.back(), *catalog_.catalog(),
-        *catalog_.catalog()));
+        &function_options, catalog_.sql_object_artifacts().emplace_back(),
+        *catalog_.catalog(), *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -417,10 +411,10 @@ absl::Status ReferenceDriver::AddViews(
   // TODO: In RQG mode, apply a random subset of rewriters.
   analyzer_options.set_enabled_rewrites({});
   for (const std::string& create_view : create_view_stmts) {
-    ZETASQL_RETURN_IF_ERROR(AddViewFromCreateView(create_view, analyzer_options,
-                                          /*allow_non_temp=*/false,
-                                          artifacts_.emplace_back(),
-                                          *catalog_.catalog()));
+    ZETASQL_RETURN_IF_ERROR(AddViewFromCreateView(
+        create_view, analyzer_options,
+        /*allow_non_temp=*/false,
+        catalog_.sql_object_artifacts().emplace_back(), *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -439,8 +433,8 @@ absl::Status ReferenceDriver::AddPropertyGraphs(
   analyzer_options.set_enabled_rewrites({});
   for (const std::string& create_property_graph : create_property_graph_stmts) {
     ZETASQL_RETURN_IF_ERROR(AddPropertyGraphFromCreatePropertyGraphStmt(
-        create_property_graph, analyzer_options, artifacts_,
-        *catalog_.catalog()));
+        create_property_graph, analyzer_options,
+        catalog_.sql_object_artifacts(), *catalog_.catalog()));
   }
   return absl::OkStatus();
 }
@@ -550,11 +544,50 @@ MultiStmtResult ToMultiResult(absl::StatusOr<Value>&& value) {
   return MultiStmtResult{{StatementResult{.result = std::move(value)}}};
 }
 
+// Aggregates a list of StatusOr results from a multi-statement query into a
+// single Status. If there are no errors, returns OK. If there is one error,
+// returns that error. If there are multiple errors, returns a single status
+// that summarizes all of them.
+static absl::Status AggregateStatuses(
+    const absl::StatusOr<MultiStmtResult>& multi_stmt_result) {
+  if (!multi_stmt_result.ok()) {
+    return multi_stmt_result.status();
+  }
+  std::vector<absl::Status> errors;
+  bool has_internal_error = false;
+  for (const auto& result : multi_stmt_result->statement_results) {
+    if (!result.result.ok()) {
+      errors.push_back(result.result.status());
+      if (result.result.status().code() == absl::StatusCode::kInternal) {
+        has_internal_error = true;
+      }
+    }
+  }
+
+  if (errors.empty()) {
+    return absl::OkStatus();
+  }
+
+  if (errors.size() == 1) {
+    return errors[0];
+  }
+
+  std::string aggregated_error_message = absl::StrCat(
+      "Multiple errors in multi-statement query (", errors.size(), " total):");
+  for (const auto& error : errors) {
+    absl::StrAppend(&aggregated_error_message, "\n  ", error.message());
+  }
+
+  absl::StatusCode code = has_internal_error ? absl::StatusCode::kInternal
+                                             : absl::StatusCode::kOutOfRange;
+  return absl::Status(code, aggregated_error_message);
+}
+
 }  // namespace
 
 absl::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    const ExecuteStatementOptions& options,
     ExecuteStatementAuxOutput& aux_output, TestDatabase* database) {
   ZETASQL_ASSIGN_OR_RETURN(
       AnalyzerOptions analyzer_options,
@@ -564,7 +597,7 @@ absl::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
                    ExecuteStatementForReferenceDriverInternal(
                        sql, analyzer_options, parameters,
                        /*script_variables=*/{},
-                       /*system_variables=*/{}, options, type_factory, database,
+                       /*system_variables=*/{}, options, database,
                        /*analyzed_input=*/nullptr, aux_output));
   return ToSingleResult(result);
 }
@@ -572,7 +605,7 @@ absl::StatusOr<Value> ReferenceDriver::ExecuteStatementForReferenceDriver(
 absl::StatusOr<MultiStmtResult>
 ReferenceDriver::ExecuteGeneralizedStatementForReferenceDriver(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    const ExecuteStatementOptions& options,
     ExecuteStatementAuxOutput& aux_output, TestDatabase* database) {
   ZETASQL_ASSIGN_OR_RETURN(
       AnalyzerOptions analyzer_options,
@@ -581,7 +614,7 @@ ReferenceDriver::ExecuteGeneralizedStatementForReferenceDriver(
   return ExecuteStatementForReferenceDriverInternal(
       sql, analyzer_options, parameters,
       /*script_variables=*/{},
-      /*system_variables=*/{}, options, type_factory, database,
+      /*system_variables=*/{}, options, database,
       /*analyzed_input=*/nullptr, aux_output);
 }
 
@@ -628,12 +661,13 @@ absl::StatusOr<Value> ReferenceDriver::ExecuteStatement(
     TypeFactory* type_factory) {
   ReferenceDriver::ExecuteStatementOptions options{.primary_key_mode =
                                                        PrimaryKeyMode::DEFAULT};
+  ZETASQL_RET_CHECK_EQ(type_factory, this->type_factory());
   ExecuteStatementAuxOutput aux_output_ignored;
   // Create a local test database to allow running DDL statements. Note the
   // reference driver does not actually apply side effects.
   TestDatabase database;
-  return ExecuteStatementForReferenceDriver(
-      sql, parameters, options, type_factory, aux_output_ignored, &database);
+  return ExecuteStatementForReferenceDriver(sql, parameters, options,
+                                            aux_output_ignored, &database);
 }
 
 absl::StatusOr<MultiStmtResult> ReferenceDriver::ExecuteGeneralizedStatement(
@@ -645,16 +679,18 @@ absl::StatusOr<MultiStmtResult> ReferenceDriver::ExecuteGeneralizedStatement(
   // Create a local test database to allow running DDL statements. Note the
   // reference driver does not actually apply side effects.
   TestDatabase database;
+  ZETASQL_RET_CHECK_EQ(type_factory, this->type_factory());
   return ExecuteGeneralizedStatementForReferenceDriver(
-      sql, parameters, options, type_factory, aux_output_ignored, &database);
+      sql, parameters, options, aux_output_ignored, &database);
 }
 
-absl::StatusOr<ScriptResult> ReferenceDriver::ExecuteScript(
+absl::StatusOr<MultiStmtResult> ReferenceDriver::ExecuteScript(
     const std::string& sql, const std::map<std::string, Value>& parameters,
     TypeFactory* type_factory) {
   ExecuteStatementOptions options{.primary_key_mode = PrimaryKeyMode::DEFAULT};
   ExecuteScriptAuxOutput aux_output_ignored;
-  return ExecuteScriptForReferenceDriver(sql, parameters, options, type_factory,
+  ZETASQL_RET_CHECK_EQ(type_factory, this->type_factory());
+  return ExecuteScriptForReferenceDriver(sql, parameters, options,
                                          aux_output_ignored);
 }
 
@@ -764,8 +800,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
     const std::map<std::string, Value>& parameters,
     const VariableMap& script_variables,
     const SystemVariableValuesMap& system_variables,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
-    TestDatabase* database,
+    const ExecuteStatementOptions& options, TestDatabase* database,
     // If provide, uses this instead of calling analyzer.
     const AnalyzerOutput* analyzed_input,
     ExecuteStatementAuxOutput& aux_output) {
@@ -780,14 +815,14 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   std::unique_ptr<SimpleCatalog> internal_catalog;
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<Catalog> catalog,
-      AugmentCatalogForScriptVariables(catalog_.catalog(), type_factory,
+      AugmentCatalogForScriptVariables(catalog_.catalog(), type_factory(),
                                        script_variables, &internal_catalog));
 
   const AnalyzerOutput* analyzed = analyzed_input;
   std::unique_ptr<const AnalyzerOutput> fresh_analyzer_out;
   if (!analyzed) {
     ZETASQL_ASSIGN_OR_RETURN(fresh_analyzer_out,
-                     AnalyzeStatement(sql, type_factory, parameters,
+                     AnalyzeStatement(sql, type_factory(), parameters,
                                       catalog.get(), analyzer_options));
     analyzed = fresh_analyzer_out.get();
   }
@@ -879,7 +914,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
   ParameterMap column_map;
   SystemVariablesAlgebrizerMap algebrizer_system_variables;
   ZETASQL_RETURN_IF_ERROR(Algebrizer::AlgebrizeStatement(
-      analyzer_options.language(), algebrizer_options, type_factory,
+      analyzer_options.language(), algebrizer_options, type_factory(),
       analyzed->resolved_statement(), &algebrized_tree, &algebrizer_parameters,
       &column_map, &algebrizer_system_variables));
   ZETASQL_VLOG(1) << "Algebrized tree:\n"
@@ -1064,7 +1099,7 @@ ReferenceDriver::ExecuteStatementForReferenceDriverInternal(
             sub_stmt->GetAs<ResolvedCreateTableStmtBase>();
         ZETASQL_RET_CHECK(create_table != nullptr);
         sr.result = HandleCreateTableStatement(
-            create_table, output_value, type_factory, database, aux_output);
+            create_table, output_value, type_factory(), database, aux_output);
         break;
       }
       default:
@@ -1105,7 +1140,7 @@ absl::StatusOr<std::vector<Value>> ReferenceDriver::RepeatExecuteStatement(
         ExecuteStatementForReferenceDriverInternal(
             sql, analyzer_options, parameters,
             /*script_variables=*/{},
-            /*system_variables=*/{}, options, type_factory,
+            /*system_variables=*/{}, options,
             /*database=*/nullptr, analyzed.get(), aux_output_ignored));
     ZETASQL_ASSIGN_OR_RETURN(result[i], ToSingleResult(result_list));
   }
@@ -1118,7 +1153,7 @@ absl::StatusOr<std::vector<Value>> ReferenceDriver::RepeatExecuteStatement(
 class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
  public:
   ReferenceDriverStatementEvaluator(
-      const AnalyzerOptions& initial_analyzer_options, ScriptResult* result,
+      const AnalyzerOptions& initial_analyzer_options, MultiStmtResult* result,
       const std::map<std::string, Value>* parameters,
       const ReferenceDriver::ExecuteStatementOptions& options,
       TypeFactory* type_factory, ReferenceDriver* driver,
@@ -1166,7 +1201,7 @@ class ReferenceDriverStatementEvaluator : public StatementEvaluatorImpl {
 
  private:
   StatementEvaluatorCallback evaluator_callback_;
-  ScriptResult* result_;
+  MultiStmtResult* result_;
   const std::map<std::string, Value>* parameters_;
   ReferenceDriver::ExecuteStatementOptions options_;
   TypeFactory* type_factory_;
@@ -1180,10 +1215,16 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
   ParseLocationTranslator translator(segment.script());
   absl::StatusOr<std::pair<int, int>> line_and_column =
       translator.GetLineAndColumnAfterTabExpansion(segment.range().start());
-  StatementResult result;
-  result.procedure_name = executor.GetCurrentProcedureName();
-  result.line = line_and_column.ok() ? line_and_column->first : 0;
-  result.column = line_and_column.ok() ? line_and_column->second : 0;
+  // Because the statement can be a multi-stmt producing multiple results, we
+  // create a result template with information like line and column numbers
+  // that are common to all results produced by the multi-stmt.
+  //
+  // TODO: It makes sense to have separate line and column numbers for each
+  // sub-statement in a multi-stmt.
+  StatementResult result_template;
+  result_template.procedure_name = executor.GetCurrentProcedureName();
+  result_template.line = line_and_column.ok() ? line_and_column->first : 0;
+  result_template.column = line_and_column.ok() ? line_and_column->second : 0;
 
   AnalyzerOptions analyzer_options = initial_analyzer_options();
 
@@ -1205,22 +1246,23 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
       driver_->ExecuteStatementForReferenceDriverInternal(
           segment.GetSegmentText(), analyzer_options, *parameters_,
           executor.GetCurrentVariables(), executor.GetKnownSystemVariables(),
-          options_, type_factory_,
+          options_,
           /*database=*/&data_base,
           /*analyzed_input=*/nullptr, aux_output);
 
   if (!statement_results.ok()) {
-    result.result = statement_results.status();
+    result_template.result = statement_results.status();
+    result_->statement_results.push_back(std::move(result_template));
   } else {
-    result.result = ToSingleResult(*statement_results);
+    ZETASQL_RET_CHECK(!statement_results->statement_results.empty());
+    for (const StatementResult& stmt_result :
+         statement_results->statement_results) {
+      StatementResult new_result = result_template;
+      new_result.result = stmt_result.result;
+      result_->statement_results.push_back(std::move(new_result));
+    }
   }
 
-  if (!result.result.status().ok()) {
-    result.result = MaybeUpdateErrorFromPayload(
-        orig_error_message_options, segment.script(),
-        absl::Status(zetasql_base::StatusBuilder(result.result.status())
-                         .With(ConvertLocalErrorToScriptError(segment))));
-  }
   if (aux_output.uses_unsupported_type.has_value()) {
     uses_unsupported_type_ |= *aux_output.uses_unsupported_type;
   }
@@ -1230,8 +1272,14 @@ absl::Status ReferenceDriverStatementEvaluator::ExecuteStatement(
         is_deterministic_output_ && *aux_output.is_deterministic_output;
   }
 
-  result_->statement_results.push_back(std::move(result));
-  absl::Status status = result_->statement_results.back().result.status();
+  absl::Status status = AggregateStatuses(statement_results);
+  if (!status.ok()) {
+    status = MaybeUpdateErrorFromPayload(
+        orig_error_message_options, segment.script(),
+        absl::Status(zetasql_base::StatusBuilder(status).With(
+            ConvertLocalErrorToScriptError(segment))));
+  }
+
   if (!status.ok() && status.code() != absl::StatusCode::kInternal) {
     // Mark this error as handleable
     internal::AttachPayload(&status, ScriptException());
@@ -1248,20 +1296,21 @@ absl::Status ExecuteScriptInternal(ScriptExecutor* executor) {
 }
 }  // namespace
 
-absl::StatusOr<ScriptResult> ReferenceDriver::ExecuteScriptForReferenceDriver(
+absl::StatusOr<MultiStmtResult>
+ReferenceDriver::ExecuteScriptForReferenceDriver(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
+    const ExecuteStatementOptions& options,
     ExecuteScriptAuxOutput& aux_output) {
-  ScriptResult result;
+  MultiStmtResult result;
   ZETASQL_RETURN_IF_ERROR(ExecuteScriptForReferenceDriverInternal(
-      sql, parameters, options, type_factory, aux_output, &result));
+      sql, parameters, options, aux_output, &result));
   return result;
 }
 
 absl::Status ReferenceDriver::ExecuteScriptForReferenceDriverInternal(
     absl::string_view sql, const std::map<std::string, Value>& parameters,
-    const ExecuteStatementOptions& options, TypeFactory* type_factory,
-    ExecuteScriptAuxOutput& aux_output, ScriptResult* result) {
+    const ExecuteStatementOptions& options, ExecuteScriptAuxOutput& aux_output,
+    MultiStmtResult* result) {
   std::optional<bool> tmp_uses_unsupported_type;
 
   procedures_.clear();  // Clear procedures leftover from previous script.
@@ -1276,10 +1325,10 @@ absl::Status ReferenceDriver::ExecuteScriptForReferenceDriverInternal(
   ScriptExecutorOptions script_executor_options;
   script_executor_options.PopulateFromAnalyzerOptions(*analyzer_options);
   EvaluatorOptions evaluator_options;
-  evaluator_options.type_factory = type_factory;
+  evaluator_options.type_factory = type_factory();
   evaluator_options.clock = zetasql_base::Clock::RealClock();
   ReferenceDriverStatementEvaluator evaluator(
-      *analyzer_options, result, &parameters, options, type_factory, this,
+      *analyzer_options, result, &parameters, options, type_factory(), this,
       evaluator_options);
 
   // Make table data set up in the [prepare_database] section accessible in

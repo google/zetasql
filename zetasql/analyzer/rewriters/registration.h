@@ -55,8 +55,8 @@ class RewriteRegistry {
 
  private:
   // Not to be constructed or destructed.
-  RewriteRegistry() {}
-  ~RewriteRegistry() {}
+  RewriteRegistry() = default;
+  ~RewriteRegistry() = default;
 
   mutable absl::Mutex mu_;
   absl::flat_hash_map<ResolvedASTRewrite, const Rewriter*> rewriters_

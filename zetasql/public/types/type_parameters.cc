@@ -123,7 +123,7 @@ TypeParameters::TypeParameters(
       child_list_(std::move(child_list)) {}
 TypeParameters::TypeParameters(std::vector<TypeParameters> child_list)
     : child_list_(std::move(child_list)) {}
-TypeParameters::TypeParameters() {}
+TypeParameters::TypeParameters() = default;
 
 absl::StatusOr<TypeParameters> TypeParameters::MakeStringTypeParameters(
     const StringTypeParametersProto& string_type_parameters) {

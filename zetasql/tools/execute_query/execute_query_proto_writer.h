@@ -46,6 +46,8 @@ class ExecuteQueryStreamProtobufWriter : public ExecuteQueryWriter {
 
   absl::Status log(absl::string_view message) override;
 
+  void FlushStatement(bool at_end, std::string error_msg) override;
+
  private:
   const google::protobuf::DescriptorPool* parent_descriptor_pool_;
   std::function<absl::Status(const google::protobuf::Message& msg)> proto_writer_func_;

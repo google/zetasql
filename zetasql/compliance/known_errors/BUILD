@@ -14,7 +14,7 @@
 # limitations under the License.
 #
 
-# Placeholder: load py_binary
+load("@rules_python//python:py_binary.bzl", "py_binary")
 
 package(
     default_visibility = ["//zetasql/base:zetasql_implementation"],

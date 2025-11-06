@@ -27,3 +27,21 @@ execute_query_test(
     args = ["--catalog=tpch"],
     sql_file = ":all_pipe_queries.sql",
 )
+
+execute_query_test(
+    name = "execute_all_queries_with_graph_test",
+    args = ["--catalog=tpch_graph"],
+    sql_file = ":all_queries.sql",
+)
+
+execute_query_test(
+    name = "execute_describe_test",
+    args = ["--catalog=tpch"],
+    sql_file = ":describe.sql",
+)
+
+execute_query_test(
+    name = "execute_describe_with_graph_test",
+    args = ["--catalog=tpch_graph"],
+    sql_file = ":describe.sql",
+)

@@ -40,7 +40,7 @@ class SimpleErrorCollector
     : public google::protobuf::DescriptorPool::ErrorCollector,
       public google::protobuf::compiler::MultiFileErrorCollector {
  public:
-  SimpleErrorCollector() {}
+  SimpleErrorCollector() = default;
 
   // Not copyable or movable.
   SimpleErrorCollector(const SimpleErrorCollector&) = delete;

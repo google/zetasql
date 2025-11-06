@@ -1,0 +1,79 @@
+# Negative Tests for analyzing measure expressions.
+# Don't run SQLBuilder, since we're analyzing measure expressions on a table,
+# and the rebuilt SQL will not analyze successfully against the catalog.
+[default language_features=MAXIMUM]
+[default mode=measure_expression]
+[default no_run_sqlbuilder]
+[default table_for_measure_expr_analysis=SimpleTypes]
+
+SUM(doesnt_exist)
+--
+ERROR: Unrecognized name: doesnt_exist [at 1:5]
+SUM(doesnt_exist)
+    ^
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+int64
+--
+ERROR: Expression columns in a measure expression can only be referenced within an aggregate function call: int64
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+(SELECT SUM(int64) FROM UNNEST([1]))
+--
+ERROR: Expression columns in a measure expression can only be referenced within an aggregate function call: (SELECT SUM(int64) FROM UNNEST([1]))
+==
+
+SUM(int64) OVER ()
+--
+ERROR: Analytic function not allowed in standalone expression [at 1:1]
+SUM(int64) OVER ()
+^
+==
+
+SUM(int64 GROUP BY string)
+--
+ERROR: Expression column int64 cannot be an argument to a multi-level aggregate function. [at 1:1]
+SUM(int64 GROUP BY string)
+^
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+ARRAY_AGG(int64 ORDER BY string)
+--
+ERROR: Standalone expression resolution does not support aggregate function calls with the ORDER BY clause [at 1:1]
+ARRAY_AGG(int64 ORDER BY string)
+^
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+SUM(int64 HAVING MAX double)
+--
+ERROR: Measure expression must not contain an aggregate function with a HAVING MIN/MAX clause: SUM(int64 HAVING MAX double)
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+[language_features=MAXIMUM,+AGGREGATE_FILTERING]
+SUM(int64 WHERE bool)
+--
+ERROR: Measure expression must not contain an aggregate function with a WHERE filter clause: SUM(int64 WHERE bool)
+==
+
+# No error location since the error is generated while validating the
+# ResolvedAST for the measure expression, which does not store parse locations.
+[no_expect_error_location]
+[language_features=MAXIMUM,+AGGREGATE_FILTERING]
+SUM(AVG(int64) GROUP BY string HAVING COUNT(int64) > 5)
+--
+ERROR: Measure expression must not contain an aggregate function with a HAVING filter clause: SUM(AVG(int64) GROUP BY string HAVING COUNT(int64) > 5)

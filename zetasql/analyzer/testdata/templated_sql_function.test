@@ -789,12 +789,12 @@ ALTERNATION GROUP: <empty>
 ERROR: Invalid function udf_any_and_double_array_args_return_any [at 3:3]
   udf_any_and_double_array_args_return_any(1, null),
   ^
-Analysis of function Templated_SQL_Function:udf_any_and_double_array_args_return_any failed [at 1:4]
+Analysis of function Templated_SQL_Function:udf_any_and_double_array_args_return_any failed [at 1:5]
 IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')
-   ^
-Function calls with SAFE are not supported [at 1:4]
+    ^
+Subscript access using [SAFE_OFFSET()] is not supported on values of type INT64 [at 1:5]
 IF(x[SAFE_OFFSET(0)] < 0, 'a', 'b')
-   ^
+    ^
 --
 ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
@@ -1012,12 +1012,12 @@ ALTERNATION GROUP: <empty>
 ERROR: Invalid function uda_any_and_double_array_args_return_any [at 3:3]
   uda_any_and_double_array_args_return_any(key, null),
   ^
-Analysis of function Templated_SQL_Function:uda_any_and_double_array_args_return_any failed [at 1:4]
+Analysis of function Templated_SQL_Function:uda_any_and_double_array_args_return_any failed [at 1:5]
 IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
-   ^
-Function calls with SAFE are not supported [at 1:4]
+    ^
+Subscript access using [SAFE_OFFSET()] is not supported on values of type INT64 [at 1:5]
 IF(x[SAFE_OFFSET(0)] < 0, MAX(a), MIN(a))
-   ^
+    ^
 --
 ALTERNATION GROUP: +TEMPLATED_SQL_FUNCTION_RESOLVE_WITH_TYPED_ARGS
 --
@@ -1094,11 +1094,11 @@ IF(LOGICAL_OR(a), x, x || '_suffix')
                      ^
 No matching signature for operator ||
   Argument types: INT64, STRING
-  Signature: STRING || STRING
+  Signature: STRING || ([STRING, ...])
     Argument 1: Unable to coerce type INT64 to expected type STRING
-  Signature: BYTES || BYTES
+  Signature: BYTES || ([BYTES, ...])
     Argument 1: Unable to coerce type INT64 to expected type BYTES
-  Signature: (ARRAY<T1>) || (ARRAY<T1>)
+  Signature: (ARRAY<T1>) || ([ARRAY<T1>, ...])
     Argument 1: expected array type but found INT64 [at 1:22]
 IF(LOGICAL_OR(a), x, x || '_suffix')
                      ^
@@ -1621,3 +1621,19 @@ Analysis of function Templated_SQL_Function:WrappedGroupRows failed [at 2:13]
 WITH GROUP ROWS is not supported in templated SQL aggregate function call [at 2:13]
             SUM(e) WITH GROUP ROWS(SELECT e
             ^
+
+==
+
+[language_features=NONE,+TEMPLATE_FUNCTIONS]
+[allow_internal_error_todo_bug=b/456550678]
+SELECT TemplatedUdfExplicitReturnType('a', 'b');
+--
+
+ERROR: generic::internal: RET_CHECK failure (<location redacted>) Cannot obtain the AST expressions for field arguments of struct constructor:
+FunctionCall [7-47]
+  PathExpression [7-37]
+    Identifier(TemplatedUdfExplicitReturnType) [7-37]
+  StringLiteral [38-41]
+    StringLiteralComponent('a') [38-41]
+  StringLiteral [43-46]
+    StringLiteralComponent('b') [43-46]

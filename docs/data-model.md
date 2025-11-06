@@ -232,11 +232,11 @@ In the following example, a value table for a `STRUCT` is produced with the
 ```zetasql
 SELECT * FROM (SELECT AS VALUE STRUCT(123 AS a, FALSE AS b))
 
-/*-----+-------*
+/*-----+-------+
  | a   | b     |
  +-----+-------+
  | 123 | FALSE |
- *-----+-------*/
+ +-----+-------*/
 ```
 
 Value tables are common when working with protocol buffers that may be stored in
@@ -419,13 +419,13 @@ scanned rows, not the value.
 -- This works
 SELECT a.ROWNUM, a.albumtitle AS title FROM AlbumReviewData AS a
 
-/*--------+---------------------------*
+/*--------+---------------------------+
  | ROWNUM | title                     |
  +--------+---------------------------+
  | 1      | "Songs on a Broken Banjo" |
  | 2      | "Six and Seven"           |
  | 3      | "Go! Go! Go!"             |
- *--------+---------------------------*/
+ +--------+---------------------------*/
 ```
 
 However, if you try to construct the query as follows, the query doesn't work.

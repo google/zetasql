@@ -347,10 +347,9 @@ class ModuleCatalog : public Catalog {
   //
   // If <include_nested_module_errors> then also appends errors from all
   // transitively imported modules.
-  void AppendModuleErrors(
-      bool include_nested_module_errors,
-      bool include_catalog_object_errors,
-      std::vector<absl::Status>* errors) const;
+  void AppendModuleErrors(bool include_nested_module_errors,
+                          bool include_catalog_object_errors,
+                          std::vector<absl::Status>* errors) const;
 
   // Returns whether or not this module has a known error, matching the
   // semantics of AppendModuleErrors().
@@ -633,11 +632,10 @@ class ModuleCatalog : public Catalog {
   // Internal implementation for AppendModuleErrors, which keeps track of
   // what modules have already been processed to avoid adding redundant errors
   // to <errors> if a module is imported multiple times.
-  void AppendModuleErrorsImpl(
-      bool include_nested_module_errors,
-      bool include_catalog_object_errors,
-      std::set<const ModuleCatalog*>* appended_modules,
-      std::vector<absl::Status>* errors) const;
+  void AppendModuleErrorsImpl(bool include_nested_module_errors,
+                              bool include_catalog_object_errors,
+                              std::set<const ModuleCatalog*>* appended_modules,
+                              std::vector<absl::Status>* errors) const;
 
   // Returns the AnalyzerOutput for the MODULE statement.
   const AnalyzerOutput* module_statement_analyzer_output() const {
@@ -688,15 +686,13 @@ class ModuleCatalog : public Catalog {
         cycle_detector_ = local_cycle_detector_.get();
       }
     }
-    ~LocalCycleDetector() {}
+    ~LocalCycleDetector() = default;
 
     // Not copyable or movable.
     LocalCycleDetector(const LocalCycleDetector&) = delete;
     LocalCycleDetector& operator=(const LocalCycleDetector&) = delete;
 
-    CycleDetector* get() {
-      return cycle_detector_;
-    }
+    CycleDetector* get() { return cycle_detector_; }
 
    private:
     CycleDetector* cycle_detector_;
@@ -831,9 +827,8 @@ class ModuleCatalog : public Catalog {
   struct ImportModuleInfo {
     // Takes ownership of <import_parser_output_in>.
     // Does not take ownership of <module_catalog_in>.
-    ImportModuleInfo(
-        std::unique_ptr<ParserOutput> import_parser_output_in,
-        ModuleCatalog* module_catalog_in);
+    ImportModuleInfo(std::unique_ptr<ParserOutput> import_parser_output_in,
+                     ModuleCatalog* module_catalog_in);
 
     // TODO: Consider removing <import_parser_output>, it is not
     // currently used anywhere but it is here in case we need it at some

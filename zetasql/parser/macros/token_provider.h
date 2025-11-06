@@ -14,16 +14,16 @@
 // limitations under the License.
 //
 
-#ifndef ZETASQL_PARSER_MACROS_FLEX_TOKEN_PROVIDER_H_
-#define ZETASQL_PARSER_MACROS_FLEX_TOKEN_PROVIDER_H_
+#ifndef ZETASQL_PARSER_MACROS_TOKEN_PROVIDER_H_
+#define ZETASQL_PARSER_MACROS_TOKEN_PROVIDER_H_
 
 #include <memory>
 #include <optional>
 #include <queue>
 
-#include "zetasql/parser/flex_tokenizer.h"
 #include "zetasql/parser/macros/token_provider_base.h"
 #include "zetasql/parser/token_with_location.h"
+#include "zetasql/parser/tokenizer.h"
 #include "zetasql/public/parse_location.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -33,17 +33,17 @@ namespace zetasql {
 namespace parser {
 namespace macros {
 
-// Provides the next token from a Flex tokenizer without any macro expansion.
+// Provides the next token from a tokenizer without any macro expansion.
 // This is the normal case, where we only have the text and we need to
 // tokenize it from the start.
-class FlexTokenProvider : public TokenProviderBase {
+class TokenProvider : public TokenProviderBase {
  public:
-  FlexTokenProvider(absl::string_view filename, absl::string_view input,
-                    int start_offset, std::optional<int> end_offset,
-                    int offset_in_original_input, bool force_flex);
+  TokenProvider(absl::string_view filename, absl::string_view input,
+                int start_offset, std::optional<int> end_offset,
+                int offset_in_original_input);
 
-  FlexTokenProvider(const FlexTokenProvider&) = delete;
-  FlexTokenProvider& operator=(const FlexTokenProvider&) = delete;
+  TokenProvider(const TokenProvider&) = delete;
+  TokenProvider& operator=(const TokenProvider&) = delete;
 
   std::unique_ptr<TokenProviderBase> CreateNewInstance(
       absl::string_view filename, absl::string_view input, int start_offset,
@@ -53,7 +53,7 @@ class FlexTokenProvider : public TokenProviderBase {
   // Peeks the next token, but does not consume it.
   absl::StatusOr<TokenWithLocation> PeekNextToken() override {
     if (input_token_buffer_.empty()) {
-      ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation next_token, GetFlexToken());
+      ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation next_token, GetToken());
       input_token_buffer_.push(next_token);
       return next_token;
     }
@@ -66,8 +66,8 @@ class FlexTokenProvider : public TokenProviderBase {
   absl::StatusOr<TokenWithLocation> ConsumeNextTokenImpl() override;
 
  private:
-  // Pulls the next token from Flex.
-  absl::StatusOr<TokenWithLocation> GetFlexToken();
+  // Pulls the next token from the lexer.
+  absl::StatusOr<TokenWithLocation> GetToken();
 
   // The ZetaSQL tokenizer which gives us all the tokens.
   std::unique_ptr<ZetaSqlTokenizer> tokenizer_;
@@ -78,12 +78,10 @@ class FlexTokenProvider : public TokenProviderBase {
 
   // Location into the current input, used by the tokenizer.
   ParseLocationRange location_;
-
-  const bool force_flex_;
 };
 
 }  // namespace macros
 }  // namespace parser
 }  // namespace zetasql
 
-#endif  // ZETASQL_PARSER_MACROS_FLEX_TOKEN_PROVIDER_H_
+#endif  // ZETASQL_PARSER_MACROS_TOKEN_PROVIDER_H_

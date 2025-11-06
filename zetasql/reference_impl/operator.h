@@ -687,6 +687,7 @@ class AggregateArg final : public ExprArg {
       ResolvedFunctionCallBase::ErrorMode error_mode =
           ResolvedFunctionCallBase::DEFAULT_ERROR_MODE,
       std::unique_ptr<ValueExpr> filter = nullptr,
+      std::unique_ptr<ValueExpr> having_filter = nullptr,
       const std::vector<ResolvedCollation>& collation_list = {},
       const VariableId& side_effects_variable = VariableId());
 
@@ -727,6 +728,7 @@ class AggregateArg final : public ExprArg {
                std::vector<std::unique_ptr<AggregateArg>> inner_aggregators,
                ResolvedFunctionCallBase::ErrorMode error_mode,
                std::unique_ptr<ValueExpr> filter,
+               std::unique_ptr<ValueExpr> having_filter,
                const std::vector<ResolvedCollation>& collation_list,
                const VariableId& side_effects_variable);
 
@@ -787,6 +789,7 @@ class AggregateArg final : public ExprArg {
   // Set by SetSchemasForEvaluation().
   std::unique_ptr<const TupleSchema> group_schema_;
   std::unique_ptr<ValueExpr> filter_;
+  std::unique_ptr<ValueExpr> having_filter_;
   const std::vector<ResolvedCollation> collation_list_;
   const VariableId side_effects_variable_;
 };
@@ -1354,8 +1357,7 @@ class EvaluatorTableScanOp final : public RelationalOp {
 
   static absl::StatusOr<std::unique_ptr<EvaluatorTableScanOp>> Create(
       const Table* table, absl::string_view alias,
-      absl::Span<const int> column_idxs,
-      absl::Span<const std::string> column_names,
+      absl::Span<const Column* const> table_column_list,
       absl::Span<const VariableId> variables,
       std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
       std::unique_ptr<ValueExpr> read_time);
@@ -1384,15 +1386,14 @@ class EvaluatorTableScanOp final : public RelationalOp {
  private:
   EvaluatorTableScanOp(
       const Table* table, absl::string_view alias,
-      absl::Span<const int> column_idxs,
-      absl::Span<const std::string> column_names,
+      absl::Span<const Column* const> table_column_list,
       absl::Span<const VariableId> variables,
       std::vector<std::unique_ptr<ColumnFilterArg>> and_filters,
       std::unique_ptr<ValueExpr> read_time);
 
   const Table* table_;
   const std::string alias_;
-  const std::vector<int> column_idxs_;
+  const std::vector<const Column*> table_column_list_;
   const std::vector<std::string> column_names_;
   const std::vector<VariableId> variables_;
   std::vector<std::unique_ptr<ColumnFilterArg>> and_filters_;
@@ -4932,7 +4933,8 @@ class GraphPathOp final : public RelationalOp {
  public:
   static absl::StatusOr<std::unique_ptr<GraphPathOp>> Create(
       std::vector<GraphPathFactorOpInfo> path_factor_ops, VariableId path,
-      const GraphPathType* path_type, VariableId cost, const Type* cost_type);
+      const GraphPathType* path_type, VariableId cost, const Type* cost_type,
+      ResolvedGraphPathMode::PathMode path_mode);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -4948,10 +4950,14 @@ class GraphPathOp final : public RelationalOp {
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
+ protected:
+  ResolvedGraphPathMode::PathMode path_mode() const { return path_mode_; }
+
  private:
   explicit GraphPathOp(std::vector<GraphPathFactorOpInfo> path_factor_ops,
                        VariableId path, const GraphPathType* path_type,
-                       VariableId cost, const Type* cost_type);
+                       VariableId cost, const Type* cost_type,
+                       ResolvedGraphPathMode::PathMode path_mode);
 
   std::vector<VariableId> variables_;
   std::vector<std::optional<ResolvedGraphEdgeScan::EdgeOrientation>>
@@ -4963,6 +4969,9 @@ class GraphPathOp final : public RelationalOp {
 
   // If nonnull, materialize the computed cost of the path.
   const Type* cost_type_;
+
+  // Path mode of the path. Defaults to WALK.
+  ResolvedGraphPathMode::PathMode path_mode_;
 
   const RelationalOp* rel(int i) const;
   RelationalOp* mutable_rel(int i);

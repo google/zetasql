@@ -31,8 +31,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/notification.h"
-#include "external/civetweb/civetweb/include/CivetServer.h"
-#include "external/civetweb/civetweb/include/civetweb.h"
+#include "CivetServer.h"
+#include "civetweb.h"
 
 namespace zetasql {
 

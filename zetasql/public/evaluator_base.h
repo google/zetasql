@@ -253,6 +253,10 @@ struct EvaluatorOptions {
   // accounting charges each of them individually. In some cases, it is
   // necessary to set this option to a very large value.
   int64_t max_intermediate_byte_size = 128 * 1024 * 1024;
+
+  // Insert ignore DML statements return all the rows that were processed,
+  // including the rows that were not inserted.
+  bool return_all_insert_rows_insert_ignore_dml = false;
 };
 
 class PreparedExpressionBase {
@@ -966,8 +970,7 @@ class PreparedStatementBase {
 
   using StmtResults = std::vector<absl::StatusOr<StmtResult>>;
 
-  PreparedStatementBase(const std::string& sql,
-                        const EvaluatorOptions& options);
+  PreparedStatementBase(absl::string_view sql, const EvaluatorOptions& options);
 
   // Note: This API does not support `ResolvedGeneralizedQueryStmt` directly.
   // It assumes those were rewritten to `ResolvedMultiStmt` already using the

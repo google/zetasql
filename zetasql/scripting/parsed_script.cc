@@ -423,9 +423,19 @@ ParsedScript::GetVariablesInScopeAtNode(const ControlFlowNode* node) const {
                decl->variable_list()->identifier_list()) {
             variables.insert_or_assign(variable->GetAsIdString(), decl);
           }
+        } else if (stmt->Is<ASTSystemVariableAssignment>() &&
+                   node_it->parent() != nullptr &&
+                   node_it->parent()->Is<ASTScript>()) {
+          // Depending on the ParsedScriptOptions used at creation, system
+          // variable assignment prior to declaration statements may be allowed
+          // at the top of the script. Such assignments have no effect on
+          // variables in scope, but we still want to allow additional variable
+          // declarations after it.
+          continue;
         } else {
-          // Variable declarations are only allowed at the start of a block,
-          // before any other statements, so no need to check further.
+          // Only other variable declarations and system variable assignments
+          // are allowed to precede variable declarations, so no need to check
+          // further.
           break;
         }
       }

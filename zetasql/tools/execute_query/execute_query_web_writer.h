@@ -29,7 +29,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
-#include "external/mstch/mstch/include/mstch/mstch.hpp"
+#include "mstch/mstch.hpp"
 
 namespace zetasql {
 
@@ -113,7 +113,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
     return absl::OkStatus();
   }
 
-  void FlushStatement(bool at_end, std::string error_msg = "") {
+  void FlushStatement(bool at_end, std::string error_msg = "") override {
     if (GotResults()) {
       current_statement_params_["result"] = true;
     }

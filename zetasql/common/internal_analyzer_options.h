@@ -63,22 +63,7 @@ class InternalAnalyzerOptions {
   static bool GetValidateResolvedAST(const AnalyzerOptions& options) {
     return options.data_->validate_resolved_ast;
   }
-
-  static void SetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(
-      AnalyzerOptions& options,
-      bool suspend_lookup_expression_callback_when_resolving_templated_fn) {
-    options.data_
-        ->suspend_lookup_expression_callback_when_resolving_templated_function =
-        suspend_lookup_expression_callback_when_resolving_templated_fn;
-  }
-
-  static bool GetSuspendLookupExpressionCallbackWhenResolvingTemplatedFunction(
-      const AnalyzerOptions& options) {
-    return options.data_
-        ->suspend_lookup_expression_callback_when_resolving_templated_function;
-  }
 };
-
 }  // namespace zetasql
 
 #endif  // ZETASQL_COMMON_INTERNAL_ANALYZER_OPTIONS_H_

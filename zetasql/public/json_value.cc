@@ -716,7 +716,7 @@ size_t JSONValueConstRef::HashCode() const {
     return absl::Hash<absl::string_view>()("JSONValueConstRef(NULL)");
   }
   if (IsString()) {
-    return absl::Hash<absl::string_view>()(GetString());
+    return absl::HashOf(GetStringRef());
   }
 
   if (IsNumber()) {
@@ -724,9 +724,9 @@ size_t JSONValueConstRef::HashCode() const {
     // the underlying string representation may be different, for example,
     // JSON '1.0' vs JSON '1' are equal and their hashcodes should be the same.
     if (IsInt64()) {
-      return absl::Hash<int64_t>()(GetInt64());
+      return absl::HashOf(GetInt64());
     } else if (IsUInt64()) {
-      return absl::Hash<uint64_t>()(GetUInt64());
+      return absl::HashOf(GetUInt64());
     } else {
       ABSL_DCHECK(IsDouble());
       double val = GetDouble();
@@ -736,32 +736,31 @@ size_t JSONValueConstRef::HashCode() const {
         // We use `0x1p64` as the std::numeric_limits<uint64_t>::max() can not
         // be exactly represented as a double.
         if (trunc_val >= 0 && trunc_val < 0x1p64) {
-          return absl::Hash<uint64_t>()(static_cast<uint64_t>(trunc_val));
+          return absl::HashOf(static_cast<uint64_t>(trunc_val));
         } else if (trunc_val < 0 &&
                    trunc_val >= std::numeric_limits<int64_t>::min()) {
-          return absl::Hash<int64_t>()(static_cast<int64_t>(trunc_val));
+          return absl::HashOf(static_cast<int64_t>(trunc_val));
         }
       }
       // Otherwise, it should be hashed as a normal double.
-      return absl::Hash<double>()(GetDouble());
+      return absl::HashOf(GetDouble());
     }
   }
 
   if (IsBoolean()) {
-    return absl::Hash<bool>()(GetBoolean());
+    return absl::HashOf(GetBoolean());
   }
 
   std::vector<size_t> values;
   if (IsArray()) {
     values.reserve(GetArraySize());
-    std::vector<JSONValueConstRef> elements = GetArrayElements();
     for (size_t i = 0; i < GetArraySize(); ++i) {
       values.push_back(GetArrayElement(i).HashCode());
     }
     return absl::HashOf(values);
   }
 
-  ABSL_CHECK(IsObject()) << "Invalid type for JSON: " << ToString();  // Crash OK
+  ABSL_DCHECK(IsObject()) << "Invalid type for JSON: " << ToString();
   values.reserve(GetObjectSize());
   for (const auto& [key, json_ref] : GetMembers()) {
     values.push_back(absl::HashOf(key, json_ref.HashCode()));
@@ -774,9 +773,8 @@ size_t JSONValueConstRef::HashCode() const {
 // floating points. Signed and unsigned integers can also be equal.
 bool JSONValueConstRef::NormalizedEquals(JSONValueConstRef that) const {
   // The equality operation from nlohmann's implementation is not the SQL
-  // equality operator, and it does not compare numbers correctly.
-  // TODO: We should use the `==` operator defined in this file.
-  return impl_->value == that.impl_->value;
+  // equality operator, and it does not compare numbers correctly(b/429277821).
+  return *this == that;
 }
 
 namespace {

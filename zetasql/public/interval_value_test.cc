@@ -27,6 +27,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/hash/hash_testing.h"
+#include "absl/numeric/int128.h"
 #include "absl/random/distributions.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
@@ -177,6 +178,14 @@ TEST(IntervalValueTest, MonthsDaysMicros) {
     EXPECT_EQ(month, interval_deserialized.get_months());
     EXPECT_EQ(day, interval_deserialized.get_days());
     EXPECT_EQ(micros, interval_deserialized.get_micros());
+
+    absl::int128 serialized_int128 = interval.SerializeAsInt128();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        IntervalValue deserialized_from_int128,
+        IntervalValue::DeserializeFromInt128(serialized_int128));
+    EXPECT_EQ(month, deserialized_from_int128.get_months());
+    EXPECT_EQ(day, deserialized_from_int128.get_days());
+    EXPECT_EQ(micros, deserialized_from_int128.get_micros());
   }
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
@@ -218,6 +227,14 @@ TEST(IntervalValueTest, MonthsDaysNanos) {
     EXPECT_EQ(month, interval_deserialized.get_months());
     EXPECT_EQ(day, interval_deserialized.get_days());
     EXPECT_EQ(nanos, interval_deserialized.get_nanos());
+
+    absl::int128 serialized_int128 = interval.SerializeAsInt128();
+    ZETASQL_ASSERT_OK_AND_ASSIGN(
+        IntervalValue deserialized_from_int128,
+        IntervalValue::DeserializeFromInt128(serialized_int128));
+    EXPECT_EQ(month, deserialized_from_int128.get_months());
+    EXPECT_EQ(day, deserialized_from_int128.get_days());
+    EXPECT_EQ(nanos, deserialized_from_int128.get_nanos());
   }
 
   ZETASQL_ASSERT_OK_AND_ASSIGN(
