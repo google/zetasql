@@ -311,33 +311,16 @@ bool TypeParameters::MatchType(const Type* type) const {
     // extended parameters (and child_list) together match the type.
     return type->IsExtendedType();
   }
-  if (!child_list().empty()) {
-    if (type->IsStruct()) {
-      const StructType* struct_type = type->AsStruct();
-      if (struct_type->num_fields() != num_children()) {
-        return false;
-      }
-      for (int i = 0; i < num_children(); ++i) {
-        if (!child(i).MatchType(struct_type->field(i).type)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    if (type->IsArray()) {
-      if (num_children() != 1) {
-        return false;
-      }
-      return child(0).MatchType(type->AsArray()->element_type());
-    }
-    if (type->IsRange()) {
-      if (num_children() != 1) {
-        return false;
-      }
-      return child(0).MatchType(type->AsRange()->element_type());
+  std::vector<const Type*> component_types = type->ComponentTypes();
+  if (child_list().size() != component_types.size()) {
+    return false;
+  }
+  for (int i = 0; i < child_list().size(); ++i) {
+    if (!child_list()[i].MatchType(component_types[i])) {
+      return false;
     }
   }
-  return false;
+  return true;
 }
 
 std::string ExtendedTypeParameters::DebugString() const {

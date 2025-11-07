@@ -144,8 +144,9 @@ class TypeParameters {
     return std::get<ExtendedTypeParameters>(type_parameters_holder_);
   }
 
-  // Returns type parameters for subfields for ARRAY/STRUCT/RANGE types
-  // For ARRAY and RANGE:
+  // Returns type parameters for subfields for composite types, e.g. ARRAY,
+  // STRUCT, ... etc.
+  // For example, for ARRAY and RANGE:
   //   If the element or its subfield has type parameters, then
   //   child_list.size() is 1, and child_list(0) is the element type parameters.
   //   Otherwise child_list is empty.
@@ -157,6 +158,7 @@ class TypeParameters {
   //   number of fields or 0.
   //   If none of the fields and none of their subfields has type parameters,
   //   then child_list is empty.
+  // Other composite types operate similarly.
   // For other types, child_list is empty.
   const std::vector<TypeParameters>& child_list() const { return child_list_; }
   const TypeParameters& child(int i) const { return child_list_[i]; }

@@ -115,7 +115,7 @@ message LanguageFeatureOptions {
 //
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
-// Next ID: 150
+// Next ID: 151
 enum LanguageFeature {
   // Aliases are allowed because we are including aliases for legacy feature
   // names that had version numbers (V_1_3) in the enum name. This means the
@@ -891,6 +891,11 @@ enum LanguageFeature {
   // See (broken link).
   FEATURE_DISABLE_VALIDATE_REWRITERS_REFER_TO_BUILTINS = 134
       [(language_feature_options).ideally_enabled = false];
+
+  // Enable CREATE PROCEDURE statements in modules.
+  // See (broken link).
+  FEATURE_PROCEDURES_IN_MODULES = 150
+      [(language_feature_options).in_development = true];
 
   // This enables pipe operator suffixes on most statements that could
   // potentially return tables, including auxiliary statements where the

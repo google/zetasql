@@ -1,0 +1,203 @@
+[default statement_context=module]
+
+[language_features={{NONE|MAXIMUM}}]
+# CREATE PROCEDURE not supported when PROCEDURES_IN_MODULES is disabled.
+create {{public|private}} procedure MyProc()
+BEGIN
+END;
+--
+ALTERNATION GROUPS:
+    NONE,public
+    MAXIMUM,public
+--
+ERROR: CREATE PROCEDURE statement is not supported inside modules [at 2:1]
+create public procedure MyProc()
+^
+--
+ALTERNATION GROUPS:
+    NONE,private
+    MAXIMUM,private
+--
+ERROR: CREATE PROCEDURE statement is not supported inside modules [at 2:1]
+create private procedure MyProc()
+^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES]
+# CREATE PROCEDURE requires the PUBLIC or PRIVATE modifier when used inside a module.
+create {{|temp|public|private}} procedure MyProc()
+BEGIN
+END;
+--
+ALTERNATION GROUPS:
+    NONE,
+    MAXIMUM,
+--
+ERROR: CREATE PROCEDURE requires the PUBLIC or PRIVATE modifier when used inside a module [at 2:1]
+create  procedure MyProc()
+^
+--
+ALTERNATION GROUPS:
+    NONE,temp
+    MAXIMUM,temp
+--
+ERROR: CREATE PROCEDURE requires the PUBLIC or PRIVATE modifier when used inside a module [at 2:1]
+create temp procedure MyProc()
+^
+--
+ALTERNATION GROUPS:
+    NONE,public
+    MAXIMUM,public
+--
+CreateProcedureStmt(name_path=MyProc, create_scope=CREATE_PUBLIC, argument_name_list=[], signature=() -> <void>, procedure_body="BEGIN\nEND")
+--
+ALTERNATION GROUPS:
+    NONE,private
+    MAXIMUM,private
+--
+CreateProcedureStmt(name_path=MyProc, create_scope=CREATE_PRIVATE, argument_name_list=[], signature=() -> <void>, procedure_body="BEGIN\nEND")
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES]
+# CREATE OR REPLACE is not supported for CREATE PROCEDURE inside a module.
+create or replace {{public|private}} procedure MyProc()
+BEGIN
+END;
+--
+ALTERNATION GROUPS:
+    NONE,public
+    MAXIMUM,public
+--
+ERROR: Modules do not support CREATE OR REPLACE for CREATE PROCEDURE [at 2:1]
+create or replace public procedure MyProc()
+^
+--
+ALTERNATION GROUPS:
+    NONE,private
+    MAXIMUM,private
+--
+ERROR: Modules do not support CREATE OR REPLACE for CREATE PROCEDURE [at 2:1]
+create or replace private procedure MyProc()
+^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES]
+# IF NOT EXISTS is not supported for CREATE PROCEDURE inside a module.
+create {{public|private}} procedure if not exists MyProc()
+BEGIN
+END;
+--
+ALTERNATION GROUPS:
+    NONE,public
+    MAXIMUM,public
+--
+ERROR: Modules do not support IF NOT EXISTS for CREATE PROCEDURE [at 2:1]
+create public procedure if not exists MyProc()
+^
+--
+ALTERNATION GROUPS:
+    NONE,private
+    MAXIMUM,private
+--
+ERROR: Modules do not support IF NOT EXISTS for CREATE PROCEDURE [at 2:1]
+create private procedure if not exists MyProc()
+^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES,+EXTERNAL_SECURITY_PROCEDURE]
+# EXTERNAL SECURITY is not allowed for CREATE PROCEDURE statement inside a
+# module.
+create public procedure MyProc() {{EXTERNAL SECURITY DEFINER|EXTERNAL SECURITY INVOKER}}
+    LANGUAGE REMOTE;
+--
+ALTERNATION GROUPS:
+    NONE,EXTERNAL SECURITY DEFINER
+    MAXIMUM,EXTERNAL SECURITY DEFINER
+--
+ERROR: EXTERNAL SECURITY clause is not supported inside modules [at 3:1]
+create public procedure MyProc() EXTERNAL SECURITY DEFINER
+^
+--
+ALTERNATION GROUPS:
+    NONE,EXTERNAL SECURITY INVOKER
+    MAXIMUM,EXTERNAL SECURITY INVOKER
+--
+ERROR: EXTERNAL SECURITY clause is not supported inside modules [at 3:1]
+create public procedure MyProc() EXTERNAL SECURITY INVOKER
+^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES,+NON_SQL_PROCEDURE]
+# Only REMOTE language is supported in CREATE PROCEDURE inside a module.
+create public procedure MyProc() LANGUAGE {{remote|java}};
+--
+ALTERNATION GROUPS:
+    NONE,remote
+    MAXIMUM,remote
+--
+CreateProcedureStmt(name_path=MyProc, create_scope=CREATE_PUBLIC, argument_name_list=[], signature=() -> <void>, language="remote")
+--
+ALTERNATION GROUPS:
+    NONE,java
+    MAXIMUM,java
+--
+ERROR: Invalid LANGUAGE: java. Only LANGUAGE REMOTE is supported for procedures inside modules [at 2:34]
+create public procedure MyProc() LANGUAGE java;
+                                 ^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES]
+# udf_server_address option is not supported for procedures in modules.
+CREATE PUBLIC PROCEDURE MyProc()
+  OPTIONS({{some_other_option|udf_server_address}}=1)
+  BEGIN END;
+--
+ALTERNATION GROUPS:
+    NONE,some_other_option
+    MAXIMUM,some_other_option
+--
+CreateProcedureStmt
++-name_path=MyProc
++-create_scope=CREATE_PUBLIC
++-argument_name_list=[]
++-signature=() -> <void>
++-option_list=
+| +-some_other_option := Literal(type=INT64, value=1)
++-procedure_body="BEGIN END"
+--
+ALTERNATION GROUPS:
+    NONE,udf_server_address
+    MAXIMUM,udf_server_address
+--
+ERROR: The udf_server_address option is not supported for procedures in modules [at 2:1]
+CREATE PUBLIC PROCEDURE MyProc()
+^
+==
+
+[language_features={{NONE|MAXIMUM}},+PROCEDURES_IN_MODULES]
+# Only GLOBAL is allowed as a value for the allowed_references option.
+CREATE PUBLIC PROCEDURE MyProc()
+  OPTIONS(allowed_references='{{GLOBAL|BUILTIN}}')
+  BEGIN END;
+--
+ALTERNATION GROUPS:
+    NONE,GLOBAL
+    MAXIMUM,GLOBAL
+--
+CreateProcedureStmt
++-name_path=MyProc
++-create_scope=CREATE_PUBLIC
++-argument_name_list=[]
++-signature=() -> <void>
++-option_list=
+| +-allowed_references := Literal(type=STRING, value="GLOBAL")
++-procedure_body="BEGIN END"
+--
+ALTERNATION GROUPS:
+    NONE,BUILTIN
+    MAXIMUM,BUILTIN
+--
+ERROR: The allowed_references option can only be the literal string 'GLOBAL' [at 3:11]
+  OPTIONS(allowed_references='BUILTIN')
+          ^
+==

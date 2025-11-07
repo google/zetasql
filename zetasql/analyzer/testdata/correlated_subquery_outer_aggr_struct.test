@@ -27,6 +27,10 @@ SELECT TestStruct, (SELECT AS STRUCT {{ct.|}}TestStruct, {{ct.|}}TestStruct.c, T
 FROM ComplexTypes ct
 GROUP BY {{ct.|}}TestStruct
 --
+ALTERNATION GROUPS:
+    ct.,ct.,ct.
+    ct.,ct.,
+--
 QueryStmt
 +-output_column_list=
 | +-$groupby.TestStruct#11 AS TestStruct [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
@@ -78,6 +82,226 @@ QueryStmt
         | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4], alias="ct")
         +-group_by_list=
           +-TestStruct#11 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> (ComplexTypes.TestStruct#5) (implicit) [at 1:70]
+...SELECT AS STRUCT ct.TestStruct, ct.TestStruct.c, TestStruct.d)
+                                                    ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> ($groupby.TestStruct#11) (implicit) [at 1:70]
+...SELECT AS STRUCT ct.TestStruct, ct.TestStruct.c, TestStruct.d)
+                                                    ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUPS:
+    ct.,,ct.
+    ct.,,
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.TestStruct#11 AS TestStruct [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
+| +-$query.$col2#16 AS `$col2` [STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.TestStruct#11, $query.$col2#16]
+    +-expr_list=
+    | +-$col2#16 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#15]
+    |         +-expr_list=
+    |         | +-$struct#15 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$expr_subquery.TestStruct#12)
+    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.c#13)
+    |         |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.d#14)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[TestStruct#12, c#13, d#14]
+    |             +-expr_list=
+    |             | +-TestStruct#12 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | +-c#13 :=
+    |             | | +-GetStructField
+    |             | |   +-type=INT32
+    |             | |   +-expr=
+    |             | |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | |   +-field_idx=0
+    |             | +-d#14 :=
+    |             |   +-GetStructField
+    |             |     +-type=STRUCT<a INT32, b STRING>
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             |     +-field_idx=1
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.TestStruct#11]
+        +-input_scan=
+        | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4], alias="ct")
+        +-group_by_list=
+          +-TestStruct#11 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> (ComplexTypes.TestStruct#5) (implicit) [at 1:53]
+SELECT TestStruct, (SELECT AS STRUCT ct.TestStruct, TestStruct.c, TestStruct.d)
+                                                    ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> ($groupby.TestStruct#11) (implicit) [at 1:53]
+SELECT TestStruct, (SELECT AS STRUCT ct.TestStruct, TestStruct.c, TestStruct.d)
+                                                    ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUPS:
+    ct.,ct.
+    ct.,
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.TestStruct#11 AS TestStruct [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
+| +-$query.$col2#16 AS `$col2` [STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.TestStruct#11, $query.$col2#16]
+    +-expr_list=
+    | +-$col2#16 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#15]
+    |         +-expr_list=
+    |         | +-$struct#15 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$expr_subquery.TestStruct#12)
+    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.c#13)
+    |         |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.d#14)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[TestStruct#12, c#13, d#14]
+    |             +-expr_list=
+    |             | +-TestStruct#12 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | +-c#13 :=
+    |             | | +-GetStructField
+    |             | |   +-type=INT32
+    |             | |   +-expr=
+    |             | |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | |   +-field_idx=0
+    |             | +-d#14 :=
+    |             |   +-GetStructField
+    |             |     +-type=STRUCT<a INT32, b STRING>
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             |     +-field_idx=1
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.TestStruct#11]
+        +-input_scan=
+        | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4], alias="ct")
+        +-group_by_list=
+          +-TestStruct#11 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> (ComplexTypes.TestStruct#5) (implicit) [at 1:67]
+SELECT TestStruct, (SELECT AS STRUCT TestStruct, ct.TestStruct.c, TestStruct.d)
+                                                                  ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> ($groupby.TestStruct#11) (implicit) [at 1:67]
+SELECT TestStruct, (SELECT AS STRUCT TestStruct, ct.TestStruct.c, TestStruct.d)
+                                                                  ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUPS:
+    ct.
+    <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.TestStruct#11 AS TestStruct [STRUCT<c INT32, d STRUCT<a INT32, b STRING>>]
+| +-$query.$col2#16 AS `$col2` [STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.TestStruct#11, $query.$col2#16]
+    +-expr_list=
+    | +-$col2#16 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#15]
+    |         +-expr_list=
+    |         | +-$struct#15 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, c INT32, d STRUCT<a INT32, b STRING>>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$expr_subquery.TestStruct#12)
+    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.c#13)
+    |         |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.d#14)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[TestStruct#12, c#13, d#14]
+    |             +-expr_list=
+    |             | +-TestStruct#12 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | +-c#13 :=
+    |             | | +-GetStructField
+    |             | |   +-type=INT32
+    |             | |   +-expr=
+    |             | |   | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             | |   +-field_idx=0
+    |             | +-d#14 :=
+    |             |   +-GetStructField
+    |             |     +-type=STRUCT<a INT32, b STRING>
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=$groupby.TestStruct#11, is_correlated=TRUE)
+    |             |     +-field_idx=1
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.TestStruct#11]
+        +-input_scan=
+        | +-TableScan(column_list=[ComplexTypes.TestStruct#5], table=ComplexTypes, column_index_list=[4], alias="ct")
+        +-group_by_list=
+          +-TestStruct#11 := ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> (ComplexTypes.TestStruct#5) (implicit) [at 1:50]
+SELECT TestStruct, (SELECT AS STRUCT TestStruct, TestStruct.c, TestStruct.d)
+                                                 ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<c INT32, d STRUCT<a INT32, b STRING>> ($groupby.TestStruct#11) (implicit) [at 1:50]
+SELECT TestStruct, (SELECT AS STRUCT TestStruct, TestStruct.c, TestStruct.d)
+                                                 ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # 1.2 Group by a struct nested under a struct column.
@@ -3249,6 +3473,67 @@ SELECT ct1.TestStruct.d, (SELECT ct2.TestStruct.d.a = 5)
 SELECT (SELECT as struct TestStructValueTable, {{TestStructValueTable.|}}a)
 FROM TestStructValueTable
 GROUP BY TestStructValueTable
+--
+ALTERNATION GROUP: TestStructValueTable.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#9 AS `$col1` [STRUCT<TestStructValueTable STRUCT<a INT32, b STRING>, a INT32>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#9]
+    +-expr_list=
+    | +-$col1#9 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<TestStructValueTable STRUCT<a INT32, b STRING>, a INT32>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#5)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#8]
+    |         +-expr_list=
+    |         | +-$struct#8 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<TestStructValueTable STRUCT<a INT32, b STRING>, a INT32>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$expr_subquery.TestStructValueTable#6)
+    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.a#7)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[TestStructValueTable#6, a#7]
+    |             +-expr_list=
+    |             | +-TestStructValueTable#6 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#5, is_correlated=TRUE)
+    |             | +-a#7 :=
+    |             |   +-GetStructField
+    |             |     +-type=INT32
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.TestStructValueTable#5, is_correlated=TRUE)
+    |             |     +-field_idx=0
+    |             +-input_scan=
+    |               +-SingleRowScan
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.TestStructValueTable#5]
+        +-input_scan=
+        | +-TableScan(column_list=[TestStructValueTable.value#1], table=TestStructValueTable, column_index_list=[0])
+        +-group_by_list=
+          +-TestStructValueTable#5 := ColumnRef(type=STRUCT<a INT32, b STRING>, column=TestStructValueTable.value#1)
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: RANGE_VARIABLE<$value> [at 1:48]
+SELECT (SELECT as struct TestStructValueTable, TestStructValueTable.a)
+                                               ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<a INT32, b STRING> ($groupby.TestStructValueTable#5) [at 1:48]
+SELECT (SELECT as struct TestStructValueTable, TestStructValueTable.a)
+                                               ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUP: <empty>
 --
 QueryStmt
 +-output_column_list=

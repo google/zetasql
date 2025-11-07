@@ -49,6 +49,7 @@
 #include "zetasql/public/types/graph_element_type.h"
 #include "zetasql/public/types/map_type.h"
 #include "zetasql/public/types/measure_type.h"
+#include "zetasql/public/types/range_type.h"
 #include "zetasql/public/types/struct_type.h"
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/types/value_equality_check_options.h"
@@ -104,6 +105,114 @@ using zetasql::types::Uint64ArrayType;
 using absl::Substitute;
 
 namespace zetasql {
+
+namespace {
+
+// Returns true if the range contains the point.
+// `range` and `point` must be non-NULL and have compatible types.
+// A range [start, end) contains point p if start <= p < end.
+// NULL start is treated as -inf, and NULL end is treated as +inf.
+absl::StatusOr<bool> RangeContainsPoint(const Value& range,
+                                        const Value& point) {
+  ZETASQL_RET_CHECK(range.type()->IsRange());
+  ZETASQL_RET_CHECK(range.type()->AsRange()->element_type()->Equals(point.type()));
+  ZETASQL_RET_CHECK(!range.is_null());
+  ZETASQL_RET_CHECK(!point.is_null());
+  const Value& start = range.start();
+  const Value& end = range.end();
+  bool start_ok = start.is_null() || !point.LessThan(start);
+  bool end_ok = end.is_null() || point.LessThan(end);
+  return start_ok && end_ok;
+}
+
+// Returns true if the `container` range contains the `contained` range.
+// Both ranges must be non-NULL.
+// A range [s1, e1) contains range [s2, e2) if s1 <= s2 and e2 <= e1.
+// NULL start is treated as -inf, and NULL end is treated as +inf.
+absl::StatusOr<bool> RangeContainsRange(const Value& container,
+                                        const Value& contained) {
+  ZETASQL_RET_CHECK(container.type()->IsRange());
+  ZETASQL_RET_CHECK(contained.type()->IsRange());
+  ZETASQL_RET_CHECK(container.type()->Equals(contained.type()));
+  ZETASQL_RET_CHECK(!container.is_null());
+  ZETASQL_RET_CHECK(!contained.is_null());
+  const Value& s1 = container.start();
+  const Value& e1 = container.end();
+  const Value& s2 = contained.start();
+  const Value& e2 = contained.end();
+
+  bool s1_le_s2 = s1.is_null() || (!s2.is_null() && !s2.LessThan(s1));
+  bool e2_le_e1 = e1.is_null() || (!e2.is_null() && !e1.LessThan(e2));
+  return s1_le_s2 && e2_le_e1;
+}
+
+// Returns the intersection of a non-empty list of ranges.
+// Requires that all ranges are non-NULL and have the same element type.
+// NULL start is treated as -inf, and NULL end is treated as +inf.
+absl::StatusOr<Value> GetRangeIntersection(absl::Span<const Value> ranges) {
+  if (ranges.empty()) {
+    return absl::InvalidArgumentError(
+        "GetRangeIntersection requires at least one range");
+  }
+  ZETASQL_RET_CHECK(ranges[0].type()->IsRange());
+  const Type* element_type = ranges[0].type()->AsRange()->element_type();
+
+  Value max_start = Value::Null(element_type);
+  Value min_end = Value::Null(element_type);
+  for (const Value& range : ranges) {
+    ZETASQL_RET_CHECK(range.type()->IsRange());
+    ZETASQL_RET_CHECK(range.type()->AsRange()->element_type()->Equals(element_type));
+    ZETASQL_RET_CHECK(!range.is_null());
+    const Value& r_start = range.start();
+    const Value& r_end = range.end();
+    if (!r_start.is_null() &&
+        (max_start.is_null() || max_start.LessThan(r_start))) {
+      max_start = r_start;
+    }
+    if (!r_end.is_null() && (min_end.is_null() || r_end.LessThan(min_end))) {
+      min_end = r_end;
+    }
+  }
+  return Value::MakeRange(max_start, min_end);
+}
+
+// Validates that `graph_elements` are valid for creating a graph path
+// with the specified `graph_path_type`.
+absl::Status ValidateGraphPathElements(
+    const GraphPathType* graph_path_type,
+    const std::vector<Value>& graph_elements) {
+  ZETASQL_RET_CHECK_EQ(graph_elements.size() % 2, 1)
+      << "Path must have an odd number of graph elements, but got "
+      << graph_elements.size() << " graph elements";
+  for (int i = 0; i < graph_elements.size(); ++i) {
+    ZETASQL_RET_CHECK(!graph_elements[i].is_null())
+        << "Path cannot have null graph elements";
+    if (i % 2 == 0) {
+      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->node_type()))
+          << "Expected node type";
+    } else {
+      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->edge_type()))
+          << "Expected edge type";
+    }
+  }
+  for (int i = 1; i < graph_elements.size(); i += 2) {
+    // The edge must connect the previous node to the next node in some
+    // direction.
+    const Value& edge = graph_elements[i];
+    const Value& previous_node = graph_elements[i - 1];
+    const Value& next_node = graph_elements[i + 1];
+    bool forward =
+        previous_node.GetIdentifier() == edge.GetSourceNodeIdentifier() &&
+        next_node.GetIdentifier() == edge.GetDestNodeIdentifier();
+    bool backward =
+        previous_node.GetIdentifier() == edge.GetDestNodeIdentifier() &&
+        next_node.GetIdentifier() == edge.GetSourceNodeIdentifier();
+    ZETASQL_RET_CHECK(forward || backward) << "Edge must connect the previous node to "
+                                      "the next node in some direction";
+  }
+  return absl::OkStatus();
+}
+}  // namespace
 
 // -------------------------------------------------------
 // Value
@@ -421,37 +530,10 @@ absl::StatusOr<Value> Value::MakeGraphElement(
 
 absl::StatusOr<Value> Value::MakeGraphPath(const GraphPathType* graph_path_type,
                                            std::vector<Value> graph_elements) {
-  ZETASQL_RET_CHECK_EQ(graph_elements.size() % 2, 1)
-      << "Path must have an odd number of graph elements, but got "
-      << graph_elements.size() << " graph elements";
-  for (int i = 0; i < graph_elements.size(); ++i) {
-    ZETASQL_RET_CHECK(!graph_elements[i].is_null())
-        << "Path cannot have null graph elements";
-    if (i % 2 == 0) {
-      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->node_type()))
-          << "Expected node type";
-    } else {
-      ZETASQL_RET_CHECK(graph_elements[i].type()->Equals(graph_path_type->edge_type()))
-          << "Expected edge type";
-    }
-  }
-  for (int i = 1; i < graph_elements.size(); i += 2) {
-    // The edge must connect the previous node to the next node in some
-    // direction.
-    const Value& edge = graph_elements[i];
-    const Value& previous_node = graph_elements[i - 1];
-    const Value& next_node = graph_elements[i + 1];
-    bool forward =
-        previous_node.GetIdentifier() == edge.GetSourceNodeIdentifier() &&
-        next_node.GetIdentifier() == edge.GetDestNodeIdentifier();
-    bool backward =
-        previous_node.GetIdentifier() == edge.GetDestNodeIdentifier() &&
-        next_node.GetIdentifier() == edge.GetSourceNodeIdentifier();
-    ZETASQL_RET_CHECK(forward || backward) << "Edge must connect the previous node to "
-                                      "the next node in some direction";
-  }
+  ZETASQL_RETURN_IF_ERROR(ValidateGraphPathElements(graph_path_type,
+  graph_elements));
   Value result(graph_path_type, /*is_null=*/false,
-               /*order_kind=*/kIgnoresOrder);
+      /*order_kind=*/kIgnoresOrder);
   result.container_ptr_ = new internal::ValueContentOrderedListRef(
       std::make_unique<GraphPathValue>(std::move(graph_elements)),
       /*preserves_order=*/false);
@@ -995,7 +1077,8 @@ Value Value::SqlEquals(const Value& that) const {
     }
     case TYPE_KIND_PAIR(TYPE_GRAPH_PATH, TYPE_GRAPH_PATH): {
       // The components of a path cannot be null.
-      return Value::Bool(Equals(that));
+      bool equals = Equals(that);
+      return Value::Bool(equals);
     }
     case TYPE_KIND_PAIR(TYPE_STRUCT, TYPE_STRUCT): {
       if (num_fields() != that.num_fields()) {

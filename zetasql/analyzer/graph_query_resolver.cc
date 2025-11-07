@@ -4229,18 +4229,31 @@ GraphTableQueryResolver::ResolveGqlNamedCall(
     // Unlike CALL PER(), there is no implicit table argument here but there
     // could be an implicit graph argument if this is the first statement. See
     // http://shortn/_0Uc6eBN0Lu for more details.
-    std::unique_ptr<ResolvedTVFArg> graph_arg;
-    if (is_first_statement_in_graph_query) {
-      auto* graph = resolver_->GetActivePropertyGraphOrNull();
-      ZETASQL_RET_CHECK(graph != nullptr);
-      graph_arg = std::make_unique<ResolvedTVFArg>();
-      graph_arg->SetGraph(graph);
+    auto* graph = resolver_->GetActivePropertyGraphOrNull();
+    ZETASQL_RET_CHECK(graph != nullptr);
+    ResolvedTVFArg graph_arg;
+    graph_arg.SetGraph(graph);
+    const absl::Status tvf_resolve_status = resolver_->ResolveTVF(
+        call_op.tvf_call(), lateral_scope.get(),
+        /*pipe_input_arg=*/
+        is_first_statement_in_graph_query ? &graph_arg : nullptr,
+        &resolved_scan, &tvf_output_name_list);
+    if (!tvf_resolve_status.ok()) {
+      if (absl::IsInvalidArgument(tvf_resolve_status) &&
+          !is_first_statement_in_graph_query &&
+          resolver_
+              ->ResolveTVF(call_op.tvf_call(), lateral_scope.get(), &graph_arg,
+                           &resolved_scan, &tvf_output_name_list)
+              .ok()) {
+        // We would have succeeded if the graph was provided so we give a better
+        // error message.
+        return zetasql_base::StatusBuilder(tvf_resolve_status)
+               << "CALL is not the first statement in the graph query so "
+               << call_op.tvf_call()->name()->ToIdentifierPathString()
+               << " cannot access the implicit graph argument";
+      }
+      return tvf_resolve_status;
     }
-    ZETASQL_RETURN_IF_ERROR(
-        resolver_->ResolveTVF(call_op.tvf_call(), lateral_scope.get(),
-                              /*pipe_input_arg=*/graph_arg.get(),
-                              &resolved_scan, &tvf_output_name_list));
-
     ResolvedColumnList output_column_list = input.resolved_node->column_list();
     for (const ResolvedColumn& column : resolved_scan->column_list()) {
       // Prevent the RHS columns from being pruned, to avoid the case where they

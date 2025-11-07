@@ -278,6 +278,7 @@ extern const char* const kSqlBuilderTargetSyntaxModeStandard;
 extern const char* const kSqlBuilderTargetSyntaxModeBoth;
 extern const char* const kUseConstantEvaluator;
 extern const char* const kTableForMeasureExprAnalysis;
+extern const char* const kLogImpactOfLateralColumnReferences;
 
 // set_flag
 // Causes a command line flag to be set to a particular value during the run

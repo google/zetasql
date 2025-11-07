@@ -214,6 +214,13 @@ QueryStmt
     |     +-field_descriptor=int64_key_1
     +-input_scan=
       +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: ambiguous [at 1:32]
+SELECT 1 AS TestConstantProto, TestConstantProto, TestConstantProto.int64_key_1
+                               ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # The alias of a table subquery takes precedence over a constant with the same
@@ -339,6 +346,13 @@ QueryStmt
         | +-TestConstantString#1 := Literal(type=STRUCT<e INT64, f INT64>, value={e:1, f:2}, has_explicit_type=TRUE)
         +-input_scan=
           +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<e INT64, f INT64> ($subquery1.TestConstantString#1) [at 1:46]
+SELECT (SELECT AS STRUCT TestConstantString, TestConstantString.e - TestConst...
+                                             ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # A field alias in a table subquery with the same name as a nested catalog takes
@@ -1106,4 +1120,3 @@ QueryStmt
     |     +-field_idx=0
     +-input_scan=
       +-SingleRowScan
-==

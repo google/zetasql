@@ -471,6 +471,11 @@ absl::Status AnalyzerOptions::Deserialize(
     result->data_->rewrite_options = proto.rewrite_options();
   }
 
+  if (proto.has_log_impact_of_lateral_column_references()) {
+    result->data_->log_impact_of_lateral_column_references =
+        proto.log_impact_of_lateral_column_references();
+  }
+
   return absl::OkStatus();
 }
 
@@ -557,6 +562,9 @@ absl::Status AnalyzerOptions::Serialize(FileDescriptorSetMap* map,
   }
 
   *proto->mutable_rewrite_options() = data_->rewrite_options;
+
+  proto->set_log_impact_of_lateral_column_references(
+      data_->log_impact_of_lateral_column_references);
 
   return absl::OkStatus();
 }

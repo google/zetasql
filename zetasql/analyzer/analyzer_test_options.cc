@@ -124,6 +124,8 @@ const char* const kSqlBuilderTargetSyntaxModeBoth = "both";
 const char* const kUseConstantEvaluator = "use_constant_evaluator";
 const char* const kTableForMeasureExprAnalysis =
     "table_for_measure_expr_analysis";
+const char* const kLogImpactOfLateralColumnReferences =
+    "log_impact_of_lateral_column_references";
 
 void RegisterAnalyzerTestOptions(
     file_based_test_driver::TestCaseOptions* test_case_options) {
@@ -202,6 +204,10 @@ void RegisterAnalyzerTestOptions(
                                     kSqlBuilderTargetSyntaxModeBoth);
   test_case_options->RegisterBool(kUseConstantEvaluator, false);
   test_case_options->RegisterString(kTableForMeasureExprAnalysis, "");
+
+  // For analyzer tests, we turn this on to get the maximum coverage for the
+  // blast radius of lateral column references.
+  test_case_options->RegisterBool(kLogImpactOfLateralColumnReferences, true);
 }
 
 std::vector<std::pair<std::string, const zetasql::Type*>> GetQueryParameters(

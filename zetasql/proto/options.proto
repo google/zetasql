@@ -89,7 +89,7 @@ message AllowedHintsAndOptionsProto {
 }
 
 // Serialized form of AnalyzerOptions.
-// next id: 31
+// next id: 32
 message AnalyzerOptionsProto {
   message QueryParameterProto {
     optional string name = 1;
@@ -133,4 +133,5 @@ message AnalyzerOptionsProto {
   reserved 27;
   optional RewriteOptions rewrite_options = 28;
   optional bool replace_table_not_found_error_with_tvf_error_if_applicable = 29;
+  optional bool log_impact_of_lateral_column_references = 31;
 }

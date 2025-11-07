@@ -879,6 +879,11 @@ create table function myfunc ( a int64 )
   returns table<a int64, result int64>
   as ( SELECT a, a+2 AS result ) ;
 --
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: ambiguous [at 3:18]
+  as ( SELECT a, a+2 AS result ) ;
+                 ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
 [SQLBUILDER_OUTPUT]
 CREATE TABLE FUNCTION myfunc(a INT64)
@@ -900,6 +905,11 @@ RETURNS TABLE< a INT64, result INT64 > AS
 create table function myfunc ( a int64 )
   as ( SELECT a, a+2 AS result ) ;
 --
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: ambiguous [at 2:18]
+  as ( SELECT a, a+2 AS result ) ;
+                 ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 [SQLBUILDER_TARGET_SYNTAX_MODE standard]
 [SQLBUILDER_OUTPUT]
 CREATE TABLE FUNCTION myfunc(a INT64)

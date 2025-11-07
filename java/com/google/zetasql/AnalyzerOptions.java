@@ -378,6 +378,14 @@ public class AnalyzerOptions implements Serializable {
     return builder.getRewriteOptions();
   }
 
+  public void setLogImpactOfLateralColumnReferences(boolean logImpactOfLateralColumnReferences) {
+    builder.setLogImpactOfLateralColumnReferences(logImpactOfLateralColumnReferences);
+  }
+
+  public boolean getLogImpactOfLateralColumnReferences() {
+    return builder.getLogImpactOfLateralColumnReferences();
+  }
+
   static AnalyzerOptions deserialize(
       AnalyzerOptionsProto proto, List<? extends DescriptorPool> pools, TypeFactory factory) {
     AnalyzerOptions options = new AnalyzerOptions();
@@ -446,6 +454,10 @@ public class AnalyzerOptions implements Serializable {
 
     if (proto.hasRewriteOptions()) {
       setRewriteOptions(proto.getRewriteOptions());
+    }
+
+    if (proto.hasLogImpactOfLateralColumnReferences()) {
+      setLogImpactOfLateralColumnReferences(proto.getLogImpactOfLateralColumnReferences());
     }
   }
 

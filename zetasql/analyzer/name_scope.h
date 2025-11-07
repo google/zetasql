@@ -273,11 +273,34 @@ struct ColumnReferenceContext {
   ExprGroupingContext grouping_context;
 };
 
+// Forward declarations.
+class NameTarget;
+class NameScope;
+struct SelectColumnState;
+
+using LoggingCallback = std::function<absl::Status(
+    const ASTNode* location, const NameTarget& original_target)>;
+
 using ColumnReferenceCallback =
     std::function<absl::StatusOr<ResolvedColumn>(ColumnReferenceContext)>;
 
-// Forward declaration.
-struct SelectColumnState;
+// Used to create transparent detector NameTargets which capture the name hit
+// event and invoke a callback, before forwarding to the `fallback_name_scope`
+// to perform the actual lookup. The `fallback_name_scope` is usually
+// a similarly constructed NameScope to the one containing this target, if such
+// transparent targets like this one were not added.
+// This is useful when running tests to determine the impact of a new
+// feature on backward compatibility) or to log warnings before deprecations,
+// for example.
+struct LoggingTargetInfo {
+  // The NameScope which should actually be used, now that the event has been
+  // captured.
+  const NameScope* fallback_name_scope;
+  // The callback to invoke when this name is hit in the current context, e.g.
+  // to log a warning.
+  LoggingCallback logging_callback;
+  // Copyable.
+};
 
 // Information needed for a column that gets assigned a ResolvedColumn only on
 // its first lateral reference, i.e., reference from another SELECT list expr
@@ -291,6 +314,7 @@ struct DelayedColumnInfo {
   ColumnReferenceCallback precompute_callback;
   // The SelectColumnState represented by this delayed NameTarget.
   SelectColumnState* select_column_state = nullptr;
+  // Copyable.
 };
 
 // A target that a name in a NameScope points at.
@@ -374,6 +398,13 @@ class NameTarget {
   NameTarget(bool is_explicit, DelayedColumnInfo delayed_column_info)
       : kind_(is_explicit ? EXPLICIT_COLUMN : IMPLICIT_COLUMN),
         delayed_column_info_(std::move(delayed_column_info)) {}
+
+  // Construct a NameTarget for a transparent detector column, which only logs
+  // the hit event and delegates to another NameScope. This transparent target
+  // does not need or know about its own ResolvedColumn.
+  NameTarget(bool is_explicit, LoggingTargetInfo delayed_column_info)
+      : kind_(is_explicit ? EXPLICIT_COLUMN : IMPLICIT_COLUMN),
+        logging_target_info_(std::move(delayed_column_info)) {}
 
   // Construct a FIELD_OF NameTarget pointing at a column, with a specific
   // FIELD_OF id.  For STRUCT fields, the field_id is the field index.
@@ -536,10 +567,13 @@ class NameTarget {
   // Should only be called after SetupPrecomputedColumnIfNeeded() has been
   // called and all initialization is done.
   const std::optional<DelayedColumnInfo>& delayed_column_info() const {
-    ABSL_DCHECK(IsColumn());
     ABSL_DCHECK(!delayed_column_info_.has_value() ||
            delayed_column_info_->precompute_callback == nullptr);
     return delayed_column_info_;
+  }
+
+  const std::optional<LoggingTargetInfo>& logging_target_info() const {
+    return logging_target_info_;
   }
 
  private:
@@ -586,8 +620,15 @@ class NameTarget {
 
   // If this column is a SELECT list column, this is the info needed to enable
   // access in the WHERE clause, or other SELECT list columns.
-  // REQUIRES: If the value is set, IsColumn() must be true.
+  // REQUIRES: If set, IsColumn() must be true.
+  // REQUIRES: Mutually exclusive with `logging_target_info_`.
   std::optional<DelayedColumnInfo> delayed_column_info_;
+
+  // If set, contains the callback to invoke and the actual fallback namescope
+  // for this transparent detector target.
+  // REQUIRES: If set, IsColumn() must be true.
+  // REQUIRES: Mutually exclusive with `delayed_column_info_`.
+  std::optional<LoggingTargetInfo> logging_target_info_;
   // Copyable.
 };
 
@@ -1182,6 +1223,8 @@ class NameList {
   // Such a column gets allocated upon the first reference.
   absl::Status AddDelayedColumn(IdString name, bool is_explicit,
                                 DelayedColumnInfo delayed_column_info);
+  absl::Status AddLoggingTarget(IdString name, bool is_explicit,
+                                LoggingTargetInfo logging_target_info);
 
   // Add a column that stores the value produced by a value table scan,
   // and also a range variable that can be used to reference rows from the scan.

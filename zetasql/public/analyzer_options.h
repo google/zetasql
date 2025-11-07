@@ -868,6 +868,13 @@ class AnalyzerOptions {
     data_->constant_evaluator = constant_evaluator;
   }
 
+  bool log_impact_of_lateral_column_references() const {
+    return data_->log_impact_of_lateral_column_references;
+  }
+  void set_log_impact_of_lateral_column_references(bool value) {
+    data_->log_impact_of_lateral_column_references = value;
+  }
+
  private:
   // Defined in zetasql/common/internal_analyzer_options.h.
   friend class InternalAnalyzerOptions;
@@ -1105,6 +1112,11 @@ class AnalyzerOptions {
     // Constant evaluator to use for SQLConstant evaluation.
     // If nullptr, do not evaluate SQLConstant at analysis time.
     ConstantEvaluator* constant_evaluator = nullptr;
+
+    // If set, will generate a log entry when a name lookup would be affected
+    // if FEATURE_LATERAL_COLUMN_REFERENCES were to be enabled.
+    // Takes effect only if FEATURE_LATERAL_COLUMN_REFERENCES is disabled.
+    bool log_impact_of_lateral_column_references = false;
   };
   std::unique_ptr<Data> data_;
 

@@ -389,6 +389,30 @@ bool ValidFieldInfoMap::FindLongestMatchingPathIfAny(
   return found;
 }
 
+static absl::Status LogNameHitAndFallbackToActualNameScope(
+    const PathExpressionSpan& path_expr, const char* clause_name,
+    const char* problem_string, bool in_strict_mode,
+    CorrelatedColumnsSetList& correlated_columns_sets, int* num_names_consumed,
+    const NameTarget& target,
+    std::optional<IdString>& out_referenced_pattern_variable,
+    const std::vector<ExprResolutionInfo*>*&
+        out_lateral_column_reference_observers,
+    NameTarget* target_out) {
+  // We added this target only to trigger logging for this name hit.
+  // We do not actually invoke the compute callback.
+  ZETASQL_RET_CHECK(target.logging_target_info()->fallback_name_scope != nullptr);
+  ZETASQL_RETURN_IF_ERROR(
+      target.logging_target_info()->fallback_name_scope->LookupNamePath(
+          path_expr, clause_name, problem_string, in_strict_mode,
+          correlated_columns_sets, num_names_consumed,
+          out_referenced_pattern_variable,
+          out_lateral_column_reference_observers, target_out));
+  ZETASQL_RET_CHECK(!target_out->delayed_column_info().has_value());
+  ZETASQL_RET_CHECK(!target_out->logging_target_info().has_value());
+  return target.logging_target_info()->logging_callback(
+      path_expr.first_name(), /*original_target=*/*target_out);
+}
+
 const char* const NameScope::kDefaultProblemString =
     "neither grouped nor aggregated";
 
@@ -596,13 +620,30 @@ absl::Status NameScope::LookupNamePath(
         break;
       }
 
-      case NameTarget::AMBIGUOUS:
+      case NameTarget::AMBIGUOUS: {
+        const auto& logging_target_info = target.logging_target_info();
+        if (logging_target_info.has_value()) {
+          return LogNameHitAndFallbackToActualNameScope(
+              path_expr, clause_name, problem_string, in_strict_mode,
+              correlated_columns_sets, num_names_consumed, target,
+              out_referenced_pattern_variable,
+              out_lateral_column_reference_observers, target_out);
+        }
         return MakeSqlErrorAt(path_expr.first_name())
                << "Column name " << ToIdentifierLiteral(first_name)
                << " is ambiguous";
-
+      }
       case NameTarget::EXPLICIT_COLUMN:
       case NameTarget::IMPLICIT_COLUMN: {
+        // The first name is a column, so return the target.
+        const auto& logging_target_info = target.logging_target_info();
+        if (logging_target_info.has_value()) {
+          return LogNameHitAndFallbackToActualNameScope(
+              path_expr, clause_name, problem_string, in_strict_mode,
+              correlated_columns_sets, num_names_consumed, target,
+              out_referenced_pattern_variable,
+              out_lateral_column_reference_observers, target_out);
+        }
         *target_out = target;
         *num_names_consumed = 1;
         break;
@@ -782,8 +823,15 @@ bool NameScope::HasName(IdString name) const {
 
 std::string NameScope::SuggestName(IdString mistyped_name) const {
   std::vector<std::string> possible_names;
-  for (const auto& map_entry : names()) {
-    possible_names.push_back(map_entry.first.ToString());
+  for (const auto& [name, target] : names()) {
+    if (target.logging_target_info().has_value()) {
+      // This target is here only for logging purposes. It should not be seen as
+      // actually available.
+      ABSL_DCHECK(target.logging_target_info()->fallback_name_scope != nullptr);
+      ABSL_DCHECK(!target.delayed_column_info().has_value());
+      continue;
+    }
+    possible_names.push_back(name.ToString());
   }
   return ClosestName(mistyped_name.ToString(), possible_names);
 }
@@ -1573,6 +1621,23 @@ absl::Status NameList::AddDelayedColumn(IdString name, bool is_explicit,
   };
   name_scope_.AddNameTarget(
       name, NameTarget(is_explicit, std::move(delayed_column_info)));
+  return absl::OkStatus();
+}
+
+absl::Status NameList::AddLoggingTarget(IdString name, bool is_explicit,
+                                        LoggingTargetInfo logging_target_info) {
+  ZETASQL_RET_CHECK(!IsInternalAlias(name));
+  ZETASQL_RET_CHECK(!is_value_table()) << "Cannot add more columns to a value table";
+  // Assign an invalid ID while this column is uninitialized.
+  size_t index = columns_.size();
+  columns_.emplace_back(name, ResolvedColumn(), is_explicit);
+
+  ZETASQL_RET_CHECK(!columns_[index].column().IsInitialized())
+      << "Column " << name.ToStringView()
+      << " already initialized: " << columns_[index].column().DebugString();
+
+  name_scope_.AddNameTarget(
+      name, NameTarget(is_explicit, std::move(logging_target_info)));
   return absl::OkStatus();
 }
 

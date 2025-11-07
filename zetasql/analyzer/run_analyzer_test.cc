@@ -617,6 +617,9 @@ class AnalyzerTestRunner {
     TypeFactory& type_factory = *type_factory_memory;
     AnalyzerOptions options;
 
+    options.set_log_impact_of_lateral_column_references(
+        test_case_options_.GetBool(kLogImpactOfLateralColumnReferences));
+
     options.set_fields_accessed_mode(
         AnalyzerOptions::FieldsAccessedMode::CLEAR_FIELDS);
 

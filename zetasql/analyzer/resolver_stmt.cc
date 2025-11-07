@@ -367,6 +367,7 @@ absl::Status Resolver::ResolveStatement(
       case AST_CREATE_CONSTANT_STATEMENT:
       case AST_CREATE_FUNCTION_STATEMENT:
       case AST_CREATE_TABLE_FUNCTION_STATEMENT:
+      case AST_CREATE_PROCEDURE_STATEMENT:
       case AST_CREATE_VIEW_STATEMENT:
       case AST_IMPORT_STATEMENT:
       case AST_MODULE_STATEMENT:
@@ -5657,6 +5658,12 @@ absl::Status Resolver::UnsupportedArgumentError(
 absl::Status Resolver::ResolveCreateProcedureStatement(
     const ASTCreateProcedureStatement* ast_statement,
     std::unique_ptr<ResolvedStatement>* output) {
+  if (analyzer_options().statement_context() == CONTEXT_MODULE &&
+      !language().LanguageFeatureEnabled(FEATURE_PROCEDURES_IN_MODULES)) {
+    return MakeSqlErrorAt(ast_statement)
+           << "CREATE PROCEDURE statement is not supported inside modules";
+  }
+
   ResolvedCreateStatement::CreateScope create_scope;
   ResolvedCreateStatement::CreateMode create_mode;
   ZETASQL_RETURN_IF_ERROR(ResolveCreateStatementOptions(
@@ -5684,6 +5691,10 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
       return MakeSqlErrorAt(ast_statement)
              << "EXTERNAL SECURITY clause is not supported";
     }
+    if (analyzer_options().statement_context() == CONTEXT_MODULE) {
+      return MakeSqlErrorAt(ast_statement)
+             << "EXTERNAL SECURITY clause is not supported inside modules";
+    }
   }
 
   std::unique_ptr<const ResolvedConnection> resolved_connection;
@@ -5692,10 +5703,42 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
       return MakeSqlErrorAt(ast_statement)
              << "WITH CONNECTION clause is not supported";
     }
+    if (analyzer_options().statement_context() == CONTEXT_MODULE) {
+      return MakeSqlErrorAt(ast_statement)
+             << "WITH CONNECTION clause is not supported inside modules";
+    }
     ZETASQL_RETURN_IF_ERROR(ResolveConnection(ast_statement->with_connection_clause()
                                           ->connection_clause()
                                           ->connection_path(),
                                       &resolved_connection));
+  }
+
+  // The udf_server_address option is not allowed.
+  // If allowed_references is provided then the value must be "GLOBAL".
+  if (analyzer_options().statement_context() == CONTEXT_MODULE &&
+      ast_statement->options_list() != nullptr) {
+    for (const ASTOptionsEntry* option :
+         ast_statement->options_list()->options_entries()) {
+      if (zetasql_base::CaseEqual(option->name()->GetAsString(),
+                                 "allowed_references")) {
+        // Only GLOBAL is supported
+        if (option->value() == nullptr ||
+            option->value()->GetAsOrNull<ASTStringLiteral>() == nullptr ||
+            !zetasql_base::CaseEqual(option->value()
+                                        ->GetAsOrNull<ASTStringLiteral>()
+                                        ->string_value(),
+                                    "GLOBAL")) {
+          return MakeSqlErrorAt(option)
+                 << "The allowed_references option can only be the literal "
+                    "string 'GLOBAL'";
+        }
+      } else if (zetasql_base::CaseEqual(option->name()->GetAsString(),
+                                        "udf_server_address")) {
+        return MakeSqlErrorAt(ast_statement)
+               << "The udf_server_address option is not supported for "
+                  "procedures in modules";
+      }
+    }
   }
 
   std::vector<std::unique_ptr<const ResolvedOption>> resolved_options;
@@ -5755,6 +5798,13 @@ absl::Status Resolver::ResolveCreateProcedureStatement(
       return MakeSqlErrorAt(ast_statement->language())
              << "To write SQL procedure, write the function body using 'BEGIN "
                 "... END'";
+    }
+    if (analyzer_options().statement_context() == CONTEXT_MODULE &&
+        !zetasql_base::CaseEqual(language_string, "REMOTE")) {
+      return MakeSqlErrorAt(ast_statement->language()) << absl::Substitute(
+                 "Invalid LANGUAGE: $0. Only LANGUAGE REMOTE is supported for "
+                 "procedures inside modules",
+                 language_string);
     }
     if (ast_statement->code() != nullptr) {
       code_string = ast_statement->code()->string_value();

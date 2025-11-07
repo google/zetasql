@@ -463,6 +463,75 @@ FROM (
   SELECT 1 as x, [2] AS y
 ) t
 --
+ALTERNATION GROUP: t.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#10 AS `$col1` [STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#10]
+    +-expr_list=
+    | +-$col1#10 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT64, column=t.x#1)
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#9]
+    |         +-expr_list=
+    |         | +-$struct#9 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$expr_subquery.t#7)
+    |         |       +-ColumnRef(type=INT64, column=$expr_subquery.x#8)
+    |         |       +-ColumnRef(type=INT64, column=$aggregate.$agg1#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.t#7, $expr_subquery.x#8, $aggregate.$agg1#5]
+    |             +-expr_list=
+    |             | +-t#7 :=
+    |             | | +-MakeStruct
+    |             | |   +-type=STRUCT<x INT64, y ARRAY<INT64>>
+    |             | |   +-field_list=
+    |             | |     +-ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
+    |             | +-x#8 := ColumnRef(type=INT64, column=t.x#1, is_correlated=TRUE)
+    |             +-input_scan=
+    |               +-AggregateScan
+    |                 +-column_list=[$aggregate.$agg1#5]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.y#3]
+    |                 |   +-array_expr_list=
+    |                 |   | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
+    |                 |   +-element_column_list=[$array.y#3]
+    |                 +-aggregate_list=
+    |                   +-$agg1#5 :=
+    |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                       +-ColumnRef(type=INT64, column=$array.y#3)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=t.[x#1, y#2]
+        +-expr_list=
+        | +-x#1 := Literal(type=INT64, value=1)
+        | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
+        +-input_scan=
+          +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: INT64 (t.x#1) [at 2:23]
+  SELECT as struct t, t.x, SUM(y) FROM t.y
+                      ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUP: <empty>
+--
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#10 AS `$col1` [STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>]
@@ -635,6 +704,13 @@ QueryStmt
         | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
         +-input_scan=
           +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<f1a INT32, f1b STRUCT<f2a BOOL, f2b STRUCT<f3a STRING>>> (t.x#1) [at 2:24]
+  SELECT AS STRUCT x , x.f1a, x.f1b.f2a, x.f1b.f2b.f3a, SUM(y)
+                       ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 --
 ALTERNATION GROUP: GROUP BY x.f1a, x.f1b.f2a, x.f1b.f2b.f3a
 --
@@ -1434,6 +1510,88 @@ FROM (
   SELECT as struct 1 as x, [2] AS y
 ) t
 --
+ALTERNATION GROUP: t.
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#9 AS `$col1` [STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#9]
+    +-expr_list=
+    | +-$col1#9 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#8]
+    |         +-expr_list=
+    |         | +-$struct#8 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$expr_subquery.t#6)
+    |         |       +-ColumnRef(type=INT64, column=$expr_subquery.x#7)
+    |         |       +-ColumnRef(type=INT64, column=$aggregate.$agg1#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.t#6, $expr_subquery.x#7, $aggregate.$agg1#5]
+    |             +-expr_list=
+    |             | +-t#6 := ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
+    |             | +-x#7 :=
+    |             |   +-GetStructField
+    |             |     +-type=INT64
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
+    |             |     +-field_idx=0
+    |             +-input_scan=
+    |               +-AggregateScan
+    |                 +-column_list=[$aggregate.$agg1#5]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-column_list=[$array.y#4]
+    |                 |   +-array_expr_list=
+    |                 |   | +-GetStructField
+    |                 |   |   +-type=ARRAY<INT64>
+    |                 |   |   +-expr=
+    |                 |   |   | +-ColumnRef(type=STRUCT<x INT64, y ARRAY<INT64>>, column=$make_struct.$struct#3, is_correlated=TRUE)
+    |                 |   |   +-field_idx=1
+    |                 |   +-element_column_list=[$array.y#4]
+    |                 +-aggregate_list=
+    |                   +-$agg1#5 :=
+    |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                       +-ColumnRef(type=INT64, column=$array.y#4)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$make_struct.$struct#3]
+        +-expr_list=
+        | +-$struct#3 :=
+        |   +-MakeStruct
+        |     +-type=STRUCT<x INT64, y ARRAY<INT64>>
+        |     +-field_list=
+        |       +-ColumnRef(type=INT64, column=t.x#1)
+        |       +-ColumnRef(type=ARRAY<INT64>, column=t.y#2)
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=t.[x#1, y#2]
+            +-expr_list=
+            | +-x#1 := Literal(type=INT64, value=1)
+            | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
+            +-input_scan=
+              +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: RANGE_VARIABLE<$value> [at 2:23]
+  SELECT as struct t, t.x, SUM(y) FROM t.y
+                      ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUP: <empty>
+--
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#9 AS `$col1` [STRUCT<t STRUCT<x INT64, y ARRAY<INT64>>, x INT64, INT64>]
@@ -1606,6 +1764,13 @@ QueryStmt
         | +-y#5 := Literal(type=ARRAY<INT64>, value=[2])
         +-input_scan=
           +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<a INT64, b STRING> (t.x#4) [at 2:23]
+  SELECT as struct x, x.a, SUM(y) FROM t.y GROUP BY x
+                      ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # More deeply nested struct path expression.
@@ -1737,6 +1902,13 @@ QueryStmt
             | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
             +-input_scan=
               +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: FIELD_OF<$make_struct.$struct#3> (id: 0) [at 2:24]
+  SELECT AS STRUCT x , x.f1a, x.f1b.f2a, x.f1b.f2b.f3a, SUM(y)
+                       ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 --
 ALTERNATION GROUP: GROUP BY x.f1a, x.f1b.f2a, x.f1b.f2b.f3a
 --
@@ -2099,6 +2271,13 @@ QueryStmt
     |                       +-ColumnRef(type=INT64, column=$array.y#2)
     +-input_scan=
       +-TableScan(column_list=[KitchenSinkValueTable.value#1], table=KitchenSinkValueTable, column_index_list=[0], alias="t")
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: RANGE_VARIABLE<$value> [at 3:20]
+                   t.nested_value,
+                   ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # Tests with correlated PROTO references start here.
@@ -2401,6 +2580,10 @@ SELECT (
 )
 FROM ComplexTypes ct
 --
+ALTERNATION GROUPS:
+    ct.,ct.
+    ct.,
+--
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#15 AS `$col1` [STRUCT<ct STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, int32_val INT32, INT64>]
@@ -2472,6 +2655,96 @@ QueryStmt
     |                         +-default_value=0
     +-input_scan=
       +-TableScan(column_list=ComplexTypes.[key#1, TestEnum#2, KitchenSink#3, Int32Array#4, TestStruct#5, TestProto#6], table=ComplexTypes, column_index_list=[0, 1, 2, 3, 4, 5], alias="ct")
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: zetasql_test__.KitchenSinkPB (ComplexTypes.KitchenSink#3) (implicit) [at 2:24]
+  SELECT as struct ct, ct.KitchenSink, ct.KitchenSink.int32_val,
+                       ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUPS:
+    ct.
+    <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#15 AS `$col1` [STRUCT<ct STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, int32_val INT32, INT64>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#15]
+    +-expr_list=
+    | +-$col1#15 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<ct STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, int32_val INT32, INT64>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=INT32, column=ComplexTypes.key#1)
+    |     | +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#2)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3)
+    |     | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4)
+    |     | +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5)
+    |     | +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#14]
+    |         +-expr_list=
+    |         | +-$struct#14 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<ct STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, int32_val INT32, INT64>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>, column=$expr_subquery.ct#11)
+    |         |       +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=$expr_subquery.KitchenSink#12)
+    |         |       +-ColumnRef(type=INT32, column=$expr_subquery.int32_val#13)
+    |         |       +-ColumnRef(type=INT64, column=$aggregate.$agg1#9)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=[$expr_subquery.ct#11, $expr_subquery.KitchenSink#12, $expr_subquery.int32_val#13, $aggregate.$agg1#9]
+    |             +-expr_list=
+    |             | +-ct#11 :=
+    |             | | +-MakeStruct
+    |             | |   +-type=STRUCT<key INT32, TestEnum ENUM<zetasql_test__.TestEnum>, KitchenSink PROTO<zetasql_test__.KitchenSinkPB>, Int32Array ARRAY<INT32>, TestStruct STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, TestProto PROTO<zetasql_test__.TestExtraPB>>
+    |             | |   +-field_list=
+    |             | |     +-ColumnRef(type=INT32, column=ComplexTypes.key#1, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=ENUM<zetasql_test__.TestEnum>, column=ComplexTypes.TestEnum#2, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=STRUCT<c INT32, d STRUCT<a INT32, b STRING>>, column=ComplexTypes.TestStruct#5, is_correlated=TRUE)
+    |             | |     +-ColumnRef(type=PROTO<zetasql_test__.TestExtraPB>, column=ComplexTypes.TestProto#6, is_correlated=TRUE)
+    |             | +-KitchenSink#12 := ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3, is_correlated=TRUE)
+    |             | +-int32_val#13 :=
+    |             |   +-GetProtoField
+    |             |     +-type=INT32
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3, is_correlated=TRUE)
+    |             |     +-field_descriptor=int32_val
+    |             |     +-default_value=77
+    |             +-input_scan=
+    |               +-AggregateScan
+    |                 +-column_list=[$aggregate.$agg1#9]
+    |                 +-input_scan=
+    |                 | +-ArrayScan
+    |                 |   +-array_expr_list=
+    |                 |   | +-ColumnRef(type=ARRAY<INT32>, column=ComplexTypes.Int32Array#4, is_correlated=TRUE)
+    |                 |   +-element_column_list=[$array.Int32Array#7]
+    |                 +-aggregate_list=
+    |                   +-$agg1#9 :=
+    |                     +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+    |                       +-GetProtoField
+    |                         +-type=INT64
+    |                         +-expr=
+    |                         | +-ColumnRef(type=PROTO<zetasql_test__.KitchenSinkPB>, column=ComplexTypes.KitchenSink#3, is_correlated=TRUE)
+    |                         +-field_descriptor=int64_val
+    |                         +-default_value=0
+    +-input_scan=
+      +-TableScan(column_list=ComplexTypes.[key#1, TestEnum#2, KitchenSink#3, Int32Array#4, TestStruct#5, TestProto#6], table=ComplexTypes, column_index_list=[0, 1, 2, 3, 4, 5], alias="ct")
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: zetasql_test__.KitchenSinkPB (ComplexTypes.KitchenSink#3) (implicit) [at 2:24]
+  SELECT as struct ct, ct.KitchenSink, KitchenSink.int32_val,
+                       ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # More deeply nested proto path expression, with and without GROUP BY.
@@ -2565,6 +2838,13 @@ QueryStmt
     |                         +-ColumnRef(type=INT32, column=$array.y#7)
     +-input_scan=
       +-TableScan(column_list=ComplexTypes.[KitchenSink#3, Int32Array#4], table=ComplexTypes, column_index_list=[2, 3], alias="ct")
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: zetasql_test__.KitchenSinkPB (ComplexTypes.KitchenSink#3) (implicit) [at 3:20]
+                   KitchenSink.nested_value,
+                   ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 --
 ALTERNATION GROUP: GROUP BY KitchenSink.nested_value.nested_int64
 --

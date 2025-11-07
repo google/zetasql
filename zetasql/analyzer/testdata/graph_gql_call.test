@@ -4317,7 +4317,7 @@ ALTERNATION GROUP: LET first_statement = false,OPTIONAL
 --
 ERROR: No matching signature for tvf_graph with no arguments
   Signature: TVF_GRAPH(GRAPH)
-    Signature requires at least 1 argument, found 0 arguments [at 4:19]
+    Signature requires at least 1 argument, found 0 arguments; CALL is not the first statement in the graph query so tvf_graph cannot access the implicit graph argument [at 4:19]
     OPTIONAL CALL tvf_graph()
                   ^
 --
@@ -4325,7 +4325,7 @@ ALTERNATION GROUP: LET first_statement = false,
 --
 ERROR: No matching signature for tvf_graph with no arguments
   Signature: TVF_GRAPH(GRAPH)
-    Signature requires at least 1 argument, found 0 arguments [at 4:11]
+    Signature requires at least 1 argument, found 0 arguments; CALL is not the first statement in the graph query so tvf_graph cannot access the implicit graph argument [at 4:11]
      CALL tvf_graph()
           ^
 
@@ -4407,7 +4407,7 @@ ALTERNATION GROUP: OPTIONAL
 --
 ERROR: No matching signature for tvf_graph with no arguments
   Signature: TVF_GRAPH(GRAPH)
-    Signature requires at least 1 argument, found 0 arguments [at 6:19]
+    Signature requires at least 1 argument, found 0 arguments; CALL is not the first statement in the graph query so tvf_graph cannot access the implicit graph argument [at 6:19]
     OPTIONAL CALL tvf_graph()
                   ^
 --
@@ -4415,7 +4415,7 @@ ALTERNATION GROUP: <empty>
 --
 ERROR: No matching signature for tvf_graph with no arguments
   Signature: TVF_GRAPH(GRAPH)
-    Signature requires at least 1 argument, found 0 arguments [at 6:11]
+    Signature requires at least 1 argument, found 0 arguments; CALL is not the first statement in the graph query so tvf_graph cannot access the implicit graph argument [at 6:11]
      CALL tvf_graph()
           ^
 
@@ -5256,7 +5256,7 @@ ALTERNATION GROUPS:
 --
 ERROR: No matching signature for tvf_graph with no arguments
   Signature: TVF_GRAPH(GRAPH)
-    Signature requires at least 1 argument, found 0 arguments [at 5:8]
+    Signature requires at least 1 argument, found 0 arguments; CALL is not the first statement in the graph query so tvf_graph cannot access the implicit graph argument [at 5:8]
   call tvf_graph()
        ^
 ==

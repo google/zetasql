@@ -6896,8 +6896,7 @@ absl::Status Resolver::AddSelectColumnAliasToScopeForLateralReferences(
     SelectColumnState* select_column_state,
     std::shared_ptr<NameList>& updated_name_list,
     std::unique_ptr<NameScope>& updated_name_scope) {
-  if (!language().LanguageFeatureEnabled(FEATURE_LATERAL_COLUMN_REFERENCES) ||
-      !SelectFormAllowsLateralColumnReferences(select_form)) {
+  if (!SelectFormAllowsLateralColumnReferences(select_form)) {
     return absl::OkStatus();
   }
 
@@ -6911,7 +6910,7 @@ absl::Status Resolver::AddSelectColumnAliasToScopeForLateralReferences(
     return absl::OkStatus();
   }
 
-  auto precompute_callback =
+  ColumnReferenceCallback precompute_callback =
       [this, select_column_state, query_alias](
           ColumnReferenceContext context) -> absl::StatusOr<ResolvedColumn> {
     // Update the state tracking of pre- and post-grouping status when the
@@ -6953,12 +6952,32 @@ absl::Status Resolver::AddSelectColumnAliasToScopeForLateralReferences(
     return precomputed_resolved_column;
   };
 
-  ZETASQL_RETURN_IF_ERROR(updated_name_list->AddDelayedColumn(
-      select_column_alias,
-      /*is_explicit=*/select_column_state->ast_select_column->alias() !=
-          nullptr,
-      DelayedColumnInfo{.precompute_callback = std::move(precompute_callback),
-                        .select_column_state = select_column_state}));
+  if (language().LanguageFeatureEnabled(FEATURE_LATERAL_COLUMN_REFERENCES)) {
+    ZETASQL_RETURN_IF_ERROR(updated_name_list->AddDelayedColumn(
+        select_column_alias,
+        /*is_explicit=*/select_column_state->ast_select_column->alias() !=
+            nullptr,
+        DelayedColumnInfo{.precompute_callback = std::move(precompute_callback),
+                          .select_column_state = select_column_state}));
+  } else if (analyzer_options_.log_impact_of_lateral_column_references()) {
+    LoggingCallback logging_callback =
+        [this](const ASTNode* location, const NameTarget& original_target) {
+          return AddDeprecationWarning(
+              location, DeprecationWarning::LATERAL_COLUMN_REFERENCE,
+              absl::StrCat("Lateral column alias will shadow original target: ",
+                           original_target.DebugString()));
+        };
+
+    ZETASQL_RETURN_IF_ERROR(updated_name_list->AddLoggingTarget(
+        select_column_alias,
+        /*is_explicit=*/select_column_state->ast_select_column->alias() !=
+            nullptr,
+        LoggingTargetInfo{
+            // Return the usual target which we would have normally return.
+            .fallback_name_scope = from_scan_scope,
+            .logging_callback = logging_callback}));
+  }
+
   updated_name_scope = std::make_unique<NameScope>(
       from_scan_scope->previous_scope(), updated_name_list);
   return absl::OkStatus();

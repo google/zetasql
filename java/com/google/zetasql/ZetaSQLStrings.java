@@ -29,8 +29,9 @@ public class ZetaSQLStrings {
   private static final Charset UTF_8 = StandardCharsets.UTF_8;
 
   /**
-   * Convert a string to a ZetaSQL identifier literal.
-   * The output will be quoted (with backticks) and escaped if necessary.
+   * Convert a string to a ZetaSQL identifier literal. The output will be quoted (with backticks)
+   * and escaped if necessary.
+   *
    * @param str String to be converted to identifier.
    * @return Legal ZetaSQL identifier converted from the string.
    */
@@ -39,9 +40,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this byte array.
-   * Prefixes with b and may choose to quote with ' or " to produce nicer
-   * output.
+   * Return a quoted and escaped ZetaSQL bytes literal for this byte array. Prefixes with b and
+   * may choose to quote with ' or " to produce nicer output.
    *
    * @param bytes Binary bytes to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -51,9 +51,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this string.
-   * Prefixes with b and may choose to quote with ' or " to produce nicer
-   * output.
+   * Return a quoted and escaped ZetaSQL bytes literal for this string. Prefixes with b and may
+   * choose to quote with ' or " to produce nicer output.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -63,8 +62,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this byte array.
-   * Prefixes with b and always uses single quotes.
+   * Return a quoted and escaped ZetaSQL bytes literal for this byte array. Prefixes with b and
+   * always uses single quotes.
    *
    * @param bytes Binary bytes to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -74,8 +73,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this string.
-   * Prefixes with b and always uses single quotes.
+   * Return a quoted and escaped ZetaSQL bytes literal for this string. Prefixes with b and always
+   * uses single quotes.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -85,8 +84,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this byte array.
-   * Prefixes with b and always uses double quotes.
+   * Return a quoted and escaped ZetaSQL bytes literal for this byte array. Prefixes with b and
+   * always uses double quotes.
    *
    * @param bytes Binary bytes to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -96,8 +95,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL bytes literal for this string.
-   * Prefixes with b and always uses double quotes.
+   * Return a quoted and escaped ZetaSQL bytes literal for this string. Prefixes with b and always
+   * uses double quotes.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL bytes literal.
@@ -107,8 +106,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL string literal for this string.
-   * May choose to quote with ' or " to produce nicer output.
+   * Return a quoted and escaped ZetaSQL string literal for this string. May choose to quote with
+   * ' or " to produce nicer output.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL string literal.
@@ -118,8 +117,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL string literal for this string.
-   * Always uses single quotes.
+   * Return a quoted and escaped ZetaSQL string literal for this string. Always uses single
+   * quotes.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL string literal.
@@ -129,8 +128,8 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return a quoted and escaped ZetaSQL string literal for this string.
-   * Always uses double quotes.
+   * Return a quoted and escaped ZetaSQL string literal for this string. Always uses double
+   * quotes.
    *
    * @param str String to escape
    * @return Quoted and escaped ZetaSQL string literal.
@@ -156,13 +155,12 @@ public class ZetaSQLStrings {
   }
 
   /**
-   * Return an unescaped ZetaSQL identifier for this string.
-   * Return {@code null} if the string is not a valid ZetaSQL identifier.
+   * Return an unescaped ZetaSQL identifier for this string. Return {@code null} if the string is
+   * not a valid ZetaSQL identifier.
    *
-   * Examples:
-   * {@code unescapeIdentifier("foo")} is {@code "foo"}.
-   * {@code unescapeIdentifier("`foo.bar`")} is {@code "foo.bar"}.
-   * {@code unescapeIdentifier("3foo")} is {@code null}.
+   * <p>Examples: {@code unescapeIdentifier("foo")} is {@code "foo"}. {@code
+   * unescapeIdentifier("`foo.bar`")} is {@code "foo.bar"}. {@code unescapeIdentifier("3foo")} is
+   * {@code null}.
    *
    * @param str ZetaSQL identifier to unescape
    * @return Unescaped ZetaSQL identifier or {@code null}.

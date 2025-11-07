@@ -1365,6 +1365,13 @@ SubqueryExpr
         | +-TestConstantInt64#3 := Constant(TestConstantInt64, parse_location=68-85, type=INT64, value=1)
         +-input_scan=
           +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: ambiguous [at 1:39]
+(SELECT AS STRUCT column_KitchenSink, column_KitchenSink.float_val, TestConst...
+                                      ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 # The standalone expression resolves a name to a named constant.

@@ -76,6 +76,9 @@ message DeprecationWarning {
     // There were conflicting places where function options would be placed in
     // different sorts of function CREATE statements. Some were deprecated.
     LEGACY_FUNCTION_OPTIONS_PLACEMENT = 10;
+
+    // Indicates that the query resolves a name to a lateral column alias.
+    LATERAL_COLUMN_REFERENCE = 12;
   }
 
   optional Kind kind = 1;

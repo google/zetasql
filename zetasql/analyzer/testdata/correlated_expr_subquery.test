@@ -2294,6 +2294,10 @@ FROM (
   SELECT struct<z1 int32, z2 string>(1, "a") as x, [2] AS y
 ) t
 --
+ALTERNATION GROUPS:
+    t.,t.
+    t.
+--
 QueryStmt
 +-output_column_list=
 | +-$query.$col1#7 AS `$col1` [STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>]
@@ -2342,6 +2346,122 @@ QueryStmt
         | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
         +-input_scan=
           +-SingleRowScan
+--
+ALTERNATION GROUP: t.,
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#7 AS `$col1` [STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#7]
+    +-expr_list=
+    | +-$col1#7 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1)
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#6]
+    |         +-expr_list=
+    |         | +-$struct#6 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=$expr_subquery.x#4)
+    |         |       +-ColumnRef(type=STRING, column=$expr_subquery.z2#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[x#4, z2#5]
+    |             +-expr_list=
+    |             | +-x#4 := ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1, is_correlated=TRUE)
+    |             | +-z2#5 :=
+    |             |   +-GetStructField
+    |             |     +-type=STRING
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1, is_correlated=TRUE)
+    |             |     +-field_idx=1
+    |             +-input_scan=
+    |               +-ArrayScan
+    |                 +-array_expr_list=
+    |                 | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
+    |                 +-element_column_list=[$array.y#3]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=t.[x#1, y#2]
+        +-expr_list=
+        | +-x#1 := Literal(type=STRUCT<z1 INT32, z2 STRING>, value={z1:1, z2:"a"}, has_explicit_type=TRUE)
+        | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
+        +-input_scan=
+          +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<z1 INT32, z2 STRING> (t.x#1) [at 2:25]
+  SELECT AS STRUCT t.x, x.z2
+                        ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
+--
+ALTERNATION GROUP: <empty>
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#7 AS `$col1` [STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#7]
+    +-expr_list=
+    | +-$col1#7 :=
+    |   +-SubqueryExpr
+    |     +-type=STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>
+    |     +-subquery_type=SCALAR
+    |     +-parameter_list=
+    |     | +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1)
+    |     | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2)
+    |     +-subquery=
+    |       +-ProjectScan
+    |         +-column_list=[$make_struct.$struct#6]
+    |         +-expr_list=
+    |         | +-$struct#6 :=
+    |         |   +-MakeStruct
+    |         |     +-type=STRUCT<x STRUCT<z1 INT32, z2 STRING>, z2 STRING>
+    |         |     +-field_list=
+    |         |       +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=$expr_subquery.x#4)
+    |         |       +-ColumnRef(type=STRING, column=$expr_subquery.z2#5)
+    |         +-input_scan=
+    |           +-ProjectScan
+    |             +-column_list=$expr_subquery.[x#4, z2#5]
+    |             +-expr_list=
+    |             | +-x#4 := ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1, is_correlated=TRUE)
+    |             | +-z2#5 :=
+    |             |   +-GetStructField
+    |             |     +-type=STRING
+    |             |     +-expr=
+    |             |     | +-ColumnRef(type=STRUCT<z1 INT32, z2 STRING>, column=t.x#1, is_correlated=TRUE)
+    |             |     +-field_idx=1
+    |             +-input_scan=
+    |               +-ArrayScan
+    |                 +-array_expr_list=
+    |                 | +-ColumnRef(type=ARRAY<INT64>, column=t.y#2, is_correlated=TRUE)
+    |                 +-element_column_list=[$array.y#3]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=t.[x#1, y#2]
+        +-expr_list=
+        | +-x#1 := Literal(type=STRUCT<z1 INT32, z2 STRING>, value={z1:1, z2:"a"}, has_explicit_type=TRUE)
+        | +-y#2 := Literal(type=ARRAY<INT64>, value=[2])
+        +-input_scan=
+          +-SingleRowScan
+
+
+DEPRECATION WARNING:
+Lateral column alias will shadow original target: STRUCT<z1 INT32, z2 STRING> (t.x#1) [at 2:23]
+  SELECT AS STRUCT x, x.z2
+                      ^
+[zetasql.DeprecationWarning] { kind: LATERAL_COLUMN_REFERENCE }
 ==
 
 SELECT (

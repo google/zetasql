@@ -18,6 +18,7 @@
 package com.google.zetasql;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 
 import org.junit.Test;

@@ -347,8 +347,10 @@ class Value::GraphPathValue final
     : public zetasql_base::refcount::CompactReferenceCounted<Value::GraphPathValue>,
       public internal::ValueContentOrderedList {
  public:
-  explicit GraphPathValue(std::vector<Value> graph_elements)
-      : graph_elements_(std::move(graph_elements)) {}
+  explicit GraphPathValue(std::vector<Value> graph_elements
+                          )
+      : graph_elements_(std::move(graph_elements))
+  {}
 
   GraphPathValue(const GraphPathValue&) = delete;
   GraphPathValue& operator=(const GraphPathValue&) = delete;
@@ -378,7 +380,8 @@ class Value::GraphPathValue final
   }
 
   uint64_t physical_byte_size() const override {
-    return sizeof(GraphPathValue) + graph_elements_.physical_byte_size();
+    return sizeof(GraphPathValue) +
+           graph_elements_.physical_byte_size();
   }
 
  private:
