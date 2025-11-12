@@ -56,7 +56,7 @@ TEST(ExecuteQueryStreamWriterTest, ResolvedSelect) {
                              &analyzer_output));
   std::ostringstream output;
   ZETASQL_EXPECT_OK(ExecuteQueryStreamWriter{output}.resolved(
-      *analyzer_output->resolved_statement()));
+      *analyzer_output->resolved_statement(), /*post_rewrite=*/false));
   EXPECT_EQ(output.str(), R"(QueryStmt
 +-output_column_list=
 | +-$query.$col1#1 AS `$col1` [INT64]

@@ -1718,7 +1718,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_deprecation_warning()
               ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -1748,7 +1748,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_two_deprecation_warnings_same_kind()
               ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -1778,7 +1778,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -1787,7 +1787,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 1:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 1:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -1845,7 +1845,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_deprecation_warning()
               ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -1854,7 +1854,7 @@ some caret string for foo_11
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:15]
 select * from tvf_two_deprecation_warnings_same_kind()
               ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -1863,7 +1863,7 @@ some caret string for foo_12
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -1872,7 +1872,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 5:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 5:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -1954,7 +1954,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_deprecation_warning()
               ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -1963,7 +1963,7 @@ some caret string for foo_11
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:15]
 select * from tvf_two_deprecation_warnings_same_kind()
               ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -1972,7 +1972,7 @@ some caret string for foo_12
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 9:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 9:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -1981,7 +1981,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 9:15]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 9:15]
 select * from tvf_two_deprecation_warnings()
               ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -2079,7 +2079,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:35]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:35]
 select deprecation_warning() from tvf_deprecation_warning()
                                   ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -2097,7 +2097,7 @@ some caret string for foo_1
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 6:6]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 6:6]
 from tvf_two_deprecation_warnings_same_kind()
      ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -2115,7 +2115,7 @@ some caret string for foo_2
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 11:40]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 11:40]
 select two_deprecation_warnings() from tvf_two_deprecation_warnings()
                                        ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -2124,7 +2124,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 11:40]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 11:40]
 select two_deprecation_warnings() from tvf_two_deprecation_warnings()
                                        ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -2191,7 +2191,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_templated_calls_tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_TEMPLATED_CALLS_TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_templated_calls_tvf_deprecation_warning()
               ^
 Operation <foo1001> is deprecated [at module1001.sqlm:1011:1021]
@@ -2259,7 +2259,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_templated_calls_tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_TEMPLATED_CALLS_TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_templated_calls_tvf_deprecation_warning()
               ^
 Operation <foo1001> is deprecated [at module1001.sqlm:1011:1021]
@@ -2639,7 +2639,7 @@ select column_bytes from tvf_no_args(42)
 # Empty output schema using "select 1".
 select 1 from tvf_empty_output_schema()
 --
-ERROR: Table-valued functions must return at least one column, but TVF tvf_empty_output_schema returned no columns [at 1:15]
+ERROR: Table-valued functions must return at least one column, but TVF TVF_EMPTY_OUTPUT_SCHEMA returned no columns [at 1:15]
 select 1 from tvf_empty_output_schema()
               ^
 ==
@@ -2647,7 +2647,7 @@ select 1 from tvf_empty_output_schema()
 # Empty output schema using "select *".
 select * from tvf_empty_output_schema()
 --
-ERROR: Table-valued functions must return at least one column, but TVF tvf_empty_output_schema returned no columns [at 1:15]
+ERROR: Table-valued functions must return at least one column, but TVF TVF_EMPTY_OUTPUT_SCHEMA returned no columns [at 1:15]
 select * from tvf_empty_output_schema()
               ^
 ==
@@ -3421,7 +3421,6 @@ QueryStmt
 ==
 
 # Positional arguments with constraints - all constraints are satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3510,7 +3509,6 @@ QueryStmt
 # omitted arguments.
 # There is currently a bug (b/330392311) which leads to confusing error message
 # in this scenario.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints()) from SimpleTypes;
 --
@@ -3524,6 +3522,7 @@ ERROR: No matching signature for tvf_positional_scalar_args_with_constraints
 
 # Positional arguments with constraints - all constraints are satisfied with
 # minimal arguments.
+# TODO: b/459308331 - Fix analyzer debug string for untyped empty array in Java.
 [no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
@@ -3600,7 +3599,6 @@ QueryStmt
 ==
 
 # Positional arguments with constraints - must_be_non_null not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     NULL,  -- must_be_non_null
@@ -3615,14 +3613,13 @@ select (select column_bool from
     15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 1 to table-valued function tvf_positional_scalar_args_with_constraints must be non-NULL [at 3:5]
+ERROR: Argument 1 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 3:5]
     NULL,  -- must_be_non_null
     ^
 ==
 
 # Positional arguments with constraints - must_be_non_null not satisfied
 # (with CAST).
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     CAST(NULL AS int64),  -- must_be_non_null
@@ -3637,14 +3634,13 @@ select (select column_bool from
     15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 1 to table-valued function tvf_positional_scalar_args_with_constraints must be non-NULL [at 3:5]
+ERROR: Argument 1 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 3:5]
     CAST(NULL AS int64),  -- must_be_non_null
     ^
 ==
 
 # Positional arguments with constraints - must_be_non_null (with default) not
 # satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     11,  -- must_be_non_null
@@ -3659,14 +3655,13 @@ select (select column_bool from
     NULL  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 10 to table-valued function tvf_positional_scalar_args_with_constraints must be non-NULL [at 12:5]
+ERROR: Argument 10 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 12:5]
     NULL  -- must_be_non_null with default
     ^
 ==
 
 # Positional arguments with constraints - must_be_non_null (with omitted
 # default) satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     11,  -- must_be_non_null
@@ -3747,7 +3742,6 @@ QueryStmt
 ==
 
 # Positional arguments with constraints - must_be_constant is not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     int64,  -- must_be_non_null
@@ -3762,14 +3756,13 @@ select (select column_bool from
     double  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 2 to table-valued function tvf_positional_scalar_args_with_constraints must be a literal or query parameter [at 4:5]
+ERROR: Argument 2 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be a literal or query parameter [at 4:5]
     "a" || "b",  -- must_be_constant
     ^
 ==
 
 # Positional arguments with constraints - must_be_constant_expression is not
 # satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7 * 10,  -- must_be_non_null
@@ -3784,14 +3777,13 @@ select (select column_bool from
     @test_param_double  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 3 to table-valued function tvf_positional_scalar_args_with_constraints must be a constant expression [at 5:5]
+ERROR: Argument 3 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be a constant expression [at 5:5]
     COS(double), -- must_be_constant_expression
     ^
 ==
 
 # Positional arguments with constraints - must_support_equality is not
 # satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     @test_param_int64,  -- must_be_non_null
@@ -3806,14 +3798,13 @@ select (select column_bool from
     CAST(int32 AS double)  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 4 to table-valued function tvf_positional_scalar_args_with_constraints must support equality; Type STRUCT<JSON, INT64> does not [at 6:5]
+ERROR: Argument 4 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must support equality; Type STRUCT<JSON, INT64> does not [at 6:5]
     (json, 3),  -- must_support_equality
     ^
 ==
 
 # Positional arguments with constraints - must_support_ordering is not
 # satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     IF(1 + 1 > 1, NULL, 7), -- must_be_non_null, NULL expression
@@ -3828,14 +3819,13 @@ select (select column_bool from
     15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 5 to table-valued function tvf_positional_scalar_args_with_constraints must support ordering; Type ARRAY<INT32> does not [at 7:5]
+ERROR: Argument 5 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must support ordering; Type ARRAY<INT32> does not [at 7:5]
     [int32], -- must_support_ordering
     ^
 ==
 
 # Positional arguments with constraints - must_support_grouping is not
 # satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3850,14 +3840,13 @@ select (select column_bool from
     15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 6 to table-valued function tvf_positional_scalar_args_with_constraints must support grouping; Type ARRAY<INT32> does not [at 8:5]
+ERROR: Argument 6 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must support grouping; Type ARRAY<INT32> does not [at 8:5]
     [int32],  -- must_support_grouping
     ^
 ==
 
 # Positional arguments with constraints - array_element_must_support_equality is
 # not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3873,14 +3862,13 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_positional_scalar_args_with_constraints cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 2:3]
+ERROR: Table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 2:3]
   tvf_positional_scalar_args_with_constraints(
   ^
 ==
 
 # Positional arguments with constraints - array_element_must_support_ordering is
 # not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3896,14 +3884,13 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_positional_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<STRING, ARRAY<STRING>>> because the array's element type does not support ordering [at 2:3]
+ERROR: Table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<STRUCT<STRING, ARRAY<STRING>>> because the array's element type does not support ordering [at 2:3]
   tvf_positional_scalar_args_with_constraints(
   ^
 ==
 
 # Positional arguments with constraints - array_element_must_support_grouping is
 # not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3919,13 +3906,12 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_positional_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<DOUBLE, ARRAY<DOUBLE>>> because the array's element type does not support grouping [at 2:3]
+ERROR: Table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<STRUCT<DOUBLE, ARRAY<DOUBLE>>> because the array's element type does not support grouping [at 2:3]
   tvf_positional_scalar_args_with_constraints(
   ^
 ==
 
 # Positional arguments with constraints - min_value is not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     2,  -- min_value = 3
@@ -3934,13 +3920,12 @@ select (select column_bool from
     (int64, string)  -- must_support_equality
 )) from SimpleTypes;
 --
-ERROR: Argument 1 to table-valued function tvf_positional_scalar_args_with_constraints must be at least 3 [at 3:5]
+ERROR: Argument 1 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be at least 3 [at 3:5]
     2,  -- min_value = 3
     ^
 ==
 
 # Positional arguments with constraints - max_value is not satisfied.
-[no_java]
 select (select column_bool from
   tvf_positional_scalar_args_with_constraints(
     7,  -- must_be_non_null
@@ -3949,6 +3934,6 @@ select (select column_bool from
     (int64, string)  -- must_support_equality
 )) from SimpleTypes;
 --
-ERROR: Argument 3 to table-valued function tvf_positional_scalar_args_with_constraints must be at most 100 [at 5:5]
+ERROR: Argument 3 to table-valued function TVF_POSITIONAL_SCALAR_ARGS_WITH_CONSTRAINTS must be at most 100 [at 5:5]
     500.0, -- max_value = 100
     ^

@@ -463,3 +463,15 @@ ARRAY<STRUCT<TIMESTAMP, TIMESTAMP>>[
     2020-02-14 15:00:00.123456789012+00
   }
 ]
+==
+
+[required_features=TIMESTAMP_PICOS]
+[name=picos_to_proto]
+SELECT TO_PROTO(TIMESTAMP "2025-11-05 20:07:24.123456789012+00")
+--
+ARRAY<STRUCT<PROTO<google.protobuf.Timestamp>>>[
+  {{
+     seconds: 1762373244
+     nanos: 123456789
+   }}
+]

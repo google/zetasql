@@ -115,7 +115,7 @@ message LanguageFeatureOptions {
 //
 // All optional features are off by default.  Some features have a negative
 // meaning, so turning them on will remove a feature or enable an error.
-// Next ID: 151
+// Next ID: 152
 enum LanguageFeature {
   // Aliases are allowed because we are including aliases for legacy feature
   // names that had version numbers (V_1_3) in the enum name. This means the
@@ -562,10 +562,18 @@ enum LanguageFeature {
   // CREATE VIEW v(a, b) AS SELECT ...
   FEATURE_CREATE_VIEW_WITH_COLUMN_LIST = 59;
 
+  // TODO: Clean up in_development annotation.
   // Enables support for altering column options for columns in views.
   // Example:
   // ALTER VIEW v ALTER COLUMN a SET OPTIONS(description="col a")
   FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS = 87
+      [(language_feature_options).in_development = true];
+
+  // Enables support for altering column options for columns in materialized
+  // views.
+  // Example:
+  // ALTER MATERIALIZED VIEW mv ALTER COLUMN a SET OPTIONS(description="col a")
+  FEATURE_ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS = 151
       [(language_feature_options).in_development = true];
 
   // Enables support for CREATE TABLE CLONE

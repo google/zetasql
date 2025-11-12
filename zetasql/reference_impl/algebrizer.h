@@ -1437,6 +1437,14 @@ class Algebrizer {
   // new level of nested GraphLinearScan.
   std::vector<GraphCompositeScanInput>
       current_input_op_in_graph_linear_scan_stack_;
+
+  // Represents a graph path context.
+  struct GraphPathContext {
+    ResolvedGraphPathMode::PathMode path_mode;
+  };
+  // Tracks the current graph path context of `GraphPathOp`, which can be
+  // consumed by the child path `GraphPathOp` or `QuantifiedGraphPathOp`.
+  std::vector<GraphPathContext> current_graph_path_context_stack_;
 };
 
 }  // namespace zetasql

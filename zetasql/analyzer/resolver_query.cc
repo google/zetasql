@@ -4873,6 +4873,10 @@ absl::Status Resolver::ResolveSelectAfterFrom(
     }
   }
 
+  if (has_lateral_references) {
+    analyzer_output_properties_.AddFeatureLabel("lateral_alias_reference");
+  }
+
   if (query_resolution_info->HasGroupByOrAggregation() &&
       (query_resolution_info->HasHavingOrQualifyOrOrderBy() ||
        has_lateral_references)) {
@@ -12999,7 +13003,7 @@ Resolver::ResolveMatchRecognizeVariableDefinitions(
 absl::Status Resolver::ResolveMatchRecognizeMeasures(
     const ASTSelectList* ast_measures, const NameList* input_name_list,
     const NameScope* input_scope, const NameScope* local_scope,
-    const std::vector<ResolvedColumn>& partitioning_columns,
+    absl::Span<const ResolvedColumn> partitioning_columns,
     const IdStringHashMapCase<const ASTIdentifier*>& pattern_variables_defined,
     const IdStringHashMapCase<NameTarget>& pattern_variable_targets,
     const IdStringHashMapCase<NameTarget>& disallowed_access_targets,
@@ -15085,17 +15089,11 @@ absl::Status Resolver::ResolveTVF(
   bool is_value_table = tvf_signature->result_schema().is_value_table();
   if (is_value_table) {
     ZETASQL_RETURN_IF_ERROR(CheckValidValueTableFromTVF(
-        ast_tvf,
-        tvf_catalog_entry->SQLName(
-            /*enable_case_conversion_for_non_builtins=*/false),
-        tvf_signature->result_schema()));
+        ast_tvf, tvf_catalog_entry->SQLName(), tvf_signature->result_schema()));
   } else if (tvf_signature->result_schema().num_columns() == 0) {
     return MakeSqlErrorAt(ast_tvf)
            << "Table-valued functions must return at least one column, but "
-           << "TVF "
-           << tvf_catalog_entry->SQLName(
-                  /*enable_case_conversion_for_non_builtins=*/false)
-           << " returned no columns";
+           << "TVF " << tvf_catalog_entry->SQLName() << " returned no columns";
   }
 
   // Fill the column and name list based on the output schema.
@@ -15592,8 +15590,7 @@ absl::Status Resolver::MatchTVFSignature(
             return MakeSqlErrorAt(ast_expr)
                    << "Named argument " << arg_name
                    << " not found in signature for call to function "
-                   << tvf_catalog_entry->SQLName(
-                          /*enable_case_conversion_for_non_builtins=*/false);
+                   << tvf_catalog_entry->SQLName();
           }
         }
       }
@@ -15816,9 +15813,7 @@ absl::StatusOr<int> Resolver::FindMatchingTVFSignature(
   if (matching_signature_idx == -1) {
     return MakeSqlErrorAt(ast_tvf)
            << "No matching signature for table valued function : "
-           << tvf_catalog_entry->SQLName(
-                  /*enable_case_conversion_for_non_builtins=*/false)
-           << ". Supported Signatures: "
+           << tvf_catalog_entry->SQLName() << ". Supported Signatures: "
            << tvf_catalog_entry->GetSupportedSignaturesUserFacingText(
                   language(), /*print_template_and_name_details=*/true);
   }
@@ -15854,9 +15849,7 @@ absl::Status Resolver::PrepareTVFInputArguments(
   const FunctionSignature* function_signature =
       tvf_catalog_entry->GetSignature(matching_signature_idx);
   ZETASQL_RETURN_IF_ERROR(AddAdditionalDeprecationWarningsForCalledFunction(
-      ast_tvf, *function_signature,
-      tvf_catalog_entry->SQLName(
-          /*enable_case_conversion_for_non_builtins=*/false),
+      ast_tvf, *function_signature, tvf_catalog_entry->SQLName(),
       /*is_tvf=*/true));
 
   ZETASQL_RETURN_IF_ERROR(
@@ -15874,24 +15867,18 @@ absl::Status Resolver::PrepareTVFInputArguments(
       for (const auto& named_arg : named_arguments) {
         if (zetasql_base::CaseEqual(named_arg.name().ToString(),
                                    argument.argument_name())) {
-          return absl::StrCat(
-              "Argument '", argument.argument_name(),
-              "' to table-valued function ",
-              tvf_catalog_entry->SQLName(
-                  /*enable_case_conversion_for_non_builtins=*/false));
+          return absl::StrCat("Argument '", argument.argument_name(),
+                              "' to table-valued function ",
+                              tvf_catalog_entry->SQLName());
         }
       }
     }
     if (result_signature->NumConcreteArguments() == 1) {
-      return absl::StrCat(
-          "The argument to table-valued function ",
-          tvf_catalog_entry->SQLName(
-              /*enable_case_conversion_for_non_builtins=*/false));
+      return absl::StrCat("The argument to table-valued function ",
+                          tvf_catalog_entry->SQLName());
     } else {
-      return absl::StrCat(
-          "Argument ", idx + 1, " to table-valued function ",
-          tvf_catalog_entry->SQLName(
-              /*enable_case_conversion_for_non_builtins=*/false));
+      return absl::StrCat("Argument ", idx + 1, " to table-valued function ",
+                          tvf_catalog_entry->SQLName());
     }
   };
 
@@ -15903,9 +15890,7 @@ absl::Status Resolver::PrepareTVFInputArguments(
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> expr,
                        resolved_tvf_arg.MoveExpr());
       ZETASQL_RETURN_IF_ERROR(function_resolver.CheckArgumentConstraints(
-          ast_tvf,
-          tvf_catalog_entry->SQLName(
-              /*enable_case_conversion_for_non_builtins=*/false),
+          ast_tvf, tvf_catalog_entry->SQLName(),
           /*is_tvf=*/true, arg_locations[arg_idx], arg_idx,
           result_signature->ConcreteArgument(arg_idx), expr.get(),
           BadArgErrorPrefix));
@@ -16039,7 +16024,7 @@ absl::Status Resolver::PrepareTVFInputArguments(
 absl::Status Resolver::GenerateTVFNotMatchError(
     const ASTTVF* ast_tvf, const std::vector<const ASTNode*>& arg_locations,
     const SignatureMatchResult& signature_match_result,
-    const TableValuedFunction& tvf_catalog_entry, const std::string& tvf_name,
+    const TableValuedFunction& tvf_catalog_entry, absl::string_view tvf_name,
     absl::Span<const InputArgumentType> input_arg_types, int signature_idx) {
   const ASTNode* ast_location = ast_tvf;
   if (signature_match_result.bad_argument_index() != -1) {
@@ -16186,9 +16171,7 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
             ast_expr->GetAsOrDie<ASTExpressionSubquery>()->modifier() !=
                 ASTExpressionSubquery::NONE) {
           std::string error = absl::StrCat(
-              "Table-valued function ",
-              tvf_catalog_entry->SQLName(
-                  /*enable_case_conversion_for_non_builtins=*/false),
+              "Table-valued function ", tvf_catalog_entry->SQLName(),
               " argument ", gen_arg_id(sig_idx),
               " must be a relation (i.e. table subquery)");
           if (ast_expr->node_kind() == AST_PATH_EXPRESSION) {
@@ -16222,30 +16205,22 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
                                  /*is_pipe_input_table=*/false);
       } else if (function_argument->IsConnection()) {
         return MakeSqlErrorAt(ast_expr)
-               << "Table-valued function "
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
+               << "Table-valued function " << tvf_catalog_entry->SQLName()
                << " argument " << gen_arg_id(sig_idx)
                << " must be a connection specified with the CONNECTION keyword";
       } else if (function_argument->IsDescriptor()) {
         return MakeSqlErrorAt(ast_expr)
-               << "Table-valued function "
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
+               << "Table-valued function " << tvf_catalog_entry->SQLName()
                << " argument " << gen_arg_id(sig_idx)
                << " must be a DESCRIPTOR";
       } else if (function_argument->IsGraph()) {
         return MakeSqlErrorAt(ast_expr)
-               << "Table-valued function "
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
+               << "Table-valued function " << tvf_catalog_entry->SQLName()
                << " argument " << gen_arg_id(sig_idx) << " must be a GRAPH";
       } else {
         ZETASQL_RET_CHECK(function_argument->IsModel());
         return MakeSqlErrorAt(ast_expr)
-               << "Table-valued function "
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
+               << "Table-valued function " << tvf_catalog_entry->SQLName()
                << " argument " << gen_arg_id(sig_idx)
                << " must be a model specified with the MODEL keyword";
       }
@@ -17486,7 +17461,7 @@ absl::Status Resolver::MakeScanForTable(
     const ASTNode* ast_location, const Table* table, IdString alias,
     bool has_explicit_alias, const ASTNode* alias_location,
     const ASTForSystemTime* for_system_time,
-    const std::string& read_as_row_type_error_kind,
+    absl::string_view read_as_row_type_error_kind,
     std::unique_ptr<ResolvedTableScan>* output_table_scan,
     NameListPtr* output_name_list,
     NameListPtr* /*absl_nullable*/ output_column_name_list,
@@ -17726,16 +17701,12 @@ absl::Status Resolver::ResolvePathExpressionAsTableScan(
         return MakeSqlErrorAt(path_expr)
                << "Table-valued function must be called with an argument list: "
                   "`"
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
-               << "(...)`";
+               << tvf_catalog_entry->SQLName() << "(...)`";
       } else {
         return MakeSqlErrorAt(path_expr)
                << "Table-valued function with no parameters must be called "
                   "with an empty argument list: `"
-               << tvf_catalog_entry->SQLName(
-                      /*enable_case_conversion_for_non_builtins=*/false)
-               << "()`";
+               << tvf_catalog_entry->SQLName() << "()`";
       }
     }
     std::string error_message;

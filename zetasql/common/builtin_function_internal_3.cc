@@ -52,6 +52,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/public/value.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/attributes.h"
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/functional/bind_front.h"
@@ -1534,7 +1535,7 @@ absl::Status GetJsonParseFunctions(
   return absl::OkStatus();
 }
 
-void GetJsonValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetJsonValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1573,7 +1574,7 @@ void GetJsonValueExtractionFunctions(
                  {{string_type, {json_type}, FN_JSON_TYPE}});
 }
 
-void GetJsonLaxValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetJsonLaxValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1605,7 +1606,7 @@ void GetJsonLaxValueExtractionFunctions(
                  {{string_type, {json_type}, FN_JSON_LAX_TO_STRING}});
 }
 
-void GetJsonArrayValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetJsonArrayValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1647,7 +1648,7 @@ void GetJsonArrayValueExtractionFunctions(
                  {{array_string_type, {json_type}, FN_JSON_TO_STRING_ARRAY}});
 }
 
-void GetJsonLaxArrayValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetJsonLaxArrayValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1684,7 +1685,7 @@ void GetJsonLaxArrayValueExtractionFunctions(
       {{array_string_type, {json_type}, FN_JSON_LAX_TO_STRING_ARRAY}});
 }
 
-void GetMoreJsonValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetMoreJsonValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1727,7 +1728,7 @@ void GetMoreJsonValueExtractionFunctions(
   }
 }
 
-void GetMoreJsonLaxValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetMoreJsonLaxValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1767,7 +1768,7 @@ void GetMoreJsonLaxValueExtractionFunctions(
   }
 }
 
-void GetMoreJsonArrayValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetMoreJsonArrayValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {
@@ -1814,7 +1815,7 @@ void GetMoreJsonArrayValueExtractionFunctions(
   }
 }
 
-void GetMoreJsonLaxArrayValueExtractionFunctions(
+ABSL_ATTRIBUTE_NOINLINE void GetMoreJsonLaxArrayValueExtractionFunctions(
     const ZetaSQLBuiltinFunctionOptions& options,
     NameToFunctionMap* functions) {
   if (!options.language_options.LanguageFeatureEnabled(FEATURE_JSON_TYPE)) {

@@ -1360,6 +1360,14 @@ absl::Status ScriptExecutorImpl::ExecuteCallStatement() {
                                                ->ast_node()
                                                ->GetAsOrDie<ASTCallStatement>();
   const ASTPathExpression* path_node = call_statement->procedure_name();
+
+  if (evaluator_->ShouldExecuteProcedureAsStatement(
+          *this, path_node->ToIdentifierVector())) {
+    // Execute the statement and advance past the current statement.
+    return AdvancePastCurrentStatement(evaluator_->ExecuteStatement(
+        *this, ScriptSegment::FromASTNode(GetScriptText(), call_statement)));
+  }
+
   if (callstack_.size() >= options_.maximum_stack_depth()) {
     return MakeScriptExceptionAt(call_statement) << absl::Substitute(
                "Out of stack space due to deeply-nested procedure call to $0",

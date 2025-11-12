@@ -261,6 +261,18 @@ pre.output code.hljs {
   padding: 1em;
 }
 
+.error-highlight {
+  background-color: #ff0;
+}
+
+.error-highlight .ast-col.highlighted,
+.error-highlight .ast-col.highlighted-sticky {
+  background-color: #e00;
+}
+.error-highlight .ast-col.highlighted-sticky-suspended {
+  background-color: #dd0;
+}
+
 pre.output > table {
   border-collapse: collapse;
   border: 1px solid #066eb3;

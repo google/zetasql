@@ -282,6 +282,25 @@ TEST_F(ResolvedASTTest,
               HasSubstr("+-element_column_list{c}{ }=[$array.numbers#1]"));
 }
 
+TEST_F(ResolvedASTTest, DebugStringPrintColumnHolderAsCreated) {
+  TypeFactory factory;
+  SimpleCatalog catalog("catalog", &factory);
+  catalog.AddZetaSQLFunctions();
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_UNNEST_AND_FLATTEN_ARRAYS);
+  AnalyzerOptions options(std::move(language_options));
+  std::unique_ptr<const AnalyzerOutput> output;
+  ZETASQL_ASSERT_OK(AnalyzeStatement(
+      "SELECT FLATTEN(numbers.n) FROM (SELECT [STRUCT(1 as n)] as numbers);",
+      options, &catalog, &factory, &output));
+  const ResolvedStatement* query_stmt = output->resolved_statement();
+
+  EXPECT_THAT(query_stmt->DebugString(
+                  {.print_accessed = true, .print_created_columns = true}),
+              HasSubstr(R"(+-array_offset_column{c}{*}=
+    |         |           |         +-ColumnHolder(column{*}=$offset.injected#5))"));
+}
+
 TEST_F(ResolvedASTTest, DebugStringAnnotationsFunctionCall) {
   TypeFactory type_factory;
 

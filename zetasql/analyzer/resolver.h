@@ -295,8 +295,8 @@ class Resolver {
   // If the expression cannot be coerced, an error is emitted. Errors are
   // returned with InternalErrorLocation.
   //
-  // <kind> configures the Coercer to signal which kind of coercion is should
-  // validate.
+  // <mode> configures the Coercer to signal which kind of coercion should be
+  // validated.
   //
   // The <make_error> function is called to generate an error message strinng if
   // <resolved_expr> is not coercible to <target_type> using coercion mode
@@ -4353,7 +4353,7 @@ class Resolver {
       const ASTNode* ast_location, const Table* table, IdString alias,
       bool has_explicit_alias, const ASTNode* alias_location,
       const ASTForSystemTime* for_system_time,
-      const std::string& read_as_row_type_error_kind,
+      absl::string_view read_as_row_type_error_kind,
       std::unique_ptr<ResolvedTableScan>* output_table_scan,
       NameListPtr* output_name_list,
       NameListPtr* /*absl_nullable*/ output_column_name_list,
@@ -5201,16 +5201,18 @@ class Resolver {
     // corresponds to an array element modification (i.e., it is not the last
     // ResolvedUpdateItem on the path).
 
-    // Represents the array element being modified.
-    std::unique_ptr<const ResolvedColumn> array_element;
+    // A new column for the element that is being modified. This is the
+    // element given by evaluating subscript_expr.
+    std::unique_ptr<const ResolvedColumn> subscripted_element;
 
-    // The 0-based offset of the array being modified.
-    std::unique_ptr<const ResolvedExpr> array_offset;
+    // Represents the subscript expression that accesses the item being
+    // modified.
+    std::unique_ptr<const ResolvedExpr> subscript_expr;
 
-    // The ResolvedColumnRef that is the leaf of the target of the next
-    // ResolvedUpdateItem node on the path (which refers to the array element
-    // being modified by this node).
-    ResolvedColumnRef* array_element_ref = nullptr;  // Not owned.
+    // A ResolvedColumnRef referencing the ResolvedColumn stored in
+    // `subscripted_element`, to be used in a child UpdateTargetInfo as the
+    // `target` field
+    ResolvedColumnRef* subscripted_element_ref = nullptr;  // Not owned.
   };
 
   // Returns whether the update target type supports element updates, given the
@@ -6039,7 +6041,7 @@ class Resolver {
   absl::Status GenerateTVFNotMatchError(
       const ASTTVF* ast_tvf, const std::vector<const ASTNode*>& arg_locations,
       const SignatureMatchResult& signature_match_result,
-      const TableValuedFunction& tvf_catalog_entry, const std::string& tvf_name,
+      const TableValuedFunction& tvf_catalog_entry, absl::string_view tvf_name,
       absl::Span<const InputArgumentType> input_arg_types, int signature_idx);
 
   // Struct to control the features to be resolved by
@@ -6294,7 +6296,7 @@ class Resolver {
   absl::Status ResolveMatchRecognizeMeasures(
       const ASTSelectList* ast_measures, const NameList* input_name_list,
       const NameScope* input_scope, const NameScope* local_scope,
-      const std::vector<ResolvedColumn>& partitioning_columns,
+      absl::Span<const ResolvedColumn> partitioning_columns,
       const IdStringHashMapCase<const ASTIdentifier*>&
           pattern_variables_defined,
       const IdStringHashMapCase<NameTarget>& pattern_variable_targets,

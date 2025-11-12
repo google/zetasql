@@ -152,3 +152,29 @@ ARRAY<STRUCT<x DATETIME>>[unknown order:
 SELECT x FROM UNNEST([ST_GEOGPOINT(1,2), ST_GEOGPOINT(-1,-2)]) x;
 --
 ARRAY<STRUCT<x GEOGRAPHY>>[unknown order:{POINT(1 2)}, {POINT(-1 -2)}]
+==
+
+[extract_labels]
+[name=lateral_aliases_generate_label]
+[required_features=LATERAL_COLUMN_REFERENCES]
+SELECT 1 AS a, a+1 AS b
+FROM UNNEST([1])
+--
+ARRAY<STRUCT<a INT64, b INT64>>[{1, 2}]
+--
+LanguageFeature::FEATURE_LATERAL_COLUMN_REFERENCES
+OperatorName:+
+OperatorSignature:+:FN_ADD_INT64
+ProductMode:InternalAndExternal
+ResolvedNodeKind:Expression:RESOLVED_COLUMN_REF
+ResolvedNodeKind:Expression:RESOLVED_FUNCTION_CALL
+ResolvedNodeKind:Expression:RESOLVED_LITERAL
+ResolvedNodeKind:Scan:RESOLVED_ARRAY_SCAN
+ResolvedNodeKind:Scan:RESOLVED_PROJECT_SCAN
+ResolvedNodeKind:Statement:RESOLVED_QUERY_STMT
+Special:InDevelopment
+Special:LegacyBehavior
+TimeResolution:Any
+TypeKind:TYPE_ARRAY
+TypeKind:TYPE_INT64
+lateral_alias_reference

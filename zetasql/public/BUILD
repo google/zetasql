@@ -1809,6 +1809,7 @@ cc_library(
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
@@ -1870,6 +1871,7 @@ cc_library(
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/hash",
         "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -2908,6 +2910,47 @@ cc_library(
     hdrs = ["formatter_options.h"],
     deps = [
         ":formatter_options_cc_proto",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+proto_library(
+    name = "feature_label_dictionary_proto",
+    srcs = ["feature_label_dictionary.proto"],
+)
+
+cc_proto_library(
+    name = "feature_label_dictionary_proto_cc_proto",
+    deps = [":feature_label_dictionary_proto"],
+)
+
+cc_library(
+    name = "feature_label_extractor",
+    srcs = ["feature_label_extractor.cc"],
+    hdrs = ["feature_label_extractor.h"],
+    deps = [
+        ":analyzer",
+        ":analyzer_options",
+        ":analyzer_output_properties",
+        ":catalog",
+        ":feature_label_dictionary_proto_cc_proto",
+        ":options_cc_proto",
+        ":type",
+        "//zetasql/base:ret_check",
+        "//zetasql/base:status",
+        "//zetasql/common:errors",
+        "//zetasql/common:internal_analyzer_output_properties",
+        "//zetasql/compliance:compliance_label_cc_proto",
+        "//zetasql/compliance:compliance_label_extractor",
+        "//zetasql/resolved_ast",
+        "//zetasql/resolved_ast:target_syntax",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/base:no_destructor",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],
 )

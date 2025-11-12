@@ -10,14 +10,77 @@ ZetaSQL.
 
 ## SQL syntax notation rules
 
-The ZetaSQL documentation commonly uses the following
-syntax notation rules:
+The following table lists and describes the syntax notation rules that ZetaSQL
+documentation commonly uses.
 
-+ Square brackets `[ ]`: Optional clause.
-+ Curly braces with vertical bars `{ a | b | c }`: Logical `OR`. Select one
-  option.
-+ Ellipsis `...`: Preceding item can repeat.
-+ Double quotes `"`: Syntax wrapped in double quotes (`""`) is required.
+<table>
+  <thead>
+    <tr>
+      <th>Notation</th>
+      <th>Example</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+
+    <tr>
+      <td>Square brackets</td>
+      <td><code>[ ]</code></td>
+      <td>Optional clauses</td>
+    </tr>
+
+    <tr>
+      <td>Parentheses</td>
+      <td><code>( )</code></td>
+      <td>Literal parentheses</td>
+    </tr>
+    <tr>
+      <td>Vertical bar</td>
+      <td><code>|</code></td>
+      <td>Logical <code>XOR</code> (exclusive <code>OR</code>)</td>
+    </tr>
+     <tr>
+      <td>Curly braces</td>
+      <td><code>{ }</code></td>
+      <td>A set of options, such as <code>{ a | b | c }</code>. Select one option.</td>
+    </tr>
+    <tr>
+      <td>Ellipsis</td>
+      <td><code>...</code></td>
+      <td>The preceding item can repeat.</td>
+    </tr>
+    <tr>
+      <td>Comma</td>
+      <td><code>,</code></td>
+      <td>Literal comma</td>
+    </tr>
+    <tr>
+      <td>Comma followed by an ellipsis</td>
+      <td><nobr><code>, ...</code></nobr></td>
+      <td>The preceding item can repeat in a comma-separated list.</td>
+    </tr>
+    <tr>
+      <td rowspan="2">Item list</td>
+      <td><nobr><code>item [, ...]</code></nobr></td>
+      <td>One or more items</td>
+    </tr>
+    <tr>
+      <td><nobr><code>[item, ...]</code></nobr></td>
+      <td>Zero or more items</td>
+    </tr>
+      <tr>
+      <td>Double quotes</td>
+      <td><code>""</code></td>
+      <td>The enclosed syntax characters (for example, <code>"{"..."}"</code>) are literal
+      and required.</td>
+    </tr>
+    <tr>
+      <td>Angle brackets</td>
+      <td><code>&lt;></code></td>
+      <td>Literal angle brackets</td>
+    </tr>
+  </tbody>
+</table>
 
 ## SQL syntax
 

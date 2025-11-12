@@ -452,15 +452,14 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
 
   // IF(array_expr IS NULL, 0, ARRAY_LENGTH(array_expr))
   absl::StatusOr<std::unique_ptr<ResolvedExpr>> BuildArrayLengthExpr(
-      const Type* array_type, const ResolvedColumn& array_col) {
+      const ResolvedColumn& array_col) {
     // array_expr IS NULL
-    ZETASQL_ASSIGN_OR_RETURN(
-        std::unique_ptr<const ResolvedExpr> condition,
-        fn_builder_.IsNull(BuildResolvedColumnRef(array_type, array_col)));
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> condition,
+                     fn_builder_.IsNull(BuildResolvedColumnRef(array_col)));
     // ARRAY_LENGTH(array_expr)
     ZETASQL_ASSIGN_OR_RETURN(
         std::unique_ptr<const ResolvedExpr> array_length,
-        fn_builder_.ArrayLength(BuildResolvedColumnRef(array_type, array_col)));
+        fn_builder_.ArrayLength(BuildResolvedColumnRef(array_col)));
     return fn_builder_.If(
         std::move(condition),
         MakeResolvedLiteral(types::Int64Type(), Value::Int64(0)),
@@ -493,7 +492,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
       ResolvedColumn arr_len_col = column_factory_.MakeCol(
           "$with_expr", absl::StrCat("arr", i, "_len"), types::Int64Type());
       ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> arr_len_expr,
-                       BuildArrayLengthExpr(input_arrays[i]->type(), arr_col));
+                       BuildArrayLengthExpr(arr_col));
       array_lens.push_back(MakeResolvedColumnRef(
           arr_len_expr->type(), arr_len_col, /*is_correlated=*/false));
       assignment_list.push_back(
@@ -569,8 +568,7 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     std::vector<std::unique_ptr<const ResolvedColumnRef>>
         subquery_parameter_list(state.element_column_count() + 1);
     for (int i = 0; i < state.element_column_count(); ++i) {
-      subquery_parameter_list[i] = BuildResolvedColumnRef(
-          state.with_expr_array_columns()[i].type(),
+      subquery_parameter_list[i] = MakeResolvedColumnRef(
           state.with_expr_array_columns()[i], /*is_correlated=*/false);
     }
     subquery_parameter_list.back() = MakeResolvedColumnRef(
@@ -608,9 +606,8 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
     for (int i = 0; i < state.element_column_count(); ++i) {
       const ResolvedColumn& rewritten_element_column =
           state.element_columns()[i];
-      field_list.push_back(BuildResolvedColumnRef(
-          rewritten_element_column.type(), rewritten_element_column,
-          /*is_correlated=*/false));
+      field_list.push_back(MakeResolvedColumnRef(rewritten_element_column,
+                                                 /*is_correlated=*/false));
       struct_fields.push_back(
           {rewritten_element_column.name(), rewritten_element_column.type()});
     }
@@ -824,8 +821,8 @@ class MultiwayUnnestRewriteVisitor : public ResolvedASTRewriteVisitor {
         .set_type(struct_type->field(field_index).type)
         .set_type_annotation_map(type_annotation_map)
         .set_field_idx(field_index)
-        .set_expr(BuildResolvedColumnRef(struct_type, source_column,
-                                         /*is_correlated=*/false))
+        .set_expr(MakeResolvedColumnRef(source_column,
+                                        /*is_correlated=*/false))
         .Build();
   }
 

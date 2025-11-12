@@ -30,6 +30,21 @@ Some other documentation:
     * See the [reference documentation](https://github.com/google/zetasql/blob/master/docs/pipe-syntax.md) and [research paper](https://research.google/pubs/pub1005959/).
     * See some [example scripts](zetasql/examples/pipe_queries) and [TPC-H queries](zetasql/examples/tpch).
 
+### Announcement
+
+We are announcing a significant step towards unifying our open-source efforts:
+the **ZetaSQL** project will soon be officially renamed to **GoogleSQL**. This
+change is expected to be complete by the end of the year 2025 and primarily
+reflects our commitment to aligning the project more clearly with the
+standardized SQL dialect used across Google.
+
+Functionally, nothing about the language, semantics, or the reference
+implementation will change; however, users and engine implementers must prepare
+for mandatory code changes: you will need to update the namespace from zetasql
+to zetasql, and update all dependency file paths that currently include
+"zetasql" in their name. We will provide a detailed migration guide to help you
+navigate these updates smoothly.
+
 ## Project Overview
 
 The main components and APIs are in these directories under `zetasql/`:
@@ -51,21 +66,6 @@ Multiplatform support is planned for the following platforms:
 
 We do not provide any guarantees of API stability and *cannot accept
 contributions*.
-
-### Announcement
-
-We are announcing a significant step towards unifying our open-source efforts:
-the **ZetaSQL** project will soon be officially renamed to **GoogleSQL**. This
-change is expected to be complete by the end of the year 2025 and primarily
-reflects our commitment to aligning the project more clearly with the
-standardized SQL dialect used across Google.
-
-Functionally, nothing about the language, semantics, or the reference
-implementation will change; however, users and engine implementers must prepare
-for mandatory code changes: you will need to update the namespace from zetasql
-to zetasql, and update all dependency file paths that currently include
-"zetasql" in their name. We will provide a detailed migration guide to help you
-navigate these updates smoothly.
 
 ## Running Queries with `execute_query`
 

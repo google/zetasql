@@ -11188,7 +11188,8 @@ absl::StatusOr<Value> ToProtoFunction::Eval(
     case TYPE_TIMESTAMP: {
       google::protobuf::Timestamp proto_timestamp;
       ZETASQL_RETURN_IF_ERROR(functions::ConvertTimestampToProto3Timestamp(
-          args[0].ToTime(), &proto_timestamp));
+          // Call ToAbslTime() to truncate picos.
+          args[0].ToUnixPicos().ToAbslTime(), &proto_timestamp));
       return zetasql::values::Proto(output_type()->AsProto(),
                                       proto_timestamp);
       break;

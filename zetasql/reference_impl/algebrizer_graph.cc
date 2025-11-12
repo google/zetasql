@@ -705,9 +705,13 @@ Algebrizer::AlgebrizeGraphQuantifiedPathScan(
         AlgebrizeExpression(quantified_path_scan->quantifier()->upper_bound()));
   }
 
+  ResolvedGraphPathMode::PathMode path_mode = ResolvedGraphPathMode::WALK;
+  if (!current_graph_path_context_stack_.empty()) {
+    path_mode = current_graph_path_context_stack_.back().path_mode;
+  }
   return QuantifiedGraphPathOp::Create(
       std::move(path_primary_op), std::move(variables), std::move(lower_bound),
-      std::move(upper_bound), path_type, cost_type);
+      std::move(upper_bound), path_type, cost_type, path_mode);
 }
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
@@ -718,14 +722,6 @@ Algebrizer::AlgebrizeGraphPathScan(
       std::unique_ptr<RelationalOp> returning_op,
       AlgebrizeGraphPathPrimaryScan(graph_path_scan, active_conjuncts));
 
-  // TODO: b/419598355 - Support path mode in quantified path scan locally.
-  if (graph_path_scan->quantifier() != nullptr &&
-      graph_path_scan->path_mode() != nullptr) {
-    ZETASQL_ASSIGN_OR_RETURN(
-        returning_op,
-        GraphPathModeOp::Create(graph_path_scan->path_mode()->path_mode(),
-                                std::move(returning_op)));
-  }
   if (graph_path_scan->quantifier() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(returning_op, AlgebrizeGraphQuantifiedPathScan(
                                        graph_path_scan, std::move(returning_op),
@@ -771,6 +767,14 @@ absl::StatusOr<std::unique_ptr<RelationalOp>>
 Algebrizer::AlgebrizeGraphPathPrimaryScan(
     const ResolvedGraphPathScan* graph_path_scan,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
+  // Path mode is always WALK if not specified.
+  ResolvedGraphPathMode::PathMode path_mode = ResolvedGraphPathMode::WALK;
+  if (graph_path_scan->path_mode() != nullptr) {
+    path_mode = graph_path_scan->path_mode()->path_mode();
+  }
+  // Push the path prefix context to the stack.
+  current_graph_path_context_stack_.push_back({.path_mode = path_mode});
+
   // Builds conjunct infos from path filter expressions.
   std::vector<std::unique_ptr<FilterConjunctInfo>> conjunct_infos;
   if (graph_path_scan->filter_expr() != nullptr) {
@@ -877,14 +881,12 @@ Algebrizer::AlgebrizeGraphPathPrimaryScan(
     ZETASQL_RET_CHECK(cost_type->IsNumerical());
   }
 
-  // Path mode is always WALK if not specified.
-  ResolvedGraphPathMode::PathMode path_mode = ResolvedGraphPathMode::WALK;
-  if (graph_path_scan->path_mode() != nullptr) {
-    path_mode = graph_path_scan->path_mode()->path_mode();
-  }
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> graph_table_op,
                    GraphPathOp::Create(std::move(path_factor_ops), path,
                                        path_type, cost, cost_type, path_mode));
+
+  // Pop the path mode from the stack.
+  current_graph_path_context_stack_.pop_back();
 
   ZETASQL_ASSIGN_OR_RETURN(auto algebrized_conjuncts,
                    AlgebrizeNonRedundantConjuncts(conjunct_infos));

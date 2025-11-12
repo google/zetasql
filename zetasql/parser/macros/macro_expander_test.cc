@@ -68,6 +68,7 @@ using ::testing::AllOf;
 using ::testing::Bool;
 using ::testing::Combine;
 using ::testing::Conditional;
+using ::testing::Contains;
 using ::testing::Each;
 using ::testing::ElementsAre;
 using ::testing::Eq;
@@ -76,6 +77,7 @@ using ::testing::FieldsAre;
 using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::IsNull;
+using ::testing::Not;
 using ::testing::NotNull;
 using ::testing::Pair;
 using ::testing::Pointwise;
@@ -215,6 +217,12 @@ MATCHER_P(TokenIs, expected, "") {
                 Eq(expected.topmost_invocation_location),
                 _ /*ChainedStackFrameEq(expected.stack_frame)*/),
       arg, result_listener);
+}
+
+MATCHER_P(TokenIgnoringLocationIs, expected, "") {
+  return ExplainMatchResult(FieldsAre(Eq(expected.kind), Eq(expected.text),
+                                      Eq(expected.preceding_whitespaces)),
+                            arg, result_listener);
 }
 
 MATCHER(TokenEq, "") {
@@ -1206,19 +1214,22 @@ TEST(MacroExpanderTest, ExpandsStandaloneDollarSignsAtTopLevel) {
 
   EXPECT_THAT(ExpandMacros("\t\t$empty${a}   \n$$$empty${b}$", macro_catalog,
                            /*is_strict=*/false),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Builtin macro 'empty' not found")));
+
+  EXPECT_THAT(ExpandMacros("\t\t$empty${a}   \n$empty${b}$", macro_catalog,
+                           /*is_strict=*/false),
               IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
                   {Token::DOLLAR_SIGN, MakeLocation(8, 9), "$", "\t\t"},
                   {Token::LBRACE, MakeLocation(9, 10), "{", ""},
                   {Token::IDENTIFIER, MakeLocation(10, 11), "a", ""},
                   {Token::RBRACE, MakeLocation(11, 12), "}", ""},
-                  {Token::DOLLAR_SIGN, MakeLocation(16, 17), "$", "   \n"},
-                  {Token::DOLLAR_SIGN, MakeLocation(17, 18), "$", ""},
-                  {Token::DOLLAR_SIGN, MakeLocation(24, 25), "$", ""},
-                  {Token::LBRACE, MakeLocation(25, 26), "{", ""},
-                  {Token::IDENTIFIER, MakeLocation(26, 27), "b", ""},
-                  {Token::RBRACE, MakeLocation(27, 28), "}", ""},
-                  {Token::DOLLAR_SIGN, MakeLocation(28, 29), "$", ""},
-                  {Token::EOI, MakeLocation(29, 29), "", ""}})));
+                  {Token::DOLLAR_SIGN, MakeLocation(22, 23), "$", "   \n"},
+                  {Token::LBRACE, MakeLocation(23, 24), "{", ""},
+                  {Token::IDENTIFIER, MakeLocation(24, 25), "b", ""},
+                  {Token::RBRACE, MakeLocation(25, 26), "}", ""},
+                  {Token::DOLLAR_SIGN, MakeLocation(26, 27), "$", ""},
+                  {Token::EOI, MakeLocation(27, 27), "", ""}})));
 }
 
 TEST(MacroExpanderTest, ProducesWarningOrErrorOnMissingArgumentLists) {
@@ -1541,41 +1552,223 @@ INSTANTIATE_TEST_SUITE_P(BytesLiteralsCanExpandInAnyBytesLiteral,
                          Combine(ValuesIn(AllBytesLiteralQuotingSpecs()),
                                  ValuesIn(AllBytesLiteralQuotingSpecs())));
 
+struct LiteralExpansionTestCase {
+  std::string text_unquoted;
+  std::string expected_expansion_unquoted;
+
+  std::string ExpectedExpansion(const QuotingSpec& quoting) const {
+    return QuoteText(expected_expansion_unquoted, quoting);
+  }
+};
+
+class LiteralExpansionTestBase
+    : public ::testing::TestWithParam<
+          std::tuple<LiteralExpansionTestCase, QuotingSpec>> {
+ protected:
+  static constexpr absl::string_view kBuiltinReferenceWarning =
+      "Builtin macros are not expanded inside literals";
+
+  absl::StatusOr<ExpansionOutput> ExpandLiteral(
+      const LiteralExpansionTestCase& test_case, const QuotingSpec& quoting) {
+    MacroCatalog macro_catalog;
+    RegisterMacros("DEFINE MACRO FOO foo_expansion;", macro_catalog);
+    const std::string test_macro_def =
+        absl::StrFormat("DEFINE MACRO MACRO_UNDER_TEST %s;",
+                        QuoteText(test_case.text_unquoted, quoting));
+    RegisterMacros(test_macro_def, macro_catalog);
+    return ExpandMacros("$MACRO_UNDER_TEST(arg_1_expansion)", macro_catalog,
+                        /*is_strict=*/false);
+  }
+};
+
+class LiteralExpansionWithBuiltinReferenceTest
+    : public LiteralExpansionTestBase {};
+
+TEST_P(LiteralExpansionWithBuiltinReferenceTest, EmitsWarnings) {
+  const LiteralExpansionTestCase& test_case = std::get<0>(GetParam());
+  const QuotingSpec& quoting = std::get<1>(GetParam());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ExpansionOutput& result,
+                       ExpandLiteral(test_case, quoting));
+  EXPECT_THAT(TokensToString(result.expanded_tokens),
+              Eq(test_case.ExpectedExpansion(quoting)));
+  EXPECT_THAT(
+      result,
+      HasWarnings(Contains(StatusIs(_, HasSubstr(kBuiltinReferenceWarning)))));
+}
+
+class LiteralExpansionWithoutBuiltinReferenceTest
+    : public LiteralExpansionTestBase {};
+
+TEST_P(LiteralExpansionWithoutBuiltinReferenceTest, DoesNotEmitWarnings) {
+  const LiteralExpansionTestCase& test_case = std::get<0>(GetParam());
+  const QuotingSpec& quoting = std::get<1>(GetParam());
+  ZETASQL_ASSERT_OK_AND_ASSIGN(const ExpansionOutput& result,
+                       ExpandLiteral(test_case, quoting));
+  EXPECT_THAT(TokensToString(result.expanded_tokens),
+              Eq(test_case.ExpectedExpansion(quoting)));
+  EXPECT_THAT(result, HasWarnings(Not(Contains(
+                          StatusIs(_, HasSubstr(kBuiltinReferenceWarning))))));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    LiteralExpansionWithBuiltinReferenceTestSuite,
+    LiteralExpansionWithBuiltinReferenceTest,
+    Combine(
+        ValuesIn(std::vector<LiteralExpansionTestCase>{
+            {
+                .text_unquoted = "$$FOO",
+                .expected_expansion_unquoted = "$foo_expansion",
+            },
+            {
+                .text_unquoted = "$$FOO$$FOO",
+                .expected_expansion_unquoted = "$foo_expansion$foo_expansion",
+            },
+            {
+                .text_unquoted = "$$$FOO$$$FOO",
+                .expected_expansion_unquoted = "$$foo_expansion$$foo_expansion",
+            },
+            {
+                .text_unquoted = "$$$FOO",
+                .expected_expansion_unquoted = "$$foo_expansion",
+            },
+            {
+                .text_unquoted = "$$FOO$$",
+                .expected_expansion_unquoted = "$foo_expansion$$",
+            },
+            {
+                .text_unquoted = "$$FOO$$1",
+                .expected_expansion_unquoted = "$foo_expansion$arg_1_expansion",
+            },
+        }),
+        ValuesIn(AllStringsAndBytesLiteralsQuotingSpecs())));
+
+INSTANTIATE_TEST_SUITE_P(
+    LiteralExpansionWithoutBuiltinReferenceTestSuite,
+    LiteralExpansionWithoutBuiltinReferenceTest,
+    Combine(ValuesIn(std::vector<LiteralExpansionTestCase>{
+                {
+                    .text_unquoted = "$FOO",
+                    .expected_expansion_unquoted = "foo_expansion",
+                },
+                {
+                    .text_unquoted = "$ FOO",
+                    .expected_expansion_unquoted = "$ FOO",
+                },
+                {
+                    .text_unquoted = "$$ FOO",
+                    .expected_expansion_unquoted = "$$ FOO",
+                },
+                {
+                    .text_unquoted = "$ $FOO",
+                    .expected_expansion_unquoted = "$ foo_expansion",
+                },
+                {
+                    .text_unquoted = "$FOO$",
+                    .expected_expansion_unquoted = "foo_expansion$",
+                },
+                {
+                    .text_unquoted = "$1",
+                    .expected_expansion_unquoted = "arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$$1",
+                    .expected_expansion_unquoted = "$arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$$1$$1",
+                    .expected_expansion_unquoted =
+                        "$arg_1_expansion$arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$$$1$$$1",
+                    .expected_expansion_unquoted =
+                        "$$arg_1_expansion$$arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$$$1",
+                    .expected_expansion_unquoted = "$$arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$ 1",
+                    .expected_expansion_unquoted = "$ 1",
+                },
+                {
+                    .text_unquoted = "$$ 1",
+                    .expected_expansion_unquoted = "$$ 1",
+                },
+                {
+                    .text_unquoted = "$ $1",
+                    .expected_expansion_unquoted = "$ arg_1_expansion",
+                },
+                {
+                    .text_unquoted = "$1$",
+                    .expected_expansion_unquoted = "arg_1_expansion$",
+                },
+                {
+                    .text_unquoted = "$$1$$",
+                    .expected_expansion_unquoted = "$arg_1_expansion$$",
+                },
+                {
+                    .text_unquoted = "$",
+                    .expected_expansion_unquoted = "$",
+                },
+                {
+                    .text_unquoted = "$$",
+                    .expected_expansion_unquoted = "$$",
+                },
+            }),
+            ValuesIn(AllStringsAndBytesLiteralsQuotingSpecs())));
+
+class MacroBuiltinsTest : public ::testing::TestWithParam<bool> {};
+
+TEST_P(MacroBuiltinsTest, TestMacroBuiltinInvocation) {
+  EXPECT_THAT(ExpandMacros("$$TEST", MacroCatalog(), /*is_strict=*/GetParam()),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Builtin macro 'TEST' not found")));
+}
+
+INSTANTIATE_TEST_SUITE_P(MacroBuiltinsTestSuite, MacroBuiltinsTest, Bool());
+
 TEST(MacroExpanderTest, DoesNotReexpand) {
   MacroCatalog macro_catalog;
   RegisterMacros(
       "DEFINE MACRO select_list a , $1, $2  ;\n"
-      "DEFINE MACRO splice_invoke    $$1$2   ;\n"
-      "DEFINE MACRO inner_quoted_id `bq`;\n"
-      "DEFINE MACRO empty      ;\n",
+      "DEFINE MACRO splice_invoke    $$1$2   $$$1$2;\n"
+      "DEFINE MACRO inner_quoted_id `bq`;\n",
       macro_catalog);
 
-  EXPECT_THAT(
-      ExpandMacros("$splice_invoke(  inner_\t,\t\tquoted_id   ), "
-                   "$$select_list(  b, c  )123\t",
-                   macro_catalog, /*is_strict=*/false),
-      IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
-          // Note: the dollar sign is not spliced with the identifier into a new
-          // macro invocation token, because we do not reexpand.
-          {Token::DOLLAR_SIGN, MakeLocation(kDefsFileName, 107, 108), "$", "",
-           MakeLocation(0, 40)},
-          {Token::IDENTIFIER, MakeLocation(17, 23), "inner_quoted_id", "",
-           MakeLocation(0, 40)},
-          {Token::COMMA, MakeLocation(40, 41), ",", ""},
-          {Token::DOLLAR_SIGN, MakeLocation(42, 43), "$", " "},
-          {Token::IDENTIFIER, MakeLocation(kDefsFileName, 25, 26), "a", "",
-           MakeLocation(43, 65)},
-          {Token::COMMA, MakeLocation(kDefsFileName, 27, 28), ",", " ",
-           MakeLocation(43, 65)},
-          {Token::IDENTIFIER, MakeLocation(58, 59), "b", " ",
-           MakeLocation(43, 65)},
-          // The next comma originates from the macro def
-          {Token::COMMA, MakeLocation(kDefsFileName, 31, 32), ",", "",
-           MakeLocation(43, 65)},
-          {Token::IDENTIFIER, MakeLocation(61, 62), "c123", " ",
-           MakeLocation(43, 65)},
-          {Token::EOI, MakeLocation(69, 69), "", "\t"},
-      })));
+  EXPECT_THAT(ExpandMacros("$splice_invoke(  inner_\t,\t\tquoted_id   ), "
+                           "$ $select_list(  b, c  )123\t",
+                           macro_catalog, /*is_strict=*/false),
+              IsOkAndHolds(TokensEq(std::vector<TokenWithLocation>{
+                  // Note: the dollar sign is not spliced with the identifier
+                  // into a new
+                  // macro invocation token, because we do not reexpand.
+                  {Token::DOLLAR_SIGN, MakeLocation(kDefsFileName, 107, 108),
+                   "$", "", MakeLocation(0, 40)},
+                  {Token::IDENTIFIER, MakeLocation(17, 23), "inner_quoted_id",
+                   "", MakeLocation(0, 40)},
+                  {Token::DOLLAR_SIGN, MakeLocation(kDefsFileName, 115, 116),
+                   "$", "   ", MakeLocation(0, 40)},
+                  {Token::DOLLAR_SIGN, MakeLocation(kDefsFileName, 116, 117),
+                   "$", "", MakeLocation(0, 40)},
+                  {Token::IDENTIFIER, MakeLocation(17, 23), "inner_quoted_id",
+                   "", MakeLocation(0, 40)},
+                  {Token::COMMA, MakeLocation(40, 41), ",", ""},
+                  {Token::DOLLAR_SIGN, MakeLocation(42, 43), "$", " "},
+                  {Token::IDENTIFIER, MakeLocation(kDefsFileName, 25, 26), "a",
+                   " ", MakeLocation(44, 66)},
+                  {Token::COMMA, MakeLocation(kDefsFileName, 27, 28), ",", " ",
+                   MakeLocation(44, 66)},
+                  {Token::IDENTIFIER, MakeLocation(59, 60), "b", " ",
+                   MakeLocation(44, 66)},
+                  // The next comma originates from the macro def
+                  {Token::COMMA, MakeLocation(kDefsFileName, 31, 32), ",", "",
+                   MakeLocation(44, 66)},
+                  {Token::IDENTIFIER, MakeLocation(62, 63), "c123", " ",
+                   MakeLocation(44, 66)},
+                  {Token::EOI, MakeLocation(70, 70), "", "\t"},
+              })));
 }
 
 TEST(MacroExpanderTest,

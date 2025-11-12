@@ -56,6 +56,7 @@
 #include "zetasql/compliance/test_util.h"
 #include "zetasql/public/analyzer.h"
 #include "zetasql/public/analyzer_options.h"
+#include "zetasql/public/feature_label_extractor.h"
 #include "zetasql/public/functions/string.h"
 #include "zetasql/public/language_options.h"
 #include "zetasql/public/options.pb.h"
@@ -1415,8 +1416,7 @@ static void ExtractComplianceLabelsFromResolvedAST(
                            !*product_external_uses_unsupported_type;
   const ResolvedStatement* statement = nullptr;
   auto add_labels_from = [&](const AnalyzerOutput& output) {
-    auto labels = output.analyzer_output_properties().feature_labels();
-    compliance_labels.insert(labels.begin(), labels.end());
+    return ExtractComplianceLabelsNoCompression(output, compliance_labels);
   };
   if (!internal_compiles && !external_compiles) {
     compliance_labels.emplace(kNoCompileLabel);
@@ -1443,20 +1443,17 @@ static void ExtractComplianceLabelsFromResolvedAST(
     compliance_labels.emplace(kProductModeInternalAndExternalLabel);
     // This is an arbitrary choice.
     statement = product_internal_analyzer_out->resolved_statement();
-    add_labels_from(*product_internal_analyzer_out);
+    ZETASQL_EXPECT_OK(add_labels_from(*product_internal_analyzer_out));
   } else if (internal_compiles && !external_compiles) {
     compliance_labels.emplace(kProductModeInternalLabel);
     statement = product_internal_analyzer_out->resolved_statement();
-    add_labels_from(*product_internal_analyzer_out);
+    ZETASQL_EXPECT_OK(add_labels_from(*product_internal_analyzer_out));
   } else if (!internal_compiles && external_compiles) {
     compliance_labels.emplace(kProductModeExternalLabel);
     statement = product_external_analyzer_out->resolved_statement();
-    add_labels_from(*product_external_analyzer_out);
+    ZETASQL_EXPECT_OK(add_labels_from(*product_external_analyzer_out));
   } else {
     ABSL_LOG(FATAL) << "Unreachable";
-  }
-  if (statement != nullptr) {
-    ZETASQL_EXPECT_OK(ExtractComplianceLabels(statement, compliance_labels));
   }
 }
 

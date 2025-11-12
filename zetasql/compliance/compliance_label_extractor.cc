@@ -169,6 +169,9 @@ struct AggregateFunctionModifierLabel {
   bool include_having_max = false;
   bool include_order_by = false;
   bool include_limit = false;
+  bool include_mla = false;
+  bool include_where = false;
+  bool include_having = false;
 };
 
 struct WindowFunctionModifierLabel {
@@ -310,6 +313,15 @@ class ComplianceLabelSets {
     if (node->limit() != nullptr) {
       found->second.include_limit = true;
     }
+    if (!node->group_by_list().empty()) {
+      found->second.include_mla = true;
+    }
+    if (node->where_expr() != nullptr) {
+      found->second.include_where = true;
+    }
+    if (node->having_expr() != nullptr) {
+      found->second.include_having = true;
+    }
 
     return true;
   }
@@ -342,6 +354,11 @@ class ComplianceLabelSets {
       }
     }
 
+    return true;
+  }
+
+  bool AddOther(absl::string_view label) {
+    other_features_.emplace(label);
     return true;
   }
 
@@ -442,6 +459,15 @@ class ComplianceLabelSets {
         if (found->second.include_limit) {
           supported_modifiers.insert("LIMIT");
         }
+        if (found->second.include_mla) {
+          supported_modifiers.insert("GROUP_BY");
+        }
+        if (found->second.include_where) {
+          supported_modifiers.insert("WHERE");
+        }
+        if (found->second.include_having) {
+          supported_modifiers.insert("HAVING");
+        }
         for (const absl::string_view& modifier : supported_modifiers) {
           output.insert(absl::StrCat(
               "AggregateFunctionModifier:", signature_label.prefix, ":",
@@ -493,6 +519,10 @@ class ComplianceLabelSets {
           ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode_Name(
               propagation_mode)));
     }
+
+    for (const std::string& other_feature : other_features_) {
+      output.insert(absl::StrCat("OtherSqlFeature:", other_feature));
+    }
   }
 
  private:
@@ -512,6 +542,7 @@ class ComplianceLabelSets {
       ResolvedSetOperationScanEnums::SetOperationColumnMatchMode,
       ResolvedSetOperationScanEnums::SetOperationColumnPropagationMode>>
       set_operation_modes_;
+  absl::flat_hash_set<std::string> other_features_;
 };
 
 class ComplianceLabelExtractor : public ResolvedASTVisitor {
@@ -673,6 +704,13 @@ class ComplianceLabelExtractor : public ResolvedASTVisitor {
                    SetOperationColumnPropagationMode_Name(
                        node->column_propagation_mode())
             << ".\n";
+    return DefaultVisit(node);
+  }
+
+  absl::Status VisitResolvedJoinScan(const ResolvedJoinScan* node) override {
+    if (node->is_lateral()) {
+      compliance_labels_.AddOther("LATERAL_JOIN");
+    }
     return DefaultVisit(node);
   }
 

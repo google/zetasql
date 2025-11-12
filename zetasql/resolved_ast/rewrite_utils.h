@@ -34,6 +34,7 @@
 #include "zetasql/public/types/type_factory.h"
 #include "zetasql/resolved_ast/column_factory.h"
 #include "zetasql/resolved_ast/resolved_ast.h"
+#include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
@@ -984,16 +985,49 @@ absl::Status ValidateArgumentsDoNotContainCorrelation(
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
     const ResolvedColumn& column);
 
-// Assigns the type annotation map of the column reference to the matching
-// column's type annotation map if unset.
-std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
-    const Type* type, const ResolvedColumn& column, bool is_correlated = false);
-
 // Get the maximum ResolvedColumn id from the given node.
 absl::StatusOr<int> GetMaxColumnId(const ResolvedNode* node);
 
-// Returns true if the given node contains a ResolvedColumn.
-absl::StatusOr<bool> ContainsResolvedColumn(const ResolvedNode* node);
+// Visitor that can be used to detect if a ResolvedAST contains a ResolvedColumn
+// or a ResolvedExpressionColumn.
+//
+// Example usage:
+//   ContainsResolvedColumnVisitor visitor;
+//   auto visitor_output = visitor.VisitAll(std::move(node));
+//   const bool contains_resolved_column = visitor.ContainsResolvedColumn();
+//   const bool contains_resolved_expression_column =
+//       visitor.ContainsResolvedExpressionColumn();
+class ContainsResolvedColumnVisitor : public ResolvedASTRewriteVisitor {
+ public:
+  ContainsResolvedColumnVisitor() = default;
+  // Neither copyable nor movable.
+  ContainsResolvedColumnVisitor(const ContainsResolvedColumnVisitor&) = delete;
+  ContainsResolvedColumnVisitor& operator=(
+      const ContainsResolvedColumnVisitor&) = delete;
+
+  bool ContainsResolvedColumn() const { return contains_resolved_column_; }
+
+  bool ContainsResolvedExpressionColumn() const {
+    return contains_resolved_expression_column_;
+  }
+
+ private:
+  absl::Status PreVisitResolvedColumn(
+      const zetasql::ResolvedColumn&) override {
+    contains_resolved_column_ = true;
+    return absl::OkStatus();
+  }
+
+  absl::Status PreVisitResolvedExpressionColumn(
+      const zetasql::ResolvedExpressionColumn&) override {
+    contains_resolved_expression_column_ = true;
+    return absl::OkStatus();
+  }
+
+  bool contains_resolved_column_ = false;
+  bool contains_resolved_expression_column_ = false;
+};
+
 }  // namespace zetasql
 
 // Visitor to detect if a node contains WithScan.

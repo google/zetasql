@@ -329,6 +329,7 @@ cc_library(
     deps = [
         "//zetasql/base:ret_check",
         "//zetasql/base:status",
+        "//zetasql/base:strings",
         "//zetasql/common:measure_utils",
         "//zetasql/public:analyzer_options",
         "//zetasql/public:builtin_function_cc_proto",

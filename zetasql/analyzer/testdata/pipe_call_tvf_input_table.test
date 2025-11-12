@@ -380,7 +380,7 @@ FROM KeyValue
 |> CALL tvf_optional_scalars_named_table(
             123, foobar => INPUT TABLE, foobar => 123)
 --
-ERROR: Table-valued function tvf_optional_scalars_named_table argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:51]
+ERROR: Table-valued function TVF_OPTIONAL_SCALARS_NAMED_TABLE argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:51]
             123, foobar => INPUT TABLE, foobar => 123)
                                                   ^
 ==
@@ -391,7 +391,7 @@ FROM KeyValue
 |> CALL tvf_optional_scalars_named_table(
             123, foobar => INPUT TABLE, 456)
 --
-ERROR: Table-valued function tvf_optional_scalars_named_table argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:41]
+ERROR: Table-valued function TVF_OPTIONAL_SCALARS_NAMED_TABLE argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:41]
             123, foobar => INPUT TABLE, 456)
                                         ^
 ==

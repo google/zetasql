@@ -5295,6 +5295,8 @@ absl::Status Resolver::CheckChainedFunctionCall(
       return MakeSqlErrorAt(function_call)
              << "Chained function calls are not supported";
     }
+    analyzer_output_properties_.AddFeatureLabel(
+        "SugarSyntax:CHAINED_FUNCTION_CALLS");
 
     // Check if we have any modifiers not allowed on chained calls.
     // Minus-one is for `is_chained_call`.

@@ -1633,40 +1633,44 @@ void {{node.name}}::CollectDebugStringFields(
     std::vector<DebugStringField>* fields) const {
   SUPER::CollectDebugStringFields(fields);
  # for field in node.fields
-  # if field.is_node_ptr
-  if ({{field.member_name}} != nullptr) {
-    fields->emplace_back("{{field.name}}", {{field.member_name}}.get(), {{field.member_name}}accessed());
-  }
-  # elif field.is_node_vector
-  if (!{{field.member_name}}.empty()) {
-    fields->emplace_back("{{field.name}}", {{field.member_name}}, {{field.member_name}}accessed());
-  }
-  # else
-   # if field.is_not_ignorable
   {
-   # else
-  if (!IsDefaultValue({{field.member_name}})) {
-   # endif
-    fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}), {{field.member_name}}accessed());
-   {#
-   For ResolvedColumnList and ResolvedColumn (and ResolvedColumnHolder), we have
-   a config option `print_created_columns` that annotates created columns with
-   `{c}` if the column is created in this node.
+    {#
+    For ResolvedColumnList and ResolvedColumn (and ResolvedColumnHolder), we have
+    a config option `print_created_columns` that annotates created columns with
+    `{c}` if the column is created in this node.
 
-   For determining columns that are created, we have two cases:
-   (a) The `column_list` field itself represents created columns (e.g. in
-   TableScans). This is indicated by `ColumnListIsCreatedColumns()` being true.
-   (b) The field contains a ResolvedColumn (or vector of ResolvedColumn) that
-   is created in this node. This is indicated by `column_is_created` being
-   true.
-   #}
+    For determining columns that are created, we have two cases:
+    (a) The `column_list` field itself represents created columns (e.g. in
+    TableScans). This is indicated by `ColumnListIsCreatedColumns()` being true.
+    (b) The field contains a ResolvedColumn (or vector of ResolvedColumn) that
+    is created in this node. This is indicated by `column_is_created` being
+    true.
+    #}
     # if node.name == 'ResolvedScan' and field.name == 'column_list'
-    fields->back().column_created = ColumnListIsCreatedColumns();
+    bool column_created = ColumnListIsCreatedColumns();
     # elif field.column_is_created
-    fields->back().column_created = true;
+    bool column_created = true;
+    # else
+    bool column_created = false;
+    # endif
+    # if field.is_node_ptr
+    if ({{field.member_name}} != nullptr) {
+      fields->emplace_back("{{field.name}}", {{field.member_name}}.get(), {{field.member_name}}accessed(), column_created);
+    }
+    # elif field.is_node_vector
+    if (!{{field.member_name}}.empty()) {
+      fields->emplace_back("{{field.name}}", {{field.member_name}}, {{field.member_name}}accessed(), column_created);
+    }
+    # else
+     # if field.is_not_ignorable
+    {
+     # else
+    if (!IsDefaultValue({{field.member_name}})) {
+     # endif
+      fields->emplace_back("{{field.name}}", {{field.to_string_method}}({{field.member_name}}), {{field.member_name}}accessed(), column_created);
+    }
     # endif
   }
-  # endif
  # endfor
 }
 
@@ -1687,6 +1691,8 @@ absl::Status {{node.name}}::CheckFieldsAccessedImpl(
     if ((accessed_local & {{field.bitmap}}) == 0) {
       NodeAnnotation annotation = {
         .node = this,
+        {# Note: This string is pattern-matched in
+          `tools/execute_query/execute_query_web_writer.cc`. Keep that in sync. #}
         .annotation = "(*** This node has unaccessed field ***)"
       };
       return ::zetasql_base::UnimplementedErrorBuilder(zetasql_base::SourceLocation::current()).LogError()

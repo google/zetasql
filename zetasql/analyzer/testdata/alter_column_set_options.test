@@ -1,5 +1,5 @@
-[default language_features=MAXIMUM,+ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS]
-alter {{table|view|model}} KeyValue alter column key set options (description="new description");
+[default language_features=MAXIMUM,+ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS,+ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS]
+alter {{table|view|materialized view|model}} KeyValue alter column key set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -15,6 +15,16 @@ AlterTableStmt
 ALTERNATION GROUP: view
 --
 AlterViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
 +-name_path=KeyValue
 +-alter_action_list=
   +-AlterColumnOptionsAction
@@ -30,7 +40,7 @@ alter model KeyValue alter column key set options (description="new descripti...
 
 ==
 
-alter {{table|view}} if exists KeyValue alter column key set options (description="new description");
+alter {{table|view|materialized view}} if exists KeyValue alter column key set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -54,10 +64,21 @@ AlterViewStmt
 |   +-option_list=
 |     +-description := Literal(type=STRING, value="new description")
 +-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
 
 ==
 
-alter {{table|view}} KeyValue alter column key set options (description="description1"), alter column value set options(description="description2");
+alter {{table|view|materialized view}} KeyValue alter column key set options (description="description1"), alter column value set options(description="description2");
 --
 ALTERNATION GROUP: table
 
@@ -87,10 +108,24 @@ AlterViewStmt
     +-column="value"
     +-option_list=
       +-description := Literal(type=STRING, value="description2")
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+  | +-column="key"
+  | +-option_list=
+  |   +-description := Literal(type=STRING, value="description1")
+  +-AlterColumnOptionsAction
+    +-column="value"
+    +-option_list=
+      +-description := Literal(type=STRING, value="description2")
 
 ==
 
-alter {{table|view}} KeyValue alter column not_a_column set options (description="new description");
+alter {{table|view|materialized view}} KeyValue alter column not_a_column set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -106,10 +141,17 @@ ALTERNATION GROUP: view
 ERROR: Column not found: not_a_column [at 1:34]
 alter view KeyValue alter column not_a_column set options (description="new d...
                                  ^
+--
+ALTERNATION GROUP: materialized view
+--
+
+ERROR: Column not found: not_a_column [at 1:47]
+alter materialized view KeyValue alter column not_a_column set options (descr...
+                                              ^
 
 ==
 
-alter {{table|view}} not_a_table alter column not_a_column set options (description="new description");
+alter {{table|view|materialized view}} not_a_table alter column not_a_column set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -124,10 +166,16 @@ ALTERNATION GROUP: view
 ERROR: Table not found: not_a_table [at 1:12]
 alter view not_a_table alter column not_a_column set options (description="ne...
            ^
+--
+ALTERNATION GROUP: materialized view
+--
+ERROR: Table not found: not_a_table [at 1:25]
+alter materialized view not_a_table alter column not_a_column set options (de...
+                        ^
 
 ==
 
-alter {{table|view}} if exists KeyValue alter column not_a_column set options (description="new description");
+alter {{table|view|materialized view}} if exists KeyValue alter column not_a_column set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -143,10 +191,17 @@ ALTERNATION GROUP: view
 ERROR: Column not found: not_a_column [at 1:44]
 alter view if exists KeyValue alter column not_a_column set options (descript...
                                            ^
+--
+ALTERNATION GROUP: materialized view
+--
+
+ERROR: Column not found: not_a_column [at 1:57]
+...materialized view if exists KeyValue alter column not_a_column set options...
+                                                     ^
 
 ==
 
-alter {{table|view}} KeyValue alter column if exists key set options (description="new description");
+alter {{table|view|materialized view}} KeyValue alter column if exists key set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -172,9 +227,21 @@ AlterViewStmt
     +-option_list=
       +-description := Literal(type=STRING, value="new description")
 
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
 ==
 
-alter {{table|view}} KeyValue alter column if exists not_a_column set options (description="new description");
+alter {{table|view|materialized view}} KeyValue alter column if exists not_a_column set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -200,9 +267,21 @@ AlterViewStmt
     +-option_list=
       +-description := Literal(type=STRING, value="new description")
 
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-is_if_exists=TRUE
+    +-column="not_a_column"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+
 ==
 
-alter {{table|view}} if exists KeyValue alter column if exists key set options (description="new description");
+alter {{table|view|materialized view}} if exists KeyValue alter column if exists key set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -229,10 +308,22 @@ AlterViewStmt
 |   +-option_list=
 |     +-description := Literal(type=STRING, value="new description")
 +-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
 
 ==
 
-alter {{table|view}} if exists KeyValue alter column if exists not_a_column set options (description="new description");
+alter {{table|view|materialized view}} if exists KeyValue alter column if exists not_a_column set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -259,10 +350,22 @@ AlterViewStmt
 |   +-option_list=
 |     +-description := Literal(type=STRING, value="new description")
 +-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="not_a_column"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
 
 ==
 
-alter {{table|view}} if exists not_a_table alter column if exists key set options (description="new description");
+alter {{table|view|materialized view}} if exists not_a_table alter column if exists key set options (description="new description");
 --
 ALTERNATION GROUP: table
 
@@ -281,6 +384,18 @@ AlterTableStmt
 ALTERNATION GROUP: view
 --
 AlterViewStmt
++-name_path=not_a_table
++-alter_action_list=
+| +-AlterColumnOptionsAction
+|   +-is_if_exists=TRUE
+|   +-column="key"
+|   +-option_list=
+|     +-description := Literal(type=STRING, value="new description")
++-is_if_exists=TRUE
+--
+ALTERNATION GROUP: materialized view
+--
+AlterMaterializedViewStmt
 +-name_path=not_a_table
 +-alter_action_list=
 | +-AlterColumnOptionsAction
@@ -315,8 +430,31 @@ alter view KeyValue alter column key set options (description="new descriptio...
 
 ==
 
+# Alter materialized view alter column set options with ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS enabled/disabled.
+[language_features=NONE,{{+ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS|}}]
+alter materialized view KeyValue alter column key set options (description="new description");
+--
+ALTERNATION GROUP: +ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS
+
+--
+AlterMaterializedViewStmt
++-name_path=KeyValue
++-alter_action_list=
+  +-AlterColumnOptionsAction
+    +-column="key"
+    +-option_list=
+      +-description := Literal(type=STRING, value="new description")
+--
+ALTERNATION GROUP: <empty>
+--
+ERROR: ALTER MATERIALIZED VIEW does not support ALTER COLUMN SET OPTIONS [at 1:34]
+alter materialized view KeyValue alter column key set options (description="n...
+                                 ^
+
+==
+
 [disallow_duplicate_options]
-alter {{table|view|model}} KeyValue alter column key set options (description="new description", description="duplicate description");
+alter {{table|view|materialized view|model}} KeyValue alter column key set options (description="new description", description="duplicate description");
 
 --
 ALTERNATION GROUP: table
@@ -328,6 +466,12 @@ ERROR: Duplicate option specified for 'description' [at 1:83]
 ALTERNATION GROUP: view
 --
 ERROR: Duplicate option specified for 'description' [at 1:82]
+...key set options (description="new description", description="duplicate des...
+                                                   ^
+--
+ALTERNATION GROUP: materialized view
+--
+ERROR: Duplicate option specified for 'description' [at 1:95]
 ...key set options (description="new description", description="duplicate des...
                                                    ^
 --

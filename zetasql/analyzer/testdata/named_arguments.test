@@ -3,11 +3,6 @@
 #
 # Valid function call with named arguments in the same order as they appear in
 # the function signature.
-# TODO: Enable Java support. The functionality is not provided for
-# analyzing TVF calls with Java support currently, when this is added, both the
-# function_default_argument.test, tvf_relation_args.test file and this file can
-# be updated at the same time.
-[default no_java]
 [default language_features=NONE,+NAMED_ARGUMENTS,+TABLE_VALUED_FUNCTIONS]
 select fn_named_args(format_string => "%x", date_string => "12/25/08")
 --
@@ -375,7 +370,7 @@ QueryStmt
 select * from tvf_named_optional_any_relation_arg(
     invalid_arg => (select 1 as x))
 --
-ERROR: Named argument invalid_arg not found in signature for call to function tvf_named_optional_any_relation_arg [at 2:5]
+ERROR: Named argument invalid_arg not found in signature for call to function TVF_NAMED_OPTIONAL_ANY_RELATION_ARG [at 2:5]
     invalid_arg => (select 1 as x))
     ^
 ==
@@ -951,7 +946,7 @@ select fn_named_args("%x", format_string => "%x", date_string => "12/25/08")
 select * from tvf_named_required_any_relation_arg(
     any_relation_arg => (select 1 as x), extra_arg => 42)
 --
-ERROR: Named argument extra_arg not found in signature for call to function tvf_named_required_any_relation_arg [at 2:42]
+ERROR: Named argument extra_arg not found in signature for call to function TVF_NAMED_REQUIRED_ANY_RELATION_ARG [at 2:42]
     any_relation_arg => (select 1 as x), extra_arg => 42)
                                          ^
 ==
@@ -960,7 +955,7 @@ ERROR: Named argument extra_arg not found in signature for call to function tvf_
 select * from tvf_named_required_any_relation_arg(
     any_relation_arg => 42)
 --
-ERROR: Table-valued function tvf_named_required_any_relation_arg argument 1 ('any_relation_arg') must be a relation (i.e. table subquery) [at 2:25]
+ERROR: Table-valued function TVF_NAMED_REQUIRED_ANY_RELATION_ARG argument 1 ('any_relation_arg') must be a relation (i.e. table subquery) [at 2:25]
     any_relation_arg => 42)
                         ^
 ==
@@ -993,7 +988,7 @@ select * from tvf_named_required_scalar_args(
 select * from tvf_named_required_scalar_args(
     format_string => "%X", date_string => "12/25/08", extra_arg => 42)
 --
-ERROR: Named argument extra_arg not found in signature for call to function tvf_named_required_scalar_args [at 2:55]
+ERROR: Named argument extra_arg not found in signature for call to function TVF_NAMED_REQUIRED_SCALAR_ARGS [at 2:55]
     format_string => "%X", date_string => "12/25/08", extra_arg => 42)
                                                       ^
 ==
@@ -1002,7 +997,7 @@ ERROR: Named argument extra_arg not found in signature for call to function tvf_
 # signature does not indicate any required argument names.
 select * from tvf_exactly_3_int64_args(first => 1, second => 2, third => 3)
 --
-ERROR: Named argument first not found in signature for call to function tvf_exactly_3_int64_args [at 1:40]
+ERROR: Named argument first not found in signature for call to function TVF_EXACTLY_3_INT64_ARGS [at 1:40]
 select * from tvf_exactly_3_int64_args(first => 1, second => 2, third => 3)
                                        ^
 ==
@@ -1054,7 +1049,7 @@ select * from tvf_named_optional_any_relation_arg_optional_scalar_arg(
 select * from tvf_one_relation_arg_with_fixed_output(
   name => (select cast(42 as bool) as bool_column))
 --
-ERROR: Named argument name not found in signature for call to function tvf_one_relation_arg_with_fixed_output [at 2:3]
+ERROR: Named argument name not found in signature for call to function TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT [at 2:3]
   name => (select cast(42 as bool) as bool_column))
   ^
 ==
@@ -2951,7 +2946,7 @@ select (select column_bool from
     arg_4 => (int64, string)  -- must_support_equality
 )) from SimpleTypes;
 --
-ERROR: Argument 1 to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 2:3]
+ERROR: Argument 1 to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 2:3]
   tvf_named_scalar_args_with_constraints(
   ^
 ==
@@ -2960,6 +2955,8 @@ ERROR: Argument 1 to table-valued function tvf_named_scalar_args_with_constraint
 # arguments.
 # There is currently a bug (b/330392311) which leads to confusing error message
 # in this scenario, therefore we need to explicly specify arg_1.
+# TODO: b/459308331 - Fix analyzer debug string for untyped empty array in Java.
+[no_java]
 select (select column_bool from
   tvf_named_scalar_args_with_constraints(
     arg_1 => 7,  -- must_be_non_null
@@ -3045,7 +3042,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+ERROR: Argument 'arg_1' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 12:5]
     arg_1 => NULL  -- must_be_non_null
     ^
 ==
@@ -3066,7 +3063,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+ERROR: Argument 'arg_1' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 12:5]
     arg_1 => CAST(NULL AS int64)  -- must_be_non_null
     ^
 ==
@@ -3087,7 +3084,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_10' to table-valued function tvf_named_scalar_args_with_constraints must be non-NULL [at 12:5]
+ERROR: Argument 'arg_10' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be non-NULL [at 12:5]
     arg_10 => NULL  -- must_be_non_null with default
     ^
 ==
@@ -3192,7 +3189,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_2' to table-valued function tvf_named_scalar_args_with_constraints must be a literal or query parameter [at 12:5]
+ERROR: Argument 'arg_2' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be a literal or query parameter [at 12:5]
     arg_2 => CONCAT("test", "string")  -- must_be_constant
     ^
 ==
@@ -3213,7 +3210,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_3' to table-valued function tvf_named_scalar_args_with_constraints must be a constant expression [at 12:5]
+ERROR: Argument 'arg_3' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be a constant expression [at 12:5]
     arg_3 => COS(double * 3.14) -- must_be_constant_expression
     ^
 ==
@@ -3234,7 +3231,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_4' to table-valued function tvf_named_scalar_args_with_constraints must support equality; Type STRUCT<INT64, JSON> does not [at 12:5]
+ERROR: Argument 'arg_4' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must support equality; Type STRUCT<INT64, JSON> does not [at 12:5]
     arg_4 => (int64, json)  -- must_support_equality
     ^
 ==
@@ -3255,7 +3252,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_5' to table-valued function tvf_named_scalar_args_with_constraints must support ordering; Type ARRAY<STRING> does not [at 12:5]
+ERROR: Argument 'arg_5' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must support ordering; Type ARRAY<STRING> does not [at 12:5]
     arg_5 => [string] -- must_support_ordering
     ^
 ==
@@ -3276,7 +3273,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Argument 'arg_6' to table-valued function tvf_named_scalar_args_with_constraints must support grouping; Type ARRAY<DOUBLE> does not [at 12:5]
+ERROR: Argument 'arg_6' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must support grouping; Type ARRAY<DOUBLE> does not [at 12:5]
     arg_6 => [double]  -- must_support_grouping
     ^
 ==
@@ -3297,7 +3294,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 2:3]
+ERROR: Table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<JSON> because the array's element type does not support equality [at 2:3]
   tvf_named_scalar_args_with_constraints(
   ^
 ==
@@ -3318,7 +3315,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<INT64, ARRAY<STRING>>> because the array's element type does not support ordering [at 2:3]
+ERROR: Table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<STRUCT<INT64, ARRAY<STRING>>> because the array's element type does not support ordering [at 2:3]
   tvf_named_scalar_args_with_constraints(
   ^
 ==
@@ -3339,7 +3336,7 @@ select (select column_bool from
 )) from SimpleTypes;
 --
 
-ERROR: Table-valued function tvf_named_scalar_args_with_constraints cannot be used on argument of type ARRAY<STRUCT<ARRAY<DOUBLE>, INT64>> because the array's element type does not support grouping [at 2:3]
+ERROR: Table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS cannot be used on argument of type ARRAY<STRUCT<ARRAY<DOUBLE>, INT64>> because the array's element type does not support grouping [at 2:3]
   tvf_named_scalar_args_with_constraints(
   ^
 ==
@@ -3359,7 +3356,7 @@ select (select column_bool from
     arg_10 => 15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 'arg_1' to table-valued function tvf_named_scalar_args_with_constraints must be at least 3 [at 3:5]
+ERROR: Argument 'arg_1' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be at least 3 [at 3:5]
     arg_1 => 2,  -- min_value = 3
     ^
 ==
@@ -3379,6 +3376,6 @@ select (select column_bool from
     arg_10 => 15.3  -- must_be_non_null with default
 )) from SimpleTypes;
 --
-ERROR: Argument 'arg_3' to table-valued function tvf_named_scalar_args_with_constraints must be at most 100 [at 5:5]
+ERROR: Argument 'arg_3' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be at most 100 [at 5:5]
     arg_3 => 500, -- max_value = 100
     ^

@@ -289,7 +289,7 @@ QueryStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_one_relation_arg_output_schema_is_input_schema_deprecation triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
+Table-valued function TVF_ONE_RELATION_ARG_OUTPUT_SCHEMA_IS_INPUT_SCHEMA_DEPRECATION triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 1:15]
 select * from tvf_one_relation_arg_output_schema_is_input_schema_deprecation(
               ^
 Operation <foo16> is deprecated [at module16.sqlm:26:36]
@@ -983,11 +983,6 @@ QueryStmt
 
 # This TVF accepts three inputs (model, relation and struct) to mock
 # ML.EVALUATE.
-# Java error:
-# Model not found: onedoublemodel [at 2:9]
-#   model onedoublemodel, (select 1, 2), struct("e" as string, 123 as int64))
-#         ^
-[no_java]
 select * from tvf_model_evaluation_args(
   model onedoublemodel, (select 1, 2), struct("e" as string, 123 as int64))
 --
@@ -1025,11 +1020,6 @@ QueryStmt
 ==
 
 # This TVF accepts only one argument to mock ML.EVALUATE with only model name.
-# Java error:
-# Model not found: onedoublemodel [at 1:47]
-# select * from tvf_model_evaluation_args(model onedoublemodel)
-#                                               ^
-[no_java]
 select * from tvf_model_evaluation_args(model onedoublemodel)
 --
 QueryStmt
@@ -1054,11 +1044,6 @@ QueryStmt
 
 # This TVF accepts two arguments with the second one as 'TABLE foo' clause.
 # The second argument should be translated as a relation.
-# Java error:
-# Model not found: onedoublemodel [at 1:47]
-# select * from tvf_model_evaluation_args(model onedoublemodel, table KeyValue)
-#                                               ^
-[no_java]
 select * from tvf_model_evaluation_args(model onedoublemodel, table KeyValue)
 --
 QueryStmt
@@ -1087,11 +1072,6 @@ QueryStmt
 
 # This TVF accepts two arguments with the second one as scalar subquery returns
 # struct. The second argument should be translated as a relation.
-# Java error:
-# Model not found: onedoublemodel [at 1:47]
-# select * from tvf_model_evaluation_args(model onedoublemodel,
-#                                               ^
-[no_java]
 select * from tvf_model_evaluation_args(model onedoublemodel,
   (select struct("e" as string, 123 as int64)))
 --
@@ -6613,7 +6593,7 @@ ERROR: Unrecognized name: x [at 4:53]
 # instead.
 select column_bytes from tvf_two_relation_args(1, 2)
 --
-ERROR: Table-valued function tvf_two_relation_args argument 1 must be a relation (i.e. table subquery) [at 1:48]
+ERROR: Table-valued function TVF_TWO_RELATION_ARGS argument 1 must be a relation (i.e. table subquery) [at 1:48]
 select column_bytes from tvf_two_relation_args(1, 2)
                                                ^
 ==
@@ -6622,7 +6602,7 @@ select column_bytes from tvf_two_relation_args(1, 2)
 # instead.
 select * from tvf_one_relation_arg_output_schema_is_input_schema("abc")
 --
-ERROR: Table-valued function tvf_one_relation_arg_output_schema_is_input_schema argument 1 must be a relation (i.e. table subquery) [at 1:66]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_OUTPUT_SCHEMA_IS_INPUT_SCHEMA argument 1 must be a relation (i.e. table subquery) [at 1:66]
 select * from tvf_one_relation_arg_output_schema_is_input_schema("abc")
                                                                  ^
 ==
@@ -6631,7 +6611,7 @@ select * from tvf_one_relation_arg_output_schema_is_input_schema("abc")
 # table by simply naming it, but this syntax is not supported.
 select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
 --
-ERROR: Table-valued function tvf_one_relation_arg_output_schema_is_input_schema argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:66]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_OUTPUT_SCHEMA_IS_INPUT_SCHEMA argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:66]
 select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
                                                                  ^
 ==
@@ -6663,7 +6643,7 @@ ERROR: Scalar subquery cannot have more than one column unless using SELECT AS S
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
     array[1], 2)
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_int64_arg argument 1 must be a relation (i.e. table subquery) [at 2:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_INT64_ARG argument 1 must be a relation (i.e. table subquery) [at 2:5]
     array[1], 2)
     ^
 ==
@@ -6672,7 +6652,7 @@ ERROR: Table-valued function tvf_one_relation_arg_one_int64_arg argument 1 must 
 # passes two scalar arguments instead.
 select column_bytes from tvf_one_relation_arg_one_int64_arg(1, 2)
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_int64_arg argument 1 must be a relation (i.e. table subquery) [at 1:61]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_INT64_ARG argument 1 must be a relation (i.e. table subquery) [at 1:61]
 select column_bytes from tvf_one_relation_arg_one_int64_arg(1, 2)
                                                             ^
 ==
@@ -6704,7 +6684,7 @@ ERROR: Scalar subquery cannot have more than one column unless using SELECT AS S
 # but the query passes scalar arguments instead.
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(1, 2, 3)
 --
-ERROR: Table-valued function tvf_one_relation_arg_repeating_int64_args argument 1 must be a relation (i.e. table subquery) [at 1:68]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_REPEATING_INT64_ARGS argument 1 must be a relation (i.e. table subquery) [at 1:68]
 select column_bytes from tvf_one_relation_arg_repeating_int64_args(1, 2, 3)
                                                                    ^
 ==
@@ -6781,7 +6761,7 @@ select value from tvf_two_relation_args_return_int64_value_table(
 select * from tvf_two_relation_args_output_schema_is_input_schema(
     'abc', (select 1, 2), (select 3, 4))
 --
-ERROR: Table-valued function tvf_two_relation_args_output_schema_is_input_schema argument 1 must be a relation (i.e. table subquery) [at 2:5]
+ERROR: Table-valued function TVF_TWO_RELATION_ARGS_OUTPUT_SCHEMA_IS_INPUT_SCHEMA argument 1 must be a relation (i.e. table subquery) [at 2:5]
     'abc', (select 1, 2), (select 3, 4))
     ^
 ==
@@ -6802,7 +6782,7 @@ select t.value_table_column
 select column_bytes from tvf_one_relation_arg_one_int64_arg(
     ARRAY(select 1), 42)
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_int64_arg argument 1 must be a relation (i.e. table subquery) [at 2:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_INT64_ARG argument 1 must be a relation (i.e. table subquery) [at 2:5]
     ARRAY(select 1), 42)
     ^
 ==
@@ -6813,20 +6793,16 @@ select column_bytes from tvf_one_relation_arg_one_int64_arg(
     EXISTS(select 1), 42)
 --
 
-ERROR: Table-valued function tvf_one_relation_arg_one_int64_arg argument 1 must be a relation (i.e. table subquery) [at 2:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_INT64_ARG argument 1 must be a relation (i.e. table subquery) [at 2:5]
     EXISTS(select 1), 42)
     ^
 ==
 
 # This TVF accepts only two arguments to mock ML.EVALUATE with model name and
 # struct, which is not allowed.
-# Model not found: onedoublemodel [at 1:47]
-# select * from tvf_model_evaluation_args(model onedoublemodel, struct("e" as s...
-#                                               ^
-[no_java]
 select * from tvf_model_evaluation_args(model onedoublemodel, struct("e" as string, 123 as int64))
 --
-ERROR: Table-valued function tvf_model_evaluation_args argument 2 must be a relation (i.e. table subquery) [at 1:63]
+ERROR: Table-valued function TVF_MODEL_EVALUATION_ARGS argument 2 must be a relation (i.e. table subquery) [at 1:63]
 ...tvf_model_evaluation_args(model onedoublemodel, struct("e" as string, 123 ...
                                                    ^
 ==
@@ -7102,7 +7078,7 @@ select * from tvf_one_relation_arg_with_fixed_output(table badtable)
 # this query during the resolving step.
 select * from tvf_one_relation_arg_with_fixed_output(keyvalue)
 --
-ERROR: Table-valued function tvf_one_relation_arg_with_fixed_output argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:54]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:54]
 select * from tvf_one_relation_arg_with_fixed_output(keyvalue)
                                                      ^
 ==
@@ -7111,7 +7087,7 @@ select * from tvf_one_relation_arg_with_fixed_output(keyvalue)
 # query during the resolving step.
 select * from tvf_one_relation_arg_with_fixed_output(table)
 --
-ERROR: Table-valued function tvf_one_relation_arg_with_fixed_output argument 1 must be a relation (i.e. table subquery); if you meant to refer to table table then add the TABLE keyword before the table name (i.e. TABLE table) [at 1:54]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT argument 1 must be a relation (i.e. table subquery); if you meant to refer to table table then add the TABLE keyword before the table name (i.e. TABLE table) [at 1:54]
 select * from tvf_one_relation_arg_with_fixed_output(table)
                                                      ^
 ==
@@ -7421,7 +7397,7 @@ Function body is missing one or more explicit output column names
 # table by simply naming it, but this syntax is not supported.
 select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
 --
-ERROR: Table-valued function tvf_one_relation_arg_output_schema_is_input_schema argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:66]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_OUTPUT_SCHEMA_IS_INPUT_SCHEMA argument 1 must be a relation (i.e. table subquery); if you meant to refer to table keyvalue then add the TABLE keyword before the table name (i.e. TABLE keyvalue) [at 1:66]
 select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
                                                                  ^
 ==
@@ -7432,7 +7408,7 @@ select * from tvf_one_relation_arg_output_schema_is_input_schema(keyvalue)
 select * from tvf_one_relation_arg_with_fixed_output(
     table tvf_two_relation_args(1, 2));
 --
-ERROR: Table-valued function tvf_two_relation_args argument 1 must be a relation (i.e. table subquery) [at 2:33]
+ERROR: Table-valued function TVF_TWO_RELATION_ARGS argument 1 must be a relation (i.e. table subquery) [at 2:33]
     table tvf_two_relation_args(1, 2));
                                 ^
 ==
@@ -7476,7 +7452,7 @@ with w as (select true as val)
 select mytvf.column_bool
 from tvf_one_relation_arg_with_fixed_output(w) as mytvf
 --
-ERROR: Table-valued function tvf_one_relation_arg_with_fixed_output argument 1 must be a relation (i.e. table subquery); if you meant to refer to table w then add the TABLE keyword before the table name (i.e. TABLE w) [at 3:45]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT argument 1 must be a relation (i.e. table subquery); if you meant to refer to table w then add the TABLE keyword before the table name (i.e. TABLE w) [at 3:45]
 from tvf_one_relation_arg_with_fixed_output(w) as mytvf
                                             ^
 ==
@@ -7493,7 +7469,7 @@ Column name is duplicated between extra column and input schema: append_col_int3
 # Test when the first argument is not relation.
 select * from tvf_append_columns_any_relation_arg(1)
 --
-ERROR: Table-valued function tvf_append_columns_any_relation_arg argument 1 ('any_relation_arg') must be a relation (i.e. table subquery) [at 1:51]
+ERROR: Table-valued function TVF_APPEND_COLUMNS_ANY_RELATION_ARG argument 1 ('any_relation_arg') must be a relation (i.e. table subquery) [at 1:51]
 select * from tvf_append_columns_any_relation_arg(1)
                                                   ^
 ==
@@ -7502,7 +7478,7 @@ with nested_catalog as (select true as val)
 select mytvf.column_bool
 from tvf_one_relation_arg_with_fixed_output(nested_catalog.KeyValue) as mytvf
 --
-ERROR: Table-valued function tvf_one_relation_arg_with_fixed_output argument 1 must be a relation (i.e. table subquery); if you meant to refer to table nested_catalog.KeyValue then add the TABLE keyword before the table name (i.e. TABLE nested_catalog.KeyValue) [at 3:45]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_WITH_FIXED_OUTPUT argument 1 must be a relation (i.e. table subquery); if you meant to refer to table nested_catalog.KeyValue then add the TABLE keyword before the table name (i.e. TABLE nested_catalog.KeyValue) [at 3:45]
 from tvf_one_relation_arg_with_fixed_output(nested_catalog.KeyValue) as mytvf
                                             ^
 ==

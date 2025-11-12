@@ -767,13 +767,13 @@ FROM tvf_exactly_1_int64_arg
 --
 ALTERNATION GROUP: tvf_no_args
 --
-ERROR: Table-valued function with no parameters must be called with an empty argument list: `tvf_no_args()` [at 2:6]
+ERROR: Table-valued function with no parameters must be called with an empty argument list: `TVF_NO_ARGS()` [at 2:6]
 FROM tvf_no_args
      ^
 --
 ALTERNATION GROUP: tvf_exactly_1_int64_arg
 --
-ERROR: Table-valued function must be called with an argument list: `tvf_exactly_1_int64_arg(...)` [at 2:6]
+ERROR: Table-valued function must be called with an argument list: `TVF_EXACTLY_1_INT64_ARG(...)` [at 2:6]
 FROM tvf_exactly_1_int64_arg
      ^
 ==

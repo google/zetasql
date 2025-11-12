@@ -49,6 +49,12 @@ absl::StatusOr<ResolutionScope> GetResolutionScopeOption(
       options_list = create_view_stmt->options_list();
       break;
     }
+    case AST_CREATE_PROCEDURE_STATEMENT: {
+      const ASTCreateProcedureStatement* create_procedure_stmt =
+          stmt->GetAs<const ASTCreateProcedureStatement>();
+      options_list = create_procedure_stmt->options_list();
+      break;
+    }
     default:
       ZETASQL_RET_CHECK_FAIL() << "Unsupported node kind: "
                        << stmt->GetNodeKindString();

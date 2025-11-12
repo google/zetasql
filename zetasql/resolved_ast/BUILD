@@ -680,6 +680,7 @@ cc_library(
     name = "rewrite_utils",
     srcs = ["rewrite_utils.cc"],
     hdrs = ["rewrite_utils.h"],
+    visibility = ["//visibility:public"],
     deps = [
         ":column_factory",
         ":resolved_ast",

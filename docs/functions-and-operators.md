@@ -638,7 +638,8 @@ SELECT
 ### Array subscript operator 
 <a id="array_subscript_operator"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 ```
 array_expression "[" array_subscript_specifier "]"
@@ -719,7 +720,8 @@ SELECT ["coffee", "tea", "milk"][OFFSET(6)] AS item_offset
 ### Struct subscript operator 
 <a id="struct_subscript_operator"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 ```
 struct_expression "[" struct_subscript_specifier "]"
@@ -789,7 +791,8 @@ SELECT STRUCT<INT64, STRING, BOOL>(23, "tea", FALSE)[OFFSET(6)] AS field_offset
 ### JSON subscript operator 
 <a id="json_subscript_operator"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 ```
 json_expression "[" array_element_id "]"
@@ -979,7 +982,8 @@ FROM
 ### Array elements field access operator 
 <a id="array_el_field_operator"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 ```
 array_expression.field_or_element[. ...]

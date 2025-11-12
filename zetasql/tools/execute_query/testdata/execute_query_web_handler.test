@@ -434,3 +434,61 @@ table:<table>
 </table>
 
 error:this is an error
+==
+
+# Test the <span> tags that get added in error messages containing these strings.
+# Since those errors are only produced by bugs, we don't have a reliable way
+# produce them in tests.  This is a hack to pass through through as literal
+# strings.  We see the tags added where these strings are echoed in error
+# messages (next to "error:"), but not when showing query text.
+select r"""line with (validation failed here)""" is an error;
+--
+query:select r&quot;&quot;&quot;line with (validation failed here)&quot;&quot;&quot; is an error;
+
+mode_execute
+sql_mode_query
+target_syntax_mode_standard
+error:INVALID_ARGUMENT: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE or keyword UNKNOWN but got identifier &quot;an&quot; [at 1:53]
+<span class="error-highlight">select r&quot;&quot;&quot;line with (validation failed here)&quot;&quot;&quot; is an error;</span>
+                                                    ^
+==
+
+# Same as above with another highlighted string.
+select r"""line with (*** This node has unaccessed field ***)""" is an error;
+--
+query:select r&quot;&quot;&quot;line with (*** This node has unaccessed field ***)&quot;&quot;&quot; is an error;
+
+mode_execute
+sql_mode_query
+target_syntax_mode_standard
+error:INVALID_ARGUMENT: Syntax error: Expected keyword FALSE or keyword NULL or keyword TRUE or keyword UNKNOWN but got identifier &quot;an&quot; [at 1:69]
+<span class="error-highlight">select r&quot;&quot;&quot;line with (*** This node has unaccessed field ***)&quot;&quot;&quot; is an error;</span>
+                                                                    ^
+==
+
+# Same as above, without any highlighted string. But we can see the
+# html <tags> get escaped.
+select r"""html <tags> are escaped""" in an error;
+--
+query:select r&quot;&quot;&quot;html &lt;tags&gt; are escaped&quot;&quot;&quot; in an error;
+
+mode_execute
+sql_mode_query
+target_syntax_mode_standard
+error:INVALID_ARGUMENT: Syntax error: Unexpected identifier &quot;an&quot; [at 1:42]
+select r&quot;&quot;&quot;html &lt;tags&gt; are escaped&quot;&quot;&quot; in an error;
+                                         ^
+==
+
+# Same as above, showing that the <span> tags for ResolvedColumns get added
+# in error messages too, so column highlighting will work.
+select r"""column abc.def#12 and [ghi#13]""" in an error;
+--
+query:select r&quot;&quot;&quot;column abc.def#12 and [ghi#13]&quot;&quot;&quot; in an error;
+
+mode_execute
+sql_mode_query
+target_syntax_mode_standard
+error:INVALID_ARGUMENT: Syntax error: Unexpected identifier &quot;an&quot; [at 1:49]
+select r&quot;&quot;&quot;column abc.<span class="ast-col def_12">def#12</span> and [<span class="ast-col ghi_13">ghi#13</span>]&quot;&quot;&quot; in an error;
+                                                ^

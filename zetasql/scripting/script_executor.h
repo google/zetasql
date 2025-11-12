@@ -462,6 +462,14 @@ class StatementEvaluator {
   virtual absl::Status ApplyTypeParameterConstraints(
       const TypeParameters& type_params, Value* value) = 0;
 
+  // Returns whether CALL to <path> should execute via ExecuteStatement(),
+  // instead of as a script procedure.
+  virtual bool ShouldExecuteProcedureAsStatement(
+      const ScriptExecutor& executor,
+      const absl::Span<const std::string>& path) {
+    return false;
+  }
+
   // Loads definition for procedure in <path>. Returns Status with
   // StatusCode::kNotFound if no procedure can be found in <path>.
   // In dry run, the returned pointer may be null. This indicates that

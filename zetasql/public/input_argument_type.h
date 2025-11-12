@@ -30,7 +30,8 @@
 #include "zetasql/public/type.h"
 #include "zetasql/public/value.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/types/optional.h"
+#include "absl/hash/hash.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 
 namespace zetasql {
@@ -48,7 +49,7 @@ class TVFRelation;
 class InputArgumentType {
  public:
   // Same as InputArgumentType::UntypedNull(). Consider using the latter.
-  InputArgumentType() : category_(kUntypedNull), type_(types::Int64Type()) {}
+  InputArgumentType() : type_(types::Int64Type()), category_(kUntypedNull) {}
 
   // Constructor for literal arguments without an explicit type.
   // <literal_value> cannot be nullptr.
@@ -76,7 +77,7 @@ class InputArgumentType {
   // non-literal fields, then the previous constructors can be used.
   InputArgumentType(const StructType* type,
                     const std::vector<InputArgumentType>& field_types)
-      : category_(kTypedExpression), type_(type), field_types_(field_types) {}
+      : type_(type), field_types_(field_types), category_(kTypedExpression) {}
 
   // Constructor for analysis time constant expressions.
   // It takes a StatusOr<Value> because the constant evaluator that produces the
@@ -297,9 +298,7 @@ class InputArgumentType {
   };
 
   explicit InputArgumentType(Category category, const Type* type)
-      : category_(category), type_(type) {}
-
-  Category category_ = kUntypedNull;
+      : type_(type), category_(category) {}
 
   // Note: type_ is filled in by use of the default constructor under
   // factory methods for categories that shouldn't have types.
@@ -315,10 +314,6 @@ class InputArgumentType {
   // constant.
   std::optional<absl::StatusOr<Value>> constant_value_;
 
-  // True if this InputArgumentType was constructed from a default function
-  // argument value.
-  bool is_default_argument_value_ = false;
-
   // Populated only for STRUCT type arguments. Stores the InputArgumentType of
   // the struct fields (in the same order). We need this for STRUCT coercion
   // where we need to check field-by-field whether 'from_struct' field is
@@ -331,6 +326,12 @@ class InputArgumentType {
   // need for one TVFRelation instance to exist.
   std::shared_ptr<const TVFRelation> relation_input_schema_;
 
+  Category category_ = kUntypedNull;
+
+  // True if this InputArgumentType was constructed from a default function
+  // argument value.
+  bool is_default_argument_value_ = false;
+
   // Indicates a TVF argument that came from the pipe input in pipe CALL.
   // This is currently used only for error messages.
   bool is_pipe_input_table_ = false;
@@ -338,6 +339,11 @@ class InputArgumentType {
   // Indicates this argument is the base expression for a chained function call.
   // This is currently used only for error messages.
   bool is_chained_function_call_input_ = false;
+
+  // True if the InputArgumentType was constructed from a ResolvedLiteral.
+  // This assessment is independent of whether or not
+  // `literal_value_` has a value.
+  bool is_literal_for_constness_ = false;
 
   // This is only non-NULL for table-valued functions. It holds the model
   // argument. This is a shared pointer only because the InputArgumentType is
@@ -353,11 +359,6 @@ class InputArgumentType {
   // The alias of the argument this InputArgumentType corresponds to. If the
   // argument does not support aliases, `argument_alias_` = std::nullopt.
   std::optional<IdString> argument_alias_;
-
-  // True if the InputArgumentType was constructed from a ResolvedLiteral.
-  // This assessment is independent of whether or not
-  // `literal_value_` has a value.
-  bool is_literal_for_constness_ = false;
 
   // Copyable.
 };

@@ -683,6 +683,8 @@ absl::Status Validator::ValidateStandaloneResolvedExpr(
       // where the validator uses more stack than parsing/analysis (b/65294961).
       return status;
     }
+    // Note: This string is pattern-matched in
+    // `tools/execute_query/execute_query_web_writer.cc`.  Keep that in sync.
     return InternalErrorBuilder()
            << "Resolved AST validation failed: " << status.message() << "\n"
            << expr->DebugString(ResolvedNode::DebugStringConfig{

@@ -16,6 +16,7 @@
 
 #include "zetasql/parser/textmapper_lexer_adapter.h"
 
+#include <string>
 #include <vector>
 
 #include "zetasql/parser/parser_mode.h"
@@ -93,6 +94,71 @@ TEST(ZetaSqlTextmapperLexerTest, TestDotIdentifier) {
               testing::ElementsAre(Token::KW_SELECT, Token::IDENTIFIER,
                                    Token::DOT, Token::IDENTIFIER, Token::EOI));
 }
+
+struct TokenizerTestCase {
+  std::string input;
+  std::vector<Token> expected_tokens;
+};
+
+using TokenizerTest = testing::TestWithParam<TokenizerTestCase>;
+
+TEST_P(TokenizerTest, TestTokenization) {
+  TextMapperLexerAdapter lexer = TextMapperLexerAdapter(
+      ParserMode::kTokenizer, "filename", GetParam().input,
+      /*start_offset=*/0, LanguageOptions(),
+      /*macro_expansion_mode*/ MacroExpansionMode::kNone,
+      /*macro_catalog=*/nullptr,
+      /*arena=*/nullptr);
+
+  std::vector<Token> actual_tokens;
+  while (lexer.Next() != Token::EOI) {
+    actual_tokens.push_back(lexer.Last());
+  }
+
+  EXPECT_THAT(actual_tokens,
+              testing::ElementsAreArray(GetParam().expected_tokens));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    DollarSignTokenizerTests, TokenizerTest,
+    testing::ValuesIn<TokenizerTestCase>({
+        {.input = "$", .expected_tokens = {Token::DOLLAR_SIGN}},
+        {.input = "$$",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::DOLLAR_SIGN}},
+        {.input = "$foo", .expected_tokens = {Token::MACRO_INVOCATION}},
+        {.input = "$$foo",
+         .expected_tokens = {Token::MACRO_BUILTIN_INVOCATION}},
+        {.input = "$$ foo",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::DOLLAR_SIGN,
+                             Token::IDENTIFIER}},
+        {.input = "$ $foo",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::MACRO_INVOCATION}},
+        {.input = "$$$$foo",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::DOLLAR_SIGN,
+                             Token::MACRO_BUILTIN_INVOCATION}},
+        {.input = "$foo$$foo$$$foo$$",
+         .expected_tokens = {Token::MACRO_INVOCATION,
+                             Token::MACRO_BUILTIN_INVOCATION,
+                             Token::DOLLAR_SIGN,
+                             Token::MACRO_BUILTIN_INVOCATION,
+                             Token::DOLLAR_SIGN, Token::DOLLAR_SIGN}},
+        {.input = "$0", .expected_tokens = {Token::MACRO_ARGUMENT_REFERENCE}},
+        {.input = "$$0",
+         .expected_tokens = {Token::DOLLAR_SIGN,
+                             Token::MACRO_ARGUMENT_REFERENCE}},
+        {.input = "$0$$0$$$0",
+         .expected_tokens = {Token::MACRO_ARGUMENT_REFERENCE,
+                             Token::DOLLAR_SIGN,
+                             Token::MACRO_ARGUMENT_REFERENCE,
+                             Token::DOLLAR_SIGN, Token::DOLLAR_SIGN,
+                             Token::MACRO_ARGUMENT_REFERENCE}},
+        {.input = "${foo}",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::LBRACE,
+                             Token::IDENTIFIER, Token::RBRACE}},
+        {.input = "$${foo}",
+         .expected_tokens = {Token::DOLLAR_SIGN, Token::DOLLAR_SIGN,
+                             Token::LBRACE, Token::IDENTIFIER, Token::RBRACE}},
+    }));
 
 }  // namespace
 }  // namespace zetasql::parser

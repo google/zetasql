@@ -30,6 +30,7 @@
 #include "zetasql/resolved_ast/resolved_column.h"
 #include "zetasql/resolved_ast/resolved_node.h"
 #include "zetasql/resolved_ast/rewrite_utils.h"
+#include "zetasql/base/case.h"
 #include "absl/container/btree_map.h"
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
@@ -157,7 +158,9 @@ class GrainScanInfo {
   // Contains columns that are already projected from the grain scan, in
   // addition to columns that need to be projected to expand measure columns.
   // The key is the column name in the catalog table.
-  absl::btree_map<std::string, ColumnToProject> columns_to_project_;
+  absl::btree_map<std::string, ColumnToProject,
+                  zetasql_base::CaseLess>
+      columns_to_project_;
   // A STRUCT typed computed column that contains necessary values needed
   // to expand measure columns. The STRUCT column will have 2 top-level fields:
   //

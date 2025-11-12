@@ -1443,7 +1443,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
       if (is_array) {
         ZETASQL_RETURN_IF_ERROR(ResolveArrayElementAccess(
             info.target.get(), array_element->position(), expr_resolution_info,
-            &function_name, &unwrapped_ast_position_expr, &info.array_offset,
+            &function_name, &unwrapped_ast_position_expr, &info.subscript_expr,
             &original_wrapper_name));
       } else {
         std::unique_ptr<const ResolvedExpr> resolved_position;
@@ -1451,7 +1451,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
         ZETASQL_RETURN_IF_ERROR(ResolveNonArraySubscriptElementAccess(
             info.target.get(), array_element->position(), expr_resolution_info,
             &function_name_path, &unwrapped_ast_position_expr,
-            &info.array_offset, &original_wrapper_name));
+            &info.subscript_expr, &original_wrapper_name));
         function_name = function_name_path.back();
       }
       if (function_name == kSafeArrayAtOffset) {
@@ -1464,14 +1464,14 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
                << "use ORDINAL instead";
       } else if (function_name == kArrayAtOrdinal ||
                  function_name == kSubscriptWithOrdinal) {
-        // 'info.array_offset' is 1-based. Subtract 1 to make it 0-based.
+        // 'info.subscript_expr' is 1-based. Subtract 1 to make it 0-based.
         absl::string_view subtraction_name =
             FunctionResolver::BinaryOperatorToFunctionName(
                 ASTBinaryExpression::MINUS, /*is_not=*/false,
                 /*not_handled=*/nullptr);
 
         std::vector<std::unique_ptr<const ResolvedExpr>> subtraction_args;
-        subtraction_args.push_back(std::move(info.array_offset));
+        subtraction_args.push_back(std::move(info.subscript_expr));
         subtraction_args.push_back(
             MakeResolvedLiteralWithoutLocation(Value::Int64(1)));
 
@@ -1485,7 +1485,7 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
             {unwrapped_ast_position_expr, unwrapped_ast_position_expr},
             /*match_internal_signatures=*/false, subtraction_name,
             std::move(subtraction_args), /*named_arguments=*/{},
-            expr_resolution_info, &info.array_offset));
+            expr_resolution_info, &info.subscript_expr));
       } else if (function_name == kProtoMapAtKey ||
                  function_name == kSafeProtoMapAtKey) {
         // ZetaSQL does not currently support updating proto map entries
@@ -1505,14 +1505,14 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           info.target->type()->IsArray()
               ? info.target->type()->AsArray()->element_type()
               : info.target->type();
-      info.array_element = std::make_unique<ResolvedColumn>(
+      info.subscripted_element = std::make_unique<ResolvedColumn>(
           AllocateColumnId(), /*table_name=*/kArrayId,
           /*column_name=*/kElementId, update_target_type);
 
-      std::unique_ptr<ResolvedColumnRef> ref =
-          MakeResolvedColumnRef(info.array_element->type(), *info.array_element,
-                                /*is_correlated=*/false);
-      info.array_element_ref = ref.get();
+      std::unique_ptr<ResolvedColumnRef> ref = MakeResolvedColumnRef(
+          info.subscripted_element->type(), *info.subscripted_element,
+          /*is_correlated=*/false);
+      info.subscripted_element_ref = ref.get();
 
       UpdateTargetInfo new_info;
       new_info.target = std::move(ref);
@@ -1813,46 +1813,48 @@ absl::Status Resolver::MergeWithUpdateItem(
   // one). In that case, update 'deepest_new_resolved_update_item'.
   ResolvedUpdateItem* deepest_new_resolved_update_item =
       merged_update_item->resolved_update_item.get();
-  std::unique_ptr<ResolvedUpdateItemElement> array_item;
+  std::unique_ptr<ResolvedUpdateItemElement> update_item_element;
   for (size_t i = input_update_target_infos->size() - 1; i > 0; --i) {
     UpdateTargetInfo& target_info = (*input_update_target_infos)[i];
 
     const bool deepest = i == (input_update_target_infos->size() - 1);
 
-    ZETASQL_RET_CHECK_EQ(deepest, target_info.array_element == nullptr);
-    ZETASQL_RET_CHECK_EQ(deepest, target_info.array_element_ref == nullptr);
-    // For the first iteration, 'target_info.array_offset' is always null
+    ZETASQL_RET_CHECK_EQ(deepest, target_info.subscripted_element == nullptr);
+    ZETASQL_RET_CHECK_EQ(deepest, target_info.subscripted_element_ref == nullptr);
+    // For the first iteration, 'target_info.subscript_expr' is always null
     // because it corresponds to the last UpdateTargetInfo. For subsequent
-    // iterations, it was moved into 'array_item' at the end of the previous
-    // iteration.
-    ZETASQL_RET_CHECK(target_info.array_offset == nullptr);
+    // iterations, it was moved into 'update_item_element' at the end of the
+    // previous iteration.
+    ZETASQL_RET_CHECK(target_info.subscript_expr == nullptr);
 
-    // Create the ResolvedUpdateItem child of what will go in 'array_item' at
-    // the end of this iteration.
+    // Create the ResolvedUpdateItem child of what will go in
+    // 'update_item_element' at the end of this iteration.
     std::unique_ptr<ResolvedUpdateItem> resolved_update_item =
         MakeResolvedUpdateItem();
     resolved_update_item->set_target(std::move(target_info.target));
-    ZETASQL_RET_CHECK_EQ(deepest, array_item == nullptr);
+    ZETASQL_RET_CHECK_EQ(deepest, update_item_element == nullptr);
     if (deepest) {
       deepest_new_resolved_update_item = resolved_update_item.get();
     } else {
       resolved_update_item->set_element_column(
-          MakeResolvedColumnHolder(*target_info.array_element));
-      resolved_update_item->add_update_item_element_list(std::move(array_item));
+          MakeResolvedColumnHolder(*target_info.subscripted_element));
+      resolved_update_item->add_update_item_element_list(
+          std::move(update_item_element));
     }
-    ZETASQL_RET_CHECK(array_item == nullptr);
+    ZETASQL_RET_CHECK(update_item_element == nullptr);
 
-    std::unique_ptr<const ResolvedExpr>& array_offset =
-        (*input_update_target_infos)[i - 1].array_offset;
-    ZETASQL_RET_CHECK(array_offset != nullptr);
-    array_item = MakeResolvedUpdateItemElement(std::move(array_offset),
-                                               std::move(resolved_update_item));
+    std::unique_ptr<const ResolvedExpr>& subscript_expr =
+        (*input_update_target_infos)[i - 1].subscript_expr;
+    ZETASQL_RET_CHECK(subscript_expr != nullptr);
+    update_item_element = MakeResolvedUpdateItemElement(
+        std::move(subscript_expr), std::move(resolved_update_item));
   }
-  // Now install 'array_item', being careful to ensure that its
+  // Now install 'update_item_element', being careful to ensure that its
   // ResolvedUpdateItem references the correct element_column if we are merging
-  // 'array_item' into an existing UpdateItem.
-  ZETASQL_RET_CHECK_EQ(array_item == nullptr, input_update_target_infos->size() == 1);
-  if (array_item != nullptr) {
+  // 'update_item_element' into an existing UpdateItem.
+  ZETASQL_RET_CHECK_EQ(update_item_element == nullptr,
+               input_update_target_infos->size() == 1);
+  if (update_item_element != nullptr) {
     // Sanity check that we are not attempting to create a
     // ResolvedUpdateItemElement for a nested DML statement.
     ZETASQL_RET_CHECK(ast_input_update_item->set_value() != nullptr);
@@ -1860,17 +1862,17 @@ absl::Status Resolver::MergeWithUpdateItem(
     if (merged_update_item->resolved_update_item->element_column() == nullptr) {
       merged_update_item->resolved_update_item->set_element_column(
           MakeResolvedColumnHolder(
-              *input_update_target_infos->front().array_element));
+              *input_update_target_infos->front().subscripted_element));
     } else {
       ResolvedColumnRef* array_element_ref =
-          input_update_target_infos->front().array_element_ref;
+          input_update_target_infos->front().subscripted_element_ref;
       ZETASQL_RET_CHECK(array_element_ref != nullptr);
       array_element_ref->set_column(
           merged_update_item->resolved_update_item->element_column()->column());
     }
 
     merged_update_item->resolved_update_item->add_update_item_element_list(
-        std::move(array_item));
+        std::move(update_item_element));
   }
 
   // If necessary, populate 'deepest_new_resolved_update_item->set_value'.

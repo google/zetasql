@@ -96,7 +96,7 @@ bool ResolvedCollation::Equals(const ResolvedCollation& that) const {
 
 absl::Status ResolvedCollation::Serialize(ResolvedCollationProto* proto) const {
   if (HasCollation()) {
-    proto->set_collation_name(std::string(CollationName()));
+    proto->set_collation_name(CollationName());
   }
   for (int i = 0; i < child_list_.size(); i++) {
     ZETASQL_RETURN_IF_ERROR(child_list_[i].Serialize(proto->add_child_list()));

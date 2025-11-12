@@ -5,8 +5,6 @@
 # Positive and negative test cases
 #
 ################################################################################
-# TODO: Enable Java support.
-[default no_java]
 [default language_features=MAXIMUM,+TABLE_VALUED_FUNCTIONS,+TABLESAMPLE,+TABLESAMPLE_FROM_TABLE_VALUED_FUNCTIONS,+WITH_ON_SUBQUERY]
 select * from tvf_one_descriptor_resolved_names_one_relation_arg_ambiguous_naming(
     descriptor(int64a), (select cast(42 as int64) as int64a, cast(60 as int64) as int64a))
@@ -311,7 +309,7 @@ from tvf_one_relation_arg_one_descriptor(
     (select 42 as int64a),
     (select 1))
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 4:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR argument 2 must be a DESCRIPTOR [at 4:5]
     (select 1))
     ^
 ==
@@ -322,7 +320,7 @@ from tvf_one_relation_arg_one_descriptor(
     (select 42 as int64a),
     17)
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 4:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR argument 2 must be a DESCRIPTOR [at 4:5]
     17)
     ^
 ==

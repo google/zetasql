@@ -191,6 +191,7 @@ invalid_token: /{cs_comment_begin}/                           { SetUnclosedError
 // These tokens are only used by the macro expander
 "$" (DOLLAR_SIGN): /$/
 "macro invocation" (MACRO_INVOCATION): /${unquoted_identifier}/
+"macro builtin invocation" (MACRO_BUILTIN_INVOCATION): /$${unquoted_identifier}/
 "macro argument reference" (MACRO_ARGUMENT_REFERENCE): /${decimal_digits}/
 
 // Literals and identifiers. String, bytes and identifiers are not unescaped by

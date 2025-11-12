@@ -2,7 +2,7 @@
 #                                     BUILD                                    #
 ################################################################################
 
-FROM ubuntu:22.04 as build
+FROM ubuntu:22.04 as builder
 
 # Setup java
 RUN apt-get update && apt-get -qq install -y default-jre default-jdk
@@ -23,12 +23,10 @@ RUN ln -s /usr/bin/bazel-${BAZEL_VERSION} /usr/bin/bazel
 RUN apt-get update && DEBIAN_FRONTEND="noninteractive"                         \
     TZ="America/Los_Angeles" apt-get install -y tzdata
 
-RUN apt-get -qq install -y software-properties-common make rename  git ca-certificates libgnutls30
 RUN apt-get -qq install -y software-properties-common
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test                          && \
     apt-get -qq update                                                      && \
-    apt-get -qq install -y make rename git                                  && \
-    apt-get -qq install -y ca-certificates libgnutls30
+    apt-get -qq install -y make rename git ca-certificates libgnutls30
 
 
 # To support fileNames with non-ascii characters
@@ -56,3 +54,33 @@ RUN cd zetasql && ./docker_build.sh $MODE
 ENV PATH=$PATH:$HOME/bin
 
 WORKDIR /zetasql
+
+################################################################################
+#                                COPY STAGE                                    #
+# This stage copies only the built binary from 'builder'.                      #
+################################################################################
+FROM ubuntu:22.04
+
+# Setup the dedicated, non-root user and environment
+# (Duplicate user/path setup is necessary for the final image)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates libgnutls30 tzdata locales && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN useradd -ms /bin/bash zetasql
+ENV HOME=/home/zetasql
+ENV PATH=$PATH:$HOME/bin
+
+# Set the final working directory
+WORKDIR /zetasql
+
+# Copy only the final artifacts from the 'builder' stage.
+COPY --from=builder --chown=zetasql:zetasql $HOME/bin/execute_query /zetasql/execute_query
+
+# Use the non-root user for running the container
+USER zetasql
+
+# Command to run the final application
+ENTRYPOINT ["/zetasql/execute_query"]
+CMD ["--help"]

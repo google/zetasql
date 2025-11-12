@@ -432,23 +432,35 @@ ARRAY<STRUCT<value STRING, k10 INT64>>[unknown order:
 ==
 
 [name=pipe_intersect]
-FROM KeyValue
+(select 2, 'value2' UNION ALL select 2, 'value2')
 |> INTERSECT ALL
-   (select 2, 'value2')
+   (select 2, 'value2' UNION ALL select 2, 'value2')
 --
-ARRAY<STRUCT<key INT64, value STRING>>[{2, "value2"}]
+ARRAY<STRUCT<INT64, STRING>>[unknown order:{2, "value2"}, {2, "value2"}]
+==
+
+[name=pipe_intersect_distinct]
+(select 2, 'value2' UNION ALL select 2, 'value2')
+|> INTERSECT DISTINCT
+   (select 2, 'value2' UNION ALL select 2, 'value2')
+--
+ARRAY<STRUCT<INT64, STRING>>[{2, "value2"}]
 ==
 
 [name=pipe_except]
-FROM KeyValue
+(select 2, 'value2' UNION ALL select 2, 'value2')
 |> EXCEPT ALL
-   (select 2, 'value2'),
-   (select 5, 'value5')
+   (select 2, 'value2')
 --
-ARRAY<STRUCT<key INT64, value STRING>>[unknown order:
-  {1, "value1"},
-  {3, "value1"}
-]
+ARRAY<STRUCT<INT64, STRING>>[{2, "value2"}]
+==
+
+[name=pipe_except_distinct]
+(select 2, 'value2' UNION ALL select 2, 'value2')
+|> EXCEPT DISTINCT
+   (select 2, 'value2')
+--
+ARRAY<STRUCT<INT64, STRING>>[]
 ==
 
 # This has ORDER BY because it was incorrectly reported as having a
@@ -632,3 +644,22 @@ select 2 key
 ARRAY<STRUCT<key INT64, value STRING, value STRING, k2 INT64>>[
   {2, "value2", "value2", 1002}
 ]
+==
+
+[name=pipe_match_recognize]
+[required_features=PIPES,MATCH_RECOGNIZE]
+FROM UNNEST([
+    STRUCT(1 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(2 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(3 AS rowid, 1 AS x, 100 AS y, 1001 AS z),
+    STRUCT(4 AS rowid, 1 AS x, 100 AS y, 1002 AS z),
+    STRUCT(5 AS rowid, 1 AS x, 100 AS y, 1003 AS z)
+    ])
+|> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a )
+  DEFINE
+    a AS true)
+--
+ARRAY<STRUCT<m INT64>>[unknown order:{2000}, {2004}, {2000}, {2002}, {2006}]

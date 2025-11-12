@@ -112,10 +112,10 @@ LikeAnyAllSubqueryScanBuilder::BuildAggregateScan(
   //         // OR for ANY, AND for ALL
   // in the ResolvedAST.
   std::unique_ptr<ResolvedColumnRef> like_input_column_ref =
-      MakeResolvedColumnRef(input_column.type(), input_column,
+      MakeResolvedColumnRef(input_column,
                             /*is_correlated=*/true);
   std::unique_ptr<ResolvedColumnRef> subquery_column_ref_like =
-      MakeResolvedColumnRef(subquery_column.type(), subquery_column,
+      MakeResolvedColumnRef(subquery_column,
                             /*is_correlated=*/false);
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> like_fn,
                    fn_builder_.Like(std::move(like_input_column_ref),
@@ -151,7 +151,7 @@ LikeAnyAllSubqueryScanBuilder::BuildAggregateScan(
   //       LOGICAL_OR(pattern_col#2 IS NULL) -> BOOL)
   // in the ResolvedAST.
   std::unique_ptr<ResolvedColumnRef> subquery_column_ref_contains_null =
-      MakeResolvedColumnRef(subquery_column.type(), subquery_column,
+      MakeResolvedColumnRef(subquery_column,
                             /*is_correlated=*/false);
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<const ResolvedExpr> is_null_fn,

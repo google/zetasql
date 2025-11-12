@@ -4980,7 +4980,9 @@ class GraphPathOp final : public RelationalOp {
   const int num_rel_;
 };
 
-// Executes a graph quantified path
+// Executes a graph quantified path and applies path prefix filter to the
+// results. Supported path prefix filter includes path mode.
+// TODO: b/419598355 - Support path search prefix filter.
 class QuantifiedGraphPathOp final : public RelationalOp {
  public:
   struct GroupVariableInfo {
@@ -5005,7 +5007,7 @@ class QuantifiedGraphPathOp final : public RelationalOp {
       std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
       std::unique_ptr<ValueExpr> lower_bound,
       std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type,
-      const Type* cost_type);
+      const Type* cost_type, ResolvedGraphPathMode::PathMode path_mode);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -5021,13 +5023,17 @@ class QuantifiedGraphPathOp final : public RelationalOp {
   std::string DebugInternal(const std::string& indent,
                             bool verbose) const override;
 
+ protected:
+  ResolvedGraphPathMode::PathMode path_mode() const { return path_mode_; }
+
  private:
   explicit QuantifiedGraphPathOp(std::unique_ptr<RelationalOp> path_primary_op,
                                  VariablesInfo variables,
                                  std::unique_ptr<ValueExpr> lower_bound,
                                  std::unique_ptr<ValueExpr> upper_bound,
                                  const GraphPathType* path_type,
-                                 const Type* cost_type);
+                                 const Type* cost_type,
+                                 ResolvedGraphPathMode::PathMode path_mode);
 
   // The operator representing the contained path primary.
   std::unique_ptr<RelationalOp> path_primary_op_;
@@ -5037,6 +5043,9 @@ class QuantifiedGraphPathOp final : public RelationalOp {
 
   // If nonnull, materialize the computed cost of the path.
   const Type* cost_type_;
+
+  // Path mode of the path. Defaults to WALK.
+  ResolvedGraphPathMode::PathMode path_mode_;
 
   // Output variables for the quantified path.
   VariablesInfo variables_;
@@ -5214,75 +5223,6 @@ class GraphAnyPathSearchOp final : public GraphPathSearchOp {
       std::vector<PathWithCost>& all_paths) const override;
   bool IsOutputDeterministic(std::vector<PathWithCost>& paths,
                              int64_t path_count) const override;
-};
-
-class GraphPathModeOp : public RelationalOp {
- public:
-  static absl::StatusOr<std::unique_ptr<RelationalOp>> Create(
-      ResolvedGraphPathMode::PathMode, std::unique_ptr<RelationalOp> path_op);
-
-  static std::string GetIteratorDebugString(
-      absl::string_view input_iter_debug_string);
-
-  absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) override;
-  std::unique_ptr<TupleSchema> CreateOutputSchema() const override;
-
-  std::string IteratorDebugString() const override;
-  std::string DebugInternal(const std::string& indent,
-                            bool verbose) const override;
-
- protected:
-  explicit GraphPathModeOp(std::unique_ptr<RelationalOp> path_op);
-  const RelationalOp* input() const;
-  RelationalOp* mutable_input();
-
- private:
-  enum ArgKind { kInput };
-  virtual absl::string_view path_mode_str() const = 0;
-};
-
-class GraphTrailPathModeOp final : public GraphPathModeOp {
- public:
-  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const override;
-
- private:
-  friend GraphPathModeOp;  // Allows base class factory to call constructor.
-
-  explicit GraphTrailPathModeOp(std::unique_ptr<RelationalOp> path_op)
-      : GraphPathModeOp(std::move(path_op)) {}
-  absl::string_view path_mode_str() const override { return "Trail"; }
-};
-
-class GraphSimplePathModeOp : public GraphPathModeOp {
- public:
-  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const override;
-
- private:
-  friend GraphPathModeOp;  // Allows base class factory to call constructor.
-
-  explicit GraphSimplePathModeOp(std::unique_ptr<RelationalOp> path_op)
-      : GraphPathModeOp(std::move(path_op)) {}
-
-  absl::string_view path_mode_str() const override { return "Simple"; }
-};
-
-class GraphAcyclicPathModeOp final : public GraphPathModeOp {
- public:
-  absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const override;
-
- private:
-  friend GraphPathModeOp;  // Allows base class factory to call constructor.
-
-  explicit GraphAcyclicPathModeOp(std::unique_ptr<RelationalOp> path_op)
-      : GraphPathModeOp(std::move(path_op)) {}
-  absl::string_view path_mode_str() const override { return "Acyclic"; }
 };
 
 // Returns true if the graph element satisfies the given label expression.

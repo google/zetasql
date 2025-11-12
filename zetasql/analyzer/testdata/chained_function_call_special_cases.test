@@ -79,7 +79,7 @@ QueryStmt
 --
 ALTERNATION GROUP: test_col.DESCRIPTOR()
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 4:5]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR argument 2 must be a DESCRIPTOR [at 4:5]
     test_col.DESCRIPTOR())
     ^
 ==

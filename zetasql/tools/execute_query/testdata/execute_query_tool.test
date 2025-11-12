@@ -765,6 +765,21 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
+    |   +-FunctionCall(Lazy_resolution_function:f(INT64 x) -> DOUBLE)
+    |     +-Literal(type=INT64, value=123)
+    +-input_scan=
+      +-SingleRowScan
+
+
+Resolved AST rewritten to:
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [DOUBLE]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
     |   +-SubqueryExpr
     |     +-type=DOUBLE
     |     +-subquery_type=SCALAR
@@ -1464,6 +1479,23 @@ InsertStmt
 +-table_scan=
 | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
 +-insert_column_list=KeyValue.[Key#1, Value#2]
++-row_list=
+| +-InsertRow
+|   +-value_list=
+|     +-DMLValue
+|     | +-value=
+|     |   +-Literal(type=INT64, value=NULL)
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=STRING, value=NULL)
++-column_access_list=WRITE,WRITE
+
+
+Resolved AST rewritten to:
+InsertStmt
++-table_scan=
+| +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
++-insert_column_list=KeyValue.[Key#1, Value#2]
 +-query=
 | +-ProjectScan
 |   +-column_list=KeyValue.[$col#3, $col#4]
@@ -2148,6 +2180,43 @@ CreateConstantStmt
 
 Constant registered.
 Constant evaluated.
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
+| +-$pipe_extend.$col1#3 AS `$col1` [INT64]
++-query=
+  +-PipeIfScan
+    +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    +-input_scan=
+    | +-PipeIfScan
+    |   +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    |   +-input_scan=
+    |   | +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+    |   +-selected_case=0
+    |   +-if_case_list=
+    |     +-PipeIfCase
+    |       +-condition=
+    |       | +-Constant(c1, type=BOOL, value=true)
+    |       +-subpipeline_sql="( |> EXTEND 55 )"
+    |       +-subpipeline=
+    |         +-Subpipeline
+    |           +-scan=
+    |             +-ProjectScan
+    |               +-column_list=[KeyValue.Key#1, KeyValue.Value#2, $pipe_extend.$col1#3]
+    |               +-expr_list=
+    |               | +-$col1#3 := Literal(type=INT64, value=55)
+    |               +-input_scan=
+    |                 +-SubpipelineInputScan(column_list=KeyValue.[Key#1, Value#2])
+    +-selected_case=-1
+    +-if_case_list=
+      +-PipeIfCase
+        +-condition=
+        | +-Constant(c2, type=BOOL, value=false)
+        +-subpipeline_sql="( |> EXTEND 66 )"
+
+
+Resolved AST rewritten to:
 QueryStmt
 +-output_column_list=
 | +-KeyValue.Key#1 AS Key [INT64]
@@ -3160,4 +3229,94 @@ QueryStmt
 +---+
 | 5 |
 +---+
+\
+==
+
+[mode=analyze]
+[sql_mode=expression]
+1+2
+--
+FunctionCall(ZetaSQL:$add(INT64, INT64) -> INT64)
++-Literal(type=INT64, value=1)
++-Literal(type=INT64, value=2)
+\
+==
+
+# An expression with a rewrite.
+[mode=analyze]
+[sql_mode=expression]
+flatten(struct([struct(1 as x)] as ar).ar.x)
+--
+Flatten
++-type=ARRAY<INT64>
++-expr=
+| +-GetStructField
+|   +-type=ARRAY<STRUCT<x INT64>>
+|   +-expr=
+|   | +-Literal(type=STRUCT<ar ARRAY<STRUCT<x INT64>>>, value={ar:[{x:1}]})
+|   +-field_idx=0
++-get_field_list=
+  +-GetStructField
+    +-type=INT64
+    +-expr=
+    | +-FlattenedArg(type=STRUCT<x INT64>)
+    +-field_idx=0
+
+
+Resolved AST rewritten to:
+SubqueryExpr
++-type=ARRAY<INT64>
++-subquery_type=SCALAR
++-subquery=
+  +-ProjectScan
+    +-column_list=[$with_expr.injected#5]
+    +-expr_list=
+    | +-injected#5 :=
+    |   +-FunctionCall(ZetaSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+    |     +-FunctionCall(ZetaSQL:$is_null(ARRAY<STRUCT<x INT64>>) -> BOOL)
+    |     | +-ColumnRef(type=ARRAY<STRUCT<x INT64>>, column=$flatten_input.injected#1)
+    |     +-Literal(type=ARRAY<INT64>, value=NULL)
+    |     +-SubqueryExpr
+    |       +-type=ARRAY<INT64>
+    |       +-subquery_type=ARRAY
+    |       +-parameter_list=
+    |       | +-ColumnRef(type=ARRAY<STRUCT<x INT64>>, column=$flatten_input.injected#1)
+    |       +-subquery=
+    |         +-OrderByScan
+    |           +-column_list=[$flatten.injected#4]
+    |           +-is_ordered=TRUE
+    |           +-input_scan=
+    |           | +-ProjectScan
+    |           |   +-column_list=[$flatten.injected#2, $offset.injected#3, $flatten.injected#4]
+    |           |   +-expr_list=
+    |           |   | +-injected#4 :=
+    |           |   |   +-GetStructField
+    |           |   |     +-type=INT64
+    |           |   |     +-expr=
+    |           |   |     | +-ColumnRef(type=STRUCT<x INT64>, column=$flatten.injected#2)
+    |           |   |     +-field_idx=0
+    |           |   +-input_scan=
+    |           |     +-ArrayScan
+    |           |       +-column_list=[$flatten.injected#2, $offset.injected#3]
+    |           |       +-array_expr_list=
+    |           |       | +-ColumnRef(type=ARRAY<STRUCT<x INT64>>, column=$flatten_input.injected#1, is_correlated=TRUE)
+    |           |       +-element_column_list=[$flatten.injected#2]
+    |           |       +-array_offset_column=
+    |           |         +-ColumnHolder(column=$offset.injected#3)
+    |           +-order_by_item_list=
+    |             +-OrderByItem
+    |               +-column_ref=
+    |                 +-ColumnRef(type=INT64, column=$offset.injected#3)
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$flatten_input.injected#1]
+        +-expr_list=
+        | +-injected#1 :=
+        |   +-GetStructField
+        |     +-type=ARRAY<STRUCT<x INT64>>
+        |     +-expr=
+        |     | +-Literal(type=STRUCT<ar ARRAY<STRUCT<x INT64>>>, value={ar:[{x:1}]})
+        |     +-field_idx=0
+        +-input_scan=
+          +-SingleRowScan
 \

@@ -733,7 +733,7 @@ ERROR: No matching signature for tvf_two_relation_args_uint64_string_and_date_st
 select uint32 as uint64, string from simpletypes
 |> call tvf_two_relation_args_uint64_string_and_date_string_input_columns(123)
 --
-ERROR: Table-valued function tvf_two_relation_args_uint64_string_and_date_string_input_columns argument 2 must be a relation (i.e. table subquery) [at 2:75]
+ERROR: Table-valued function TVF_TWO_RELATION_ARGS_UINT64_STRING_AND_DATE_STRING_INPUT_COLUMNS argument 2 must be a relation (i.e. table subquery) [at 2:75]
 |> call tvf_two_relation_args_uint64_string_and_date_string_input_columns(123)
                                                                           ^
 ==
@@ -1740,7 +1740,7 @@ from KeyValue
 |> call tvf_table_optional_scalar_named_table(
      10, 11, foobar=>(select 20))
 --
-ERROR: Table-valued function tvf_table_optional_scalar_named_table argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:10]
+ERROR: Table-valued function TVF_TABLE_OPTIONAL_SCALAR_NAMED_TABLE argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:10]
      10, 11, foobar=>(select 20))
          ^
 ==
@@ -1749,7 +1749,7 @@ from KeyValue
 |> call tvf_table_optional_scalar_named_table(
      foobar=>17)
 --
-ERROR: Table-valued function tvf_table_optional_scalar_named_table argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:14]
+ERROR: Table-valued function TVF_TABLE_OPTIONAL_SCALAR_NAMED_TABLE argument 3 ('foobar') must be a relation (i.e. table subquery) [at 3:14]
      foobar=>17)
              ^
 ==
@@ -1807,7 +1807,7 @@ QueryStmt
 select 42 as int64a
 |> call tvf_one_relation_arg_one_descriptor((select 1))
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 2:45]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR argument 2 must be a DESCRIPTOR [at 2:45]
 |> call tvf_one_relation_arg_one_descriptor((select 1))
                                             ^
 ==
@@ -1816,7 +1816,7 @@ ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must
 select 42 as int64a
 |> call tvf_one_relation_arg_one_descriptor(15)
 --
-ERROR: Table-valued function tvf_one_relation_arg_one_descriptor argument 2 must be a DESCRIPTOR [at 2:45]
+ERROR: Table-valued function TVF_ONE_RELATION_ARG_ONE_DESCRIPTOR argument 2 must be a DESCRIPTOR [at 2:45]
 |> call tvf_one_relation_arg_one_descriptor(15)
                                             ^
 ==
@@ -1874,8 +1874,6 @@ ERROR: DESCRIPTOR specifies int64axxx, which does not exist in the table passed 
 ==
 
 # MODEL argument
-# Java does not support MODELs.
-[no_java]
 from KeyValue
 |> call tvf_one_relation_one_model_arg_with_fixed_output(model onedoublemodel)
 --
@@ -1901,8 +1899,6 @@ QueryStmt
 ==
 
 # MODEL argument with missing columns.
-# Java does not support MODELs.
-[no_java]
 select 1 a
 |> call tvf_one_relation_one_model_arg_with_fixed_output(model onedoublemodel)
 --

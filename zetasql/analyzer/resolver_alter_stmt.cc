@@ -82,6 +82,23 @@ bool NotNullPresent(
   }
   return false;
 }
+
+bool IsAlterColumnOptionsAllowed(const ASTNode* ast_statement,
+                                 const LanguageOptions& language_options) {
+  switch (ast_statement->node_kind()) {
+    case AST_ALTER_TABLE_STATEMENT:
+    case AST_ALTER_INDEX_STATEMENT:
+      return true;
+    case AST_ALTER_VIEW_STATEMENT:
+      return language_options.LanguageFeatureEnabled(
+          FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS);
+    case AST_ALTER_MATERIALIZED_VIEW_STATEMENT:
+      return language_options.LanguageFeatureEnabled(
+          FEATURE_ALTER_MATERIALIZED_VIEW_ALTER_COLUMN_SET_OPTIONS);
+    default:
+      return false;
+  }
+}
 }  // namespace
 
 absl::Status Resolver::ResolveAlterActions(
@@ -406,13 +423,7 @@ absl::Status Resolver::ResolveAlterActions(
         break;
       }
       case AST_ALTER_COLUMN_OPTIONS_ACTION: {
-        bool is_alter_column_options_allowed =
-            ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT ||
-            ast_statement->node_kind() == AST_ALTER_INDEX_STATEMENT ||
-            (ast_statement->node_kind() == AST_ALTER_VIEW_STATEMENT &&
-             language().LanguageFeatureEnabled(
-                 FEATURE_ALTER_VIEWS_ALTER_COLUMN_SET_OPTIONS));
-        if (!is_alter_column_options_allowed) {
+        if (!IsAlterColumnOptionsAllowed(ast_statement, language())) {
           // Models, schemas, etc don't support ALTER COLUMN ... SET OPTIONS ...
           return MakeSqlErrorAt(action)
                  << "ALTER " << alter_statement_kind << " does not support "

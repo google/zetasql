@@ -65,9 +65,14 @@ namespace macros {
   ZETASQL_RETURN_IF_NOT_ENOUGH_STACK(      \
       "Out of stack space due to deeply nested macro calls.")
 
-static absl::string_view GetMacroName(
+static absl::StatusOr<absl::string_view> GetMacroName(
     const TokenWithLocation& macro_invocation_token) {
-  return macro_invocation_token.text.substr(1);
+  if (macro_invocation_token.kind == Token::MACRO_INVOCATION) {
+    return macro_invocation_token.text.substr(1);
+  } else {
+    ZETASQL_RET_CHECK_EQ(macro_invocation_token.kind, Token::MACRO_BUILTIN_INVOCATION);
+    return macro_invocation_token.text.substr(2);
+  }
 }
 
 // Note: end_offset is exclusive
@@ -371,7 +376,8 @@ absl::Status MacroExpander::LoadPotentiallySplicingTokens() {
       return absl::OkStatus();
     }
 
-    if (token.kind == Token::MACRO_INVOCATION) {
+    if (token.kind == Token::MACRO_INVOCATION ||
+        token.kind == Token::MACRO_BUILTIN_INVOCATION) {
       ZETASQL_RETURN_IF_ERROR(LoadArgsIfAny());
       last_was_macro_invocation = true;
     } else {
@@ -387,7 +393,8 @@ absl::Status MacroExpander::LoadArgsIfAny() {
   ZETASQL_RET_CHECK(!splicing_buffer_.empty())
       << "Splicing buffer cannot be empty. This method should not be "
          "called except after a macro invocation has been loaded";
-  ZETASQL_RET_CHECK(splicing_buffer_.back().kind == Token::MACRO_INVOCATION)
+  ZETASQL_RET_CHECK(splicing_buffer_.back().kind == Token::MACRO_INVOCATION ||
+            splicing_buffer_.back().kind == Token::MACRO_BUILTIN_INVOCATION)
       << "This method should not be called except after a macro invocation "
          "has been loaded";
   ZETASQL_ASSIGN_OR_RETURN(TokenWithLocation token, token_provider_->PeekNextToken());
@@ -487,10 +494,19 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandAndMaybeSpliceMacroItem(
   if (unexpanded_macro_token.kind == Token::MACRO_ARGUMENT_REFERENCE) {
     ZETASQL_RETURN_IF_ERROR(
         ExpandMacroArgumentReference(unexpanded_macro_token, expanded_tokens));
+  } else if (unexpanded_macro_token.kind == Token::MACRO_BUILTIN_INVOCATION) {
+    ZETASQL_ASSIGN_OR_RETURN(absl::string_view macro_name,
+                     GetMacroName(unexpanded_macro_token));
+    // Since we do not have any builtin macros defined (yet), a builtin macro
+    // reference always results in an error. So do not call
+    // `RaiseErrorOrAddWarning`, instead directly throw an error.
+    return MakeSqlErrorAt(
+        unexpanded_macro_token.location.start(),
+        absl::StrFormat("Builtin macro '%s' not found.", macro_name));
   } else {
     ZETASQL_RET_CHECK_EQ(unexpanded_macro_token.kind, Token::MACRO_INVOCATION);
-
-    absl::string_view macro_name = GetMacroName(unexpanded_macro_token);
+    ZETASQL_ASSIGN_OR_RETURN(absl::string_view macro_name,
+                     GetMacroName(unexpanded_macro_token));
     std::optional<MacroInfo> macro_info = macro_catalog_.Find(macro_name);
     if (!macro_info.has_value()) {
       ZETASQL_RETURN_IF_ERROR(RaiseErrorOrAddWarning(MakeSqlErrorAt(
@@ -627,7 +643,8 @@ absl::Status MacroExpander::ExpandPotentiallySplicingTokens() {
           pending_token,
           AdvancePendingToken(std::move(pending_token), std::move(token)));
     } else if (token.kind == Token::MACRO_ARGUMENT_REFERENCE ||
-               token.kind == Token::MACRO_INVOCATION) {
+               token.kind == Token::MACRO_INVOCATION ||
+               token.kind == Token::MACRO_BUILTIN_INVOCATION) {
       ZETASQL_ASSIGN_OR_RETURN(pending_token,
                        ExpandAndMaybeSpliceMacroItem(std::move(token),
                                                      std::move(pending_token)));
@@ -671,8 +688,8 @@ absl::Status MacroExpander::ParseAndExpandArgs(
       unexpanded_macro_invocation_token.location.end().GetByteOffset();
 
   // The first argument is the macro name
-  absl::string_view macro_name =
-      GetMacroName(unexpanded_macro_invocation_token);
+  ZETASQL_ASSIGN_OR_RETURN(absl::string_view macro_name,
+                   GetMacroName(unexpanded_macro_invocation_token));
   expanded_args.push_back(std::vector<TokenWithLocation>{
       {.kind = Token::IDENTIFIER,
        .location = unexpanded_macro_invocation_token.location,
@@ -965,13 +982,15 @@ absl::Status MacroExpander::ExpandMacroInvocation(
   ZETASQL_RET_CHECK_EQ(token.text.front(), '$');
   ZETASQL_RET_CHECK(token.kind == Token::MACRO_INVOCATION);
 
+  ZETASQL_ASSIGN_OR_RETURN(std::string_view macro_name, GetMacroName(token));
+
   // We expand arguments regardless, even if the macro being invoked does not
   // exist.
   std::vector<std::vector<TokenWithLocation>> expanded_args;
   ZETASQL_ASSIGN_OR_RETURN(
       StackFrame * macro_invocation_stack_frame,
       stack_frame_factory_.MakeStackFrame(
-          AllocateString(absl::StrCat("macro:", GetMacroName(token)), arena_),
+          AllocateString(absl::StrCat("macro:", macro_name), arena_),
           StackFrame::FrameType::kMacroInvocation,
           ParseLocationRange(token.location.start(),
                              ParseLocationPoint::FromByteOffset(
@@ -1045,7 +1064,7 @@ absl::Status MacroExpander::ExpandMacroInvocation(
     expanded_tokens.back().preceding_whitespaces = "";
     location_map_->insert_or_assign(
         token.start_offset(),
-        Expansion{.macro_name = std::string(GetMacroName(token)),
+        Expansion{.macro_name = std::string(macro_name),
                   .full_match = std::string(absl::ClippedSubstr(
                       token_provider_->input(), token.start_offset(),
                       invocation_end_offset - token.start_offset())),
@@ -1104,11 +1123,24 @@ absl::StatusOr<TokenWithLocation> MacroExpander::ExpandLiteral(
       continue;
     }
 
-    // This is a macro token: either an invocation, a macro argument, or a
-    // standalone dollar sign with other stuff behind it.
+    // This is a macro token: either an invocation (including builtins), a macro
+    // argument, or a standalone dollar sign with other stuff behind it.
     int end_index = num_chars_read + 1;
     ZETASQL_RET_CHECK(end_index < literal_contents.length());
     if (CanCharStartAnIdentifier(literal_contents[end_index])) {
+      // A `$macro` invocation preceded by a dollar sign resembles a builtin
+      // macro invocation (`$$macro`), which are not expanded inside literals.
+      // We retain the preceding dollar sign in the final literal, emit a
+      // warning, and try and expand the current macro invocation.
+      if (num_chars_read > 0 && literal_contents[num_chars_read - 1] == '$') {
+        ParseLocationPoint builtin_macro_location =
+            literal_token.location.start();
+        builtin_macro_location.IncrementByteOffset(num_chars_read);
+        ZETASQL_RETURN_IF_ERROR(warning_collector_.AddWarning(
+            MakeSqlErrorAt(builtin_macro_location,
+                           "Builtin macros are not expanded inside literals")));
+      }
+
       do {
         end_index++;
       } while (end_index < literal_contents.size() &&

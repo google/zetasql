@@ -60,6 +60,7 @@ cc_library(
         "//zetasql/common:status_payload_utils",
         "//zetasql/public:analyzer",
         "//zetasql/public:analyzer_options",
+        "//zetasql/public:feature_label_extractor",
         "//zetasql/public:language_options",
         "//zetasql/public:options_cc_proto",
         "//zetasql/public:parse_helpers",

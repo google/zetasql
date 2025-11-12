@@ -70,6 +70,14 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewNoOptions) {
               IsOkAndHolds(ResolutionScope::kGlobal));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureNoOptions) {
+  ParseTestStatement("CREATE PROCEDURE p() BEGIN END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              IsOkAndHolds(ResolutionScope::kBuiltin));
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kGlobal),
+              IsOkAndHolds(ResolutionScope::kGlobal));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionUnrelatedOption) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (unrelated_opt = 'builtin') AS (1)");
@@ -98,6 +106,15 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewUnrelatedOption) {
               IsOkAndHolds(ResolutionScope::kGlobal));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureUnrelatedOption) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (unrelated_opt = 'builtin') BEGIN END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              IsOkAndHolds(ResolutionScope::kBuiltin));
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kGlobal),
+              IsOkAndHolds(ResolutionScope::kGlobal));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionBuiltin) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (allowed_references = 'builtin') AS (1)");
@@ -116,6 +133,14 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionTvfBuiltin) {
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewBuiltin) {
   ParseTestStatement(
       "CREATE VIEW v OPTIONS (allowed_references = 'builtin') AS (SELECT 1)");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kGlobal),
+              IsOkAndHolds(ResolutionScope::kBuiltin));
+}
+
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureBuiltin) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = 'builtin') BEGIN "
+      "END");
   EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kGlobal),
               IsOkAndHolds(ResolutionScope::kBuiltin));
 }
@@ -142,6 +167,14 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewGlobal) {
               IsOkAndHolds(ResolutionScope::kGlobal));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureGlobal) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = 'global') BEGIN "
+      "END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              IsOkAndHolds(ResolutionScope::kGlobal));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionMixedCase) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (aLLoweD_reFereNceS = 'gLoBaL') AS (1)");
@@ -164,6 +197,14 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewMixedCase) {
               IsOkAndHolds(ResolutionScope::kGlobal));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureMixedCase) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (aLLoweD_reFereNceS = 'gLoBaL') BEGIN "
+      "END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              IsOkAndHolds(ResolutionScope::kGlobal));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionDuplicate) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (allowed_references = 'global', "
@@ -182,6 +223,15 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewDuplicate) {
                        "Option allowed_references can only occur once"));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureDuplicate) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = 'global', "
+      "allowed_references = 'global') BEGIN END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              StatusIs(kInvalidArgument,
+                       "Option allowed_references can only occur once"));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionNotString) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (allowed_references = 3) AS (1)");
@@ -193,6 +243,14 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionNotString) {
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewNotString) {
   ParseTestStatement(
       "CREATE VIEW v OPTIONS (allowed_references = 3) AS (SELECT 1)");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              StatusIs(kInvalidArgument,
+                       "Option allowed_references must be a string literal"));
+}
+
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureNotString) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = 3) BEGIN END");
   EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
               StatusIs(kInvalidArgument,
                        "Option allowed_references must be a string literal"));
@@ -216,6 +274,16 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewNotLiteral) {
                        "Option allowed_references must be a string literal"));
 }
 
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureNotLiteral) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = CONCAT('glob', "
+      "'al')) "
+      "BEGIN END");
+  EXPECT_THAT(GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+              StatusIs(kInvalidArgument,
+                       "Option allowed_references must be a string literal"));
+}
+
 TEST_F(ResolutionScopeTest, GetResolutionScopeOptionInvalid) {
   ParseTestStatement(
       "CREATE FUNCTION f() OPTIONS (allowed_references = 'notvalid') "
@@ -231,6 +299,17 @@ TEST_F(ResolutionScopeTest, GetResolutionScopeOptionViewInvalid) {
   ParseTestStatement(
       "CREATE VIEW v OPTIONS (allowed_references = 'notvalid') "
       "AS (SELECT 1)");
+  EXPECT_THAT(
+      GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
+      StatusIs(
+          kInvalidArgument,
+          "Option allowed_references must be one of 'builtin' or 'global'"));
+}
+
+TEST_F(ResolutionScopeTest, GetResolutionScopeOptionProcedureInvalid) {
+  ParseTestStatement(
+      "CREATE PROCEDURE p() OPTIONS (allowed_references = 'notvalid') BEGIN "
+      "END");
   EXPECT_THAT(
       GetResolutionScopeOption(stmt_, ResolutionScope::kBuiltin),
       StatusIs(

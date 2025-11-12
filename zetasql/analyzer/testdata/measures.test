@@ -886,9 +886,9 @@ QueryStmt
       +-AggregateScan
         +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
         +-input_scan=
-        | +-TableScan(column_list=MeasureTable_TwoKeys.[country#3, measure_sum_price_times_quantity#11], table=MeasureTable_TwoKeys, column_index_list=[2, 10])
+        | +-TableScan(column_list=MeasureTable_TwoKeys.[Country#3, measure_sum_price_times_quantity#11], table=MeasureTable_TwoKeys, column_index_list=[2, 10])
         +-group_by_list=
-        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.Country#3)
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
@@ -901,7 +901,7 @@ SELECT
 FROM
   (
     SELECT
-      MeasureTable_TwoKeys.country AS a_1,
+      MeasureTable_TwoKeys.Country AS a_1,
       MeasureTable_TwoKeys.measure_sum_price_times_quantity AS a_2
     FROM
       MeasureTable_TwoKeys
@@ -926,11 +926,11 @@ QueryStmt
             +-column_list=[$groupby.country#15, $aggregate.constituent_aggregate_1#21]
             +-input_scan=
             | +-ProjectScan
-            |   +-column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, measure_sum_price_times_quantity#11, struct_for_measures_from_table_MeasureTable_TwoKeys#20]
+            |   +-column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Country#3, quantity#19, price#18, measure_sum_price_times_quantity#11, struct_for_measures_from_table_MeasureTable_TwoKeys#20]
             |   +-expr_list=
             |   | +-struct_for_measures_from_table_MeasureTable_TwoKeys#20 :=
             |   |   +-MakeStruct
-            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>
             |   |     +-field_list=
             |   |       +-MakeStruct
             |   |       | +-type=STRUCT<price INT64, quantity INT64>
@@ -938,28 +938,28 @@ QueryStmt
             |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.price#18)
             |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.quantity#19)
             |   |       +-MakeStruct
-            |   |         +-type=STRUCT<key1 INT64, key2 INT64>
+            |   |         +-type=STRUCT<KEY1 INT64, key2 INT64>
             |   |         +-field_list=
-            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key1#16)
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.KEY1#16)
             |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key2#17)
             |   +-input_scan=
-            |     +-TableScan(column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, measure_sum_price_times_quantity#11], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4, 10])
+            |     +-TableScan(column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Country#3, quantity#19, price#18, measure_sum_price_times_quantity#11], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4, 10])
             +-group_by_list=
-            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.Country#3)
             +-aggregate_list=
               +-constituent_aggregate_1#21 :=
                 +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
                   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#22)
                   +-where_expr=
                   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
-                  |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>) -> BOOL)
-                  |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                  |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>) -> BOOL)
+                  |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                   +-group_by_list=
                   | +-grain_lock_key#23 :=
                   |   +-GetStructField
-                  |     +-type=STRUCT<key1 INT64, key2 INT64>
+                  |     +-type=STRUCT<KEY1 INT64, key2 INT64>
                   |     +-expr=
-                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                   |     +-field_idx=1
                   +-group_by_aggregate_list=
                     +-$any_value_grain_lock_0#22 :=
@@ -971,7 +971,7 @@ QueryStmt
                           | | +-GetStructField
                           | |   +-type=STRUCT<price INT64, quantity INT64>
                           | |   +-expr=
-                          | |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                          | |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                           | |   +-field_idx=0
                           | +-field_idx=0
                           +-GetStructField
@@ -980,7 +980,7 @@ QueryStmt
                             | +-GetStructField
                             |   +-type=STRUCT<price INT64, quantity INT64>
                             |   +-expr=
-                            |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                            |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                             |   +-field_idx=0
                             +-field_idx=1
 [SQLBUILDER_OUTPUT]
@@ -1004,17 +1004,17 @@ FROM
           measuretable_twokeys_7.a_4 AS a_4,
           measuretable_twokeys_7.a_5 AS a_5,
           measuretable_twokeys_7.a_6 AS a_6,
-          STRUCT< referenced_columns STRUCT< price INT64, quantity INT64 >, key_columns STRUCT< key1 INT64, key2 INT64 >
+          STRUCT< referenced_columns STRUCT< price INT64, quantity INT64 >, key_columns STRUCT< KEY1 INT64, key2 INT64 >
           > (STRUCT< price INT64, quantity INT64 > (measuretable_twokeys_7.a_5, measuretable_twokeys_7.a_4), STRUCT<
-            key1 INT64, key2 INT64 > (measuretable_twokeys_7.a_1, measuretable_twokeys_7.a_2)) AS a_8
+            KEY1 INT64, key2 INT64 > (measuretable_twokeys_7.a_1, measuretable_twokeys_7.a_2)) AS a_8
         FROM
           (
             SELECT
-              MeasureTable_TwoKeys.key1 AS a_1,
+              MeasureTable_TwoKeys.KEY1 AS a_1,
               MeasureTable_TwoKeys.key2 AS a_2,
-              MeasureTable_TwoKeys.country AS a_3,
-              MeasureTable_TwoKeys.quantity AS a_4,
-              MeasureTable_TwoKeys.price AS a_5,
+              MeasureTable_TwoKeys.Country AS a_3,
+              MeasureTable_TwoKeys.Quantity AS a_4,
+              MeasureTable_TwoKeys.Price AS a_5,
               MeasureTable_TwoKeys.measure_sum_price_times_quantity AS a_6
             FROM
               MeasureTable_TwoKeys
@@ -1022,6 +1022,146 @@ FROM
       ) AS projectscan_9
     GROUP BY 1
   ) AS aggregatescan_12;
+==
+
+SELECT
+  price,
+  AGG(measure_sum_price)
+FROM MeasureTable_TwoKeys
+GROUP BY price
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.price#15 AS price [INT64]
+| +-$aggregate.$agg1#14 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.price#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.price#15, $aggregate.$agg1#14]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_TwoKeys.[Price#5, measure_sum_price#10], table=MeasureTable_TwoKeys, column_index_list=[4, 9])
+        +-group_by_list=
+        | +-price#15 := ColumnRef(type=INT64, column=MeasureTable_TwoKeys.Price#5)
+        +-aggregate_list=
+          +-$agg1#14 :=
+            +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_TwoKeys.measure_sum_price#10)
+
+[SQLBUILDER_OUTPUT]
+SELECT
+  measuretable_twokeys_3.a_1 AS price,
+  AGG(measuretable_twokeys_3.a_2) AS a_5
+FROM
+  (
+    SELECT
+      MeasureTable_TwoKeys.Price AS a_1,
+      MeasureTable_TwoKeys.measure_sum_price AS a_2
+    FROM
+      MeasureTable_TwoKeys
+  ) AS measuretable_twokeys_3
+GROUP BY 1;
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.price#15 AS price [INT64]
+| +-$aggregate.$agg1#14 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.price#15, $aggregate.$agg1#14]
+    +-input_scan=
+      +-ProjectScan
+        +-column_list=[$groupby.price#15, $aggregate.$agg1#14]
+        +-expr_list=
+        | +-$agg1#14 := ColumnRef(type=INT64, column=$aggregate.constituent_aggregate_1#19)
+        +-input_scan=
+          +-AggregateScan
+            +-column_list=[$groupby.price#15, $aggregate.constituent_aggregate_1#19]
+            +-input_scan=
+            | +-ProjectScan
+            |   +-column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Price#5, measure_sum_price#10, struct_for_measures_from_table_MeasureTable_TwoKeys#18]
+            |   +-expr_list=
+            |   | +-struct_for_measures_from_table_MeasureTable_TwoKeys#18 :=
+            |   |   +-MakeStruct
+            |   |     +-type=STRUCT<referenced_columns STRUCT<Price INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>
+            |   |     +-field_list=
+            |   |       +-MakeStruct
+            |   |       | +-type=STRUCT<Price INT64>
+            |   |       | +-field_list=
+            |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.Price#5)
+            |   |       +-MakeStruct
+            |   |         +-type=STRUCT<KEY1 INT64, key2 INT64>
+            |   |         +-field_list=
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.KEY1#16)
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key2#17)
+            |   +-input_scan=
+            |     +-TableScan(column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Price#5, measure_sum_price#10], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 4, 9])
+            +-group_by_list=
+            | +-price#15 := ColumnRef(type=INT64, column=MeasureTable_TwoKeys.Price#5)
+            +-aggregate_list=
+              +-constituent_aggregate_1#19 :=
+                +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
+                  +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#20)
+                  +-where_expr=
+                  | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
+                  |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<Price INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>) -> BOOL)
+                  |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<Price INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#18)
+                  +-group_by_list=
+                  | +-grain_lock_key#21 :=
+                  |   +-GetStructField
+                  |     +-type=STRUCT<KEY1 INT64, key2 INT64>
+                  |     +-expr=
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<Price INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#18)
+                  |     +-field_idx=1
+                  +-group_by_aggregate_list=
+                    +-$any_value_grain_lock_0#20 :=
+                      +-AggregateFunctionCall(ZetaSQL:any_value(INT64) -> INT64)
+                        +-GetStructField
+                          +-type=INT64
+                          +-expr=
+                          | +-GetStructField
+                          |   +-type=STRUCT<Price INT64>
+                          |   +-expr=
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<Price INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#18)
+                          |   +-field_idx=0
+                          +-field_idx=0
+[SQLBUILDER_OUTPUT]
+SELECT
+  aggregatescan_10.a_8 AS price,
+  aggregatescan_10.a_9 AS a_11
+FROM
+  (
+    SELECT
+      projectscan_7.a_3 AS a_8,
+      SUM(ANY_VALUE(projectscan_7.a_6.referenced_columns.Price)
+        WHERE
+          NOT((projectscan_7.a_6) IS NULL)
+        GROUP BY projectscan_7.a_6.key_columns) AS a_9
+    FROM
+      (
+        SELECT
+          measuretable_twokeys_5.a_1 AS a_1,
+          measuretable_twokeys_5.a_2 AS a_2,
+          measuretable_twokeys_5.a_3 AS a_3,
+          measuretable_twokeys_5.a_4 AS a_4,
+          STRUCT< referenced_columns STRUCT< Price INT64 >, key_columns STRUCT< KEY1 INT64, key2 INT64 > > (STRUCT<
+            Price INT64 > (measuretable_twokeys_5.a_3), STRUCT< KEY1 INT64, key2 INT64 > (measuretable_twokeys_5.a_1,
+              measuretable_twokeys_5.a_2)) AS a_6
+        FROM
+          (
+            SELECT
+              MeasureTable_TwoKeys.KEY1 AS a_1,
+              MeasureTable_TwoKeys.key2 AS a_2,
+              MeasureTable_TwoKeys.Price AS a_3,
+              MeasureTable_TwoKeys.measure_sum_price AS a_4
+            FROM
+              MeasureTable_TwoKeys
+          ) AS measuretable_twokeys_5
+      ) AS projectscan_7
+    GROUP BY 1
+  ) AS aggregatescan_10;
 ==
 
 # Ratio metric
@@ -1220,9 +1360,9 @@ QueryStmt
       +-AggregateScan
         +-column_list=[$groupby.country#15, $aggregate.$agg1#14]
         +-input_scan=
-        | +-TableScan(column_list=MeasureTable_TwoKeys.[country#3, measure_ratio_price_to_quantity#12], table=MeasureTable_TwoKeys, column_index_list=[2, 11])
+        | +-TableScan(column_list=MeasureTable_TwoKeys.[Country#3, measure_ratio_price_to_quantity#12], table=MeasureTable_TwoKeys, column_index_list=[2, 11])
         +-group_by_list=
-        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+        | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.Country#3)
         +-aggregate_list=
           +-$agg1#14 :=
             +-AggregateFunctionCall(ZetaSQL:AGG(MEASURE<DOUBLE>) -> DOUBLE)
@@ -1235,7 +1375,7 @@ SELECT
 FROM
   (
     SELECT
-      MeasureTable_TwoKeys.country AS a_1,
+      MeasureTable_TwoKeys.Country AS a_1,
       MeasureTable_TwoKeys.measure_ratio_price_to_quantity AS a_2
     FROM
       MeasureTable_TwoKeys
@@ -1265,11 +1405,11 @@ QueryStmt
             +-column_list=[$groupby.country#15, $aggregate.constituent_aggregate_1#21, $aggregate.constituent_aggregate_2#22]
             +-input_scan=
             | +-ProjectScan
-            |   +-column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, measure_ratio_price_to_quantity#12, struct_for_measures_from_table_MeasureTable_TwoKeys#20]
+            |   +-column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Country#3, quantity#19, price#18, measure_ratio_price_to_quantity#12, struct_for_measures_from_table_MeasureTable_TwoKeys#20]
             |   +-expr_list=
             |   | +-struct_for_measures_from_table_MeasureTable_TwoKeys#20 :=
             |   |   +-MakeStruct
-            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>
+            |   |     +-type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>
             |   |     +-field_list=
             |   |       +-MakeStruct
             |   |       | +-type=STRUCT<price INT64, quantity INT64>
@@ -1277,28 +1417,28 @@ QueryStmt
             |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.price#18)
             |   |       |   +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.quantity#19)
             |   |       +-MakeStruct
-            |   |         +-type=STRUCT<key1 INT64, key2 INT64>
+            |   |         +-type=STRUCT<KEY1 INT64, key2 INT64>
             |   |         +-field_list=
-            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key1#16)
+            |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.KEY1#16)
             |   |           +-ColumnRef(type=INT64, column=MeasureTable_TwoKeys.key2#17)
             |   +-input_scan=
-            |     +-TableScan(column_list=MeasureTable_TwoKeys.[key1#16, key2#17, country#3, quantity#19, price#18, measure_ratio_price_to_quantity#12], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4, 11])
+            |     +-TableScan(column_list=MeasureTable_TwoKeys.[KEY1#16, key2#17, Country#3, quantity#19, price#18, measure_ratio_price_to_quantity#12], table=MeasureTable_TwoKeys, column_index_list=[0, 1, 2, 3, 4, 11])
             +-group_by_list=
-            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.country#3)
+            | +-country#15 := ColumnRef(type=STRING, column=MeasureTable_TwoKeys.Country#3)
             +-aggregate_list=
               +-constituent_aggregate_1#21 :=
               | +-AggregateFunctionCall(ZetaSQL:sum(INT64) -> INT64)
               |   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#23)
               |   +-where_expr=
               |   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
-              |   |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>) -> BOOL)
-              |   |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+              |   |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>) -> BOOL)
+              |   |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
               |   +-group_by_list=
               |   | +-grain_lock_key#24 :=
               |   |   +-GetStructField
-              |   |     +-type=STRUCT<key1 INT64, key2 INT64>
+              |   |     +-type=STRUCT<KEY1 INT64, key2 INT64>
               |   |     +-expr=
-              |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+              |   |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
               |   |     +-field_idx=1
               |   +-group_by_aggregate_list=
               |     +-$any_value_grain_lock_0#23 :=
@@ -1309,7 +1449,7 @@ QueryStmt
               |           | +-GetStructField
               |           |   +-type=STRUCT<price INT64, quantity INT64>
               |           |   +-expr=
-              |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+              |           |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
               |           |   +-field_idx=0
               |           +-field_idx=0
               +-constituent_aggregate_2#22 :=
@@ -1317,14 +1457,14 @@ QueryStmt
                   +-ColumnRef(type=INT64, column=$aggregate.$any_value_grain_lock_0#25)
                   +-where_expr=
                   | +-FunctionCall(ZetaSQL:$not(BOOL) -> BOOL)
-                  |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>) -> BOOL)
-                  |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                  |   +-FunctionCall(ZetaSQL:$is_null(STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>) -> BOOL)
+                  |     +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                   +-group_by_list=
                   | +-grain_lock_key#26 :=
                   |   +-GetStructField
-                  |     +-type=STRUCT<key1 INT64, key2 INT64>
+                  |     +-type=STRUCT<KEY1 INT64, key2 INT64>
                   |     +-expr=
-                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                  |     | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                   |     +-field_idx=1
                   +-group_by_aggregate_list=
                     +-$any_value_grain_lock_0#25 :=
@@ -1335,7 +1475,7 @@ QueryStmt
                           | +-GetStructField
                           |   +-type=STRUCT<price INT64, quantity INT64>
                           |   +-expr=
-                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<key1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
+                          |   | +-ColumnRef(type=STRUCT<referenced_columns STRUCT<price INT64, quantity INT64>, key_columns STRUCT<KEY1 INT64, key2 INT64>>, column=MeasureTable_TwoKeys.struct_for_measures_from_table_MeasureTable_TwoKeys#20)
                           |   +-field_idx=0
                           +-field_idx=1
 [SQLBUILDER_OUTPUT]
@@ -1363,17 +1503,17 @@ FROM
           measuretable_twokeys_7.a_4 AS a_4,
           measuretable_twokeys_7.a_5 AS a_5,
           measuretable_twokeys_7.a_6 AS a_6,
-          STRUCT< referenced_columns STRUCT< price INT64, quantity INT64 >, key_columns STRUCT< key1 INT64, key2 INT64 >
+          STRUCT< referenced_columns STRUCT< price INT64, quantity INT64 >, key_columns STRUCT< KEY1 INT64, key2 INT64 >
           > (STRUCT< price INT64, quantity INT64 > (measuretable_twokeys_7.a_5, measuretable_twokeys_7.a_4), STRUCT<
-            key1 INT64, key2 INT64 > (measuretable_twokeys_7.a_1, measuretable_twokeys_7.a_2)) AS a_8
+            KEY1 INT64, key2 INT64 > (measuretable_twokeys_7.a_1, measuretable_twokeys_7.a_2)) AS a_8
         FROM
           (
             SELECT
-              MeasureTable_TwoKeys.key1 AS a_1,
+              MeasureTable_TwoKeys.KEY1 AS a_1,
               MeasureTable_TwoKeys.key2 AS a_2,
-              MeasureTable_TwoKeys.country AS a_3,
-              MeasureTable_TwoKeys.quantity AS a_4,
-              MeasureTable_TwoKeys.price AS a_5,
+              MeasureTable_TwoKeys.Country AS a_3,
+              MeasureTable_TwoKeys.Quantity AS a_4,
+              MeasureTable_TwoKeys.Price AS a_5,
               MeasureTable_TwoKeys.measure_ratio_price_to_quantity AS a_6
             FROM
               MeasureTable_TwoKeys

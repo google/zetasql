@@ -316,6 +316,7 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
   }
 
  private:
+  // This is called for multi-table outputs (e.g. FORK) in script mode.
   absl::Status ProcessMultiResult(
       const ScriptSegment& segment, const ResolvedStatement* resolved_stmt,
       absl::Span<const absl::StatusOr<Value>> status_or_results) {
@@ -377,7 +378,8 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
     ZETASQL_RETURN_IF_ERROR(writer_.StartStatement(/*is_first=*/false));
     (void)writer_.statement_text(segment_text);
     if (config_.tool_modes().contains(ToolMode::kResolve)) {
-      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt));
+      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt,
+                                       /*post_rewrite=*/false));
     }
 
     if (!iters.empty()) {
@@ -386,6 +388,7 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
     return absl::OkStatus();
   }
 
+  // This is called for each result in script execution mode.
   absl::Status ProcessResult(absl::string_view segment_text,
                              const ResolvedStatement* resolved_stmt,
                              const absl::StatusOr<Value>& result) {
@@ -394,7 +397,8 @@ class EvaluatorCallback : public StatementEvaluatorCallback {
     ZETASQL_RETURN_IF_ERROR(writer_.StartStatement(/*is_first=*/false));
     (void)writer_.statement_text(segment_text);
     if (config_.tool_modes().contains(ToolMode::kResolve)) {
-      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt));
+      ZETASQL_RETURN_IF_ERROR(writer_.resolved(*resolved_stmt,
+                                       /*post_rewrite=*/false));
     }
 
     if (result.ok()) {
@@ -1009,20 +1013,24 @@ static absl::StatusOr<const ResolvedNode*> AnalyzeSql(
     absl::string_view sql, const ASTNode* ast, ExecuteQueryConfig& config,
     ExecuteQueryWriter& writer,
     std::unique_ptr<const AnalyzerOutput>* analyzer_output) {
-  const ResolvedNode* resolved_node = nullptr;
+  // We'll disable rewriters and do the initial Analyze first to get the
+  // pre-rewrite Resolved AST.  Then we call RewriteResolvedAst below with the
+  // original options which will apply the rewriters and give the post-rewrite
+  // Resolved AST.  The output will include both if they are different.
+  AnalyzerOptions analyzer_options_no_rewrites = config.analyzer_options();
+  analyzer_options_no_rewrites.set_enabled_rewrites({});
+
   switch (config.sql_mode()) {
     case SqlMode::kQuery: {
       ZETASQL_RETURN_IF_ERROR(AnalyzeStatementFromParserAST(
-          *ast->GetAsOrDie<ASTStatement>(), config.analyzer_options(), sql,
+          *ast->GetAsOrDie<ASTStatement>(), analyzer_options_no_rewrites, sql,
           config.catalog(), config.type_factory(), analyzer_output));
-      resolved_node = (*analyzer_output)->resolved_statement();
       break;
     }
     case SqlMode::kExpression: {
       ZETASQL_RETURN_IF_ERROR(AnalyzeExpressionFromParserAST(
-          *ast->GetAsOrDie<ASTExpression>(), config.analyzer_options(), sql,
+          *ast->GetAsOrDie<ASTExpression>(), analyzer_options_no_rewrites, sql,
           config.type_factory(), config.catalog(), analyzer_output));
-      resolved_node = (*analyzer_output)->resolved_expr();
       break;
     }
     case SqlMode::kScript: {
@@ -1032,9 +1040,30 @@ static absl::StatusOr<const ResolvedNode*> AnalyzeSql(
     }
   }
 
+  std::string pre_rewrite_debug_string;
   if (config.has_tool_mode(ToolMode::kResolve)) {
-    ZETASQL_RET_CHECK_NE(resolved_node, nullptr);
-    ZETASQL_RETURN_IF_ERROR(writer.resolved(*resolved_node));
+    ZETASQL_RET_CHECK_NE((*analyzer_output)->resolved_node(), nullptr);
+    ZETASQL_RETURN_IF_ERROR(writer.resolved(*(*analyzer_output)->resolved_node(),
+                                    /*post_rewrite=*/false));
+    pre_rewrite_debug_string =
+        (*analyzer_output)->resolved_node()->DebugString();
+  }
+
+  // Apply rewrites.
+  // There's no good way to call this API without a const_cast.
+  ZETASQL_RETURN_IF_ERROR(RewriteResolvedAst(
+      config.analyzer_options(), sql, config.catalog(), config.type_factory(),
+      const_cast<AnalyzerOutput&>(**analyzer_output)));
+  ZETASQL_RET_CHECK_NE((*analyzer_output)->resolved_node(), nullptr);
+
+  if (config.has_tool_mode(ToolMode::kResolve)) {
+    std::string post_rewrite_debug_string =
+        (*analyzer_output)->resolved_node()->DebugString();
+    if (pre_rewrite_debug_string != post_rewrite_debug_string) {
+      // Only show a rewritten Resolved AST if it changed.
+      ZETASQL_RETURN_IF_ERROR(writer.resolved(*(*analyzer_output)->resolved_node(),
+                                      /*post_rewrite=*/true));
+    }
 
     if (!(*analyzer_output)->deprecation_warnings().empty()) {
       ZETASQL_RETURN_IF_ERROR(writer.log("Deprecation warnings:"));
@@ -1044,7 +1073,7 @@ static absl::StatusOr<const ResolvedNode*> AnalyzeSql(
     }
   }
 
-  return resolved_node;
+  return (*analyzer_output)->resolved_node();
 }
 
 static absl::Status UnanalyzeQuery(const ResolvedNode* resolved_node,
@@ -1057,8 +1086,9 @@ static absl::Status UnanalyzeQuery(const ResolvedNode* resolved_node,
   SQLBuilder builder(sql_builder_options);
   ZETASQL_RETURN_IF_ERROR(builder.Process(*resolved_node));
 
+  ZETASQL_ASSIGN_OR_RETURN(std::string sql, builder.GetSql());
   std::string formatted_sql;
-  ZETASQL_RETURN_IF_ERROR(FormatSql(builder.sql(), &formatted_sql));
+  ZETASQL_RETURN_IF_ERROR(FormatSql(sql, &formatted_sql));
   formatted_sql.append(1, '\n');
   return writer.unanalyze(formatted_sql);
 }

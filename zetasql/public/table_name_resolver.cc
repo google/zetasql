@@ -119,8 +119,7 @@ class TableNameResolver {
   absl::Status FindInCreateTableFunctionStatement(
       const ASTCreateTableFunctionStatement* statement);
 
-  absl::Status FindInCloneDataStatement(
-      const ASTCloneDataStatement* statement);
+  absl::Status FindInCloneDataStatement(const ASTCloneDataStatement* statement);
 
   absl::Status FindInExportDataStatement(
       const ASTExportDataStatement* statement);
@@ -194,10 +193,9 @@ class TableNameResolver {
       const AliasSet& external_visible_aliases,
       AliasSet* local_visible_aliases);
 
-  absl::Status FindInTVF(
-      const ASTTVF* tvf,
-      const AliasSet& external_visible_aliases,
-      AliasSet* local_visible_aliases);
+  absl::Status FindInTVF(const ASTTVF* tvf,
+                         const AliasSet& external_visible_aliases,
+                         AliasSet* local_visible_aliases);
 
   absl::Status FindInCreatePropertyGraphStatement(
       const ASTCreatePropertyGraphStatement* statement);
@@ -803,7 +801,7 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
 
     case AST_DROP_MATERIALIZED_VIEW_STATEMENT:
       if (analyzer_options_->language().SupportsStatementKind(
-          RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
+              RESOLVED_DROP_MATERIALIZED_VIEW_STMT)) {
         return absl::OkStatus();
       }
       break;
@@ -1095,9 +1093,8 @@ absl::Status TableNameResolver::FindInStatement(const ASTStatement* statement) {
               RESOLVED_EXECUTE_IMMEDIATE_STMT)) {
         const ASTExecuteImmediateStatement* stmt =
             statement->GetAs<ASTExecuteImmediateStatement>();
-        ZETASQL_RETURN_IF_ERROR(
-            FindInExpressionsUnder(stmt->using_clause(),
-                                   /*visible_aliases=*/{}));
+        ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(stmt->using_clause(),
+                                               /*visible_aliases=*/{}));
         return FindInExpressionsUnder(stmt->sql(), /*visible_aliases=*/{});
       }
       break;
@@ -1243,9 +1240,8 @@ absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
     return absl::OkStatus();
   }
   ZETASQL_RET_CHECK(local_table_aliases_.empty());
-  for (const ASTFunctionParameter* const parameter
-           : statement->function_declaration()->parameters()->
-               parameter_entries()) {
+  for (const ASTFunctionParameter* const parameter :
+       statement->function_declaration()->parameters()->parameter_entries()) {
     if (parameter->name() == nullptr) {
       continue;
     }
@@ -1253,8 +1249,8 @@ absl::Status TableNameResolver::FindInCreateTableFunctionStatement(
     // that we should ignore.
     if (parameter->IsTableParameter() ||
         (parameter->IsTemplated() &&
-         parameter->templated_parameter_type()->kind()
-           == ASTTemplatedParameterType::ANY_TABLE)) {
+         parameter->templated_parameter_type()->kind() ==
+             ASTTemplatedParameterType::ANY_TABLE)) {
       zetasql_base::InsertIfNotPresent(
           &local_table_aliases_,
           absl::AsciiStrToLower(parameter->name()->GetAsString()));
@@ -1308,8 +1304,7 @@ absl::Status TableNameResolver::FindInTruncateStatement(
                    statement->GetTargetPathForNonNested());
   std::vector<std::string> path = path_expr->ToIdentifierVector();
   zetasql_base::InsertIfNotPresent(table_names_, path);
-  zetasql_base::InsertIfNotPresent(&visible_aliases,
-                          absl::AsciiStrToLower(path.back()));
+  zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(path.back()));
 
   return FindInExpressionsUnder(statement->where(), visible_aliases);
 }
@@ -1322,8 +1317,7 @@ absl::Status TableNameResolver::FindInInsertStatement(
                    statement->GetTargetPathForNonNested());
   std::vector<std::string> path = path_expr->ToIdentifierVector();
   zetasql_base::InsertIfNotPresent(table_names_, path);
-  zetasql_base::InsertIfNotPresent(&visible_aliases,
-                          absl::AsciiStrToLower(path.back()));
+  zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(path.back()));
 
   if (statement->rows() != nullptr) {
     ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->rows(), visible_aliases));
@@ -1353,8 +1347,7 @@ absl::Status TableNameResolver::FindInUpdateStatement(
     ZETASQL_RET_CHECK(statement->from_clause()->table_expression() != nullptr);
     ZETASQL_RETURN_IF_ERROR(FindInTableExpression(
         statement->from_clause()->table_expression(),
-        /*external_visible_aliases=*/{},
-        &visible_aliases));
+        /*external_visible_aliases=*/{}, &visible_aliases));
   }
 
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->where(), visible_aliases));
@@ -1370,14 +1363,13 @@ absl::Status TableNameResolver::FindInMergeStatement(
   const ASTPathExpression* path_expr = statement->target_path();
   std::vector<std::string> path = path_expr->ToIdentifierVector();
   zetasql_base::InsertIfNotPresent(table_names_, path);
-  zetasql_base::InsertIfNotPresent(&visible_aliases,
-                          absl::AsciiStrToLower(path.back()));
+  zetasql_base::InsertIfNotPresent(&visible_aliases, absl::AsciiStrToLower(path.back()));
 
   ZETASQL_RETURN_IF_ERROR(FindInTableExpression(statement->table_expression(),
                                         /*external_visible_aliases=*/{},
                                         &visible_aliases));
-  ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(statement->merge_condition(),
-                                         visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInExpressionsUnder(statement->merge_condition(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(
       FindInExpressionsUnder(statement->when_clauses(), visible_aliases));
 
@@ -1507,15 +1499,12 @@ absl::Status TableNameResolver::FindInQueryExpression(
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   switch (query_expr->node_kind()) {
     case AST_SELECT:
-      ZETASQL_RETURN_IF_ERROR(
-          FindInSelect(query_expr->GetAs<ASTSelect>(),
-                       order_by,
-                       visible_aliases));
+      ZETASQL_RETURN_IF_ERROR(FindInSelect(query_expr->GetAs<ASTSelect>(), order_by,
+                                   visible_aliases));
       break;
     case AST_SET_OPERATION:
-      ZETASQL_RETURN_IF_ERROR(
-          FindInSetOperation(query_expr->GetAs<ASTSetOperation>(),
-                             visible_aliases));
+      ZETASQL_RETURN_IF_ERROR(FindInSetOperation(query_expr->GetAs<ASTSetOperation>(),
+                                         visible_aliases));
       break;
     case AST_QUERY:
       ZETASQL_RETURN_IF_ERROR(
@@ -1546,8 +1535,8 @@ absl::Status TableNameResolver::FindInQueryExpression(
           new_aliases);
       break;
     default:
-      return MakeSqlErrorAt(query_expr)
-             << "Unhandled query_expr:\n" << query_expr->DebugString();
+      return MakeSqlErrorAt(query_expr) << "Unhandled query_expr:\n"
+                                        << query_expr->DebugString();
   }
 
   if (query_expr->node_kind() != AST_SELECT) {
@@ -1587,22 +1576,20 @@ absl::Status TableNameResolver::FindInFromQuery(const ASTFromQuery* from_query,
 }
 
 absl::Status TableNameResolver::FindInSelect(
-    const ASTSelect* select,
-    const ASTOrderBy* order_by,
+    const ASTSelect* select, const ASTOrderBy* order_by,
     const AliasSet& orig_visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   AliasSet visible_aliases = orig_visible_aliases;
   if (select->from_clause() != nullptr) {
     ZETASQL_RET_CHECK(select->from_clause()->table_expression() != nullptr);
-    ZETASQL_RETURN_IF_ERROR(FindInTableExpression(
-        select->from_clause()->table_expression(),
-        orig_visible_aliases,
-        &visible_aliases));
+    ZETASQL_RETURN_IF_ERROR(
+        FindInTableExpression(select->from_clause()->table_expression(),
+                              orig_visible_aliases, &visible_aliases));
   }
-  ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->select_list(),
-                                         visible_aliases));
-  ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->where_clause(),
-                                         visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInExpressionsUnder(select->select_list(), visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInExpressionsUnder(select->where_clause(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->group_by(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(select->having(), visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(order_by, visible_aliases));
@@ -1610,8 +1597,7 @@ absl::Status TableNameResolver::FindInSelect(
 }
 
 absl::Status TableNameResolver::FindInSetOperation(
-    const ASTSetOperation* set_operation,
-    const AliasSet& visible_aliases) {
+    const ASTSetOperation* set_operation, const AliasSet& visible_aliases) {
   for (const ASTQueryExpression* input : set_operation->inputs()) {
     AliasSet new_aliases;
     ZETASQL_RETURN_IF_ERROR(FindInQueryExpression(input, nullptr /* order_by */,
@@ -1622,21 +1608,20 @@ absl::Status TableNameResolver::FindInSetOperation(
 
 absl::Status TableNameResolver::FindInTableExpression(
     const ASTTableExpression* table_expr,
-    const AliasSet& external_visible_aliases,
-    AliasSet* local_visible_aliases) {
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
   switch (table_expr->node_kind()) {
     case AST_TABLE_PATH_EXPRESSION:
       return FindInTablePathExpression(
           table_expr->GetAs<ASTTablePathExpression>(), local_visible_aliases);
 
     case AST_TABLE_SUBQUERY:
-      return FindInTableSubquery(
-          table_expr->GetAs<ASTTableSubquery>(),
-          external_visible_aliases, local_visible_aliases);
+      return FindInTableSubquery(table_expr->GetAs<ASTTableSubquery>(),
+                                 external_visible_aliases,
+                                 local_visible_aliases);
 
     case AST_JOIN:
-      return FindInJoin(table_expr->GetAs<ASTJoin>(),
-                        external_visible_aliases, local_visible_aliases);
+      return FindInJoin(table_expr->GetAs<ASTJoin>(), external_visible_aliases,
+                        local_visible_aliases);
 
     case AST_PARENTHESIZED_JOIN:
       return FindInParenthesizedJoin(table_expr->GetAs<ASTParenthesizedJoin>(),
@@ -1660,16 +1645,15 @@ absl::Status TableNameResolver::FindInTableExpression(
 }
 
 absl::Status TableNameResolver::FindInJoin(
-    const ASTJoin* join,
-    const AliasSet& external_visible_aliases,
+    const ASTJoin* join, const AliasSet& external_visible_aliases,
     AliasSet* local_visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   ZETASQL_RETURN_IF_ERROR(FindInTableExpression(join->lhs(), external_visible_aliases,
                                         local_visible_aliases));
   ZETASQL_RETURN_IF_ERROR(FindInTableExpression(join->rhs(), external_visible_aliases,
                                         local_visible_aliases));
-  ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(join->on_clause(),
-                                         *local_visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInExpressionsUnder(join->on_clause(), *local_visible_aliases));
   return absl::OkStatus();
 }
 
@@ -1681,8 +1665,8 @@ absl::Status TableNameResolver::FindInParenthesizedJoin(
   // In parenthesized joins, we can't see names from outside the parentheses.
   std::unique_ptr<AliasSet> join_visible_aliases =
       std::make_unique<AliasSet>(external_visible_aliases);
-  ZETASQL_RETURN_IF_ERROR(FindInJoin(join, external_visible_aliases,
-                             join_visible_aliases.get()));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInJoin(join, external_visible_aliases, join_visible_aliases.get()));
   for (const std::string& alias : *join_visible_aliases) {
     zetasql_base::InsertIfNotPresent(local_visible_aliases, alias);
   }
@@ -1763,8 +1747,7 @@ absl::Status TableNameResolver::FindInTVF(
 
 absl::Status TableNameResolver::FindInTableSubquery(
     const ASTTableSubquery* table_subquery,
-    const AliasSet& external_visible_aliases,
-    AliasSet* local_visible_aliases) {
+    const AliasSet& external_visible_aliases, AliasSet* local_visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   AliasSet new_aliases;
@@ -1838,8 +1821,7 @@ absl::Status TableNameResolver::ResolveTablePath(
 }
 
 absl::Status TableNameResolver::FindInTablePathExpression(
-    const ASTTablePathExpression* table_ref,
-    AliasSet* visible_aliases) {
+    const ASTTablePathExpression* table_ref, AliasSet* visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   std::string alias;
@@ -1880,8 +1862,8 @@ absl::Status TableNameResolver::FindInTablePathExpression(
     }
   }
 
-  ZETASQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_ref->unnest_expr(),
-                                         *visible_aliases));
+  ZETASQL_RETURN_IF_ERROR(
+      FindInExpressionsUnder(table_ref->unnest_expr(), *visible_aliases));
 
   if (!alias.empty()) {
     visible_aliases->insert(absl::AsciiStrToLower(alias));
@@ -1974,8 +1956,7 @@ absl::Status TableNameResolver::FindInCreatePropertyGraphStatement(
 }
 
 absl::Status TableNameResolver::FindInExpressionsUnder(
-    const ASTNode* root,
-    const AliasSet& visible_aliases) {
+    const ASTNode* root, const AliasSet& visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   if (root == nullptr) return absl::OkStatus();
 
@@ -1986,16 +1967,15 @@ absl::Status TableNameResolver::FindInExpressionsUnder(
   root->GetDescendantSubtreesWithKinds({AST_QUERY}, &subquery_nodes);
 
   for (const ASTNode* subquery_node : subquery_nodes) {
-    ZETASQL_RETURN_IF_ERROR(FindInQuery(subquery_node->GetAs<ASTQuery>(),
-                                visible_aliases));
+    ZETASQL_RETURN_IF_ERROR(
+        FindInQuery(subquery_node->GetAs<ASTQuery>(), visible_aliases));
   }
 
   return absl::OkStatus();
 }
 
 absl::Status TableNameResolver::FindInOptionsListUnder(
-    const ASTNode* root,
-    const AliasSet& visible_aliases) {
+    const ASTNode* root, const AliasSet& visible_aliases) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   if (root == nullptr) return absl::OkStatus();
 

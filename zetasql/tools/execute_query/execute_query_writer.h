@@ -55,7 +55,11 @@ class ExecuteQueryWriter {
     return WriteOperationString("unparsed", unparse_string);
   }
 
-  virtual absl::Status resolved(const ResolvedNode& ast) {
+  // This can be called twice per statement.
+  // The first time always has `post_rewrite` false.
+  // Optionally, if we have post-rewrite output that's different, this
+  // can be called again with `post_rewrite` true.
+  virtual absl::Status resolved(const ResolvedNode& ast, bool post_rewrite) {
     return absl::UnimplementedError(
         "ExecuteQueryWriter::resolved is not implemented");
   }
@@ -121,7 +125,7 @@ class ExecuteQueryStreamWriter : public ExecuteQueryWriter {
   ExecuteQueryStreamWriter(const ExecuteQueryStreamWriter&) = delete;
   ExecuteQueryStreamWriter& operator=(const ExecuteQueryStreamWriter&) = delete;
 
-  absl::Status resolved(const ResolvedNode& ast) override;
+  absl::Status resolved(const ResolvedNode& ast, bool post_rewrite) override;
   absl::Status explained(const ResolvedNode& ast,
                          absl::string_view explain) override;
   absl::Status executed(const ResolvedNode& ast,

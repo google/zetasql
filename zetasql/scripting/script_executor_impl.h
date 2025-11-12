@@ -307,8 +307,11 @@ class ScriptExecutorImpl : public ScriptExecutor {
   // Executes an ASTAssignmentFromStruct statement (e.g. SET (x, y) = (5, 6)).
   absl::Status ExecuteAssignmentFromStruct();
 
-  // Loads procedure definition and setup a new StackFrame to execute the
-  // procedure.
+  // Executes an ASTCallStatement based on
+  // StatementEvaluator::ShouldExecuteProcedureAsStatement, if it returns true,
+  // execution is delegated to StatementEvaluator::ExecuteStatement. Otherwise,
+  // loads procedure definition, updates the control flow graph, and sets up a
+  // new StackFrame to execute the procedure.
   absl::Status ExecuteCallStatement();
 
   // Loads parameters specified in an EXECUTE IMMEDIATE USING clause

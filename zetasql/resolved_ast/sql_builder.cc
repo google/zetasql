@@ -1400,8 +1400,8 @@ absl::Status SQLBuilder::VisitResolvedAnalyticFunctionCall(
 
   ZETASQL_ASSIGN_OR_RETURN(std::string sql, GetFunctionCallSQL(node, std::move(inputs),
                                                        arguments_suffix));
-  std::unique_ptr<AnalyticFunctionInfo> analytic_function_info(
-      new AnalyticFunctionInfo(sql));
+  std::unique_ptr<AnalyticFunctionInfo> analytic_function_info =
+      std::make_unique<AnalyticFunctionInfo>(sql);
   if (node->window_frame() != nullptr) {
     ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                      ProcessNode(node->window_frame()));

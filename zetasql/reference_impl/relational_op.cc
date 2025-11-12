@@ -6112,7 +6112,8 @@ QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
                               std::unique_ptr<ValueExpr> lower_bound,
                               std::unique_ptr<ValueExpr> upper_bound,
                               const GraphPathType* path_type,
-                              const Type* cost_type) {
+                              const Type* cost_type,
+                              ResolvedGraphPathMode::PathMode path_mode) {
   ZETASQL_RET_CHECK_NE(lower_bound, nullptr);
   ZETASQL_RET_CHECK(lower_bound->output_type()->IsInt64());
 
@@ -6121,17 +6122,18 @@ QuantifiedGraphPathOp::Create(std::unique_ptr<RelationalOp> path_primary_op,
   }
   return absl::WrapUnique(new QuantifiedGraphPathOp(
       std::move(path_primary_op), std::move(variables), std::move(lower_bound),
-      std::move(upper_bound), path_type, cost_type));
+      std::move(upper_bound), path_type, cost_type, path_mode));
 }
 
 QuantifiedGraphPathOp::QuantifiedGraphPathOp(
     std::unique_ptr<RelationalOp> path_primary_op, VariablesInfo variables,
     std::unique_ptr<ValueExpr> lower_bound,
     std::unique_ptr<ValueExpr> upper_bound, const GraphPathType* path_type,
-    const Type* cost_type)
+    const Type* cost_type, ResolvedGraphPathMode::PathMode path_mode)
     : path_primary_op_(std::move(path_primary_op)),
       path_type_(path_type),
       cost_type_(cost_type),
+      path_mode_(path_mode),
       variables_(std::move(variables)),
       lower_bound_(std::move(lower_bound)),
       upper_bound_(std::move(upper_bound)) {}
@@ -6139,17 +6141,23 @@ QuantifiedGraphPathOp::QuantifiedGraphPathOp(
 std::string QuantifiedGraphPathOp::DebugInternal(const std::string& indent,
                                                  bool verbose) const {
   const std::string indent_input = absl::StrCat(indent, kIndentFork);
-  std::string path_var_str = "";
+  std::string path_var_str =
+      indent_input +
+      "path_mode: " + ResolvedGraphPathModeEnums::PathMode_Name(path_mode_) +
+      ",";
   if (path_type_ != nullptr && variables_.path.is_valid()) {
     path_var_str =
         indent_input + "path_variable: " + variables_.path.ToString() + ",";
   }
+  const std::string upper_bound_str =
+      upper_bound_ != nullptr
+          ? absl::StrCat(indent_input, "upper_bound=",
+                         upper_bound_->DebugInternal(indent, verbose))
+          : "";
   return absl::StrCat(
       "QuantifiedGraphPathOp(", path_var_str, indent_input,
       "lower_bound=", lower_bound_->DebugInternal(indent, verbose),
-      indent_input,
-      "upper_bound=", upper_bound_->DebugInternal(indent, verbose),
-      indent_input, "path_primary_op=",
+      upper_bound_str, indent_input, "path_primary_op=",
       path_primary_op_->DebugInternal(indent + kIndentSpace, verbose), ")");
 }
 
@@ -6205,11 +6213,12 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       int64_t upper_bound,
       std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
       const GraphPathType* path_type, const Type* cost_type,
-      EvaluationContext* context) {
+      ResolvedGraphPathMode::PathMode path_mode, EvaluationContext* context) {
     return absl::WrapUnique(new QuantifiedGraphPathTupleIterator(
         params, std::move(output_schema), num_extra_slots,
         std::move(path_primary_iterator), lower_bound, upper_bound,
-        std::move(group_variable_info), path_type, cost_type, context));
+        std::move(group_variable_info), path_type, cost_type, path_mode,
+        context));
   }
 
   const TupleSchema& Schema() const override { return *output_schema_; }
@@ -6260,7 +6269,7 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
     return path_primary_iterator_->Status();
   }
 
-  // A naive materialization of all quantified paths by walking
+  // Materialize quantified paths by performing a BFS using neighbor info map
   // 'precomputed_paths_single_iteration_'.
   absl::Status MaterializeAllQuantifiedPaths() {
     materialized_paths_ = std::vector<std::vector<Value>>{};
@@ -6279,9 +6288,11 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       }
       queue.push(std::move(path_state));
     }
+
     while (!queue.empty()) {
       PathState current_path = std::move(queue.front());
       queue.pop();
+
       auto it = precomputed_paths_single_iteration_.find(
           current_path.tail.GetIdentifier());
       // If we cannot find an outgoing node from 'current_path.tail', we
@@ -6289,46 +6300,61 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       if (it == precomputed_paths_single_iteration_.end()) {
         continue;
       }
-      for (const OneHopData& single_iteration : it->second) {
+
+      for (const OneHopData& next_hop : it->second) {
         std::vector<std::vector<Value>> new_group_variables =
             current_path.group_variables;
         for (int idx = 0; idx < new_group_variables.size(); ++idx) {
-          new_group_variables[idx].push_back(
-              single_iteration.group_variables[idx]);
+          new_group_variables[idx].push_back(next_hop.group_variables[idx]);
         }
         std::optional<Value> new_total_cost = std::nullopt;
         if (cost_type_) {
-          ZETASQL_RET_CHECK(single_iteration.cost.has_value());
+          ZETASQL_RET_CHECK(next_hop.cost.has_value());
           ZETASQL_RET_CHECK(current_path.total_cost.has_value());
           ZETASQL_ASSIGN_OR_RETURN(new_total_cost,
                            AddCostsBinary({current_path.total_cost.value(),
-                                           single_iteration.cost.value()},
+                                           next_hop.cost.value()},
                                           cost_type_, context_));
         }
         int iteration = current_path.iteration + 1;
         if (iteration <= upper_bound_ && iteration >= lower_bound_) {
-          std::vector<Value> path;
-          path.reserve(new_group_variables.size() + 2);
-          path.push_back(current_path.head);
+          std::vector<Value> path_factors;
+          path_factors.reserve(new_group_variables.size() + 2);
+          path_factors.push_back(current_path.head);
           for (int idx = 0; idx < new_group_variables.size(); ++idx) {
             ZETASQL_ASSIGN_OR_RETURN(
                 Value array,
                 Value::MakeArray(group_variable_info_[idx].array_type,
                                  new_group_variables[idx]));
-            path.push_back(std::move(array));
+            path_factors.push_back(std::move(array));
           }
-          path.push_back(single_iteration.destination);
+          path_factors.push_back(next_hop.destination);
           if (cost_type_) {
-            path.push_back(new_total_cost.value());
+            path_factors.push_back(new_total_cost.value());
           }
-          materialized_paths_->push_back(std::move(path));
+
+          // Convert path factors to a vanilla path, and check if we should
+          // keep it based on the path prefix.
+          ZETASQL_ASSIGN_OR_RETURN(
+              const GraphPath vanilla_path,
+              CanonicalizePathFactors(path_factors, /*path_type=*/nullptr,
+                                      /*context=*/nullptr));
+          ZETASQL_ASSIGN_OR_RETURN(bool should_keep_path,
+                           ShouldKeepPath(vanilla_path, path_mode_));
+          // If the path violates the path prefix, we disregard it from the
+          // result set and do not need to enqueue it for the next iteration.
+          if (!should_keep_path) {
+            continue;
+          }
+          materialized_paths_->push_back(std::move(path_factors));
         }
+
         // If not at the final iteration, queue values for the next iteration.
         if (iteration < upper_bound_) {
           PathState next_path;
           next_path.iteration = iteration;
           next_path.head = current_path.head;
-          next_path.tail = single_iteration.destination;
+          next_path.tail = next_hop.destination;
           next_path.group_variables = std::move(new_group_variables);
           if (cost_type_) {
             next_path.total_cost = new_total_cost.value();
@@ -6425,7 +6451,7 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
       int64_t upper_bound,
       std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info,
       const GraphPathType* path_type, const Type* cost_type,
-      EvaluationContext* context)
+      ResolvedGraphPathMode::PathMode path_mode, EvaluationContext* context)
       : params_(params.begin(), params.end()),
         output_schema_(std::move(output_schema)),
         path_primary_iterator_(std::move(path_primary_iterator)),
@@ -6434,6 +6460,7 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
         group_variable_info_(std::move(group_variable_info)),
         path_type_(path_type),
         cost_type_(cost_type),
+        path_mode_(path_mode),
         context_(context) {
     output_tuple_.AddSlots(output_schema_->num_variables() + num_extra_slots);
   }
@@ -6479,8 +6506,8 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
   int64_t lower_bound_;
   int64_t upper_bound_;
 
-  // How to populate each group variable. Order of this vector matches the
-  // underlying GraphPathScan's `group_variable_list`.
+  // Contains the information needed to populate each group variable. Order of
+  // this vector matches the underlying GraphPathScan's `group_variable_list`.
   std::vector<QuantifiedGraphPathOp::GroupVariableInfo> group_variable_info_;
 
   // If non-null, materialize a path value at the end of the path.
@@ -6489,6 +6516,9 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
   // If non-null, materialize the cost of the path at end of the path.
   // The cost follows the path variable, if defined.
   const Type* cost_type_;
+
+  // The path mode of the quantified path.
+  ResolvedGraphPathMode::PathMode path_mode_;
 
   // The EvaluationContext.
   EvaluationContext* context_;
@@ -6550,6 +6580,7 @@ QuantifiedGraphPathOp::CreateIterator(absl::Span<const TupleData* const> params,
                           "Lower bound must be non-negative.");
     }
   }
+
   if (upper_bound_ != nullptr) {
     TupleSlot bound_slot;
     absl::Status status;
@@ -6568,329 +6599,21 @@ QuantifiedGraphPathOp::CreateIterator(absl::Span<const TupleData* const> params,
       return absl::Status(absl::StatusCode::kOutOfRange,
                           "Upper bound must be greater than lower bound.");
     }
+  } else {
+    // TODO: b/435017307 - Support unbounded path quantification.
+    return absl::UnimplementedError(
+        "QuantifiedGraphPathOp without an upper bound is not yet implemented.");
   }
   ZETASQL_ASSIGN_OR_RETURN(
       std::unique_ptr<TupleIterator> path_primary_iterator,
-      path_primary_op_->CreateIterator(params, /*num_extra_slots*/ 0, context));
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<TupleIterator> quantified_path_iter,
-      QuantifiedGraphPathTupleIterator::Create(
-          params, CreateOutputSchema(), num_extra_slots,
-          std::move(path_primary_iterator), lower_bound_val, upper_bound_val,
-          variables_.group_variables, path_type_, cost_type_, context));
+      path_primary_op_->CreateIterator(params, /*num_extra_slots=*/0, context));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> quantified_path_iter,
+                   QuantifiedGraphPathTupleIterator::Create(
+                       params, CreateOutputSchema(), num_extra_slots,
+                       std::move(path_primary_iterator), lower_bound_val,
+                       upper_bound_val, variables_.group_variables, path_type_,
+                       cost_type_, path_mode_, context));
   return MaybeReorder(std::move(quantified_path_iter), context);
-}
-
-absl::StatusOr<std::unique_ptr<RelationalOp>> GraphPathModeOp::Create(
-    ResolvedGraphPathMode::PathMode path_mode,
-    std::unique_ptr<RelationalOp> path_op) {
-  switch (path_mode) {
-    case ResolvedGraphPathMode::PATH_MODE_UNSPECIFIED:
-    case ResolvedGraphPathMode::WALK:
-      return std::move(path_op);
-    case ResolvedGraphPathMode::SIMPLE:
-      return absl::WrapUnique(new GraphSimplePathModeOp(std::move(path_op)));
-    case ResolvedGraphPathMode::ACYCLIC:
-      return absl::WrapUnique(new GraphAcyclicPathModeOp(std::move(path_op)));
-    case ResolvedGraphPathMode::TRAIL:
-      return absl::WrapUnique(new GraphTrailPathModeOp(std::move(path_op)));
-    default:
-      return absl::UnimplementedError("Unsupported path mode");
-  }
-}
-
-GraphPathModeOp::GraphPathModeOp(std::unique_ptr<RelationalOp> path_op) {
-  SetArg(kInput, std::make_unique<RelationalArg>(std::move(path_op)));
-}
-
-const RelationalOp* GraphPathModeOp::input() const {
-  return GetArg(kInput)->node()->AsRelationalOp();
-}
-
-RelationalOp* GraphPathModeOp::mutable_input() {
-  return GetMutableArg(kInput)->mutable_node()->AsMutableRelationalOp();
-}
-
-absl::Status GraphPathModeOp::SetSchemasForEvaluation(
-    absl::Span<const TupleSchema* const> params_schemas) {
-  return mutable_input()->SetSchemasForEvaluation(params_schemas);
-}
-
-std::unique_ptr<TupleSchema> GraphPathModeOp::CreateOutputSchema() const {
-  return input()->CreateOutputSchema();
-}
-
-std::string GraphPathModeOp::GetIteratorDebugString(
-    absl::string_view input_iter_debug_string) {
-  return absl::StrCat("GraphPathModeTupleIterator(", input_iter_debug_string,
-                      ")");
-}
-
-std::string GraphPathModeOp::IteratorDebugString() const {
-  return GetIteratorDebugString(input()->IteratorDebugString());
-}
-
-std::string GraphPathModeOp::DebugInternal(const std::string& indent,
-                                           bool verbose) const {
-  return absl::StrCat("Graph", path_mode_str(), "PathModeOp(",
-                      ArgDebugString({"input"}, {k1}, indent, verbose), ")");
-}
-
-namespace {
-
-// TODO: b/435017307 - Remove this class after supporting path mode natively in
-// quantified path ops.
-class GraphPathModeTupleIterator : public TupleIterator {
- public:
-  explicit GraphPathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
-                                      int num_extra_slots)
-      : iter_(std::move(iter)), num_extra_slots_(num_extra_slots) {}
-
-  GraphPathModeTupleIterator(const GraphPathModeTupleIterator&) = delete;
-  GraphPathModeTupleIterator& operator=(const GraphPathModeTupleIterator&) =
-      delete;
-
-  const TupleSchema& Schema() const override { return iter_->Schema(); }
-
-  TupleData* Next() override {
-    while (true) {
-      TupleData* current = iter_->Next();
-      if (current == nullptr) {
-        status_ = iter_->Status();
-        return nullptr;
-      }
-      // The tuple contains at least `num_extra_slots_` slots. If `path_length`
-      // is at most 1 then the path is trivially valid.
-      int path_length =
-          static_cast<int>(current->slots().size()) - num_extra_slots_;
-      if (path_length < 2) {
-        return current;
-      }
-      GraphPath path = absl::MakeSpan(&current->slots()[0], path_length);
-      if (ShouldKeep(path)) {
-        return current;
-      }
-    }
-  }
-
-  absl::Status Status() const override { return status_; }
-
-  std::string DebugString() const override {
-    return GraphPathModeOp::GetIteratorDebugString(iter_->DebugString());
-  }
-
- protected:
-  using GraphPath = absl::Span<const TupleSlot>;
-
-  absl::flat_hash_set<EdgeIdentifierType> discovered_edges_;
-  absl::flat_hash_set<NodeIdentifierType> discovered_nodes_;
-  std::optional<NodeIdentifierType> first_node_;
-
- private:
-  virtual bool IsTrivialPath(GraphPath path) = 0;
-  virtual bool MaybeDiscardEdge(EdgeIdentifierType edge_id) { return false; }
-  virtual bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) {
-    return false;
-  }
-
-  bool ShouldKeep(GraphPath path) {
-    if (IsTrivialPath(path)) {
-      return true;
-    }
-    std::optional<NodeIdentifierType> last_seen_node;
-    discovered_edges_.clear();
-    discovered_nodes_.clear();
-    first_node_.reset();
-    for (const TupleSlot& el : path) {
-      if (el.value().type_kind() == TYPE_GRAPH_PATH ||
-          el.value().type()->IsNumerical()) {
-        // Skip path variables and computed cost variables.
-        continue;
-      }
-      if (el.value().type_kind() == TYPE_GRAPH_ELEMENT) {
-        if (el.value().IsEdge()) {
-          if (MaybeDiscardEdge(EdgeIdentifierType(el.value()))) {
-            return false;
-          }
-          if (last_seen_node.has_value() &&
-              MaybeDiscardNode(*last_seen_node, /*is_last=*/false)) {
-            return false;
-          }
-          last_seen_node.reset();
-        } else if (el.value().IsNode() && !last_seen_node.has_value()) {
-          // Skip duplicate node elements without intermediate edges in between.
-          last_seen_node.emplace(el.value());
-        }
-      } else {
-        ABSL_DCHECK_EQ(el.value().type_kind(), TYPE_ARRAY);  // Crash OK
-        const Type* array_element_type =
-            el.value().type()->AsArray()->element_type();
-        ABSL_DCHECK(array_element_type->IsGraphElement());  // Crash OK
-        // Quantified paths are represented as multiple arrays corresponding to
-        // graph elements that represent each group variable prefixed and
-        // suffixed by the scalar head and tail node elements. E.g. a path
-        // (a)->((b)-[e]->(c)){1,3}(d) has the following representation:
-        // [a, head, [b_0, ... b_i], [e_0, ... e_i], [c_0, ... c_i], tail, d].
-        // Note that a == head == b_0, b_i == c_0, and c_i == tail == d by
-        // construction.
-        if (array_element_type->AsGraphElement()->IsEdge()) {
-          for (const auto& val : el.value().elements()) {
-            if (MaybeDiscardEdge(EdgeIdentifierType(val))) {
-              return false;
-            }
-          }
-          if (last_seen_node.has_value() &&
-              MaybeDiscardNode(*last_seen_node, /*is_last=*/false)) {
-            return false;
-          }
-          last_seen_node.reset();
-        } else if (array_element_type->AsGraphElement()->IsNode()) {
-          // `last_seen_node` is always set when the first node variable group
-          // is processed because of the explicit preceding 'head' node element.
-          // Nodes in first node variable group can always be skipped because
-          // they are always the same as preceding scalar 'head' node element,
-          // node elements from the last node variable group, or scalar 'tail'
-          // node element.
-          if (last_seen_node.has_value()) {
-            if (MaybeDiscardNode(*last_seen_node,
-                                 /*is_last=*/false)) {
-              return false;
-            }
-            last_seen_node.reset();
-          } else {
-            for (const auto& val : el.value().elements()) {
-              if (last_seen_node.has_value()) {
-                if (MaybeDiscardNode(*last_seen_node,
-                                     /*is_last=*/false)) {
-                  return false;
-                }
-              }
-              last_seen_node.emplace(val);
-            }
-          }
-        }
-      }
-    }
-    ABSL_DCHECK(last_seen_node.has_value());  // Crash OK
-    return !MaybeDiscardNode(*last_seen_node, /*is_last=*/true);
-  }
-
-  std::unique_ptr<TupleIterator> iter_;
-  const int num_extra_slots_;
-  absl::Status status_;
-};
-
-class GraphTrailPathModeTupleIterator final
-    : public GraphPathModeTupleIterator {
- public:
-  explicit GraphTrailPathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
-                                           int num_extra_slots)
-      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
-
-  GraphTrailPathModeTupleIterator(const GraphTrailPathModeTupleIterator&) =
-      delete;
-  GraphTrailPathModeTupleIterator& operator=(
-      const GraphTrailPathModeTupleIterator&) = delete;
-
- private:
-  bool IsTrivialPath(GraphPath path) override {
-    // Path of length <=3 contains at most 1 edge.
-    return path.size() <= 3;
-  }
-  // Returns true iff the path does not contain duplicate edges.
-  bool MaybeDiscardEdge(EdgeIdentifierType edge_id) override {
-    const auto [it, inserted] = discovered_edges_.insert(edge_id);
-    return !inserted;
-  }
-};
-
-class GraphAcyclicPathModeTupleIterator final
-    : public GraphPathModeTupleIterator {
- public:
-  explicit GraphAcyclicPathModeTupleIterator(
-      std::unique_ptr<TupleIterator> iter, int num_extra_slots)
-      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
-
-  GraphAcyclicPathModeTupleIterator(const GraphAcyclicPathModeTupleIterator&) =
-      delete;
-  GraphAcyclicPathModeTupleIterator& operator=(
-      const GraphAcyclicPathModeTupleIterator&) = delete;
-
- private:
-  bool IsTrivialPath(GraphPath path) override {
-    // Singleton paths are trivially acyclic.
-    return path.size() <= 1;
-  }
-  // Returns if the path contains duplicate nodes.
-  bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) override {
-    return !discovered_nodes_.insert(node_id).second;
-  }
-};
-
-class GraphSimplePathModeTupleIterator final
-    : public GraphPathModeTupleIterator {
- public:
-  explicit GraphSimplePathModeTupleIterator(std::unique_ptr<TupleIterator> iter,
-                                            int num_extra_slots)
-      : GraphPathModeTupleIterator(std::move(iter), num_extra_slots) {}
-
-  GraphSimplePathModeTupleIterator(const GraphSimplePathModeTupleIterator&) =
-      delete;
-  GraphSimplePathModeTupleIterator& operator=(
-      const GraphSimplePathModeTupleIterator&) = delete;
-
- private:
-  bool IsTrivialPath(GraphPath path) override {
-    // Path of length up to 3 contains at most 2 nodes and we don't care whether
-    // they are the same or not.
-    return path.size() <= 3;
-  }
-  // Returns if the path contains duplicate nodes, except first and last nodes
-  // which could be the same.
-  bool MaybeDiscardNode(NodeIdentifierType node_id, bool is_last) override {
-    if (!first_node_.has_value()) {
-      first_node_.emplace(node_id);
-    }
-    if (is_last && first_node_ == node_id) {
-      return false;
-    }
-    return !discovered_nodes_.insert(node_id).second;
-  }
-};
-
-}  // namespace
-
-absl::StatusOr<std::unique_ptr<TupleIterator>>
-GraphTrailPathModeOp::CreateIterator(absl::Span<const TupleData* const> params,
-                                     int num_extra_slots,
-                                     EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
-                   input()->CreateIterator(params, num_extra_slots, context));
-  iter = std::make_unique<GraphTrailPathModeTupleIterator>(std::move(iter),
-                                                           num_extra_slots);
-  return MaybeReorder(std::move(iter), context);
-}
-
-absl::StatusOr<std::unique_ptr<TupleIterator>>
-GraphAcyclicPathModeOp::CreateIterator(
-    absl::Span<const TupleData* const> params, int num_extra_slots,
-    EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
-                   input()->CreateIterator(params, num_extra_slots, context));
-  iter = std::make_unique<GraphAcyclicPathModeTupleIterator>(std::move(iter),
-                                                             num_extra_slots);
-  return MaybeReorder(std::move(iter), context);
-}
-
-absl::StatusOr<std::unique_ptr<TupleIterator>>
-GraphSimplePathModeOp::CreateIterator(absl::Span<const TupleData* const> params,
-                                      int num_extra_slots,
-                                      EvaluationContext* context) const {
-  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<TupleIterator> iter,
-                   input()->CreateIterator(params, num_extra_slots, context));
-  iter = std::make_unique<GraphSimplePathModeTupleIterator>(std::move(iter),
-                                                            num_extra_slots);
-  return MaybeReorder(std::move(iter), context);
 }
 
 namespace {

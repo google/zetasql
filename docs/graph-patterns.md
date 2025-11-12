@@ -257,7 +257,8 @@ RETURN
 ## Element pattern 
 <a id="element_pattern_definition"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 <pre>
 <span class="var">element_pattern</span>:
@@ -1072,7 +1073,8 @@ RETURN
 ## Quantified path pattern 
 <a id="quantified_paths"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 <pre>
 <span class="var">quantified_path_primary</span>:

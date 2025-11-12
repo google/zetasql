@@ -407,6 +407,16 @@ inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
                              /*literal_id=*/ 0);
 }
 
+// This should be the only way to create a ResolvedColumnRef, and all other
+// overloads removed, to ensure consistency of the annotated type with the
+// referenced column.
+inline std::unique_ptr<ResolvedColumnRef> MakeResolvedColumnRef(
+    const ResolvedColumn& column, bool is_correlated) {
+  auto column_ref = MakeResolvedColumnRef(column.type(), column, is_correlated);
+  column_ref->set_type_annotation_map(column.type_annotation_map());
+  return column_ref;
+}
+
 // This is here for backward compatibility because we added a field
 // generic_argument_list. May be removed in the future.
 //

@@ -89,7 +89,11 @@ absl::Status PrintResults(std::unique_ptr<EvaluatorTableIterator> iter,
 ExecuteQueryStreamWriter::ExecuteQueryStreamWriter(std::ostream& out)
     : stream_{out} {}
 
-absl::Status ExecuteQueryStreamWriter::resolved(const ResolvedNode& ast) {
+absl::Status ExecuteQueryStreamWriter::resolved(const ResolvedNode& ast,
+                                                bool post_rewrite) {
+  if (post_rewrite) {
+    stream_ << "\nResolved AST rewritten to:\n";
+  }
   stream_ << ast.DebugString() << '\n';
   return absl::OkStatus();
 }

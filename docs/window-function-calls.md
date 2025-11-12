@@ -869,7 +869,7 @@ window frame clause. This logic is combined. Here is an example, using the
 
 ```zetasql
 SELECT item, purchases, category, LAST_VALUE(item)
-  OVER (ItemWindow AS most_popular
+  OVER (ItemWindow) AS most_popular
 FROM Produce
 WINDOW ItemWindow AS (
   PARTITION BY category

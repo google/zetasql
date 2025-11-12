@@ -252,7 +252,8 @@ RETURN
 ## `CALL` statement 
 <a id="gql_call"></a>
 
-Note: Syntax wrapped in double quotes (`""`) is required.
+Note: Syntax characters enclosed in double quotes (`""`) are literal and
+required.
 
 <pre>
 [ OPTIONAL ] CALL [ PER () ] <span class="var">tvf_name</span> ( [ <span class="var">expression</span> [ , ... ] ] ) [ YIELD <span class="var">tvf_column</span> [ AS <span class="var">alias</span> ] [ , ... ] ]

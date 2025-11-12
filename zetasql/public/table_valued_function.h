@@ -293,21 +293,16 @@ class TableValuedFunction {
 
   // Returns an external 'SQL' name for the table valued function, for use in
   // error messages and anywhere else appropriate.
-  std::string SQLName(
-      bool enable_case_conversion_for_non_builtins = true) const {
+  std::string SQLName() const {
     std::string name;
     if (IsZetaSQLBuiltin()) {
       name = FullName(/*include_group=*/false);
-      return this->tvf_options_.uses_upper_case_sql_name
-                 ? absl::AsciiStrToUpper(name)
-                 : name;
     } else {
       name = FullName();
-      return enable_case_conversion_for_non_builtins &&
-                     this->tvf_options_.uses_upper_case_sql_name
-                 ? absl::AsciiStrToUpper(name)
-                 : name;
     }
+    return this->tvf_options_.uses_upper_case_sql_name
+               ? absl::AsciiStrToUpper(name)
+               : name;
   }
 
   const std::vector<std::string>& function_name_path() const {

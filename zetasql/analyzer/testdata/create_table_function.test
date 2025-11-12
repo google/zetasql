@@ -202,7 +202,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 2:51]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 2:51]
   returns table<x string> as (select "foo" x from tvf_deprecation_warning());
                                                   ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -254,7 +254,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
     (select "foo" x from tvf_deprecation_warning()
                          ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -288,7 +288,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
     (select "foo" x from tvf_two_deprecation_warnings_same_kind());
                          ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -322,7 +322,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
     (select "foo" x from tvf_two_deprecation_warnings());
                          ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -331,7 +331,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 3:26]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 3:26]
     (select "foo" x from tvf_two_deprecation_warnings());
                          ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -397,7 +397,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:26]
     (select "foo" x from tvf_deprecation_warning()
                          ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -406,7 +406,7 @@ some caret string for foo_11
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:24]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 5:24]
      select "bar" from tvf_two_deprecation_warnings_same_kind()
                        ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -415,7 +415,7 @@ some caret string for foo_12
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 7:24]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 7:24]
      select "baz" from tvf_two_deprecation_warnings());
                        ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -424,7 +424,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 7:24]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 7:24]
      select "baz" from tvf_two_deprecation_warnings());
                        ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]
@@ -520,7 +520,7 @@ CreateTableFunctionStmt
 
 
 DEPRECATION WARNING:
-Table-valued function tvf_deprecation_warning triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:27]
+Table-valued function TVF_DEPRECATION_WARNING triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 3:27]
     (select "foo1" x from tvf_deprecation_warning()
                           ^
 Operation <foo11> is deprecated [at module11.sqlm:21:31]
@@ -529,7 +529,7 @@ some caret string for foo_11
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings_same_kind triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 7:25]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS_SAME_KIND triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 7:25]
      select "bar1" from tvf_two_deprecation_warnings_same_kind()
                         ^
 Operation <foo12> is deprecated [at module12.sqlm:22:32]
@@ -538,7 +538,7 @@ some caret string for foo_12
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 11:25]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind PROTO3_FIELD_PRESENCE [at 11:25]
      select "baz1" from tvf_two_deprecation_warnings()
                         ^
 Operation <foo14> is deprecated [at module14.sqlm:24:34]
@@ -547,7 +547,7 @@ some caret string for foo_14
 [zetasql.DeprecationWarning] { kind: PROTO3_FIELD_PRESENCE }
 
 DEPRECATION WARNING:
-Table-valued function tvf_two_deprecation_warnings triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 11:25]
+Table-valued function TVF_TWO_DEPRECATION_WARNINGS triggers a deprecation warning with kind DEPRECATED_FUNCTION_SIGNATURE [at 11:25]
      select "baz1" from tvf_two_deprecation_warnings()
                         ^
 Operation <foo15> is deprecated [at module15.sqlm:25:35]

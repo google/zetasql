@@ -353,6 +353,9 @@ known_errors {
   label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges"
   label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges_of_different_types"
   label: "graph_table_gql_extended_test:simple_path_mode_with_scalar_edges_within_quantified_paths"
+  label: "graph_cyclic_test:simple_mode_quantified_three_hop_edges_count_paths"
+  label: "graph_cyclic_test:simple_mode_quantified_three_hop_nodes_edges"
+  label: "graph_cyclic_test:simple_mode_quantified_two_hop_and_one_hop_nodes"
 }
 
 known_errors {

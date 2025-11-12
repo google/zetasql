@@ -72,7 +72,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
     return absl::OkStatus();
   }
 
-  absl::Status resolved(const ResolvedNode& ast) override;
+  absl::Status resolved(const ResolvedNode& ast, bool post_rewrite) override;
 
   absl::Status unanalyze(absl::string_view unanalyze_string) override {
     current_statement_params_["result_unanalyzed"] =
@@ -113,38 +113,7 @@ class ExecuteQueryWebWriter : public ExecuteQueryWriter {
     return absl::OkStatus();
   }
 
-  void FlushStatement(bool at_end, std::string error_msg = "") override {
-    if (GotResults()) {
-      current_statement_params_["result"] = true;
-    }
-    if (!error_msg.empty()) {
-      current_statement_params_["error"] = error_msg;
-    }
-
-    bool has_content = GotResults() || !error_msg.empty();
-    if (has_content) {
-      if (!at_end) {
-        current_statement_params_["not_is_last"] = true;
-      }
-
-      // This would be preferred, but I can't get it work on these boost
-      // variant types, so I'm maintaining the array separately and copying it
-      // back into the map every time it gets updated.
-      //   template_params_["statements"]).push_back(current_statement_params_);
-      statement_params_array_.push_back(current_statement_params_);
-      template_params_["statements"] = mstch::array(statement_params_array_);
-
-      // Show the input statements when there is more than one statement,
-      // so it's easy to match output to input statements.
-      if (statement_params_array_.size() > 1) {
-        template_params_["show_statement_text"] = true;
-      }
-    }
-
-    got_results_ = false;
-    current_statement_params_.clear();
-    log_messages_.clear();
-  }
+  void FlushStatement(bool at_end, std::string error_msg = "") override;
 
   bool GotResults() const { return got_results_; }
 

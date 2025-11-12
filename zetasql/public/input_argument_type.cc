@@ -91,9 +91,9 @@ bool InputArgumentType::operator==(const InputArgumentType& rhs) const {
 
 InputArgumentType::InputArgumentType(const Value& literal_value,
                                      bool is_default_argument_value)
-    : category_(kTypedLiteral),
-      type_(literal_value.type()),
+    : type_(literal_value.type()),
       literal_value_(literal_value),
+      category_(kTypedLiteral),
       is_default_argument_value_(is_default_argument_value) {
   is_literal_for_constness_ = true;
   if (literal_value.type()->IsStruct()) {
@@ -114,8 +114,8 @@ InputArgumentType::InputArgumentType(const Value& literal_value,
 
 InputArgumentType::InputArgumentType(const Type* type, bool is_query_parameter,
                                      bool is_literal_for_constness)
-    : category_(is_query_parameter ? kTypedParameter : kTypedExpression),
-      type_(type),
+    : type_(type),
+      category_(is_query_parameter ? kTypedParameter : kTypedExpression),
       is_literal_for_constness_(is_literal_for_constness) {
   ABSL_DCHECK(type != nullptr);
   if (type->IsStruct()) {

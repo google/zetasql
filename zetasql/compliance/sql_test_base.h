@@ -668,6 +668,9 @@ class SQLTestBase : public ::testing::TestWithParam<std::string> {
   // Accesses sql_, parameters_ and full_name_ for generating a report.
   friend class RQGBasedSqlBuilderTest;
 
+  // Accesses sql_, parameters_ and full_name_ for generating a report.
+  friend class RQGBasedPipeSqlBuilderTest;
+
   // KnownErrorFilter needs to use stats_ to record failed statements. It also
   // needs to read sql_, location_, full_name_, and known_error_mode() for
   // statements.

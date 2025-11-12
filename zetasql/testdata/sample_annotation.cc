@@ -46,8 +46,8 @@ absl::Status CopyAnnotationRecursively(int id,
   if (from_annotated_map->IsArrayMap()) {
     ZETASQL_RET_CHECK(to_annotated_map->IsArrayMap());
     ZETASQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        id, from_annotated_map->AsArrayMap()->element(),
-        to_annotated_map->AsArrayMap()->mutable_element()));
+        id, from_annotated_map->AsStructMap()->field(0),
+        to_annotated_map->AsStructMap()->mutable_field(0)));
   } else if (from_annotated_map->IsStructMap()) {
     ZETASQL_RET_CHECK(to_annotated_map->IsStructMap());
     ZETASQL_RET_CHECK_EQ(from_annotated_map->AsStructMap()->num_fields(),

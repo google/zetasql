@@ -1915,13 +1915,13 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
 
   ZETASQL_RETURN_IF_ERROR(AddTableWithMeasures(
       analyzer_options, "MeasureTable_TwoKeys",
-      {new SimpleColumn("MeasureTable_TwoKeys", "key1", types_->get_int64()),
+      {new SimpleColumn("MeasureTable_TwoKeys", "KEY1", types_->get_int64()),
        new SimpleColumn("MeasureTable_TwoKeys", "key2", types_->get_int64()),
-       new SimpleColumn("MeasureTable_TwoKeys", "country",
+       new SimpleColumn("MeasureTable_TwoKeys", "Country",
                         types_->get_string()),
-       new SimpleColumn("MeasureTable_TwoKeys", "quantity",
+       new SimpleColumn("MeasureTable_TwoKeys", "Quantity",
                         types_->get_int64()),
-       new SimpleColumn("MeasureTable_TwoKeys", "price", types_->get_int64())},
+       new SimpleColumn("MeasureTable_TwoKeys", "Price", types_->get_int64())},
       /*row_identity_column_indices=*/absl::flat_hash_set<int>{0, 1},
       /*measures=*/
       {{"measure_count_star", "COUNT(*)"},
@@ -1930,7 +1930,7 @@ absl::Status SampleCatalogImpl::LoadMeasureTables() {
        {"measure_sum_quantity", "SUM(quantity)"},
        {"measure_sum_price", "SUM(price)"},
        {"measure_sum_price_times_quantity", "SUM(price * quantity)"},
-       {"measure_ratio_price_to_quantity", "SUM(price) / SUM(quantity)"},
+       {"measure_ratio_price_to_quantity", "SUM(PRICE) / SUM(QUANTITY)"},
        {"measure_ratio_price_to_quantity_per_key",
         "SUM(ANY_VALUE(price) GROUP BY key1,key2) / "
         "SUM(ANY_VALUE(quantity) GROUP BY key1,key2)"}},

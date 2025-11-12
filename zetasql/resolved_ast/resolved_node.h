@@ -333,16 +333,24 @@ class ResolvedNode {
   // Struct used to collect all fields that should be printed in DebugString.
   struct DebugStringField {
     DebugStringField(absl::string_view name_in, absl::string_view value_in,
-                     bool accessed)
-        : name(name_in), value(value_in), accessed(accessed) {}
+                     bool accessed_in, bool column_created_in)
+        : name(name_in),
+          value(value_in),
+          accessed(accessed_in),
+          column_created(column_created_in) {}
     DebugStringField(absl::string_view name_in, const ResolvedNode* node_in,
-                     bool accessed)
-        : name(name_in), nodes({node_in}), accessed(accessed) {}
+                     bool accessed_in, bool column_created_in = false)
+        : name(name_in),
+          nodes({node_in}),
+          accessed(accessed_in),
+          column_created(column_created_in) {}
 
     template <typename T>
     DebugStringField(absl::string_view name_in, const std::vector<T>& nodes_in,
-                     bool accessed)
-        : name(name_in), accessed(accessed) {
+                     bool accessed_in, bool column_created_in = false)
+        : name(name_in),
+          accessed(accessed_in),
+          column_created(column_created_in) {
       for (const auto& node : nodes_in) nodes.push_back(node.get());
     }
 
@@ -358,7 +366,7 @@ class ResolvedNode {
     // Indicates that the field has been accessed.
     bool accessed;
     // Indicates that the field is a column that created in this node.
-    bool column_created = false;
+    bool column_created;
   };
 
   // Add all fields that should be printed in DebugString to <fields>.

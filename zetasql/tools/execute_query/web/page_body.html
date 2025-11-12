@@ -123,7 +123,7 @@
           {{/show_statement_text}}
           {{#error}}
             <h3>Error</h3>
-            <pre id="error">{{error}}</pre>
+            <pre id="error" class="error">{{{error}}}</pre>
             <p>
           {{/error}}
           {{#result}}
@@ -134,7 +134,7 @@
                   <pre class="output executed">{{> table}}</pre>
                 {{/table}}
                 {{#error}}
-                  <pre id="error">{{error}}</pre>
+                  <pre id="error" class="error">{{{error}}}</pre>
                 {{/error}}
               {{/result_executed_tables}}
               {{#result_executed_text}}
@@ -143,8 +143,24 @@
             {{/result_executed}}
 
             {{#result_analyzed}}
+            <!--
+              If we only have `result_analyzed`, just show it inline.
+              If we also have `result_analyzed_post_rewrite`, show both inside
+              collapsible <details> blocks, with the second open by default.
+            -->
             <h3>Analyze</h3>
+            {{#result_analyzed_post_rewrite}}
+            <details>
+              <summary>Pre-rewrite</summary>
+            {{/result_analyzed_post_rewrite}}
             <pre class="output analyzed"><code class="language-less">{{{result_analyzed}}}</code></pre>
+            {{#result_analyzed_post_rewrite}}
+            </details>
+            <details open=true>
+              <summary>Post-rewrite</summary>
+            <pre class="output analyzed"><code class="language-less">{{{result_analyzed_post_rewrite}}}</code></pre>
+            </details>
+            {{/result_analyzed_post_rewrite}}
             {{/result_analyzed}}
 
             {{#result_parsed}}

@@ -1,0 +1,1212 @@
+[default reserve_match_recognize]
+[default required_features=MATCH_RECOGNIZE,PIPES]
+[prepare_database]
+CREATE TABLE t1 AS
+  SELECT * FROM UNNEST([
+    STRUCT(1 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(2 AS rowid, 1 AS x, 100 AS y, 1000 AS z),
+    STRUCT(3 AS rowid, 1 AS x, 100 AS y, 1001 AS z),
+    STRUCT(4 AS rowid, 1 AS x, 100 AS y, 1002 AS z),
+    STRUCT(5 AS rowid, 1 AS x, 100 AS y, 1003 AS z),
+    STRUCT(6 AS rowid, 1 AS x, 100 AS y, 1004 AS z),
+    STRUCT(7 AS rowid, 1 AS x, 101 AS y, 1000 AS z),
+    STRUCT(8 AS rowid, 1 AS x, 101 AS y, 1001 AS z),
+    STRUCT(9 AS rowid, 1 AS x, 101 AS y, 1002 AS z),
+    STRUCT(10 AS rowid, 2 AS x, 100 AS y, 1000 AS z),
+    STRUCT(11 AS rowid, 2 AS x, 101 AS y, 1001 AS z),
+    STRUCT(12 AS rowid, 2 AS x, 102 AS y, 1002 AS z),
+    STRUCT(13 AS rowid, 2 AS x, 102 AS y, NULL AS z),
+    STRUCT(14 AS rowid, 2 AS x, 102 AS y, NULL AS z),
+    STRUCT(15 AS rowid, 2 AS x, NULL AS y, 1002 AS z),
+    STRUCT(16 AS rowid, 2 AS x, NULL AS y, 1002 AS z)
+    ]);
+--
+ARRAY<STRUCT<rowid INT64, x INT64, y INT64, z INT64>>[
+  {2, 1, 100, 1000},
+  {4, 1, 100, 1002},
+  {6, 1, 100, 1004},
+  {8, 1, 101, 1001},
+  {10, 2, 100, 1000},
+  {12, 2, 102, 1002},
+  {14, 2, 102, NULL},
+  {16, 2, NULL, 1002},
+  {1, 1, 100, 1000},
+  {3, 1, 100, 1001},
+  {5, 1, 100, 1003},
+  {7, 1, 101, 1000},
+  {9, 1, 101, 1002},
+  {11, 2, 101, 1001},
+  {13, 2, 102, NULL},
+  {15, 2, NULL, 1002}
+]
+==
+
+[name=pattern_always_false_on_empty_input]
+WITH empty AS (SELECT * FROM t1 WHERE false)
+FROM empty |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a )
+  DEFINE
+    a AS false
+)
+--
+ARRAY<STRUCT<m INT64>>[]
+==
+
+[name=pattern_always_false_on_nonempty_input]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a )
+  DEFINE
+    a AS false
+)
+--
+ARRAY<STRUCT<m INT64>>[]
+==
+
+# The alternation between an always-false var and an empty pattern is equivalent
+# to just an empty pattern. It returns an empty match for every row, but since
+# there are no rows, it returns no matches.
+[name=empty_pattern_on_empty_input]
+WITH empty AS (SELECT * FROM t1 WHERE false)
+FROM empty |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a| )
+  DEFINE
+    a AS false
+)
+--
+ARRAY<STRUCT<m INT64>>[]
+==
+
+# The alternation between an always-false var and an empty pattern is equivalent
+# to just an empty pattern. It returns an empty match for every row.
+[name=empty_pattern_on_nonempty_input]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a| )
+  DEFINE
+    a AS false
+)
+--
+ARRAY<STRUCT<m INT64>>[unknown order:
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL},
+  {NULL}
+]
+==
+
+[name=basic_with_no_quantifiers_nor_subqueries]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a b )
+  DEFINE
+    a AS y = 100,
+    b AS y = 101
+)
+--
+ARRAY<STRUCT<m INT64>>[unknown order:{2002}, {2008}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MATCH_RECOGNIZE,PIPES]
+[name=multilevel_aggregation_basic]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES MAX(x + AVG(z+z) GROUP BY x) AS m
+  PATTERN ( a b )
+  DEFINE
+    a AS y = 100,
+    b AS y = 101
+)
+--
+ARRAY<STRUCT<m DOUBLE>>[unknown order:{2003}, {2005}]
+==
+
+[required_features=MULTILEVEL_AGGREGATION,MATCH_RECOGNIZE,PIPES]
+[name=multilevel_aggregation_with_2_arguments]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES CORR(y, y + MAX(z) GROUP BY y) AS m
+  PATTERN ( a+ )
+  DEFINE
+    a AS true
+)
+--
+ARRAY<STRUCT<m DOUBLE>>[{0}]
+==
+
+[name=on_subquery]
+FROM
+ (SELECT * FROM t1 WHERE x > 1)
+ |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(z+z) AS m
+  PATTERN ( a b )
+  DEFINE
+    a AS y = 100,
+    b AS y = 101
+)
+--
+ARRAY<STRUCT<m INT64>>[{2002}]
+==
+
+[name=correlated_columns_are_grouping_constants]
+WITH outer_tbl AS (
+  SELECT 10000 AS outer_col UNION ALL
+  SELECT 20000 AS outer_col
+)
+SELECT
+    (SELECT m
+     FROM
+      (FROM t1 |> MATCH_RECOGNIZE(
+          PARTITION BY x
+          ORDER BY rowid + rowid
+          MEASURES max(z+z) + x + outer_col AS m
+          PATTERN ( a b )
+          DEFINE
+            a AS y = 100,
+            b AS y = 101
+        )
+        |> WHERE x = 1
+      ) AS tmp
+    ) AS correlated_scalar_subquery
+FROM outer_tbl
+ORDER BY outer_col
+--
+ARRAY<STRUCT<correlated_scalar_subquery INT64>>[known order:{12009}, {22009}]
+==
+
+[name=correlated_columns_and_lambda_args_are_grouping_constants]
+[required_features=MATCH_RECOGNIZE,PIPES,INLINE_LAMBDA_ARGUMENT]
+WITH outer_tbl AS (
+  SELECT 100000 AS outer_col, [5000000, 6000000] AS outer_arr  UNION ALL
+  SELECT 200000 AS outer_col, [7000000, 8000000] AS outer_arr
+)
+SELECT
+  ARRAY_TRANSFORM(outer_arr, e ->
+    (SELECT m
+     FROM
+      (FROM t1 |> MATCH_RECOGNIZE(
+          PARTITION BY x
+          ORDER BY rowid + rowid
+          MEASURES max(z+z) + x + e + outer_col AS m
+          PATTERN ( a b )
+          DEFINE
+            a AS y = 100,
+            b AS y = 101
+        )
+        |> WHERE x = 1
+      ) AS tmp
+    )
+) AS correlated_scalar_subquery
+FROM outer_tbl
+ORDER BY outer_col
+--
+ARRAY<STRUCT<correlated_scalar_subquery ARRAY<>>>[known order:
+  {ARRAY<INT64>[known order:5102009, 6102009]},
+  {ARRAY<INT64>[known order:7202009, 8202009]}
+]
+==
+
+[name=ignore_nulls_order_by_in_aggregate_measures]
+[required_features=MATCH_RECOGNIZE,PIPES,NULL_HANDLING_MODIFIER_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
+FROM t1
+|> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid + rowid
+  MEASURES ARRAY_AGG(z+10 IGNORE NULLS ORDER BY z+z) AS m
+  PATTERN ( a b )
+  DEFINE
+    a AS y = 100,
+    b AS y = 101
+)
+|> ORDER BY x
+--
+ARRAY<STRUCT<x INT64, m ARRAY<>>>[known order:
+  {
+    1,
+    ARRAY<INT64>[known order:1010, 1014]
+  },
+  {
+    2,
+    ARRAY<INT64>[known order:1010, 1011]
+  }
+]
+==
+
+[name=trivial_measures_clause_has_no_aggregations]
+FROM t1 |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid + rowid
+  MEASURES 1 AS one
+  PATTERN ( a b )
+  DEFINE
+    a AS y = 100,
+    b AS y = 101
+)
+|> ORDER BY 1
+--
+ARRAY<STRUCT<x INT64, one INT64>>[known order:{1, 1}, {2, 1}]
+==
+
+[name=correlated_partitioning_columns_with_duplication]
+WITH outer_tbl AS (
+  SELECT 1 AS x, 10 AS y, 100 AS z UNION ALL
+  SELECT 2,      20,      200
+)
+FROM outer_tbl
+|> WHERE (
+  x < (FROM t1
+        |> MATCH_RECOGNIZE(
+            PARTITION BY outer_tbl.x, outer_tbl.x, t1.x, t1.x
+            ORDER BY rowid + rowid
+            MEASURES min(z) AS m, max(z) AS x
+            PATTERN ( a b )
+            DEFINE
+              a AS y = 100,
+              b AS y = 101
+          )
+        |> SELECT DISTINCT m
+        |> ORDER BY m
+        |> LIMIT 1
+      )
+)
+|> ORDER BY 1
+--
+ARRAY<STRUCT<x INT64, y INT64, z INT64>>[known order:
+  {1, 10, 100},
+  {2, 20, 200}
+]
+==
+
+[name=overlapping_greedy]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 16, 16},
+  {2, 16, 15},
+  {3, 16, 14},
+  {4, 16, 13},
+  {5, 16, 12},
+  {6, 16, 11},
+  {7, 16, 10},
+  {8, 16, 9},
+  {9, 16, 8},
+  {10, 16, 7},
+  {11, 16, 6},
+  {12, 16, 5},
+  {13, 16, 4},
+  {14, 16, 3},
+  {15, 16, 2},
+  {16, 16, 1}
+]
+==
+
+# Just to compare with the above - intentionally kept the same except for
+# `AFTER MATCH SKIP`
+[name=non_overlapping_greedy]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP PAST LAST ROW
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[{1, 16, 16}]
+==
+
+# Just to compare with the above - intentionally kept the same except for
+# reluctant * quantifiers.
+[name=overlapping_reluctant_star]
+FROM t1
+|> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( a*? b*? )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0}
+]
+==
+
+# Just to compare with the above - intentionally kept the same except with
+# reluctant * quantifiers & `AFTER MATCH SKIP`.
+[name=non_overlapping_reluctant_star]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP PAST LAST ROW
+  PATTERN ( a*? b*? )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0},
+  {NULL, NULL, 0}
+]
+==
+
+# Just to compare with the above - intentionally kept the same except for
+# reluctant + quantifiers.
+[name=overlapping_reluctant_plus]
+FROM t1
+|> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( a+? b+? )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 10, 10},
+  {2, 10, 9},
+  {3, 10, 8},
+  {4, 10, 7},
+  {5, 10, 6},
+  {6, 10, 5},
+  {7, 10, 4},
+  {8, 10, 3},
+  {9, 10, 2}
+]
+==
+
+# Just to compare with the above - intentionally kept the same except with
+# reluctant + quantifiers & `AFTER MATCH SKIP`.
+[name=non_overlapping_reluctant_plus]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP PAST LAST ROW
+  PATTERN ( a+? b+? )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[{1, 10, 10}]
+==
+
+# Used as a baseline for comparing against the longest match case right below.
+# LHS takes precedence in the alternation.
+[name=normal_match_non_overlapping]
+FROM t1 |> MATCH_RECOGNIZE (
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( x_eq_1 + | y_eq_100+ y_not_null+)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = false)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 9, 9},
+  {10, 14, 5}
+]
+==
+
+# The pattern in LHS of the alternation is shorter, so E2E takes the RHS.
+[name=longest_match_non_overlapping]
+FROM t1 |> MATCH_RECOGNIZE (
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( x_eq_1 + | y_eq_100+ y_not_null+)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = true)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[{1, 14, 14}]
+==
+
+# Overlapping.
+# Used as a baseline for comparing against the longest match case right below.
+# LHS takes precedence in the alternation.
+[name=normal_match_overlapping]
+FROM t1 |> MATCH_RECOGNIZE (
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( x_eq_1 + | y_eq_100+ y_not_null+)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = false)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 9, 9},
+  {2, 9, 8},
+  {3, 9, 7},
+  {4, 9, 6},
+  {5, 9, 5},
+  {6, 9, 4},
+  {7, 9, 3},
+  {8, 9, 2},
+  {9, 9, 1},
+  {10, 14, 5}
+]
+==
+
+# Overlapping.
+# The pattern in LHS of the alternation is shorter, so E2E takes the RHS.
+[name=longest_match_overlapping]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( x_eq_1 + | y_eq_100+ y_not_null+)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = true)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 14, 14},
+  {2, 14, 13},
+  {3, 14, 12},
+  {4, 14, 11},
+  {5, 14, 10},
+  {6, 14, 9},
+  {7, 9, 3},
+  {8, 9, 2},
+  {9, 9, 1},
+  {10, 14, 5}
+]
+==
+
+# In this scenario, the greediness of the (+) quantifier is superceded by
+# longest_match.
+# The greedy (x_eq_1 +) is not consuming matching rows with (x = 1), but leaves
+# the last few to pick up the reluctant (y_eq_101*?) and the subsequent
+# reluctant (y_not_null *?) to get a longer end-to-end match.
+[name=longest_match_overrides_greedy_overlapping]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( x_eq_1+ y_eq_101*? y_not_null*?)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_101      AS y = 101,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = true)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 14, 14},
+  {2, 14, 13},
+  {3, 14, 12},
+  {4, 14, 11},
+  {5, 14, 10},
+  {6, 14, 9},
+  {7, 14, 8},
+  {8, 14, 7},
+  {9, 14, 6}
+]
+==
+
+# Like the above, but use_longest_match=false to demonstrate the difference.
+[name=local_greedy_overlapping]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  AFTER MATCH SKIP TO NEXT ROW
+  PATTERN ( x_eq_1+ y_eq_101*? y_not_null*?)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_101      AS y = 101,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = false)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 9, 9},
+  {2, 9, 8},
+  {3, 9, 7},
+  {4, 9, 6},
+  {5, 9, 5},
+  {6, 9, 4},
+  {7, 9, 3},
+  {8, 9, 2},
+  {9, 9, 1}
+]
+==
+
+# Longest-match-mode set to true via named query parameter
+[name=longest_match_option_as_a_param_true]
+[parameters=true AS p_bool]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( x_eq_1 +? | y_eq_100+? y_not_null+?)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = @p_bool)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[{1, 14, 14}]
+==
+
+# Identical query to the above, but longest-match-mode set to false via named
+# query parameter.
+[name=longest_match_option_as_a_param_false]
+[parameters=false AS p_bool]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( x_eq_1 +? | y_eq_100+? y_not_null+?)
+  DEFINE
+    x_eq_1        AS x = 1,
+    y_eq_100      AS y = 100,
+    y_not_null    AS y IS NOT NULL
+  OPTIONS (use_longest_match = @p_bool)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 1, 1},
+  {2, 2, 1},
+  {3, 3, 1},
+  {4, 4, 1},
+  {5, 5, 1},
+  {6, 6, 1},
+  {7, 7, 1},
+  {8, 8, 1},
+  {9, 9, 1},
+  {10, 11, 2}
+]
+==
+
+# Quantifier bounds as params
+[name=params_in_quantifiers]
+[parameters=1 AS p1, 2 AS p2]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( a {@p1, @p2} )
+  DEFINE
+    a AS x = 1
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 2, 2},
+  {3, 4, 2},
+  {5, 6, 2},
+  {7, 8, 2},
+  {9, 9, 1}
+]
+==
+
+# Note: the (b*) doesn't consume any rows so we're still at the start
+[name=start_and_end_anchors]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( ^b*(^)+a+|b+$ )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<start INT64, end INT64, cnt INT64>>[known order:
+  {1, 9, 9},
+  {10, 16, 7}
+]
+==
+
+# Start anchors generate empty matches, 1 at the start of each partition.
+[name=start_anchors_empty_match]
+FROM t1 |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( ^^a*(^^){100}a*^^(^)? )
+  DEFINE
+    a AS false
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<x INT64, start INT64, end INT64, cnt INT64>>[unknown order:
+  {1, NULL, NULL, 0},
+  {2, NULL, NULL, 0}
+]
+==
+
+# End anchors do NOT generate empty matches, however.
+[name=end_anchors_no_empty_match]
+FROM t1 |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( a? $$$$ )
+  DEFINE
+    a AS false
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<x INT64, start INT64, end INT64, cnt INT64>>[]
+==
+
+# However, empty relation means the start anchor won't generate an empty match.
+[name=start_anchors_no_empty_match_on_empty_input]
+WITH empty AS (SELECT * FROM t1 WHERE false)
+FROM empty |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( ^^^^a? )
+  DEFINE
+    a AS false
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<x INT64, start INT64, end INT64, cnt INT64>>[]
+==
+
+# This test ensures that anchors indeed are restricting matches to be anchored
+# at the start or end of the partition.
+[name=anchors_not_at_start_or_end_match]
+FROM t1 |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN ( a^ | $ a )
+  DEFINE
+    a AS true
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<x INT64, start INT64, end INT64, cnt INT64>>[]
+==
+
+# This test ensures that a DEFINE expression evaluating to NULL produces the
+# same result as if the result were FALSE.
+[name=null_define_exprs]
+FROM t1 |> MATCH_RECOGNIZE(
+  PARTITION BY x
+  ORDER BY rowid
+  MEASURES min(rowid) AS start, max(rowid) AS `end`, count(*) AS cnt
+  PATTERN (a)
+  DEFINE
+    a AS CAST(NULL AS BOOL)
+)
+|> ORDER BY start, `end`, cnt
+--
+ARRAY<STRUCT<x INT64, start INT64, end INT64, cnt INT64>>[]
+==
+
+# The logic for this test is quite simple. Instead of partitioning, we're
+# matching a pattern identifying the 2 groups, so there's only 1 match which
+# covers the whole table. We compare the max(z) and min(z) from each as well as
+# the diff (to test measures with multiple such aggs)
+[name=pattern_variables_in_measures]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES min(a.z) AS min_az, max(a.z) AS max_az,
+           min(b.z) AS min_bz, max(b.z) AS max_bz,
+           max(a.z) - max(b.z) AS m
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<min_az INT64, max_az INT64, min_bz INT64, max_bz INT64, m INT64>>[
+  {1000, 1004, 1000, 1002, 2}
+]
+==
+
+[name=pattern_variables_in_measures_complex_aggregate_args]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid + rowid
+  MEASURES max(a.z - a.x) AS multiple_as, max(b.z - b.x) AS multiple_bs
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<multiple_as INT64, multiple_bs INT64>>[{1003, 1000}]
+==
+[name=multiple_order_bys]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY x ASC, rowid DESC
+  MEASURES max(a.z - a.x) AS multiple_as, max(b.z - b.x) AS multiple_bs
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<multiple_as INT64, multiple_bs INT64>>[{1003, 1000}]
+==
+[name=query_param_in_order_by_collate]
+[required_features=MATCH_RECOGNIZE,PIPES,ORDER_BY_COLLATE,ORDER_BY_IN_AGGREGATE]
+[parameters="und:ci" as param]
+SELECT *
+  FROM (
+    SELECT
+      '3' AS x
+    ) |> MATCH_RECOGNIZE(
+      ORDER BY 'a' COLLATE @param
+      MEASURES
+        STRING_AGG('a') AS y
+      PATTERN (V_0)
+      DEFINE
+        V_0 AS true
+  );
+--
+ARRAY<STRUCT<y STRING>>[{"a"}]
+==
+[name=count_star_symbol_qualified_column_mix]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) AS cnt,
+    MAX(a.x) AS max_a_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64>>[{16, 1}]
+==
+[name=count_star_symbol_qualified_column_mix2]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) AS cnt,
+    MAX(a.x) AS max_a_x,
+    MAX(b.x) AS max_b_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64, max_b_x INT64>>[{16, 1, 2}]
+==
+[name=count_constant_symbol_qualified_column_mix]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(0) AS cnt,
+    MAX(a.x) AS max_a_x
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<cnt INT64, max_a_x INT64>>[{16, 1}]
+==
+
+[name=count_star_with_qualified_symbol_in_the_same_measure]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    COUNT(*) + MAX(a.x) AS m1,
+    MAX(a.x) + COUNT(*) AS m2,
+    COUNT(0) + MAX(a.x) AS m3,
+    MAX(a.x) + COUNT(0) AS m4,
+    MAX(a.x) AS max_a_x,
+    COUNT(0) AS cnt0,
+    COUNT(*) AS cnt_star
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m1 INT64,
+             m2 INT64,
+             m3 INT64,
+             m4 INT64,
+             max_a_x INT64,
+             cnt0 INT64,
+             cnt_star INT64>>[{17, 17, 17, 17, 1, 16, 16}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,MULTILEVEL_AGGREGATION,ORDER_BY_IN_AGGREGATE]
+[name=count_star_with_qualified_symbol_in_the_same_measure_in_multilevel_agg]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    string_agg('a' GROUP BY 'a'||'a' ORDER BY count(*), string_agg('b' ORDER BY a.x)) AS m
+  PATTERN ( a* b* )
+  DEFINE
+    a AS x = 1,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m STRING>>[{"a"}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES]
+[name=match_recognize_special_functions_first_and_last]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    FIRST(z) AS first_z,
+    LAST(z) AS last_z,
+    FIRST(a.z) AS first_az,
+    LAST(a.z) AS last_az,
+    FIRST(no_match.z) AS first_no_match_z,
+    LAST(no_match.z) AS last_no_match_z
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        first_z INT64,
+        last_z INT64,
+        first_az INT64,
+        last_az INT64,
+        first_no_match_z INT64,
+        last_no_match_z INT64
+      >>[{1000, 1002, 1000, 1002, NULL, NULL}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_special_functions_match_result]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    match_number() AS m_no,
+    ARRAY_AGG(match_row_number()) AS implicitly_ordered_row_numbers,
+    STRING_AGG(CLASSIFIER()) AS assigned_vars_ordered_implicitly,
+    ARRAY_AGG(b.z) AS b_z_ordered_implicitly
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        m_no INT64,
+        implicitly_ordered_row_numbers ARRAY<>,
+        assigned_vars_ordered_implicitly STRING,
+        b_z_ordered_implicitly ARRAY<>
+      >>
+[{1,
+  ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "a,a,a,a,a,a,a,a,a,b,b,b,b,b,b,b",
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002]}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(match_row_number()) AS implicitly_ordered_row_numbers,
+    ARRAY_AGG(match_row_number() ORDER BY match_row_number()) AS match_row_numbers_ordered,
+    ARRAY_AGG(match_row_number() ORDER BY rowid DESC) AS match_row_numbers_ordered_by_something_else,
+    STRING_AGG(CLASSIFIER(), "-") AS assigned_vars_ordered_implicitly,
+    STRING_AGG(CLASSIFIER(), "-" ORDER BY match_row_number()) AS assigned_vars_ordered_explicitly,
+    STRING_AGG(CLASSIFIER(), "-" ORDER BY rowid DESC) AS assigned_vars_ordered_by_something_else,
+    ARRAY_AGG(b.z) AS b_z_ordered_implicitly,
+    ARRAY_AGG(b.z ORDER BY match_row_number()) AS b_z_ordered_explicitly,
+    ARRAY_AGG(b.z ORDER BY b.rowid DESC) AS b_z_ordered_by_something_else
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        implicitly_ordered_row_numbers ARRAY<>,
+        match_row_numbers_ordered ARRAY<>,
+        match_row_numbers_ordered_by_something_else ARRAY<>,
+        assigned_vars_ordered_implicitly STRING,
+        assigned_vars_ordered_explicitly STRING,
+        assigned_vars_ordered_by_something_else STRING,
+        b_z_ordered_implicitly ARRAY<>,
+        b_z_ordered_explicitly ARRAY<>,
+        b_z_ordered_by_something_else ARRAY<>
+      >>
+[{ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<INT64>[known order:
+    16,
+    15,
+    14,
+    13,
+    12,
+    11,
+    10,
+    9,
+    8,
+    7,
+    6,
+    5,
+    4,
+    3,
+    2,
+    1
+  ],
+  "a-a-a-a-a-a-a-a-a-b-b-b-b-b-b-b",
+  "a-a-a-a-a-a-a-a-a-b-b-b-b-b-b-b",
+  "b-b-b-b-b-b-b-a-a-a-a-a-a-a-a-a",
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002],
+  ARRAY<INT64>[known order:1000, 1001, 1002, NULL, NULL, 1002, 1002],
+  ARRAY<INT64>[known order:1002, 1002, NULL, NULL, 1002, 1001, 1000]}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_distinct]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(DISTINCT match_row_number()) AS implicitly_ordered_distinct,
+    # DISTINCT does not include match_row_number(), so no implicit order is
+    # added.
+    ARRAY_AGG(DISTINCT CLASSIFIER()) AS no_implicit_order
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<
+        implicitly_ordered_distinct ARRAY<>,
+        no_implicit_order ARRAY<>
+      >>
+[{ARRAY<INT64>[known order:
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  ARRAY<STRING>[unknown order:"a", "b"]}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,LIMIT_IN_AGGREGATE,ORDER_BY_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_limit]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(match_row_number() LIMIT 3) AS m
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m ARRAY<>>>[{ARRAY<INT64>[known order:1, 2, 3]}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,HAVING_IN_AGGREGATE]
+[name=match_recognize_implicit_ordering_with_agg_having_min]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ANY_VALUE(match_row_number() HAVING MAX rowid) AS having_min
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<having_min INT64>>[{16}]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES,MULTILEVEL_AGGREGATION]
+[name=match_recognize_no_implicit_ordering_with_multilevel_agg]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    ARRAY_AGG(1 GROUP BY match_row_number()) AS multilevel
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<multilevel ARRAY<>>>[
+  {ARRAY<INT64>[unknown order:1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]}
+]
+==
+
+[required_features=MATCH_RECOGNIZE,PIPES]
+[name=match_recognize_special_functions_composing]
+FROM t1 |> MATCH_RECOGNIZE(
+  ORDER BY rowid
+  MEASURES
+    FIRST(1000 * a.z + 100 * match_number() + match_row_number()) AS m1,
+    LAST(1000 * b.z + 100 * match_number() + match_row_number()) AS m2
+  PATTERN ( a* no_match* b* )
+  DEFINE
+    a AS x = 1,
+    no_match AS false,
+    b AS x = 2
+)
+--
+ARRAY<STRUCT<m1 INT64, m2 INT64>>[{1000101, 1002116}]

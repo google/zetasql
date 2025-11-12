@@ -1090,7 +1090,7 @@ class TreeGenerator(object):
 
     # This can be used to find node names in a string (e.g. a c++ return type)
     # and turn them into relative links inside the doc.
-    linkify_re = re.compile(r'\b(Resolved[a-zA-Z]*)\b')
+    linkify_node_re = re.compile(r'\b(Resolved[a-zA-Z]*)\b')
 
     # These fix cases where we make a link to a plural node name with an extra
     # "s" or "ies" on the end.  e.g. "#ResolvedExprs" -> "#ResolvedExpr".
@@ -1099,23 +1099,40 @@ class TreeGenerator(object):
     fix_linkify_re1 = re.compile(r'(#Resolved[a-zA-Z]*)ies\b')
     fix_linkify_re2 = re.compile(r'(#Resolved[a-zA-Z]*)s\b')
 
+    # This finds links starting with 'http://'.
+    linkify_http_re = re.compile(r'\b((https?://)[a-zA-Z0-9_\-/:]*)\b')
+    # This finds links starting with '(broken link)' or 'b/'.
+    # This uses negative look-behind for / to avoid matching 'http://' links.
+    linkify_other_re = re.compile(r'(?<!/)\b(((broken link)|b/)[a-zA-Z0-9_\-/:]*)\b')
+
     # These do the corresponding change on a node name.
     unplural_re1 = re.compile(r'ies$')
     unplural_re2 = re.compile(r's$')
 
-    def LinkifyNodeNames(text):
+    def Linkify(text):
+      # Return a substitution lambda that makes links with `prefix`,
+      # which could be '#' or 'http://', for example.
       # Escape the text which may include strings like std::vector<xxx>,
       # and Markup the output to not be escaped further.
-      def LinkSafe(match):
-        # The replacement string is explicitly marked as safe HTML
-        return markupsafe.Markup(
-            f'<a href="#{match.group(1)}">{match.group(1)}</a>'
-        )
+      def LinkSafe(prefix):
+        def Lambda(match):
+          # The replacement string is explicitly marked as safe HTML
+          return markupsafe.Markup(
+              f'<a href="{prefix}{match.group(1)}">{match.group(1)}</a>'
+          )
+        return Lambda
 
       text = markupsafe.escape(text)
-      text = linkify_re.sub(LinkSafe, text)
+
+      # Linkify patterns that look like links.
+      text = linkify_http_re.sub(LinkSafe(''), text)
+      text = linkify_other_re.sub(LinkSafe('http://'), text)
+
+      # Linkify node names, and apply required fixups.
+      text = linkify_node_re.sub(LinkSafe('#'), text)
       text = fix_linkify_re1.sub(r'\1y', text)  # Suffix "ies" -> "y"
       text = fix_linkify_re2.sub(r'\1', text)   # Suffix "s" -> ""
+
       text = markupsafe.Markup(text)
       return text
 
@@ -1125,7 +1142,7 @@ class TreeGenerator(object):
       name = unplural_re2.sub(r'', name)   # Suffix "s" -> ""
       return name
 
-    jinja_env.filters['linkify_node_names'] = LinkifyNodeNames
+    jinja_env.filters['linkify'] = Linkify
     jinja_env.filters['unplural'] = Unplural
 
     # These can be used to make relative links and targets within a doc.

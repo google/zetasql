@@ -52,6 +52,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "zetasql/base/ret_check.h"
 #include "zetasql/base/status_macros.h"
@@ -277,7 +278,7 @@ absl::Status GrainScanInfo::MarkColumnForProjection(
   const Type* column_type = nullptr;
   for (int idx = 0; idx < table->NumColumns(); ++idx) {
     const Column* column = table->GetColumn(idx);
-    if (column->Name() == column_name) {
+    if (zetasql_base::CaseEqual(column->Name(), column_name)) {
       ZETASQL_RET_CHECK(catalog_column_index == -1)
           << "Duplicate column name: " << column_name
           << " found in table: " << table->Name()
@@ -1173,7 +1174,7 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
       // of their arguments to be literals or parameters (e.g. STRING_AGG), or
       // aggregate functions with special arguments (e.g. BIT_XOR with
       // BitwiseAggMode ENUM).
-      ZETASQL_ASSIGN_OR_RETURN(bool arg_contains_resolved_column,
+      ZETASQL_ASSIGN_OR_RETURN(const bool arg_contains_resolved_column,
                        ContainsResolvedColumn(argument.get()));
       if (!arg_contains_resolved_column) {
         rewritten_argument_list.push_back(std::move(argument));
@@ -1286,6 +1287,15 @@ class MultiLevelAggregateRewriter : public ResolvedASTRewriteVisitor {
     return MakeResolvedColumnRef(
         struct_column_.type(), struct_column_,
         /*is_correlated=*/struct_column_refs_are_correlated_);
+  }
+
+  absl::StatusOr<const bool> ContainsResolvedColumn(const ResolvedExpr* expr) {
+    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedNode> copied_arg,
+                     ResolvedASTDeepCopyVisitor::Copy(expr));
+    ContainsResolvedColumnVisitor contains_resolved_column_visitor;
+    auto unused =
+        contains_resolved_column_visitor.VisitAll(std::move(copied_arg));
+    return contains_resolved_column_visitor.ContainsResolvedColumn();
   }
 
   // A pointer to the `ANY_VALUE` function in the catalog used for the rewrite.

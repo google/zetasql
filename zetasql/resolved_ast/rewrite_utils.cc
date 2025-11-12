@@ -45,7 +45,6 @@
 #include "zetasql/resolved_ast/resolved_ast_deep_copy_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_enums.pb.h"
 #include "zetasql/resolved_ast/resolved_ast_helper.h"
-#include "zetasql/resolved_ast/resolved_ast_rewrite_visitor.h"
 #include "zetasql/resolved_ast/resolved_ast_visitor.h"
 #include "zetasql/resolved_ast/resolved_collation.h"
 #include "zetasql/resolved_ast/resolved_column.h"
@@ -103,11 +102,7 @@ class CorrelateColumnRefVisitor : public ResolvedASTDeepCopyVisitor {
 
   std::unique_ptr<ResolvedColumnRef> CorrelateColumnRef(
       const ResolvedColumnRef& ref) {
-    std::unique_ptr<ResolvedColumnRef> resolved_column_ref =
-        MakeResolvedColumnRef(ref.type(), ref.column(),
-                              ShouldBeCorrelated(ref));
-    resolved_column_ref->set_type_annotation_map(ref.type_annotation_map());
-    return resolved_column_ref;
+    return MakeResolvedColumnRef(ref.column(), ShouldBeCorrelated(ref));
   }
 
   template <class T>
@@ -209,11 +204,8 @@ class ColumnRefCollectorOwned : public ColumnRefVisitor {
  private:
   absl::Status VisitResolvedColumnRef(const ResolvedColumnRef* node) override {
     if (!IsLocalColumn(node->column())) {
-      std::unique_ptr<ResolvedColumnRef> resolved_column_ref =
-          MakeResolvedColumnRef(node->type(), node->column(),
-                                correlate_ || node->is_correlated());
-      resolved_column_ref->set_type_annotation_map(node->type_annotation_map());
-      column_refs_->push_back(std::move(resolved_column_ref));
+      column_refs_->push_back(MakeResolvedColumnRef(
+          node->column(), correlate_ || node->is_correlated()));
     }
     return absl::OkStatus();
   }
@@ -1227,10 +1219,9 @@ FunctionCallBuilder::MakeNullIfEmptyArray(
   // TODO: We should support DeferredComputedColumns here.
   ResolvedColumn out_column =
       column_factory.MakeCol("null_if_empty_array", "$out", array_type);
-  ZETASQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<const ResolvedExpr> array_length,
-      ArrayLength(MakeResolvedColumnRef(out_column.type(), out_column,
-                                        /*is_correlated=*/false)));
+  ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_length,
+                   ArrayLength(MakeResolvedColumnRef(out_column,
+                                                     /*is_correlated=*/false)));
   ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedExpr> array_non_empty,
                    GreaterOrEqual(std::move(array_length),
                                   MakeResolvedLiteral(Value::Int64(1))));
@@ -1241,7 +1232,7 @@ FunctionCallBuilder::MakeNullIfEmptyArray(
                                .set_column(out_column)
                                .set_expr(std::move(array_expr)))
       .set_expr(If(std::move(array_non_empty),
-                   MakeResolvedColumnRef(out_column.type(), out_column,
+                   MakeResolvedColumnRef(out_column,
                                          /*is_correlated=*/false),
                    MakeResolvedLiteral(Value::Null(array_type))))
       .set_type(array_type)
@@ -2590,17 +2581,7 @@ absl::Status ValidateArgumentsDoNotContainCorrelation(
 
 std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
     const ResolvedColumn& column) {
-  return BuildResolvedColumnRef(column.type(), column);
-}
-
-std::unique_ptr<ResolvedColumnRef> BuildResolvedColumnRef(
-    const Type* type, const ResolvedColumn& column, bool is_correlated) {
-  std::unique_ptr<ResolvedColumnRef> column_ref =
-      MakeResolvedColumnRef(type, column, is_correlated);
-  if (column.type_annotation_map() != nullptr) {
-    column_ref->set_type_annotation_map(column.type_annotation_map());
-  }
-  return column_ref;
+  return MakeResolvedColumnRef(column, /*is_correlated=*/false);
 }
 
 namespace {
@@ -2896,37 +2877,6 @@ class MaxColumnIdVisitor : public zetasql::ResolvedASTRewriteVisitor {
 
 absl::StatusOr<int> GetMaxColumnId(const zetasql::ResolvedNode* node) {
   return MaxColumnIdVisitor::GetMaxColumnId(node);
-}
-
-// Visitor to detect if a ResolvedAST contains a ResolvedColumn.
-class ContainsResolvedColumnVisitor
-    : public zetasql::ResolvedASTRewriteVisitor {
- public:
-  static absl::StatusOr<bool> ContainsResolvedColumn(
-      const zetasql::ResolvedNode* node) {
-    ZETASQL_ASSIGN_OR_RETURN(std::unique_ptr<const zetasql::ResolvedNode> copied_node,
-                     zetasql::ResolvedASTDeepCopyVisitor::Copy(node));
-    ContainsResolvedColumnVisitor rewriter;
-    auto rewriter_output_unused = rewriter.VisitAll(std::move(copied_node));
-    return rewriter.ContainsResolvedColumn();
-  }
-
-  absl::Status PreVisitResolvedColumn(
-      const zetasql::ResolvedColumn& column) override {
-    contains_resolved_column_ = true;
-    return absl::OkStatus();
-  }
-
-  bool ContainsResolvedColumn() { return contains_resolved_column_; }
-
- private:
-  ContainsResolvedColumnVisitor() = default;
-  bool contains_resolved_column_ = false;
-};
-
-absl::StatusOr<bool> ContainsResolvedColumn(
-    const zetasql::ResolvedNode* node) {
-  return ContainsResolvedColumnVisitor::ContainsResolvedColumn(node);
 }
 
 }  // namespace zetasql
