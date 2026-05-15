@@ -6758,6 +6758,32 @@ class QuantifiedGraphPathTupleIterator : public TupleIterator {
         GOOGLESQL_ASSIGN_OR_RETURN(path_state.total_cost,
                          CreateTypedZeroForCost(cost_type_));
       }
+      if (lower_bound_ == 0) {
+        std::vector<Value> path_factors;
+        path_factors.reserve(group_variable_info_.size() + 2);
+        path_factors.push_back(path_state.head);
+        for (int idx = 0; idx < group_variable_info_.size(); ++idx) {
+          std::vector<Value> empty_group_variable;
+          GOOGLESQL_ASSIGN_OR_RETURN(
+              Value array,
+              Value::MakeArray(group_variable_info_[idx].array_type,
+                               empty_group_variable));
+          path_factors.push_back(std::move(array));
+        }
+        path_factors.push_back(path_state.tail);
+        PathFactorsWithCost path_factors_with_cost{
+            .path_factors = std::move(path_factors),
+            .total_cost = path_state.total_cost,
+            .path_length = Value::Int64(0)};
+        GOOGLESQL_ASSIGN_OR_RETURN(
+            bool should_keep_path,
+            ShouldKeepPath(path_factors_with_cost, prefix_context_,
+                           *path_priority_queue));
+        if (should_keep_path) {
+          GOOGLESQL_RETURN_IF_ERROR(
+              path_priority_queue->Push(path_factors_with_cost));
+        }
+      }
       queue.push(std::move(path_state));
     }
 
@@ -7004,12 +7030,7 @@ QuantifiedGraphPathOp::CreateIterator(absl::Span<const TupleData* const> params,
     }
 
     lower_bound_val = bound_slot.value().int64_value();
-    if (lower_bound_val == 0) {
-      // TODO: Add support for 0-th iteration
-      return absl::UnimplementedError(
-          "QuantifiedGraphPathOp for a lower bound of 0 is not yet "
-          "implemented.");
-    } else if (lower_bound_val < 0) {
+    if (lower_bound_val < 0) {
       return absl::Status(absl::StatusCode::kOutOfRange,
                           "Lower bound must be non-negative.");
     }
