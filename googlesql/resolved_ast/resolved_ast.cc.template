@@ -1431,6 +1431,82 @@ const ResolvedNodeKind {{node.name}}::TYPE;
 # endif
 {{node.extra_enum_defs}}
 
+{{node.name}}::{{node.name}}()
+    : {{node.parent}}()
+ # for field in node.fields
+    , {{field.member_name}}()
+ # endfor
+{}
+
+{{node.name}}::{{node.name}}(
+ # for field in (node.inherited_fields + node.fields) | is_constructor_arg
+      {{field.setter_arg_type}} {{field.name}},
+ # endfor
+      ConstructorOverload)
+      : {{node.parent}}(
+ # for field in node.inherited_fields | is_constructor_arg
+   # if field.is_move_only
+            std::move({{field.name}}),
+   # else
+            {{field.name}},
+   # endif
+ # endfor
+  {%- if node.parent != "ResolvedNode" %}
+            ConstructorOverload::NEW_CONSTRUCTOR
+  {%- endif %})
+ {%- for field in node.fields %},
+  {% if field.is_constructor_arg %}
+   {%- if field.is_move_only %}
+      {{field.member_name}}(std::move({{field.name}}))
+   {%- else %}
+      {{field.member_name}}({{field.name}})
+   {%- endif %}
+  {%- else %}
+      {{field.member_name}}()
+  {%- endif %}
+ {%- endfor %} {
+ # for field in node.fields
+  # if field.propagate_order
+    set_is_ordered({{field.member_name}}->is_ordered());
+  # endif
+ # endfor
+  }
+
+# for field in node.fields
+ # if field.is_node_vector
+void {{node.name}}::add_{{field.name}}({{field.element_storage_type}} v) {
+  {{field.member_name}}.emplace_back(std::move(v));
+}
+
+void {{node.name}}::set_{{field.name}}({{field.setter_arg_type}} v) {
+  {{field.member_name}} = std::move(v);
+}
+
+{{field.member_type}} {{node.name}}::release_{{field.name}}() {
+  {{field.member_type}} tmp;
+  {{field.member_name}}.swap(tmp);
+  return tmp;
+}
+
+ # elif field.is_node_ptr
+  # if field.propagate_order
+void {{node.name}}::set_{{field.name}}(
+    {{field.setter_arg_type}} v, bool propagate_order) {
+  {{field.member_name}} = std::move(v);
+  if (propagate_order) {
+    set_is_ordered({{field.member_name}}->is_ordered());
+  }
+}
+
+  # else
+void {{node.name}}::set_{{field.name}}({{field.setter_arg_type}} v) {
+  {{field.member_name}} = std::move(v);
+}
+
+  # endif
+ # endif
+# endfor
+
 {{node.name}}::~{{node.name}}() {
   # if node.has_node_fields
   # endif
