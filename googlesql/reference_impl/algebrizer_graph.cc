@@ -544,6 +544,49 @@ Algebrizer::AlgebrizeGraphLinearScan(
   return child_op;
 }
 
+// Returns true if any node under `path_scans` references a column produced by
+// `input_scan`, i.e. the graph pattern is correlated with its input.
+//
+// No query the resolver accepts is correlated this way today: a prior
+// statement's variable may only appear in a MATCH's outermost WHERE, which
+// becomes the join condition. This guards against that rule being relaxed.
+static absl::StatusOr<bool> GraphPatternReferencesInputScan(
+    absl::Span<const std::unique_ptr<const ResolvedGraphPathScan>> path_scans,
+    const ResolvedScan* input_scan) {
+  class InputColumnRefVisitor : public ResolvedASTVisitor {
+   public:
+    explicit InputColumnRefVisitor(
+        const absl::flat_hash_set<ResolvedColumn>* input_columns)
+        : input_columns_(input_columns) {}
+
+    bool found() const { return found_; }
+
+    absl::Status VisitResolvedColumnRef(
+        const ResolvedColumnRef* node) override {
+      if (input_columns_->contains(node->column())) {
+        found_ = true;
+      }
+      return DefaultVisit(node);
+    }
+
+   private:
+    const absl::flat_hash_set<ResolvedColumn>* input_columns_;
+    bool found_ = false;
+  };
+
+  const absl::flat_hash_set<ResolvedColumn> input_columns(
+      input_scan->column_list().begin(), input_scan->column_list().end());
+  InputColumnRefVisitor visitor(&input_columns);
+  for (const std::unique_ptr<const ResolvedGraphPathScan>& path_scan :
+       path_scans) {
+    GOOGLESQL_RETURN_IF_ERROR(path_scan->Accept(&visitor));
+    if (visitor.found()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeGraphScan(
     const ResolvedGraphScan* graph_scan,
     std::vector<FilterConjunctInfo*>* active_conjuncts) {
@@ -581,10 +624,25 @@ absl::StatusOr<std::unique_ptr<RelationalOp>> Algebrizer::AlgebrizeGraphScan(
                                       /*from_index=*/0, active_conjuncts_arg);
   };
 
-  return AlgebrizeJoinScanInternal(
-      graph_scan->optional() ? JoinOp::kLeftOuterJoin : JoinOp::kCrossApply,
-      graph_scan->filter_expr(), graph_scan->input_scan(), right_output_columns,
-      right_scan_algebrizer_cb, active_conjuncts);
+  // A pattern that does not reference its input's columns is a plain join on
+  // <filter_expr>, so it is evaluated once instead of once per input row and
+  // the multiply-declared variable equalities can use a hash join.
+  JoinOp::JoinKind join_kind = JoinOp::kCrossApply;
+  if (graph_scan->optional()) {
+    join_kind = JoinOp::kLeftOuterJoin;
+  } else {
+    GOOGLESQL_ASSIGN_OR_RETURN(
+        const bool correlated,
+        GraphPatternReferencesInputScan(graph_scan->input_scan_list(),
+                                        graph_scan->input_scan()));
+    if (!correlated) {
+      join_kind = JoinOp::kInnerJoin;
+    }
+  }
+  return AlgebrizeJoinScanInternal(join_kind, graph_scan->filter_expr(),
+                                   graph_scan->input_scan(),
+                                   right_output_columns,
+                                   right_scan_algebrizer_cb, active_conjuncts);
 }
 
 absl::StatusOr<std::unique_ptr<RelationalOp>>
