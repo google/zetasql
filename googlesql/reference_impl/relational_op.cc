@@ -6269,6 +6269,117 @@ class GraphPathTupleIterator : public TupleIterator {
                                .path_length = Value::Int64(len)};
   }
 
+  // Positions of a factor's subpaths grouped by the identifier ExtendPath
+  // compares against the tail of the current path. This is only a pre-filter:
+  // ExtendPath still decides every match, so duplicates, edge orientation and
+  // self-edges behave exactly as they do when every subpath is tried.
+  struct SubpathIndex {
+    // Edge factors: positions by source node identifier. Node and subpath
+    // factors: positions by the identifier of the leading node.
+    absl::flat_hash_map<std::string, std::vector<int>> by_source_or_head;
+    // Edge factors only: positions by destination node identifier.
+    absl::flat_hash_map<std::string, std::vector<int>> by_dest;
+    // Subpaths whose shape ExtendPath would reject. Always tried, so the
+    // error it raises is unchanged.
+    std::vector<int> unindexed;
+  };
+
+  absl::StatusOr<SubpathIndex> IndexSubpaths(
+      const std::vector<std::vector<FactorAndCost>>& subpaths,
+      bool is_edge_factor) {
+    SubpathIndex index;
+    for (int idx = 0; idx < subpaths.size(); ++idx) {
+      if (subpaths[idx].empty()) {
+        index.unindexed.push_back(idx);
+        continue;
+      }
+      const Value& front = subpaths[idx].front().factor;
+      if (!front.type()->IsGraphElement() || front.is_null()) {
+        index.unindexed.push_back(idx);
+      } else if (is_edge_factor) {
+        if (subpaths[idx].size() != 1 || !front.IsEdge()) {
+          index.unindexed.push_back(idx);
+        } else {
+          index.by_source_or_head[std::string(front.GetSourceNodeIdentifier())]
+              .push_back(idx);
+          index.by_dest[std::string(front.GetDestNodeIdentifier())]
+              .push_back(idx);
+        }
+      } else if (!front.IsNode()) {
+        index.unindexed.push_back(idx);
+      } else {
+        index.by_source_or_head[std::string(front.GetIdentifier())].push_back(
+            idx);
+      }
+      GOOGLESQL_RETURN_IF_ERROR(
+          PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
+    }
+    return index;
+  }
+
+  // Fills `candidates` with the positions, ascending, of the subpaths that
+  // may extend `path`. Falls back to every position when the path tail is not
+  // an element ExtendPath can compare, so its checks still run.
+  static void CandidateSubpaths(const SubpathIndex& index, bool is_edge_factor,
+                                const std::vector<FactorAndCost>& path,
+                                bool is_src_facing, int num_subpaths,
+                                std::vector<int>* candidates) {
+    candidates->clear();
+    const Value& tail = path.back().factor;
+    const bool tail_is_element =
+        tail.type()->IsGraphElement() && !tail.is_null();
+    if (!tail_is_element || (is_edge_factor && !tail.IsNode())) {
+      candidates->resize(num_subpaths);
+      for (int idx = 0; idx < num_subpaths; ++idx) (*candidates)[idx] = idx;
+      return;
+    }
+    static const std::vector<int> kNone;
+    auto lookup = [](const absl::flat_hash_map<std::string, std::vector<int>>&
+                         positions,
+                     absl::string_view key) -> const std::vector<int>& {
+      auto it = positions.find(key);
+      return it == positions.end() ? kNone : it->second;
+    };
+    if (is_edge_factor) {
+      // An edge joins a node tail through its source (right-pointing) or its
+      // destination (left-pointing); ExtendPath applies the orientation.
+      const std::vector<int>& by_source =
+          lookup(index.by_source_or_head, tail.GetIdentifier());
+      const std::vector<int>& by_dest =
+          lookup(index.by_dest, tail.GetIdentifier());
+      candidates->reserve(by_source.size() + by_dest.size() +
+                          index.unindexed.size());
+      size_t a = 0, b = 0;
+      while (a < by_source.size() || b < by_dest.size()) {
+        if (b == by_dest.size() ||
+            (a < by_source.size() && by_source[a] < by_dest[b])) {
+          candidates->push_back(by_source[a++]);
+        } else if (a == by_source.size() || by_dest[b] < by_source[a]) {
+          candidates->push_back(by_dest[b++]);
+        } else {
+          // A self-edge sits in both lists; ExtendPath handles it once.
+          candidates->push_back(by_source[a]);
+          ++a;
+          ++b;
+        }
+      }
+    } else {
+      // A node or subpath joins an edge tail at the node the edge is facing,
+      // or must be the same node when two node patterns are consecutive.
+      absl::string_view key =
+          tail.IsEdge() ? (is_src_facing ? tail.GetSourceNodeIdentifier()
+                                         : tail.GetDestNodeIdentifier())
+                        : tail.GetIdentifier();
+      const std::vector<int>& matches = lookup(index.by_source_or_head, key);
+      candidates->assign(matches.begin(), matches.end());
+    }
+    if (!index.unindexed.empty()) {
+      candidates->insert(candidates->end(), index.unindexed.begin(),
+                         index.unindexed.end());
+      std::sort(candidates->begin(), candidates->end());
+    }
+  }
+
   absl::Status MaterializeAllPaths() {
     // Materialize each scan, then join the path elements together.
     // This is because each edge is a generator that encapsulates M*N actual
@@ -6305,13 +6416,25 @@ class GraphPathTupleIterator : public TupleIterator {
           ExtractSubpathsFromPathFactor(path_factor_iterators_[i].get(),
                                         cost_slot_indices_[i]));
 
-      // This could be changed to a hash-join in the future.
+      // Index the new subpaths by the identifier ExtendPath compares against
+      // the tail of the current path, so each path only visits the subpaths
+      // that can join it instead of every subpath of the factor.
+      const bool is_edge_factor = edge_orientations_[i].has_value();
+      GOOGLESQL_ASSIGN_OR_RETURN(
+          const SubpathIndex index, IndexSubpaths(cur_subpaths, is_edge_factor));
       std::vector<PathAndEndOrientation> new_paths;
+      std::vector<int> candidates;
       for (const auto& [path, is_src_facing] : paths) {
-        for (const std::vector<FactorAndCost>& subpath : cur_subpaths) {
-          GOOGLESQL_RETURN_IF_ERROR(
-              ExtendPath(path, subpath, i, is_src_facing, new_paths));
+        CandidateSubpaths(index, is_edge_factor, path, is_src_facing,
+                          static_cast<int>(cur_subpaths.size()), &candidates);
+        for (int idx : candidates) {
+          GOOGLESQL_RETURN_IF_ERROR(ExtendPath(path, cur_subpaths[idx], i,
+                                               is_src_facing, new_paths));
         }
+        // ExtendPath checks for cancellation, but a path with no candidates
+        // never reaches it, so check once per path as well.
+        GOOGLESQL_RETURN_IF_ERROR(
+            PeriodicallyVerifyNotAborted(context_, ++num_steps_computed_));
       }
 
       paths = std::move(new_paths);
