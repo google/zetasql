@@ -378,7 +378,7 @@ class GraphPropertyDeclaration {
     return ::googlesql::FullName(PropertyGraphNamePath(), Name());
   }
 
-  virtual const Type* Type() const = 0;
+  virtual const googlesql::Type* Type() const = 0;
 
   // TODO: This should be made a pure virtual function once all subclasses
   // implement it.

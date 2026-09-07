@@ -100,7 +100,7 @@ class InputArgumentType {
   ~InputArgumentType() = default;
 
   // This may return nullptr (such as for lambda).
-  const Type* type() const { return type_; }
+  const googlesql::Type* type() const { return type_; }
 
   const std::vector<InputArgumentType>& field_types() const;
   size_t field_types_size() const;

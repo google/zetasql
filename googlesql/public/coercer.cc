@@ -154,7 +154,7 @@ class TypeSuperTypes {
     return false;
   }
 
-  const Type* type() const { return type_; }
+  const googlesql::Type* type() const { return type_; }
   TypeListView supertypes() const { return supertypes_; }
 
   std::vector<const Type*> ToVector() const {

@@ -80,7 +80,7 @@ class Constant {
   const std::vector<std::string>& name_path() const { return name_path_; }
 
   // Returns the type of this Constant.
-  virtual const Type* type() const = 0;
+  virtual const googlesql::Type* type() const = 0;
 
   // Returns whether or not this Constant is a specific constant interface or
   // implementation.

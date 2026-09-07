@@ -766,7 +766,7 @@ class FunctionArgumentType {
   // Returns NULL if kind_ is not ARG_TYPE_FIXED or ARG_TYPE_LAMBDA. If kind_ is
   // ARG_TYPE_LAMBDA, returns the type of lambda body type, which could be NULL
   // if the body type is templated.
-  const Type* type() const { return type_; }
+  const googlesql::Type* type() const { return type_; }
 
   SignatureArgumentKind kind() const { return kind_; }
 

@@ -1358,7 +1358,7 @@ std::string Value::DebugString(bool verbose) const {
 
 // Format will wrap arrays and structs.
 std::string Value::Format(bool print_top_level_type) const {
-  return FormatInternal(
+  return FormatInternal(Type::FormatValueContentOptions
       {.force_type_at_top_level = print_top_level_type, .indent = 0});
 }
 
@@ -1626,7 +1626,7 @@ std::string Value::FormatInternal(
     std::vector<std::string> element_strings(elements().size());
     for (int i = 0; i < elements().size(); ++i) {
       element_strings[i] =
-          elements()[i].FormatInternal(options.IncreaseIndent());
+          elements()[i].FormatInternal(Type::FormatValueContentOptions{options.IncreaseIndent()});
     }
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
@@ -1668,7 +1668,7 @@ std::string Value::FormatInternal(
     const StructType* struct_type = type()->AsStruct();
     std::vector<std::string> field_strings(struct_type->num_fields());
     for (int i = 0; i < struct_type->num_fields(); i++) {
-      field_strings[i] = fields()[i].FormatInternal(options.IncreaseIndent());
+      field_strings[i] = fields()[i].FormatInternal(Type::FormatValueContentOptions{options.IncreaseIndent()});
     }
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
@@ -1714,9 +1714,9 @@ std::string Value::FormatInternal(
     }
     std::vector<std::string> boundaries_strings;
     boundaries_strings.push_back(
-        start().FormatInternal(options.IncreaseIndent()));
+        start().FormatInternal(Type::FormatValueContentOptions{options.IncreaseIndent()}));
     boundaries_strings.push_back(
-        end().FormatInternal(options.IncreaseIndent()));
+        end().FormatInternal(Type::FormatValueContentOptions{options.IncreaseIndent()}));
     // Sanitize any '$' characters before creating substitution template. "$$"
     // is replaced by "$" in the output from absl::Substitute.
     std::string templ =

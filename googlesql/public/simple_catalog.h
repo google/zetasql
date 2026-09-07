@@ -1294,7 +1294,7 @@ class SimpleConstant : public Constant {
       const SimpleConstantProto& simple_constant_proto,
       const TypeDeserializer& type_deserializer);
 
-  const Type* type() const override { return value_.type(); }
+  const googlesql::Type* type() const override { return value_.type(); }
 
   const Value& value() const { return value_; }
 

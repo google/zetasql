@@ -109,7 +109,7 @@ class ValueConstructor {
       : v_(v) {}
 
   const Value& get() const { return v_; }
-  const Type* type() const { return v_.type(); }
+  const googlesql::Type* type() const { return v_.type(); }
 
   static std::vector<Value> ToValues(absl::Span<const ValueConstructor> slice) {
     std::vector<Value> values;

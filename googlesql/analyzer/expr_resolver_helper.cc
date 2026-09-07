@@ -469,7 +469,8 @@ ExprResolutionInfo::ExprResolutionInfo(
     : ExprResolutionInfo(
           query_resolution_info_in, name_scope_in, aggregate_name_scope_in,
           analytic_name_scope_in,
-          {.allows_aggregation = allows_aggregation_in,
+          ExprResolutionInfoOptions{
+           .allows_aggregation = allows_aggregation_in,
            .allows_analytic = allows_analytic_in,
            .use_post_grouping_columns = use_post_grouping_columns_in,
            .clause_name = clause_name_in,

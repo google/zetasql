@@ -661,6 +661,8 @@ class Type {
     std::optional<int64_t> file_descriptor_sets_max_size_bytes = std::nullopt;
   };
 
+  bool has_floating_point_fields() const { return HasFloatingPointFields(); }
+
  protected:
   // Types can only be created and destroyed by TypeFactory.
   Type(const TypeFactoryBase* factory, TypeKind kind);

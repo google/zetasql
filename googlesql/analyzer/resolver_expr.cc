@@ -3362,7 +3362,7 @@ class SystemVariableConstant final : public Constant {
                          const Type* type)
       : Constant(name_path), type_(type) {}
 
-  const Type* type() const override { return type_; }
+  const googlesql::Type* type() const override { return type_; }
   std::string DebugString() const override { return FullName(); }
   std::string ConstantValueDebugString() const override { return "<N/A>"; }
 

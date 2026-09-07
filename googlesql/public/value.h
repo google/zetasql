@@ -124,7 +124,7 @@ class Value {
 
   // Returns the type of the value.
   // Requires (crashes otherwise): is_valid()
-  const Type* type() const;
+  const googlesql::Type* type() const;
 
   // Returns the type kind of the value. Same as type()->type_kind() but in some
   // cases can be a bit more efficient.
@@ -1348,7 +1348,7 @@ class Value {
 
     // Returns a pointer to Value's Type. Requires is_valid(). If TypeKind is
     // stored in the Metadata, Type pointer is obtained from static TypeFactory.
-    const Type* type() const;
+    const googlesql::Type* type() const;
 
     // Returns true, if instance stores pointer to a Type and false if type's
     // kind.

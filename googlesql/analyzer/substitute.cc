@@ -227,15 +227,12 @@ class VariableReplacementInserter : public ResolvedASTDeepCopyVisitor {
     GOOGLESQL_RET_CHECK_FAIL() << "Unexpected node type: "
                      << ResolvedNodeKind_Name(node->node_kind());
   }
-  template <>
   absl::Status CopyVisitNode(const ResolvedSubqueryExpr* node) {
     return CopyVisitResolvedSubqueryExpr(node);
   }
-  template <>
   absl::Status CopyVisitNode(const ResolvedInlineLambda* node) {
     return CopyVisitResolvedInlineLambda(node);
   }
-  template <>
   absl::Status CopyVisitNode(const ResolvedJoinScan* node) {
     return CopyVisitResolvedJoinScan(node);
   }

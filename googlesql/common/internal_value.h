@@ -116,7 +116,7 @@ class InternalValue {
   static std::string FormatInternal(const Value& x,
                                     bool include_array_ordereness
   ) {
-    return x.FormatInternal({
+    return x.FormatInternal(Type::FormatValueContentOptions{
         .force_type_at_top_level = true,
         .include_array_ordereness = include_array_ordereness,
         .indent = 0,

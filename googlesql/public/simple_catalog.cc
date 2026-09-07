@@ -1866,7 +1866,7 @@ SimpleTable::SimpleTable(absl::string_view name,
 // to something named 'value' is confusing there.
 SimpleTable::SimpleTable(absl::string_view name, const Type* row_type,
                          const int64_t id)
-    : SimpleTable(name, {{"value", row_type}}, id) {
+    : SimpleTable(name, {NameAndType({"value", row_type})}, id) {
   is_value_table_ = true;
 }
 

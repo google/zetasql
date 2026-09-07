@@ -123,7 +123,7 @@ class ResolvedColumn {
   IdString table_name_id() const { return table_name_; }
   IdString name_id() const { return name_; }
 
-  const Type* type() const { return annotated_type_.type; }
+  const googlesql::Type* type() const { return annotated_type_.type; }
 
   const AnnotationMap* /*absl_nullable*/ type_annotation_map() const {
     return annotated_type_.annotation_map;

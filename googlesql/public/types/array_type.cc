@@ -121,7 +121,7 @@ struct HashableValueContentContainerElementIgnoringFloat {
         break;
       }
       case TYPE_PROTO: {
-        bool has_floating_point_fields = v.type->HasFloatingPointFields();
+        bool has_floating_point_fields = v.type->has_floating_point_fields();
         if (has_floating_point_fields) {
           h = H::combine(std::move(h), TYPE_PROTO, has_floating_point_fields);
           break;

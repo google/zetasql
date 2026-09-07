@@ -244,7 +244,7 @@ class ExprArg : public AlgebraArg {
 
   ~ExprArg() override = default;
 
-  const Type* type() const { return type_; }
+  const googlesql::Type* type() const { return type_; }
 
  private:
   const Type* type_;

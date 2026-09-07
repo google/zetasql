@@ -70,6 +70,7 @@ namespace googlesql {
 namespace {
 
 struct ConcreteArgument {
+  ConcreteArgument(const Type* t, size_t num) : type(t), num_occurrences(num) {}
   const Type* type;
   size_t num_occurrences;
 };

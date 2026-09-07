@@ -62,7 +62,7 @@ class SQLConstant : public Constant {
 
   // Returns the Type of the resolved Constant based on its resolved
   // expression type.
-  const Type* type() const override {
+  const googlesql::Type* type() const override {
     return constant_expression()->type();
   }
 

@@ -2061,7 +2061,7 @@ NameList::AddRangeVariableInWrappingNameList(
   // variables, including for value tables, so we use `flatten_to_table`
   // which drops range variables.
   GOOGLESQL_RETURN_IF_ERROR(range_variable_name_list->MergeFrom(
-      *original_name_list, ast_location, {.flatten_to_table = true}));
+      *original_name_list, ast_location, MergeOptions{.flatten_to_table = true}));
 
   auto wrapper_name_list = std::make_shared<NameList>();
   GOOGLESQL_RETURN_IF_ERROR(

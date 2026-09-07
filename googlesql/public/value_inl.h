@@ -1310,14 +1310,14 @@ class Value::Metadata::Content {
   // TODO: wait for fixed clang-format
   // clang-format on
 
-  const Type* type() const {
+  const googlesql::Type* type() const {
     return reinterpret_cast<const Type*>(type_ & kTypeMask);
   }
   int32_t value_extended_content() const { return value_extended_content_; }
   bool is_null() const { return type_ & kIsNullTag; }
   bool preserves_order() const { return type_ & kPreserverOrderTag; }
   bool has_type_pointer() const { return type_ & kHasTypeTag; }
-  uint64_t raw_type() const { return type_; }
+  constexpr uint64_t raw_type() const { return type_; }
 
   friend constexpr Value::Metadata::Metadata(TypeKind kind, bool is_null,
                                              bool preserves_order,
