@@ -59,6 +59,17 @@ inline void GoogleSqlMakeCheckOpValueString(std::ostream* os, const T& v) {
   (*os) << v;
 }
 
+// This overloading is implemented to address the compilation issue when trying to log unique_ptr types
+// At the moment, we are not providing any specific implementation for handling unique_ptr types.
+template <typename T>
+inline void GoogleSqlMakeCheckOpValueString(std::ostream* os, const std::unique_ptr<T>& v) {
+  if (v == nullptr) {
+    (*os) << "nullptr";
+  } else {
+    (*os) << v.get();
+  }
+}
+
 // Overrides for char types provide readable values for unprintable
 // characters.
 template <>
