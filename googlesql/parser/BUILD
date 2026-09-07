@@ -24,7 +24,7 @@ load("//bazel:textmapper.bzl", "tm_syntax")
 load(":builddefs.bzl", "gen_parser_test")
 
 package(
-    default_visibility = ["//googlesql/base:googlesql_implementation"],
+    default_visibility = ["//visibility:public"],
 )
 
 genrule(

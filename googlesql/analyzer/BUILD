@@ -21,7 +21,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 load(":builddefs.bzl", "gen_analyzer_test")
 
 package(
-    default_visibility = ["//googlesql/base:googlesql_implementation"],
+    default_visibility = ["//visibility:public"],
 )
 
 filegroup(

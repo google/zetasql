@@ -13,10 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc:cc_test.bzl", "cc_test")
-
 package(
-    default_visibility = ["//googlesql/base:googlesql_implementation"],
+    default_visibility = ["//visibility:public"],
     features = ["parse_headers"],
 )
 

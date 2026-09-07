@@ -19,7 +19,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 licenses(["notice"])
 
-package(default_visibility = [":googlesql_implementation"])
+package(default_visibility = ["//visibility:public"])
 
 package_group(
     name = "googlesql_implementation",

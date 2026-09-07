@@ -210,6 +210,7 @@ cc_library(
         "-O3",
         "-Wframe-larger-than=4000",
     ],
+    visibility = ["//visibility:public"],
     deps = [
         ":resolved_ast",
         ":resolved_ast_builder",
