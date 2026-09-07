@@ -91,6 +91,7 @@
 namespace googlesql {
 
 // Defined below.
+class AlgebraArg;
 class AggregateFunctionBody;
 class AggregateFunctionCallExpr;
 class AlgebraNode;
@@ -119,6 +120,286 @@ struct CollatorPtrInfo {
   const Type* collation_key_type = nullptr;
 };
 
+// Abstract base class for an operator.
+class AlgebraNode {
+ public:
+  // Printing mode of an operator argument used in ArgDebugString.
+  enum ArgPrintMode {
+    k0,     // Don't print, always empty.
+    k1,     // Print as a single argument.
+    kN,     // Print as a repeated argument.
+    kOpt,   // Print as a single argument if present, otherwise skip.
+    kNOpt,  // Print as a repeated argument if present, otherwise skip.
+  };
+
+  // For printing tree lines.
+  static constexpr char kIndentFork[] = "+-";
+  static constexpr char kIndentBar[] = "| ";
+  static constexpr char kIndentSpace[] = "  ";
+
+  AlgebraNode() = default;
+  AlgebraNode(const AlgebraNode&) = delete;
+  AlgebraNode& operator=(const AlgebraNode&) = delete;
+  virtual ~AlgebraNode();
+
+  // Downcast methods, return nullptr if downcast is invalid.
+  virtual bool IsValueExpr() const;
+  virtual const ValueExpr* AsValueExpr() const;
+  virtual ValueExpr* AsMutableValueExpr();
+  virtual const RelationalOp* AsRelationalOp() const;
+  virtual RelationalOp* AsMutableRelationalOp();
+  virtual bool IsInlineLambdaExpr() const;
+  virtual const InlineLambdaExpr* AsInlineLambdaExpr() const;
+  virtual InlineLambdaExpr* AsMutableInlineLambdaExpr();
+
+  // Value and aggregator operators have an output type.
+  virtual const Type* output_type() const = 0;
+
+  // Returns a string representation of the operator for debugging. If
+  // 'verbose' is true, prints more information.
+  std::string DebugString(bool verbose = false) const;
+
+  // Returns a string representation of the operator for debugging.
+  // 'level' specifies the indentation level of the output string. If 'verbose'
+  // is true, prints more information.
+  virtual std::string DebugInternal(const std::string& indent,
+                                    bool verbose) const = 0;
+
+  // Returns all arguments of the operator.
+  absl::Span<const AlgebraArg* const> GetArgs() const { return args_; }
+  absl::Span<AlgebraArg* const> GetMutableArgs() { return args_; }
+
+  // Returns a singleton argument of the given 'kind'.
+  const AlgebraArg* GetArg(int kind) const;
+  AlgebraArg* GetMutableArg(int kind);
+
+  // Returns a repeated argument of the given 'kind', downcast to T.
+  template <typename T>
+  absl::Span<const T* const> GetArgs(int kind) const {
+    int start = arg_slices_[kind].start;
+    int size = arg_slices_[kind].size;
+    if (size > 0) {
+      return absl::Span<const T* const>(
+          reinterpret_cast<const T* const*>(&args_[start]), size);
+    } else {
+      return absl::Span<const T* const>();
+    }
+  }
+
+  // Returns a repeated argument of the given 'kind', downcast to T.
+  template <typename T>
+  absl::Span<T* const> GetMutableArgs(int kind) {
+    int start = arg_slices_[kind].start;
+    int size = arg_slices_[kind].size;
+    if (size > 0) {
+      return absl::Span<T* const>(reinterpret_cast<T* const*>(&args_[start]),
+                                  size);
+    } else {
+      return absl::Span<T* const>();
+    }
+  }
+
+  // Returns a debug string representation of 'node', which must have
+  // 'arg_names.size()' arguments. Each argument is printed with corresponding
+  // entry of 'arg_mode' (which must have the same number of elements as
+  // 'arg_names'). If 'more_children' is true the last argument will get tree
+  // lines to connect to subsequently printed children.
+  std::string ArgDebugString(absl::Span<const std::string> arg_names,
+                             absl::Span<const ArgPrintMode> arg_mode,
+                             const std::string& indent, bool verbose,
+                             bool more_children = false) const;
+
+ protected:
+  // Set methods are to be called in the constructor. Argument 'kind' of an
+  // operator is typically an enum defined in the operator class.
+
+  // Sets a singleton argument of the given 'kind'.
+  void SetArg(int kind, std::unique_ptr<AlgebraArg> argument);
+
+  // Sets a repeated argument of the given 'kind'.
+  template <typename T>
+  void SetArgs(int kind, std::vector<std::unique_ptr<T>> args) {
+    if (kind >= arg_slices_.size()) {
+      arg_slices_.resize(kind + 1);
+    }
+    for (auto& argument : args) {
+      argument->set_kind(kind);
+      args_.push_back(argument.release());
+    }
+    arg_slices_[kind] = ArgSlice(args_.size() - args.size(), args.size());
+  }
+
+ private:
+  // An argument of a given 'kind' is represented as a slice of the argument
+  // vector 'args_' that contains a list of all arguments combined.
+  struct ArgSlice {
+    ArgSlice() : start(0), size(0) {}
+    ArgSlice(int start, int size) : start(start), size(size) {}
+    int start;  // into AlgebraNode::args_
+    int size;   // number of operators for that argument
+    // Intentionally copyable.
+  };
+  std::vector<ArgSlice> arg_slices_;  // array slices of args_
+  std::vector<AlgebraArg*> args_;     // owned
+};
+
+// Represents the result of a single-result statement evaluation. For example
+// a query statement, DDL, or DML. The statements can be standalone, or a
+// sub-statement of a multi-result statement.
+struct StmtResult {
+  // Holds the result of evaluating the statement.
+  absl::StatusOr<Value> value;
+
+  // Caches deserialized proto fields for performance.
+  std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+};
+
+// Abstract base class for value operators.
+class ValueExpr : public AlgebraNode {
+ public:
+  explicit ValueExpr(const Type* output_type) : output_type_(output_type) {}
+  ValueExpr(const ValueExpr&) = delete;
+  ValueExpr& operator=(const ValueExpr&) = delete;
+
+  ~ValueExpr() override;
+
+  // Sets the TupleSchemas for the TupleDatas passed to Eval(). A particular
+  // VariableId can only occur in one TupleSchema.
+  virtual absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) = 0;
+
+  // Evaluates the ValueExpr using 'params'. Requires that
+  // SetSchemasForEvaluation() has already been called. On success, populates
+  // 'result' and returns true. On failure, populates 'status' and returns
+  // false. We avoid returning absl::Status for performance reasons.
+  virtual bool Eval(absl::Span<const TupleData* const> params,
+                    EvaluationContext* context, VirtualTupleSlot* result,
+                    absl::Status* status) const = 0;
+
+  // Convenience method for populating a TupleSlot.
+  bool EvalSimple(absl::Span<const TupleData* const> params,
+                  EvaluationContext* context, TupleSlot* result,
+                  absl::Status* status) const {
+    const absl::Status abort_status = context->VerifyNotAborted();
+    if (!abort_status.ok()) {
+      *status = abort_status;
+      return false;
+    }
+    VirtualTupleSlot virtual_slot(result);
+    return Eval(params, context, &virtual_slot, status);
+  }
+
+  // Evaluates a potentially multi-result ValueExpr. A multi-result ValueExpr
+  // is a ValueExpr that can produce more than one result. For example,
+  // a MultiStmtExpr algebrized from a ResolvedMultiStmt.
+  //
+  // This is the base class implementation which handles the common case where a
+  // ValueExpr produces only a single result. The default implementation calls
+  // Eval() and returns the single result in a vector. Subclasses that can
+  // produce multiple results, such as MultiStmtExpr, override this method to
+  // return a vector of results.
+  virtual absl::StatusOr<std::vector<StmtResult>> EvalMulti(
+      absl::Span<const TupleData* const> params,
+      EvaluationContext* context) const {
+    Value value;
+    std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
+
+    absl::Status status;
+    VirtualTupleSlot virtual_slot(&value, &shared_state);
+    bool success = Eval(params, context, &virtual_slot, &status);
+
+    StmtResult result;
+    if (success) {
+      result.value = std::move(value);
+    } else {
+      result.value = status;
+    }
+    result.shared_state = std::move(shared_state);
+    return std::vector<StmtResult>{std::move(result)};
+  }
+
+  bool IsValueExpr() const override { return true; }
+  const ValueExpr* AsValueExpr() const override { return this; }
+  ValueExpr* AsMutableValueExpr() override { return this; }
+
+  const Type* output_type() const override { return output_type_; }
+
+  virtual bool IsConstant() const { return false; }
+
+ private:
+  const Type* output_type_;
+};
+
+// Abstract base class for relational operators.
+class RelationalOp : public AlgebraNode {
+ public:
+  RelationalOp() = default;
+  RelationalOp(const RelationalOp&) = delete;
+  RelationalOp& operator=(const RelationalOp&) = delete;
+  ~RelationalOp() override;
+
+  // Sets the TupleSchemas for the TupleDatas passed to Eval(). A particular
+  // VariableId can only occur in one TupleSchema.
+  virtual absl::Status SetSchemasForEvaluation(
+      absl::Span<const TupleSchema* const> params_schemas) = 0;
+
+  // Returns an iterator over the tuples representing the relation corresponding
+  // to this operator and 'params'. The tuples returned by the iterator have an
+  // extra 'num_extra_slots' at the end to allow stacked iterators to avoid
+  // copying a tuple into a wider tuple augmented with more slots. The lifetime
+  // of the iterator must not exceed the lifetime of the RelationalOp.
+  //
+  // The schemas for 'params' must have already been set by a call to
+  // SetSchemasForEvaluation().
+  absl::StatusOr<std::unique_ptr<TupleIterator>> Eval(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const;
+
+  // This is the method that actually creates the iterator for Eval(), which
+  // wraps it in a PassThroughTupleIterator to allow for cancellation while it
+  // is running. This method is only public for internal purposes. Users should
+  // call Eval() instead.
+  virtual absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
+      absl::Span<const TupleData* const> params, int num_extra_slots,
+      EvaluationContext* context) const = 0;
+
+  // Returns a copy of the output schema of the TupleIterator corresponding to
+  // this operator.
+  virtual std::unique_ptr<TupleSchema> CreateOutputSchema() const = 0;
+
+  // Returns the result of constructing a TupleIterator with this object with
+  // scrambling disabled and getting its debug string. If it isn't possible to
+  // determine that debug string (e.g., it requires evaluating an expression),
+  // returns an approximation.
+  virtual std::string IteratorDebugString() const = 0;
+
+  const RelationalOp* AsRelationalOp() const override { return this; }
+  RelationalOp* AsMutableRelationalOp() override { return this; }
+
+  const Type* output_type() const override {
+    ABSL_LOG(FATAL) << "Relational operators have no type";
+  }
+
+  // Order-preservation is copied from the resolved AST.
+  bool is_order_preserving() const { return is_order_preserving_; }
+
+  // 'is_order_preserving' may be true only if the operator
+  // 'may_preserve_order()'.
+  absl::Status set_is_order_preserving(bool is_order_preserving);
+
+  // Relational operators typically do not preserve order.
+  virtual bool may_preserve_order() const { return false; }
+
+ protected:
+  // Depending on the EvaluationOptions in 'context', either returns 'iter' or a
+  // ReorderingTupleIterator that wraps 'iter'.
+  absl::StatusOr<std::unique_ptr<TupleIterator>> MaybeReorder(
+      std::unique_ptr<TupleIterator> iter, EvaluationContext* context) const;
+
+ private:
+  // If false, the operator's output is never marked as ordered.
+  bool is_order_preserving_ = false;
+};
 // Abstract base class for operator arguments. The implementation is designed to
 // make it easy to deal with ExprArgs and RelationalArgs since those are the
 // most common kinds of arguments.
@@ -1188,287 +1469,6 @@ class HalfUnboundedColumnFilterArg final : public ColumnFilterArg {
   const VariableId variable_;
   const Kind kind_;
   std::unique_ptr<ValueExpr> arg_;
-};
-
-// Abstract base class for an operator.
-class AlgebraNode {
- public:
-  // Printing mode of an operator argument used in ArgDebugString.
-  enum ArgPrintMode {
-    k0,     // Don't print, always empty.
-    k1,     // Print as a single argument.
-    kN,     // Print as a repeated argument.
-    kOpt,   // Print as a single argument if present, otherwise skip.
-    kNOpt,  // Print as a repeated argument if present, otherwise skip.
-  };
-
-  // For printing tree lines.
-  static constexpr char kIndentFork[] = "+-";
-  static constexpr char kIndentBar[] = "| ";
-  static constexpr char kIndentSpace[] = "  ";
-
-  AlgebraNode() = default;
-  AlgebraNode(const AlgebraNode&) = delete;
-  AlgebraNode& operator=(const AlgebraNode&) = delete;
-  virtual ~AlgebraNode();
-
-  // Downcast methods, return nullptr if downcast is invalid.
-  virtual bool IsValueExpr() const;
-  virtual const ValueExpr* AsValueExpr() const;
-  virtual ValueExpr* AsMutableValueExpr();
-  virtual const RelationalOp* AsRelationalOp() const;
-  virtual RelationalOp* AsMutableRelationalOp();
-  virtual bool IsInlineLambdaExpr() const;
-  virtual const InlineLambdaExpr* AsInlineLambdaExpr() const;
-  virtual InlineLambdaExpr* AsMutableInlineLambdaExpr();
-
-  // Value and aggregator operators have an output type.
-  virtual const Type* output_type() const = 0;
-
-  // Returns a string representation of the operator for debugging. If
-  // 'verbose' is true, prints more information.
-  std::string DebugString(bool verbose = false) const;
-
-  // Returns a string representation of the operator for debugging.
-  // 'level' specifies the indentation level of the output string. If 'verbose'
-  // is true, prints more information.
-  virtual std::string DebugInternal(const std::string& indent,
-                                    bool verbose) const = 0;
-
-  // Returns all arguments of the operator.
-  absl::Span<const AlgebraArg* const> GetArgs() const { return args_; }
-  absl::Span<AlgebraArg* const> GetMutableArgs() { return args_; }
-
-  // Returns a singleton argument of the given 'kind'.
-  const AlgebraArg* GetArg(int kind) const;
-  AlgebraArg* GetMutableArg(int kind);
-
-  // Returns a repeated argument of the given 'kind', downcast to T.
-  template <typename T>
-  absl::Span<const T* const> GetArgs(int kind) const {
-    int start = arg_slices_[kind].start;
-    int size = arg_slices_[kind].size;
-    if (size > 0) {
-      return absl::Span<const T* const>(
-          reinterpret_cast<const T* const*>(&args_[start]), size);
-    } else {
-      return absl::Span<const T* const>();
-    }
-  }
-
-  // Returns a repeated argument of the given 'kind', downcast to T.
-  template <typename T>
-  absl::Span<T* const> GetMutableArgs(int kind) {
-    int start = arg_slices_[kind].start;
-    int size = arg_slices_[kind].size;
-    if (size > 0) {
-      return absl::Span<T* const>(reinterpret_cast<T* const*>(&args_[start]),
-                                  size);
-    } else {
-      return absl::Span<T* const>();
-    }
-  }
-
-  // Returns a debug string representation of 'node', which must have
-  // 'arg_names.size()' arguments. Each argument is printed with corresponding
-  // entry of 'arg_mode' (which must have the same number of elements as
-  // 'arg_names'). If 'more_children' is true the last argument will get tree
-  // lines to connect to subsequently printed children.
-  std::string ArgDebugString(absl::Span<const std::string> arg_names,
-                             absl::Span<const ArgPrintMode> arg_mode,
-                             const std::string& indent, bool verbose,
-                             bool more_children = false) const;
-
- protected:
-  // Set methods are to be called in the constructor. Argument 'kind' of an
-  // operator is typically an enum defined in the operator class.
-
-  // Sets a singleton argument of the given 'kind'.
-  void SetArg(int kind, std::unique_ptr<AlgebraArg> argument);
-
-  // Sets a repeated argument of the given 'kind'.
-  template <typename T>
-  void SetArgs(int kind, std::vector<std::unique_ptr<T>> args) {
-    if (kind >= arg_slices_.size()) {
-      arg_slices_.resize(kind + 1);
-    }
-    for (auto& argument : args) {
-      argument->set_kind(kind);
-      args_.push_back(argument.release());
-    }
-    arg_slices_[kind] = ArgSlice(args_.size() - args.size(), args.size());
-  }
-
- private:
-  // An argument of a given 'kind' is represented as a slice of the argument
-  // vector 'args_' that contains a list of all arguments combined.
-  struct ArgSlice {
-    ArgSlice() : start(0), size(0) {}
-    ArgSlice(int start, int size) : start(start), size(size) {}
-    int start;  // into AlgebraNode::args_
-    int size;   // number of operators for that argument
-    // Intentionally copyable.
-  };
-  std::vector<ArgSlice> arg_slices_;  // array slices of args_
-  std::vector<AlgebraArg*> args_;     // owned
-};
-
-// Represents the result of a single-result statement evaluation. For example
-// a query statement, DDL, or DML. The statements can be standalone, or a
-// sub-statement of a multi-result statement.
-struct StmtResult {
-  // Holds the result of evaluating the statement.
-  absl::StatusOr<Value> value;
-
-  // Caches deserialized proto fields for performance.
-  std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
-};
-
-// Abstract base class for value operators.
-class ValueExpr : public AlgebraNode {
- public:
-  explicit ValueExpr(const Type* output_type) : output_type_(output_type) {}
-  ValueExpr(const ValueExpr&) = delete;
-  ValueExpr& operator=(const ValueExpr&) = delete;
-
-  ~ValueExpr() override;
-
-  // Sets the TupleSchemas for the TupleDatas passed to Eval(). A particular
-  // VariableId can only occur in one TupleSchema.
-  virtual absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) = 0;
-
-  // Evaluates the ValueExpr using 'params'. Requires that
-  // SetSchemasForEvaluation() has already been called. On success, populates
-  // 'result' and returns true. On failure, populates 'status' and returns
-  // false. We avoid returning absl::Status for performance reasons.
-  virtual bool Eval(absl::Span<const TupleData* const> params,
-                    EvaluationContext* context, VirtualTupleSlot* result,
-                    absl::Status* status) const = 0;
-
-  // Convenience method for populating a TupleSlot.
-  bool EvalSimple(absl::Span<const TupleData* const> params,
-                  EvaluationContext* context, TupleSlot* result,
-                  absl::Status* status) const {
-    const absl::Status abort_status = context->VerifyNotAborted();
-    if (!abort_status.ok()) {
-      *status = abort_status;
-      return false;
-    }
-    VirtualTupleSlot virtual_slot(result);
-    return Eval(params, context, &virtual_slot, status);
-  }
-
-  // Evaluates a potentially multi-result ValueExpr. A multi-result ValueExpr
-  // is a ValueExpr that can produce more than one result. For example,
-  // a MultiStmtExpr algebrized from a ResolvedMultiStmt.
-  //
-  // This is the base class implementation which handles the common case where a
-  // ValueExpr produces only a single result. The default implementation calls
-  // Eval() and returns the single result in a vector. Subclasses that can
-  // produce multiple results, such as MultiStmtExpr, override this method to
-  // return a vector of results.
-  virtual absl::StatusOr<std::vector<StmtResult>> EvalMulti(
-      absl::Span<const TupleData* const> params,
-      EvaluationContext* context) const {
-    Value value;
-    std::shared_ptr<TupleSlot::SharedProtoState> shared_state;
-
-    absl::Status status;
-    VirtualTupleSlot virtual_slot(&value, &shared_state);
-    bool success = Eval(params, context, &virtual_slot, &status);
-
-    StmtResult result;
-    if (success) {
-      result.value = std::move(value);
-    } else {
-      result.value = status;
-    }
-    result.shared_state = std::move(shared_state);
-    return std::vector<StmtResult>{std::move(result)};
-  }
-
-  bool IsValueExpr() const override { return true; }
-  const ValueExpr* AsValueExpr() const override { return this; }
-  ValueExpr* AsMutableValueExpr() override { return this; }
-
-  const Type* output_type() const override { return output_type_; }
-
-  virtual bool IsConstant() const { return false; }
-
- private:
-  const Type* output_type_;
-};
-
-// Abstract base class for relational operators.
-class RelationalOp : public AlgebraNode {
- public:
-  RelationalOp() = default;
-  RelationalOp(const RelationalOp&) = delete;
-  RelationalOp& operator=(const RelationalOp&) = delete;
-  ~RelationalOp() override;
-
-  // Sets the TupleSchemas for the TupleDatas passed to Eval(). A particular
-  // VariableId can only occur in one TupleSchema.
-  virtual absl::Status SetSchemasForEvaluation(
-      absl::Span<const TupleSchema* const> params_schemas) = 0;
-
-  // Returns an iterator over the tuples representing the relation corresponding
-  // to this operator and 'params'. The tuples returned by the iterator have an
-  // extra 'num_extra_slots' at the end to allow stacked iterators to avoid
-  // copying a tuple into a wider tuple augmented with more slots. The lifetime
-  // of the iterator must not exceed the lifetime of the RelationalOp.
-  //
-  // The schemas for 'params' must have already been set by a call to
-  // SetSchemasForEvaluation().
-  absl::StatusOr<std::unique_ptr<TupleIterator>> Eval(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const;
-
-  // This is the method that actually creates the iterator for Eval(), which
-  // wraps it in a PassThroughTupleIterator to allow for cancellation while it
-  // is running. This method is only public for internal purposes. Users should
-  // call Eval() instead.
-  virtual absl::StatusOr<std::unique_ptr<TupleIterator>> CreateIterator(
-      absl::Span<const TupleData* const> params, int num_extra_slots,
-      EvaluationContext* context) const = 0;
-
-  // Returns a copy of the output schema of the TupleIterator corresponding to
-  // this operator.
-  virtual std::unique_ptr<TupleSchema> CreateOutputSchema() const = 0;
-
-  // Returns the result of constructing a TupleIterator with this object with
-  // scrambling disabled and getting its debug string. If it isn't possible to
-  // determine that debug string (e.g., it requires evaluating an expression),
-  // returns an approximation.
-  virtual std::string IteratorDebugString() const = 0;
-
-  const RelationalOp* AsRelationalOp() const override { return this; }
-  RelationalOp* AsMutableRelationalOp() override { return this; }
-
-  const Type* output_type() const override {
-    ABSL_LOG(FATAL) << "Relational operators have no type";
-  }
-
-  // Order-preservation is copied from the resolved AST.
-  bool is_order_preserving() const { return is_order_preserving_; }
-
-  // 'is_order_preserving' may be true only if the operator
-  // 'may_preserve_order()'.
-  absl::Status set_is_order_preserving(bool is_order_preserving);
-
-  // Relational operators typically do not preserve order.
-  virtual bool may_preserve_order() const { return false; }
-
- protected:
-  // Depending on the EvaluationOptions in 'context', either returns 'iter' or a
-  // ReorderingTupleIterator that wraps 'iter'.
-  absl::StatusOr<std::unique_ptr<TupleIterator>> MaybeReorder(
-      std::unique_ptr<TupleIterator> iter, EvaluationContext* context) const;
-
- private:
-  // If false, the operator's output is never marked as ordered.
-  bool is_order_preserving_ = false;
 };
 
 // Defines executable table valued function.

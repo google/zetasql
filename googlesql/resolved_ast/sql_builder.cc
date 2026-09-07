@@ -166,8 +166,6 @@ std::string SQLBuilder::UpdateColumnAlias(const ResolvedColumn& column) {
   return GetColumnAlias(column);
 }
 
-SQLBuilder::SQLBuilder(const SQLBuilderOptions& options) : options_(options) {}
-
 namespace {
 constexpr absl::string_view khalf_of_int64max_str = "4611686018427387903";
 
@@ -672,8 +670,6 @@ std::string SQLBuilder::QueryFragment::GetSQL() const {
   }
   return text;
 }
-
-SQLBuilder::~SQLBuilder() = default;
 
 void SQLBuilder::DumpQueryFragmentStack() {
 }
@@ -1370,6 +1366,10 @@ class SQLBuilder::AnalyticFunctionInfo {
   std::string order_by_;
   std::string window_;
 };
+
+SQLBuilder::SQLBuilder(const SQLBuilderOptions& options) : options_(options) {}
+
+SQLBuilder::~SQLBuilder() = default;
 
 std::string SQLBuilder::AnalyticFunctionInfo::GetSQL() const {
   std::vector<std::string> over_clause;

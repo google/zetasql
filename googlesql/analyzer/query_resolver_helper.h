@@ -422,7 +422,7 @@ struct DotStarSourceExprInfo {
 
   // Tracks information about lateral references, e.g. that this column is
   // referenced from another SELECT column.
-  std::unique_ptr<LateralReferenceState> lateral_reference_state = nullptr;
+  std::unique_ptr<LateralReferenceState> lateral_reference_state;
 
   // Findings about the source expression, e.g. `has_aggregation`,
   // `has_volatile`, etc.

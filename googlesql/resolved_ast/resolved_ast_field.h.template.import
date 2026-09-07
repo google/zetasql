@@ -63,12 +63,17 @@ import directive. Example:
     return {{field.member_name}}.at(i){{field.element_unwrapper}};
   }
  # if field.is_node_vector
+  # if is_from_builder
   void add_{{field.name}}({{field.element_storage_type}} v) {
     {{field.member_name}}.emplace_back(std::move(v));
   }
   void set_{{field.name}}({{field.setter_arg_type}} v) {
     {{field.member_name}} = std::move(v);
   }
+  # else
+  void add_{{field.name}}({{field.element_storage_type}} v);
+  void set_{{field.name}}({{field.setter_arg_type}} v);
+  # endif
 
  # else
   void add_{{field.name}}({{field.element_arg_type}} v) {
@@ -84,6 +89,9 @@ import directive. Example:
 
  # endif
   # if field.release_return_type or field.is_vector
+   # if field.is_node_vector and not is_from_builder
+  {{field.member_type}} release_{{field.name}}();
+   # else
   {{field.member_type}} release_{{field.name}}() {
     {#
        Note, we cannot simply:
@@ -94,10 +102,12 @@ import directive. Example:
     {{field.member_name}}.swap(tmp);
     return tmp;
   }
+   # endif
   # endif
  # else
   # if field.is_node_ptr
    # if field.propagate_order
+    # if is_from_builder
   void set_{{field.name}}({{field.setter_arg_type}} v,
                           bool propagate_order=true) {
     {{field.member_name}} = std::move(v);
@@ -105,10 +115,18 @@ import directive. Example:
       set_is_ordered({{field.member_name}}->is_ordered());
     }
   }
+    # else
+  void set_{{field.name}}({{field.setter_arg_type}} v,
+                          bool propagate_order=true);
+    # endif
    # else
+    # if is_from_builder
   void set_{{field.name}}({{field.setter_arg_type}} v) {
     {{field.member_name}} = std::move(v);
   }
+    # else
+  void set_{{field.name}}({{field.setter_arg_type}} v);
+    # endif
    # endif
 
   # endif

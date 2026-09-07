@@ -528,12 +528,7 @@ class RewriterVisitor : public ResolvedASTDeepCopyVisitor {
  public:
   RewriterVisitor(ColumnFactory* allocator, TypeFactory* type_factory,
                   Resolver* resolver, Catalog* catalog,
-                  AnalyzerOptions* options)
-      : allocator_(allocator),
-        type_factory_(type_factory),
-        resolver_(resolver),
-        catalog_(catalog),
-        analyzer_options_(options) {}
+                  AnalyzerOptions* options);
 
  private:
   // Chooses one of the uid columns between per_user_visitor_uid_column and
@@ -1708,6 +1703,15 @@ struct WithEntryRewriteState {
   // AND it reads from a table, TVF, or another WITH entry that reads user data.
   std::optional<UidColumnState> rewritten_uid;
 };
+
+RewriterVisitor::RewriterVisitor(
+    ColumnFactory* allocator, TypeFactory* type_factory, Resolver* resolver,
+    Catalog* catalog, AnalyzerOptions* options)
+    : allocator_(allocator),
+      type_factory_(type_factory),
+      resolver_(resolver),
+      catalog_(catalog),
+      analyzer_options_(options) {}
 
 // A helper for JoinExprIncludesUid, returns true if at least one argument of
 // the function call is a column ref referring to left_uid, and the same for
