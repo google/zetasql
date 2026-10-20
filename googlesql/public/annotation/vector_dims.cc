@@ -14,17 +14,16 @@
 // limitations under the License.
 //
 
-#include "googlesql/public/annotation/vector_length.h"
+#include "googlesql/public/annotation/vector_dims.h"
 
 #include <cstdint>
 #include <optional>
-#include <vector>
 
 #include "googlesql/public/annotation/default_annotation_spec.h"
 #include "googlesql/public/builtin_function.pb.h"
 #include "googlesql/public/constant.h"
-#include "googlesql/public/function.pb.h"
 #include "googlesql/public/parse_location.h"
+#include "googlesql/public/type_parameters.pb.h"
 #include "googlesql/public/types/annotation.h"
 #include "googlesql/public/types/simple_value.h"
 #include "googlesql/public/types/type.h"
@@ -40,7 +39,7 @@ namespace googlesql {
 
 namespace {
 
-// The vector length annotation can be deduced from a constant literal or a
+// The vector dims annotation can be deduced from a constant literal or a
 // constant. Constant expressions like `10+5` are not supported.
 absl::StatusOr<std::optional<int64_t>> GetConstantOrLiteralInt64(
     const ResolvedExpr* expr) {
@@ -53,7 +52,7 @@ absl::StatusOr<std::optional<int64_t>> GetConstantOrLiteralInt64(
   } else if (expr->Is<ResolvedConstant>()) {
     const Constant* constant = expr->GetAs<ResolvedConstant>()->constant();
     // If the constant does not have a value at analysis time, we cannot deduce
-    // the vector length and return std::nullopt to signal to the analyzer.
+    // the vector dims and return std::nullopt to signal to the analyzer.
     if (constant->HasValue()) {
       GOOGLESQL_ASSIGN_OR_RETURN(Value val, constant->GetValue());
       GOOGLESQL_RET_CHECK(val.type()->IsInt64());
@@ -65,7 +64,7 @@ absl::StatusOr<std::optional<int64_t>> GetConstantOrLiteralInt64(
   return std::nullopt;
 }
 
-// The vector length annotation can be deduced from an array constant literal or
+// The vector dims annotation can be deduced from an array constant literal or
 // a constant. Constant expressions like `ARRAY_CONCAT([1, 2, 3], [4, 5, 6])`
 // are not supported.
 absl::StatusOr<std::optional<int64_t>> GetArrayLengthFromConstantOrLiteral(
@@ -80,7 +79,7 @@ absl::StatusOr<std::optional<int64_t>> GetArrayLengthFromConstantOrLiteral(
   } else if (expr->Is<ResolvedConstant>()) {
     const Constant* constant = expr->GetAs<ResolvedConstant>()->constant();
     // If the constant does not have a value at analysis time, we cannot deduce
-    // the vector length and return std::nullopt to signal to the analyzer.
+    // the vector dims and return std::nullopt to signal to the analyzer.
     if (constant->HasValue()) {
       GOOGLESQL_ASSIGN_OR_RETURN(Value val, constant->GetValue());
       GOOGLESQL_RET_CHECK(val.type()->IsArray());
@@ -93,33 +92,33 @@ absl::StatusOr<std::optional<int64_t>> GetArrayLengthFromConstantOrLiteral(
   return std::nullopt;
 }
 
-absl::StatusOr<std::optional<int64_t>> GetVectorLengthFromAnnotationMap(
+absl::StatusOr<std::optional<int64_t>> GetVectorDimsFromAnnotationMap(
     const AnnotationMap* annotation_map) {
   if (annotation_map == nullptr) {
     return std::nullopt;
   }
-  const SimpleValue* in_length =
-      annotation_map->GetAnnotation(VectorLengthAnnotation::GetId());
-  if (in_length == nullptr) {
+  const SimpleValue* in_dims =
+      annotation_map->GetAnnotation(VectorDimsAnnotation::GetId());
+  if (in_dims == nullptr) {
     return std::nullopt;
   }
-  GOOGLESQL_RET_CHECK(in_length->IsValid());
-  GOOGLESQL_RET_CHECK(in_length->has_int64_value());
-  return in_length->int64_value();
+  GOOGLESQL_RET_CHECK(in_dims->IsValid());
+  GOOGLESQL_RET_CHECK(in_dims->has_int64_value());
+  return in_dims->int64_value();
 }
 
 // Applies kUnconstrained (-1) to any unannotated VECTOR slots in the annotation
 // map.
-absl::Status ApplyUnconstrainedVectorLength(const Type* type,
-                                            AnnotationMap* annotation_map) {
+absl::Status ApplyUnconstrainedVectorDims(const Type* type,
+                                          AnnotationMap* annotation_map) {
   if (annotation_map == nullptr) {
     return absl::OkStatus();
   }
   if (IsVectorType(type)) {
     GOOGLESQL_RET_CHECK(type->ComponentTypes().empty());
-    if (!annotation_map->Has<VectorLengthAnnotation>()) {
-      annotation_map->SetAnnotation<VectorLengthAnnotation>(
-          SimpleValue::Int64(VectorLengthAnnotation::kUnconstrained));
+    if (!annotation_map->Has<VectorDimsAnnotation>()) {
+      annotation_map->SetAnnotation<VectorDimsAnnotation>(
+          SimpleValue::Int64(VectorDimsAnnotation::kUnconstrained));
     }
     return absl::OkStatus();
   }
@@ -133,7 +132,7 @@ absl::Status ApplyUnconstrainedVectorLength(const Type* type,
   StructAnnotationMap* struct_annotation_map = annotation_map->AsStructMap();
   GOOGLESQL_RET_CHECK_EQ(struct_annotation_map->num_fields(), component_types.size());
   for (int i = 0; i < component_types.size(); ++i) {
-    GOOGLESQL_RETURN_IF_ERROR(ApplyUnconstrainedVectorLength(
+    GOOGLESQL_RETURN_IF_ERROR(ApplyUnconstrainedVectorDims(
         component_types[i], struct_annotation_map->mutable_field(i)));
   }
   return absl::OkStatus();
@@ -141,40 +140,26 @@ absl::Status ApplyUnconstrainedVectorLength(const Type* type,
 
 }  // namespace
 
-absl::StatusOr<std::optional<int64_t>>
-VectorLengthAnnotation::GetEffectiveLength(
+absl::StatusOr<std::optional<int64_t>> VectorDimsAnnotation::GetEffectiveDims(
     const AnnotationMap* annotation_map) {
-  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> length,
-                   GetVectorLengthFromAnnotationMap(annotation_map));
-  if (!length.has_value() || *length <= 0) {
+  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> dims,
+                   GetVectorDimsFromAnnotationMap(annotation_map));
+  if (!dims.has_value() || *dims <= 0) {
     return std::nullopt;
   }
-  return length;
+  return dims;
 }
 
-absl::Status VectorLengthAnnotation::CheckAndPropagateForColumnRef(
-    const ResolvedColumnRef& column_ref, AnnotationMap* result_annotation_map) {
-  if (result_annotation_map == nullptr) {
-    return absl::OkStatus();
-  }
-
-  GOOGLESQL_RETURN_IF_ERROR(MergeAnnotations(column_ref.column().type_annotation_map(),
-                                   *result_annotation_map));
-  return ApplyUnconstrainedVectorLength(column_ref.column().type(),
-                                        result_annotation_map);
-}
-
-absl::Status VectorLengthAnnotation::CheckAndPropagateForParameter(
+absl::Status VectorDimsAnnotation::CheckAndPropagateForParameter(
     const ResolvedParameter& parameter, AnnotationMap* result_annotation_map) {
   GOOGLESQL_RET_CHECK(result_annotation_map != nullptr);
 
   GOOGLESQL_RETURN_IF_ERROR(DefaultAnnotationSpec::CheckAndPropagateForParameter(
       parameter, result_annotation_map));
-  return ApplyUnconstrainedVectorLength(parameter.type(),
-                                        result_annotation_map);
+  return ApplyUnconstrainedVectorDims(parameter.type(), result_annotation_map);
 }
 
-absl::Status VectorLengthAnnotation::PropagateFromTypeParameters(
+absl::Status VectorDimsAnnotation::PropagateFromTypeParameters(
     const Type* target_type, const TypeParameters& target_type_params,
     const AnnotationMap* input_map, AnnotationMap& result_annotation_map,
     bool return_null_on_error, const ParseLocationRange* error_location) {
@@ -189,29 +174,29 @@ absl::Status VectorLengthAnnotation::PropagateFromTypeParameters(
     GOOGLESQL_RET_CHECK(target_type_params.IsEmpty() ||
               target_type_params.IsVectorTypeParameters());
 
-    std::optional<int64_t> target_length;
+    std::optional<int64_t> target_dims;
     if (target_type_params.IsVectorTypeParameters()) {
       const VectorTypeParametersProto* vector_params =
           target_type_params.vector_type_parameters();
-      if (vector_params != nullptr && vector_params->has_length()) {
-        target_length = vector_params->length();
+      if (vector_params != nullptr && vector_params->has_dims()) {
+        target_dims = vector_params->dims();
       }
     }
 
-    GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> input_length,
-                     GetVectorLengthFromAnnotationMap(input_map));
+    GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> input_dims,
+                     GetVectorDimsFromAnnotationMap(input_map));
 
-    // If the target type length already has a value, we use it since it takes
-    // precedence. Otherwise, we simply pass on the input length.
-    if (target_length.has_value()) {
-      result_annotation_map.SetAnnotation<VectorLengthAnnotation>(
-          SimpleValue::Int64(*target_length));
+    // If the target type dims already has a value, we use it since it takes
+    // precedence. Otherwise, we simply pass on the input dims.
+    if (target_dims.has_value()) {
+      result_annotation_map.SetAnnotation<VectorDimsAnnotation>(
+          SimpleValue::Int64(*target_dims));
       return absl::OkStatus();
     }
-    if (input_length.has_value() &&
-        (*input_length > 0 || *input_length == kUnconstrained)) {
-      result_annotation_map.SetAnnotation<VectorLengthAnnotation>(
-          SimpleValue::Int64(*input_length));
+    if (input_dims.has_value() &&
+        (*input_dims > 0 || *input_dims == kUnconstrained)) {
+      result_annotation_map.SetAnnotation<VectorDimsAnnotation>(
+          SimpleValue::Int64(*input_dims));
     }
     return absl::OkStatus();
   }
@@ -243,7 +228,7 @@ absl::Status VectorLengthAnnotation::PropagateFromTypeParameters(
   return absl::OkStatus();
 }
 
-absl::Status VectorLengthAnnotation::CheckAndPropagateForCast(
+absl::Status VectorDimsAnnotation::CheckAndPropagateForCast(
     const ResolvedCast& cast, AnnotationMap* result_annotation_map) {
   GOOGLESQL_RET_CHECK(result_annotation_map != nullptr);
 
@@ -253,7 +238,7 @@ absl::Status VectorLengthAnnotation::CheckAndPropagateForCast(
       cast.return_null_on_error(), cast.GetParseLocationRangeOrNULL());
 }
 
-absl::Status VectorLengthAnnotation::CheckAndPropagateForFunctionCallBase(
+absl::Status VectorDimsAnnotation::CheckAndPropagateForFunctionCallBase(
     const ResolvedFunctionCallBase& function_call,
     AnnotationMap* result_annotation_map) {
   if (result_annotation_map == nullptr) {
@@ -261,34 +246,34 @@ absl::Status VectorLengthAnnotation::CheckAndPropagateForFunctionCallBase(
   }
 
   if (function_call.function()->IsGoogleSQLBuiltin(FN_ENCODE_VECTOR)) {
-    std::optional<int64_t> target_length;
+    std::optional<int64_t> target_dims;
     std::optional<int64_t> array_length;
 
     // In GoogleSQL ResolvedFunctionCall, arguments are positionally guaranteed
     // to match the function signature, regardless of whether the user used
     // named arguments in the query. Index 0 is always the input array. Index 1
-    // (if present) is the target length.
+    // (if present) is the target dims.
     GOOGLESQL_RET_CHECK_GT(function_call.argument_list_size(), 0);
     GOOGLESQL_ASSIGN_OR_RETURN(array_length, GetArrayLengthFromConstantOrLiteral(
                                        function_call.argument_list(0)));
 
     if (function_call.argument_list_size() > 1) {
-      GOOGLESQL_ASSIGN_OR_RETURN(target_length, GetConstantOrLiteralInt64(
-                                          function_call.argument_list(1)));
+      GOOGLESQL_ASSIGN_OR_RETURN(target_dims, GetConstantOrLiteralInt64(
+                                        function_call.argument_list(1)));
     }
 
-    // The given length parameter takes precedence over the array length.
-    if (target_length.has_value()) {
-      result_annotation_map->SetAnnotation<VectorLengthAnnotation>(
-          SimpleValue::Int64(*target_length));
+    // The given dims argument takes precedence over the array length.
+    if (target_dims.has_value()) {
+      result_annotation_map->SetAnnotation<VectorDimsAnnotation>(
+          SimpleValue::Int64(*target_dims));
       return absl::OkStatus();
     }
     if (array_length.has_value()) {
-      result_annotation_map->SetAnnotation<VectorLengthAnnotation>(
+      result_annotation_map->SetAnnotation<VectorDimsAnnotation>(
           SimpleValue::Int64(*array_length));
       return absl::OkStatus();
     }
-    result_annotation_map->SetAnnotation<VectorLengthAnnotation>(
+    result_annotation_map->SetAnnotation<VectorDimsAnnotation>(
         SimpleValue::Int64(kUnconstrained));
     return absl::OkStatus();
   }
@@ -297,30 +282,29 @@ absl::Status VectorLengthAnnotation::CheckAndPropagateForFunctionCallBase(
       function_call, result_annotation_map);
 }
 
-absl::Status VectorLengthAnnotation::ScalarMergeIfCompatible(
+absl::Status VectorDimsAnnotation::ScalarMergeIfCompatible(
     const AnnotationMap* in, AnnotationMap& out) const {
-  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> in_length,
-                   GetVectorLengthFromAnnotationMap(in));
+  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> in_dims,
+                   GetVectorDimsFromAnnotationMap(in));
   // If `in` is unannotated (nullptr, e.g. untyped null / empty container),
   // it acts as identity and does not modify `out`.
-  if (!in_length.has_value()) {
+  if (!in_dims.has_value()) {
     return absl::OkStatus();
   }
 
-  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> out_length,
-                   GetVectorLengthFromAnnotationMap(&out));
+  GOOGLESQL_ASSIGN_OR_RETURN(std::optional<int64_t> out_dims,
+                   GetVectorDimsFromAnnotationMap(&out));
   // If `out` was unannotated, adopt `in`.
-  if (!out_length.has_value()) {
-    out.SetAnnotation<VectorLengthAnnotation>(SimpleValue::Int64(*in_length));
+  if (!out_dims.has_value()) {
+    out.SetAnnotation<VectorDimsAnnotation>(SimpleValue::Int64(*in_dims));
     return absl::OkStatus();
   }
 
-  // Both have values. If lengths differ (e.g. 10 vs 20), or if either is
+  // Both have values. If dims differ (e.g. 10 vs 20), or if either is
   // kUnconstrained (-1 vs 10), transition to kUnconstrained.
   // Note: if both are already kUnconstrained (-1 == -1), out remains -1.
-  if (*in_length != *out_length) {
-    out.SetAnnotation<VectorLengthAnnotation>(
-        SimpleValue::Int64(kUnconstrained));
+  if (*in_dims != *out_dims) {
+    out.SetAnnotation<VectorDimsAnnotation>(SimpleValue::Int64(kUnconstrained));
   }
 
   return absl::OkStatus();

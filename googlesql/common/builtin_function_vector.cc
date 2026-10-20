@@ -66,11 +66,11 @@ absl::Status GetVectorFunctions(TypeFactory* type_factory,
                    FN_DECODE_VECTOR,
                    AddVectorTypeRequiredOptions(FunctionSignatureOptions())}});
 
-  // FN_VECTOR_LENGTH
-  InsertFunction(functions, options, "vector_length", Function::SCALAR,
+  // FN_VECTOR_DIMENSION_COUNT
+  InsertFunction(functions, options, "vector_dimension_count", Function::SCALAR,
                  {{types::Int64Type(),
                    {vector_type},
-                   FN_VECTOR_LENGTH,
+                   FN_VECTOR_DIMENSION_COUNT,
                    AddVectorTypeRequiredOptions(FunctionSignatureOptions())}});
 
   // FN_VECTOR_ENCODING

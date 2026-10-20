@@ -2782,12 +2782,9 @@ absl::StatusOr<Value> DMLValueExpr::GetDMLOutputValue(
 
 absl::Status DMLValueExpr::EvalReturningClause(
     const googlesql::ResolvedReturningClause* returning,
-    absl::Span<const TupleData* const> params, EvaluationContext* context,
-    TupleData* tuple_data, const Value& action_value,
+    absl::Span<const TupleData* const> input_params, EvaluationContext* context,
+    const Value& action_value,
     std::vector<std::vector<Value>>& dml_returning_rows) const {
-  std::vector<const TupleData*> input_params =
-      ConcatSpans(params, {tuple_data});
-
   std::vector<Value> returning_tuple_as_values;
   for (const std::unique_ptr<ValueExpr>& value_expr :
        *returning_column_values_) {
@@ -2803,6 +2800,15 @@ absl::Status DMLValueExpr::EvalReturningClause(
   dml_returning_rows.push_back(returning_tuple_as_values);
 
   return absl::OkStatus();
+}
+
+absl::Status DMLValueExpr::EvalReturningClause(
+    const googlesql::ResolvedReturningClause* returning,
+    absl::Span<const TupleData* const> params, EvaluationContext* context,
+    TupleData* tuple_data, const Value& action_value,
+    std::vector<std::vector<Value>>& dml_returning_rows) const {
+  return EvalReturningClause(returning, ConcatSpans(params, {tuple_data}),
+                             context, action_value, dml_returning_rows);
 }
 
 absl::Status DMLValueExpr::SetSchemasForColumnExprEvaluation() const {
@@ -2905,16 +2911,30 @@ absl::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
   const std::unique_ptr<const TupleSchema> scan_schema =
       scan->CreateOutputSchema();
 
-  std::vector<const TupleSchema*> expr_schemas =
+  std::unique_ptr<const TupleSchema> using_scan_schema;
+  if (stmt()->using_scan() != nullptr) {
+    GOOGLESQL_ASSIGN_OR_RETURN(RelationalOp * using_scan_op,
+                     LookupResolvedScan(stmt()->using_scan()));
+    GOOGLESQL_RETURN_IF_ERROR(using_scan_op->SetSchemasForEvaluation(params_schemas));
+    using_scan_schema = using_scan_op->CreateOutputSchema();
+  }
+
+  const std::vector<const TupleSchema*> target_schemas =
       ConcatSpans(params_schemas, {scan_schema.get()});
+  std::vector<const TupleSchema*> joined_schemas = target_schemas;
+  if (using_scan_schema != nullptr) {
+    joined_schemas =
+        ConcatSpans(absl::Span<const TupleSchema* const>(target_schemas),
+                    {using_scan_schema.get()});
+  }
 
   GOOGLESQL_ASSIGN_OR_RETURN(ValueExpr * where_expr,
                    LookupResolvedExpr(stmt()->where_expr()));
-  GOOGLESQL_RETURN_IF_ERROR(where_expr->SetSchemasForEvaluation(expr_schemas));
+  GOOGLESQL_RETURN_IF_ERROR(where_expr->SetSchemasForEvaluation(joined_schemas));
 
   if (stmt()->returning() != nullptr) {
     for (const auto& it : *returning_column_values_) {
-      GOOGLESQL_RETURN_IF_ERROR(it->SetSchemasForEvaluation(expr_schemas));
+      GOOGLESQL_RETURN_IF_ERROR(it->SetSchemasForEvaluation(target_schemas));
     }
   }
 
@@ -2924,6 +2944,19 @@ absl::Status DMLDeleteValueExpr::SetSchemasForEvaluation(
 absl::StatusOr<Value> DMLDeleteValueExpr::Eval(
     absl::Span<const TupleData* const> params,
     EvaluationContext* context) const {
+  // Consists of one tuple per row of the table in the using scan. NULL if there
+  // is no using scan.
+  std::unique_ptr<std::vector<std::unique_ptr<TupleData>>> using_tuples;
+  if (stmt()->using_scan() != nullptr) {
+    GOOGLESQL_ASSIGN_OR_RETURN(const RelationalOp* relational_op,
+                     LookupResolvedScan(stmt()->using_scan()));
+
+    std::unique_ptr<TupleSchema> using_schema;
+    using_tuples = std::make_unique<std::vector<std::unique_ptr<TupleData>>>();
+    GOOGLESQL_RETURN_IF_ERROR(EvalRelationalOp(*relational_op, params, context,
+                                     &using_schema, using_tuples.get()));
+  }
+
   GOOGLESQL_ASSIGN_OR_RETURN(const ValueExpr* where_expr,
                    LookupResolvedExpr(stmt()->where_expr()));
 
@@ -2947,11 +2980,29 @@ absl::StatusOr<Value> DMLDeleteValueExpr::Eval(
     GOOGLESQL_ASSIGN_OR_RETURN(std::vector<Value> tuple_as_values,
                      GetScannedTupleAsColumnValues(*column_list_, tuple));
 
-    // The WHERE clause can reference column values and statement parameters.
-    GOOGLESQL_ASSIGN_OR_RETURN(
-        const Value where_value,
-        EvalExpr(*where_expr, ConcatSpans(params, {tuple.data}), context));
-    const bool deleted = (where_value == Bool(true));
+    bool deleted = false;
+    if (using_tuples == nullptr) {
+      // The WHERE clause can reference column values and statement parameters.
+      GOOGLESQL_ASSIGN_OR_RETURN(
+          const Value where_value,
+          EvalExpr(*where_expr, ConcatSpans(params, {tuple.data}), context));
+      deleted = (where_value == Bool(true));
+    } else {
+      // Attempt to JOIN the target table tuple `tuple` with the USING clause
+      // table tuple `right_tuple`.
+      for (const std::unique_ptr<TupleData>& right_tuple : *using_tuples) {
+        GOOGLESQL_ASSIGN_OR_RETURN(
+            const Value where_value,
+            EvalExpr(*where_expr,
+                     ConcatSpans(params, {tuple.data, right_tuple.get()}),
+                     context));
+        if (where_value == Bool(true)) {
+          deleted = true;
+          break;
+        }
+      }
+    }
+
     if (deleted) {
       ++num_rows_deleted;
       if (!context->options().return_all_rows_for_dml) {
@@ -2963,7 +3014,7 @@ absl::StatusOr<Value> DMLDeleteValueExpr::Eval(
             Value::StringValue("DELETE"), dml_returning_rows));
       }
     } else {
-      // In all_rows mode,the output contains the remaining rows.
+      // In all_rows mode, the output contains the remaining rows.
       if (context->options().return_all_rows_for_dml) {
         dml_output_rows.push_back(tuple_as_values);
       }
@@ -3114,11 +3165,12 @@ absl::StatusOr<Value> DMLUpdateValueExpr::Eval(
     GOOGLESQL_RETURN_IF_ERROR(context->VerifyNotAborted());
 
     const Tuple tuple(tuple_schema.get(), tuple_data.get());
-    std::vector<const TupleData*> joined_tuple_datas;
-    GOOGLESQL_RETURN_IF_ERROR(GetJoinedTupleDatas(params, tuple_data.get(),
-                                        from_tuples.get(), where_expr, context,
-                                        &joined_tuple_datas));
-    if (joined_tuple_datas.empty()) {
+    bool is_matched = false;
+    const TupleData* matched_from_tuple = nullptr;
+    GOOGLESQL_RETURN_IF_ERROR(GetMatchedFromTupleData(
+        params, tuple_data.get(), from_tuples.get(), where_expr, context,
+        &is_matched, &matched_from_tuple));
+    if (!is_matched) {
       GOOGLESQL_ASSIGN_OR_RETURN(const std::vector<Value> dml_output_row,
                        GetScannedTupleAsColumnValues(*column_list_, tuple));
       if (context->options().return_all_rows_for_dml) {
@@ -3129,13 +3181,18 @@ absl::StatusOr<Value> DMLUpdateValueExpr::Eval(
 
     ++num_rows_modified;
 
+    const std::vector<const TupleData*> update_input_params =
+        (stmt()->from_scan() != nullptr)
+            ? ConcatSpans(params, {tuple_data.get(), matched_from_tuple})
+            : ConcatSpans(params, {tuple_data.get()});
+
     UpdateMap update_map;
     for (const std::unique_ptr<const ResolvedUpdateItem>& update_item :
          stmt()->update_item_list()) {
       ResolvedColumn update_column, update_target_column;
       std::vector<UpdatePathComponent> prefix_components;
       GOOGLESQL_RETURN_IF_ERROR(AddToUpdateMap(
-          update_item.get(), joined_tuple_datas, context, &update_column,
+          update_item.get(), update_input_params, context, &update_column,
           &update_target_column, &prefix_components, &update_map));
     }
 
@@ -3144,8 +3201,12 @@ absl::StatusOr<Value> DMLUpdateValueExpr::Eval(
 
     if (stmt()->returning() != nullptr) {
       TupleData updated_tuple_data = CreateTupleDataFromValues(dml_output_row);
+      const std::vector<const TupleData*> returning_input_params =
+          (stmt()->from_scan() != nullptr)
+              ? ConcatSpans(params, {&updated_tuple_data, matched_from_tuple})
+              : ConcatSpans(params, {&updated_tuple_data});
       GOOGLESQL_RETURN_IF_ERROR(EvalReturningClause(
-          stmt()->returning(), params, context, &updated_tuple_data,
+          stmt()->returning(), returning_input_params, context,
           Value::StringValue("UPDATE"), dml_returning_rows));
     }
 
@@ -3677,38 +3738,37 @@ absl::Status DMLUpdateValueExpr::SetSchemasForEvaluationOfNestedInsert(
   return absl::OkStatus();
 }
 
-absl::Status DMLUpdateValueExpr::GetJoinedTupleDatas(
-    absl::Span<const TupleData* const> params, const TupleData* left_tuple,
-    const std::vector<std::unique_ptr<TupleData>>* right_tuples,
-    const ValueExpr* where_expr, EvaluationContext* context,
-    std::vector<const TupleData*>* joined_tuple_datas) const {
-  joined_tuple_datas->clear();
+absl::Status DMLUpdateValueExpr::GetMatchedFromTupleData(
+    absl::Span<const TupleData* const> params, const TupleData* target_tuple,
+    const std::vector<std::unique_ptr<TupleData>>* from_tuples,
+    const ValueExpr* where_expr, EvaluationContext* context, bool* is_matched,
+    const TupleData** matched_from_tuple) const {
+  *is_matched = false;
+  *matched_from_tuple = nullptr;
 
-  if (right_tuples == nullptr) {
+  if (from_tuples == nullptr) {
     GOOGLESQL_ASSIGN_OR_RETURN(
         const Value where_value,
-        EvalExpr(*where_expr, ConcatSpans(params, {left_tuple}), context));
-    if (where_value == Bool(true)) {
-      *joined_tuple_datas = ConcatSpans(params, {left_tuple});
-    }
+        EvalExpr(*where_expr, ConcatSpans(params, {target_tuple}), context));
+    *is_matched = (where_value == Bool(true));
     return absl::OkStatus();
   }
 
-  for (const std::unique_ptr<TupleData>& right_tuple : *right_tuples) {
-    const std::vector<const TupleData*> candidate_joined_tuple_datas =
-        ConcatSpans(params, {left_tuple, right_tuple.get()});
+  for (const std::unique_ptr<TupleData>& from_tuple : *from_tuples) {
     GOOGLESQL_ASSIGN_OR_RETURN(
         const Value where_value,
-        EvalExpr(*where_expr, candidate_joined_tuple_datas, context));
+        EvalExpr(*where_expr,
+                 ConcatSpans(params, {target_tuple, from_tuple.get()}),
+                 context));
     if (where_value == Bool(true)) {
-      if (!joined_tuple_datas->empty()) {
+      if (*is_matched) {
         return googlesql_base::OutOfRangeErrorBuilder()
                << "UPDATE with join requires that each row of the table being "
                << "updated correspond with at most one joined row that matches "
                << "the WHERE clause";
       }
-
-      *joined_tuple_datas = candidate_joined_tuple_datas;
+      *is_matched = true;
+      *matched_from_tuple = from_tuple.get();
     }
   }
 

@@ -109,6 +109,7 @@ class SampleCatalogImpl {
       const std::vector<std::vector<Value>>& twokeys_data,
       const std::vector<std::vector<Value>>& sales_facts_data);
   absl::Status LoadMeasureTablesWithAdvancedExprs(
+      const LanguageOptions& language_options,
       AnalyzerOptions& analyzer_options,
       const std::vector<std::vector<Value>>& singlekey_data,
       const std::vector<std::vector<Value>>& complexexprs_data);

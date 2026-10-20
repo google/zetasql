@@ -971,3 +971,29 @@ ARRAY<STRUCT<PROTO<googlesql_test.RecursivePB>>>[
      }
    }}
 ]
+
+==
+# CAST from BYTES doesn't check required fields. A required field that the
+# paths keep stays missing if the input doesn't have it.
+[name=filter_fields_input_missing_required_fields]
+[required_features=FILTER_FIELDS]
+SELECT
+  FILTER_FIELDS(
+    CAST(b"" AS googlesql_test.KitchenSinkPB),
+    +int64_key_1,
+    +int64_key_2
+  )
+--
+ARRAY<STRUCT<PROTO<googlesql_test.KitchenSinkPB>>>[{{}}]
+
+==
+# The input has int32_val: 7 and string_val: "x", but no required fields.
+[name=filter_fields_exclusion_on_input_missing_required_fields]
+[required_features=FILTER_FIELDS]
+SELECT
+  FILTER_FIELDS(
+    CAST(b"\x18\x07\x3a\x01x" AS googlesql_test.KitchenSinkPB),
+    -string_val
+  )
+--
+ARRAY<STRUCT<PROTO<googlesql_test.KitchenSinkPB>>>[{{int32_val: 7}}]

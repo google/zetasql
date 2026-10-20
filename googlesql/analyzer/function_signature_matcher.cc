@@ -986,6 +986,15 @@ FunctionSignatureMatcher::CheckResolveLambdaTypeAndCollectTemplatedArguments(
               signature_match_result, nullptr));
       if (!result) return false;
     }
+
+    // Wrap the referenced function in a ResolvedFunctionArgument and record
+    // the argument override for this signature position.
+    std::unique_ptr<ResolvedFunctionRef> function_ref =
+        googlesql::MakeResolvedFunctionRef(proxy_function, sig);
+    std::unique_ptr<ResolvedFunctionArgument> arg =
+        googlesql::MakeResolvedFunctionArgument();
+    arg->set_function_ref(std::move(function_ref));
+    arg_overrides->push_back(FunctionArgumentOverride{arg_idx, std::move(arg)});
     return true;
   }
 

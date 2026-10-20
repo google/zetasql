@@ -221,7 +221,9 @@ class TypeFactory : public TypeFactoryBase {
 
   // Make a `TABLE [UNIQUE]<ROW<TableName>>` type for a join column.
   // The type has UNIQUE if `multi_row` is false.
-  // All bound column arguments must be non-empty.
+  // `bound_columns` and `bound_source_columns` must have the same size, and
+  // may be empty if the engine does not use REWRITE_ROW_TYPE to rewrite the
+  // TableRefType.
   absl::Status MakeTableType(const Table* table, const std::string& table_name,
                              bool multi_row,
                              std::vector<const Column*> bound_columns,
@@ -280,6 +282,16 @@ class TypeFactory : public TypeFactoryBase {
       const Type* key_type, const Type* value_type,
       const LanguageOptions& language_options);
 
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status MakeGraphElementType(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      absl::Span<const GraphElementType::PropertyType> property_types,
+      const GraphElementType** result) {
+    return MakeGraphElementType(graph_reference, element_kind, property_types,
+                                /*element_tables=*/{}, result);
+  }
+
   // Make a graph element type.
   // `graph_reference` is path to the graph to which this type belongs,
   //  can be used for looking up the property graph in the catalog;
@@ -290,6 +302,12 @@ class TypeFactory : public TypeFactoryBase {
   //  - duplicate property types are removed:
   //    e.g. {{"a", string}, {"a", string}} `property_types` produces the
   //    same type as {{"a", string}}.
+  // `element_tables` specifies the backing element table names:
+  //  - element table name is case-insensitive;
+  //  - duplicate element table names are removed, keeping the order of first
+  //    appearance;
+  //  - an empty list means that the type is not associated with any element
+  //    table.
   // If value_types of `property_types` are not created by this TypeFactory,
   // the TypeFactory that created the value_types must outlive this
   // TypeFactory.
@@ -297,7 +315,19 @@ class TypeFactory : public TypeFactoryBase {
       absl::Span<const std::string> graph_reference,
       GraphElementType::ElementKind element_kind,
       absl::Span<const GraphElementType::PropertyType> property_types,
+      absl::Span<const std::string> element_tables,
       const GraphElementType** result);
+
+  ABSL_DEPRECATED("Inline me!")
+  absl::Status MakeDynamicGraphElementType(
+      absl::Span<const std::string> graph_reference,
+      GraphElementType::ElementKind element_kind,
+      absl::Span<const GraphElementType::PropertyType> static_property_types,
+      const GraphElementType** result) {
+    return MakeDynamicGraphElementType(graph_reference, element_kind,
+                                       static_property_types,
+                                       /*element_tables=*/{}, result);
+  }
 
   // Make a dynamic graph element type.
   // `graph_reference` is a path to the graph to which this type belongs. It can
@@ -310,6 +340,12 @@ class TypeFactory : public TypeFactoryBase {
   //    e.g. {{"a", string}, {"a", string}} `static_property_types` produces the
   //    same type as {{"a", string}};
   //  - static property type shadows dynamic property type with the same name.
+  // `element_tables` specifies the backing element table names:
+  //  - element table name is case-insensitive;
+  //  - duplicate element table names are removed, keeping the order of first
+  //    appearance;
+  //  - an empty list means that the type is not associated with any element
+  //    table.
   // If value_types of `static_property_types` are not created by this
   // TypeFactory, the TypeFactory that created the value_types must outlive this
   // TypeFactory.
@@ -317,6 +353,7 @@ class TypeFactory : public TypeFactoryBase {
       absl::Span<const std::string> graph_reference,
       GraphElementType::ElementKind element_kind,
       absl::Span<const GraphElementType::PropertyType> static_property_types,
+      absl::Span<const std::string> element_tables,
       const GraphElementType** result);
 
   // Make a graph path type. <node_type> is the supertype of all nodes in the
@@ -501,7 +538,8 @@ class TypeFactory : public TypeFactoryBase {
       absl::Span<const std::string> graph_reference,
       GraphElementType::ElementKind element_kind,
       std::vector<GraphElementType::PropertyType> property_types,
-      bool is_dynamic, const GraphElementType** result);
+      std::vector<std::string> element_tables, bool is_dynamic,
+      const GraphElementType** result);
 
   // Add <type> into <owned_types_>.  Templated so it can return the
   // specific subclass of Type.

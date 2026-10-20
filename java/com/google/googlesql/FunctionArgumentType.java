@@ -499,6 +499,9 @@ public final class FunctionArgumentType implements Serializable {
     @Nullable
     public abstract FunctionEnums.ArgumentAliasKind getArgumentAliasKind();
 
+    @Nullable
+    public abstract Boolean getSupportsOrderBy();
+
     @SuppressWarnings("deprecation") // Sets deprecated field for serialization compat.
     public FunctionArgumentTypeOptionsProto serialize(
         @Nullable Type argType, FileDescriptorSetsBuilder fileDescriptorSetsBuilder) {
@@ -590,6 +593,9 @@ public final class FunctionArgumentType implements Serializable {
       if (getArgumentAliasKind() != null
           && getArgumentAliasKind() != FunctionEnums.ArgumentAliasKind.ARGUMENT_NON_ALIASED) {
         builder.setArgumentAliasKind(getArgumentAliasKind());
+      }
+      if (getSupportsOrderBy() != null) {
+        builder.setSupportsOrderBy(getSupportsOrderBy());
       }
       return builder.build();
     }
@@ -694,6 +700,9 @@ public final class FunctionArgumentType implements Serializable {
       }
       if (proto.hasArgumentAliasKind()) {
         builder.setArgumentAliasKind(proto.getArgumentAliasKind());
+      }
+      if (proto.hasSupportsOrderBy()) {
+        builder.setSupportsOrderBy(proto.getSupportsOrderBy());
       }
       return builder.build();
     }
@@ -863,6 +872,8 @@ public final class FunctionArgumentType implements Serializable {
 
       public abstract Builder setArgumentAliasKind(
           FunctionEnums.ArgumentAliasKind argumentAliasKind);
+
+      public abstract Builder setSupportsOrderBy(Boolean supportsOrderBy);
 
       abstract FunctionArgumentTypeOptions autoBuild();
 

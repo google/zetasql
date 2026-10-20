@@ -2360,6 +2360,16 @@ class AnalyzerTestRunner {
                    output_query_stmt->output_column_list(),
                    sqlbuilder_query_stmt->output_column_list());
       }
+      case RESOLVED_GENERALIZED_QUERY_STMT: {
+        const auto* output_query_stmt =
+            output_stmt->GetAs<ResolvedGeneralizedQueryStmt>();
+        const auto* sqlbuilder_query_stmt =
+            sqlbuilder_stmt->GetAs<ResolvedGeneralizedQueryStmt>();
+        return CompareNode(output_query_stmt->query(),
+                           sqlbuilder_query_stmt->query()) &&
+               CompareNode(output_query_stmt->output_schema(),
+                           sqlbuilder_query_stmt->output_schema());
+      }
       case RESOLVED_TERMINAL_QUERY_STMT: {
         const ResolvedTerminalQueryStmt* output_query_stmt =
             output_stmt->GetAs<ResolvedTerminalQueryStmt>();

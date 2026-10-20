@@ -3012,6 +3012,34 @@ public class ValueTest {
         IllegalArgumentException.class, () -> Value.deserialize(nonSimpleColListType, validProto));
   }
 
+  @Test
+  public void testVariantNullValue() {
+    Type variantType = TypeFactory.createSimpleType(TypeKind.TYPE_VARIANT);
+    Value nullVariant = Value.createNullValue(variantType);
+    assertThat(nullVariant.isNull()).isTrue();
+    assertThat(nullVariant.getType()).isEqualTo(variantType);
+    assertThat(nullVariant.getType().getKind()).isEqualTo(TypeKind.TYPE_VARIANT);
+    checkSerializeAndDeserialize(nullVariant);
+
+    Value simpleNullVariant = Value.createSimpleNullValue(TypeKind.TYPE_VARIANT);
+    assertThat(simpleNullVariant).isEqualTo(nullVariant);
+  }
+
+  @Test
+  public void testVariantNonNullUnsupported() {
+    Type variantType = TypeFactory.createSimpleType(TypeKind.TYPE_VARIANT);
+    ValueProto nonNullProto = ValueProto.newBuilder().setStringValue("unsupported").build();
+
+    UnsupportedOperationException e =
+        assertThrows(
+            UnsupportedOperationException.class,
+            () -> Value.deserialize(variantType, nonNullProto));
+
+    assertThat(e)
+        .hasMessageThat()
+        .contains("Non-null VARIANT values are not yet supported in Java");
+  }
+
   public static void checkSerializeAndDeserialize(Value v1, Value v2) {
     assertThat(v1).isEqualTo(v2);
     assertThat(v2.hashCode()).isEqualTo(v1.hashCode());
@@ -3296,7 +3324,7 @@ public class ValueTest {
             "The number of fields of ValueProto has changed, "
                 + "please also update the serialization code accordingly.")
         .that(ValueProto.getDescriptor().getFields())
-        .hasSize(30);
+        .hasSize(31);
     assertWithMessage(
             "The number of fields of ValueProto::Array has changed, "
                 + "please also update the serialization code accordingly.")

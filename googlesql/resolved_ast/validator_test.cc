@@ -44,6 +44,7 @@
 #include "googlesql/public/type_parameters.pb.h"
 #include "googlesql/public/types/collation.h"
 #include "googlesql/public/types/graph_element_type.h"
+#include "googlesql/public/types/proto_type.h"
 #include "googlesql/public/types/type.h"
 #include "googlesql/public/types/type_factory.h"
 #include "googlesql/public/types/type_modifiers.h"
@@ -60,12 +61,14 @@
 #include "gtest/gtest.h"
 #include "absl/base/no_destructor.h"
 #include "absl/container/flat_hash_set.h"
+#include "googlesql/base/check.h"
 #include "absl/status/status.h"
 #include "googlesql/base/status_macros.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "google/protobuf/descriptor.h"
 
 namespace googlesql {
 namespace testing {
@@ -6227,6 +6230,10 @@ class ValidatorGraphTest : public ::testing::Test {
                                            pool_.Make("x"), graph_node_type_);
     updated_element_col2_ = ResolvedColumn(11, pool_.Make("graph_table"),
                                            pool_.Make("y"), graph_node_type_);
+    id_col_ = ResolvedColumn(20, pool_.Make("tbl"), pool_.Make("id"),
+                             factory_.get_int64());
+    from_col_ = ResolvedColumn(21, pool_.Make("tbl"), pool_.Make("from_id"),
+                               factory_.get_int64());
   }
 
   std::unique_ptr<const ResolvedGraphLabel> MakeDynamicLabel(
@@ -6294,6 +6301,8 @@ class ValidatorGraphTest : public ::testing::Test {
   ResolvedColumn element_col2_;
   ResolvedColumn updated_element_col1_;
   ResolvedColumn updated_element_col2_;
+  ResolvedColumn id_col_;
+  ResolvedColumn from_col_;
 };
 
 TEST_F(ValidatorGraphTest, ValidGraphInsertScan) {
@@ -6477,7 +6486,7 @@ TEST_F(ValidatorGraphTest, ValidFinishScanWithoutSideEffects) {
   GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
 }
 
-TEST_F(ValidatorGraphTest, ValidFinishScanWithSideEffects) {
+TEST_F(ValidatorGraphTest, ValidFinishScanWithGraphInsertSideEffects) {
   ResolvedColumn node_col(/*column_id=*/1, pool_.Make("inserted"),
                           pool_.Make("node"), graph_node_type_);
 
@@ -6512,6 +6521,33 @@ TEST_F(ValidatorGraphTest, ValidFinishScanWithSideEffects) {
 
   auto query_stmt = MakeResolvedGeneralizedQueryStmt(
       /*output_schema=*/nullptr, std::move(finish_scan));
+
+  GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
+}
+
+TEST_F(ValidatorGraphTest, ValidFinishScanWithGraphDeleteSideEffects) {
+  // graph_delete_scan is a valid `ResolvedGraphDeleteScan`.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(updated_element_col1_)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col1_.type(),
+                  /*column=*/element_col1_,
+                  /*is_correlated=*/false)))
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFinishScan> finish_scan,
+                       ResolvedFinishScanBuilder()
+                           .set_input_scan(std::move(graph_delete_scan))
+                           .Build());
+
+  std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt =
+      MakeResolvedGeneralizedQueryStmt(
+          /*output_schema=*/nullptr, std::move(finish_scan));
 
   GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
 }
@@ -7269,6 +7305,59 @@ TEST(ValidatorTest, ValidInsertScanWithReturning) {
   GOOGLESQL_EXPECT_OK(validator.ValidateResolvedStatement(query_stmt.get()));
 }
 
+TEST(ValidatorTest, ValidUpdateStmtReturningAccessFromScanColumns) {
+  IdStringPool pool;
+  TypeFactory type_factory;
+  Validator validator;
+
+  ResolvedColumn target_col(1, pool.Make("t2"), pool.Make("c1"),
+                            type_factory.get_int64());
+  ResolvedColumn from_col(2, pool.Make("from_tbl"), pool.Make("c2"),
+                          type_factory.get_int64());
+
+  const SimpleTable t2{"t2", {{"c1", type_factory.get_int64()}}};
+  const SimpleTable from_tbl{"from_tbl", {{"c2", type_factory.get_int64()}}};
+
+  auto update_item = MakeResolvedUpdateItem(
+      MakeResolvedColumnRef(target_col.type(), target_col,
+                            /*is_correlated=*/false),
+      MakeResolvedDMLValue(MakeResolvedLiteral(Value::Int64(42))), nullptr, {},
+      {}, {}, {});
+  std::vector<std::unique_ptr<const ResolvedUpdateItem>> update_item_list;
+  update_item_list.push_back(std::move(update_item));
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>>
+      returning_output_cols;
+  returning_output_cols.push_back(MakeResolvedOutputColumn("c1", target_col));
+  returning_output_cols.push_back(MakeResolvedOutputColumn("c2", from_col));
+
+  auto returning_clause = MakeResolvedReturningClause(
+      std::move(returning_output_cols), nullptr, {});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .add_column_list(target_col)
+                                            .add_column_index_list(0)
+                                            .set_table(&t2)
+                                            .Build());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto from_scan, ResolvedTableScanBuilder()
+                                           .add_column_list(from_col)
+                                           .set_table(&from_tbl)
+                                           .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto update_stmt,
+      ResolvedUpdateStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_from_scan(std::move(from_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_update_item_list(std::move(update_item_list))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::WRITE)
+          .Build());
+
+  GOOGLESQL_EXPECT_OK(validator.ValidateResolvedStatement(update_stmt.get()));
+}
+
 TEST(ValidatorTest, ValidInsertScanInputWithoutReturning) {
   IdStringPool pool;
   TypeFactory type_factory;
@@ -7890,6 +7979,273 @@ TEST_F(ValidatorGraphTest, ValidUpdateScanMissingReturning) {
       MakeResolvedOutputSchema(std::move(query_output_columns),
                                /*is_value_table=*/false),
       std::move(update_scan));
+  GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
+}
+
+TEST_F(ValidatorGraphTest, ValidDeleteScan) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto input_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(from_col_)
+                                            .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .add_column_index_list(1)
+                                            .Build());
+
+  auto returning_output_col = MakeResolvedOutputColumn("id", id_col_);
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>>
+      returning_output_cols;
+  returning_output_cols.push_back(std::move(returning_output_col));
+  auto returning_clause = MakeResolvedReturningClause(
+      std::move(returning_output_cols), /*action_column=*/nullptr,
+      /*expr_list=*/{});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_using_scan(std::move(input_scan))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(id_col_)
+                           .add_column_list(from_col_)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt = MakeResolvedGeneralizedQueryStmt(
+      MakeResolvedOutputSchema(std::move(query_output_columns),
+                               /*is_value_table=*/false),
+      std::move(delete_scan));
+
+  GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
+}
+
+TEST_F(ValidatorGraphTest, InvalidDeleteScanOutsideGeneralizedQueryStmt) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto input_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(from_col_)
+                                            .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .add_column_index_list(1)
+                                            .Build());
+
+  auto returning_clause = MakeResolvedReturningClause(
+      /*output_column_list=*/{}, /*action_column=*/nullptr, /*expr_list=*/{});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_using_scan(std::move(input_scan))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(from_col_)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt =
+      MakeResolvedQueryStmt(std::move(query_output_columns),
+                            /*is_value_table=*/false, std::move(delete_scan));
+
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr("in_generalized_query_stmt_")));
+}
+
+TEST_F(ValidatorGraphTest,
+       InvalidDeleteScanColumnNotVisibleInInputOrReturning) {
+  ResolvedColumn wrong_col(3, pool_.Make("tbl"), pool_.Make("wrong"),
+                           factory_.get_int64());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto input_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(from_col_)
+                                            .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .add_column_index_list(1)
+                                            .Build());
+
+  auto returning_output_col = MakeResolvedOutputColumn("id", id_col_);
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>>
+      returning_output_cols;
+  returning_output_cols.push_back(std::move(returning_output_col));
+  auto returning_clause = MakeResolvedReturningClause(
+      std::move(returning_output_cols), /*action_column=*/nullptr,
+      /*expr_list=*/{});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_using_scan(std::move(input_scan))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(wrong_col)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt = MakeResolvedGeneralizedQueryStmt(
+      MakeResolvedOutputSchema(std::move(query_output_columns),
+                               /*is_value_table=*/false),
+      std::move(delete_scan));
+
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr("not visible in scan node")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidDeleteScanMissingTableScan) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto input_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .Build());
+
+  auto returning_clause = MakeResolvedReturningClause(
+      /*output_column_list=*/{}, /*action_column=*/nullptr, /*expr_list=*/{});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_using_scan(std::move(input_scan))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(id_col_)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt = MakeResolvedGeneralizedQueryStmt(
+      MakeResolvedOutputSchema(std::move(query_output_columns),
+                               /*is_value_table=*/false),
+      std::move(delete_scan));
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(absl::StatusCode::kInternal,
+                                          ::testing::HasSubstr("table_scan")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidDeleteScanMissingUsingScan) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .add_column_index_list(1)
+                                            .Build());
+
+  auto returning_clause = MakeResolvedReturningClause(
+      /*output_column_list=*/{}, /*action_column=*/nullptr, /*expr_list=*/{});
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_returning(std::move(returning_clause))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(id_col_)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt = MakeResolvedGeneralizedQueryStmt(
+      MakeResolvedOutputSchema(std::move(query_output_columns),
+                               /*is_value_table=*/false),
+      std::move(delete_scan));
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(absl::StatusCode::kInternal,
+                                          ::testing::HasSubstr("using_scan")));
+}
+
+TEST_F(ValidatorGraphTest, ValidDeleteScanMissingReturning) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto table_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(id_col_)
+                                            .add_column_index_list(1)
+                                            .Build());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto input_scan, ResolvedTableScanBuilder()
+                                            .set_table(&table_)
+                                            .add_column_list(from_col_)
+                                            .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto delete_stmt,
+      ResolvedDeleteStmtBuilder()
+          .set_table_scan(std::move(table_scan))
+          .set_where_expr(MakeResolvedLiteral(Value::Bool(true)))
+          .set_using_scan(std::move(input_scan))
+          .add_column_access_list(ResolvedStatementEnums::READ)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto delete_scan,
+                       ResolvedDeleteScanBuilder()
+                           .set_delete_stmt(std::move(delete_stmt))
+                           .add_column_list(from_col_)
+                           .Build());
+
+  std::vector<std::unique_ptr<const ResolvedOutputColumn>> query_output_columns;
+  for (const auto& col : delete_scan->column_list()) {
+    query_output_columns.push_back(
+        MakeResolvedOutputColumn(col.name_id().ToString(), col));
+  }
+  auto query_stmt = MakeResolvedGeneralizedQueryStmt(
+      MakeResolvedOutputSchema(std::move(query_output_columns),
+                               /*is_value_table=*/false),
+      std::move(delete_scan));
   GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
 }
 
@@ -9072,6 +9428,299 @@ TEST_F(ValidatorGraphTest, InvalidGraphUpdateScanOutputColumnTypeMismatch) {
                                "type")));
 }
 
+TEST_F(ValidatorGraphTest, ValidGraphDeleteScan) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(updated_element_col1_)
+          .add_column_list(updated_element_col2_)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col1_.type(),
+                  /*column=*/element_col1_,
+                  /*is_correlated=*/false)))
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col2_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col2_.type(),
+                  /*column=*/element_col2_,
+                  /*is_correlated=*/false)))
+          // Note that any value of `is_detach_mode` has no effect on whether a
+          // `ResolvedGraphDeleteScan` is valid or not.
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(MakeResolvedOutputSchema(
+              /*output_column_list=*/
+              MakeNodeVector(MakeResolvedOutputColumn(
+                                 /*name=*/"updated_element_col1",
+                                 /*column=*/updated_element_col1_),
+                             MakeResolvedOutputColumn(
+                                 /*name=*/"updated_element_col2",
+                                 /*column=*/updated_element_col2_)),
+              /*is_value_table=*/false))
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  GOOGLESQL_EXPECT_OK(validator_.ValidateResolvedStatement(query_stmt.get()));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanNoInputScan) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .set_input_scan(nullptr)
+          .set_is_detach_mode(false)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(nullptr)
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because deletion can only occur with non-null input scans where at
+  // least one column was matched.
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr("Input scan must not be null")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanEmptyDeleteItemsList) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .set_input_scan(MakeResolvedSingleRowScan())
+          .set_is_detach_mode(false)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(nullptr)
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because ResolvedGraphDeleteScanBuilder doesn't explicitly set/add
+  // delete_item_list, so it is empty.
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr(
+                      "At least one graph element must be specified for "
+                      "deletion")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanDeleteItemType) {
+  // We only allow deleting graph element types (`graph_edge_type_` or
+  // `graph_node_type_`)
+  ResolvedColumn invalid_type_col(/*column_id=*/3,
+                                  /*table_name=*/pool_.Make("invalid_type"),
+                                  /*name=*/pool_.Make("node1"),
+                                  /*type=*/factory_.get_int64());
+  ResolvedColumn updated_invalid_type_col(
+      /*column_id=*/12,
+      /*table_name=*/pool_.Make("invalid_type"),
+      /*name=*/pool_.Make("node1"),
+      /*type=*/factory_.get_int64());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .set_input_scan(MakeResolvedTableScan(
+              /*column_list=*/{element_col1_, invalid_type_col},
+              /*table=*/graph_table_.get(),
+              /*for_system_time_expr=*/nullptr))
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              updated_invalid_type_col, MakeResolvedColumnRef(
+                                            /*type=*/factory_.get_int64(),
+                                            /*column=*/invalid_type_col,
+                                            /*is_correlated=*/false)))
+          // Note `element_col1_` is a valid `graph_node_type_`
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col1_.type(),
+                  /*column=*/element_col1_,
+                  /*is_correlated=*/false)))
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(nullptr)
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because at least one of the items being deleted is not a graph
+  // element.
+  EXPECT_THAT(
+      validator_.ValidateResolvedStatement(query_stmt.get()),
+      ::absl_testing::StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::HasSubstr("An item being deleted must be a graph element, "
+                               "but found invalid type INT64")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanUnknownGraphElementVariable) {
+  ResolvedColumn unknown_col(/*column_id=*/3,
+                             /*table_name=*/pool_.Make("unknown"),
+                             /*name=*/pool_.Make("node"), graph_node_type_);
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(element_col1_)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_,
+              /*expr=*/
+              MakeResolvedColumnRef(
+                  /*type=*/unknown_col.type(),
+                  /*column=*/unknown_col,
+                  /*is_correlated=*/false)))
+          .set_is_detach_mode(false)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(nullptr)
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Even though `unknown_col` is a valid graph element type, it does not refer
+  // to an existing column in the input scan, so referencing it for deletion
+  // fails.
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr(
+                      "Incorrect reference to column unknown.node#3")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanUnknownOutputColumn) {
+  ResolvedColumn unknown_output_col(/*column_id=*/3,
+                                    /*table_name=*/pool_.Make("unknown"),
+                                    /*name=*/pool_.Make("node"),
+                                    graph_node_type_);
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(updated_element_col1_)
+          .add_column_list(unknown_output_col)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col1_.type(),
+                  /*column=*/element_col1_,
+                  /*is_correlated=*/false)))
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(MakeResolvedOutputSchema(
+              MakeNodeVector(
+                  MakeResolvedOutputColumn(/*name=*/"updated_element_col1",
+                                           /*column=*/updated_element_col1_),
+                  MakeResolvedOutputColumn(/*name=*/"unknown_output_col",
+                                           /*column=*/unknown_output_col)),
+              /*is_value_table=*/false))
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because the output column list contains an unknown column that isn't
+  // a new computed column for a deleted item nor a non-deleted column from the
+  // input scan that we are passing through.
+  EXPECT_THAT(
+      validator_.ValidateResolvedStatement(query_stmt.get()),
+      ::absl_testing::StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::HasSubstr(
+              "Column list contains column unknown.node#3 not visible in "
+              "scan node")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanPreDeleteOutputColumn) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(element_col1_)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_, /*expr=*/MakeResolvedColumnRef(
+                  /*type=*/element_col1_.type(),
+                  /*column=*/element_col1_,
+                  /*is_correlated=*/false)))
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(
+              MakeResolvedOutputSchema(MakeNodeVector(MakeResolvedOutputColumn(
+                                           /*name=*/"element_col1",
+                                           /*column=*/element_col1_)),
+                                       /*is_value_table=*/false))
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because `element_col1_` is referenced for deletion in
+  // `delete_item_list`, so the pre-delete column is no longer visible in the
+  // output `column_list` of `ResolvedGraphDeleteScan`.
+  EXPECT_THAT(
+      validator_.ValidateResolvedStatement(query_stmt.get()),
+      ::absl_testing::StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::HasSubstr(
+              "Column list contains column graph_table.x#1 not visible in "
+              "scan node")));
+}
+
+TEST_F(ValidatorGraphTest, InvalidGraphDeleteScanComputedColExprIsNotColRef) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGraphDeleteScan> graph_delete_scan,
+      ResolvedGraphDeleteScanBuilder()
+          .add_column_list(updated_element_col1_)
+          .set_input_scan(MakeInputScan())
+          .add_delete_item_list(MakeResolvedComputedColumn(
+              /*column=*/updated_element_col1_,
+              /*expr=*/MakeResolvedLiteral(Value::Null(
+                  /*type=*/graph_node_type_))))
+          // Note that any value of `is_detach_mode` has no effect on whether a
+          // `ResolvedGraphDeleteScan` is valid or not.
+          .set_is_detach_mode(true)
+          .Build());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<const ResolvedGeneralizedQueryStmt> query_stmt,
+      ResolvedGeneralizedQueryStmtBuilder()
+          .set_output_schema(MakeResolvedOutputSchema(
+              /*output_column_list=*/
+              MakeNodeVector(MakeResolvedOutputColumn(
+                  /*name=*/"updated_element_col1",
+                  /*column=*/updated_element_col1_)),
+              /*is_value_table=*/false))
+          .set_query(std::move(graph_delete_scan))
+          .Build());
+
+  // Error because even though we pass the check for
+  // `delete_item->column().type()` == `delete_item->expr()->type()` with both
+  // sides being `graph_node_type_`, the expression is a `ResolvedLiteral`
+  // instead of a `ResolvedColumnRef`.
+  EXPECT_THAT(validator_.ValidateResolvedStatement(query_stmt.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr(
+                      "Delete item `expr` must be a column reference")));
+}
+
 TEST(ValidateTest, CreateTableFunctionStmtWithConnectionAndFeatureEnabled) {
   SimpleConnection connection("connection_id");
   std::unique_ptr<ResolvedCreateTableFunctionStmt> stmt =
@@ -9394,7 +10043,7 @@ TEST(ValidatorTest, ValidVectorTypeParametersInCastExpr) {
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* vector_type, MakeVectorType(&type_factory));
 
   VectorTypeParametersProto proto;
-  proto.set_length(10);
+  proto.set_dims(10);
   proto.set_encoding(googlesql::VectorEncodingId::FLOAT32);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
@@ -9439,7 +10088,7 @@ TEST(ValidatorTest, InvalidVectorTypeParameters) {
   Validator validator(language_options);
 
   VectorTypeParametersProto proto;
-  proto.set_length(10);
+  proto.set_dims(10);
   proto.set_encoding(googlesql::VectorEncodingId::UNKNOWN_VECTOR_ENCODING);
   EXPECT_THAT(
       TypeParameters::MakeVectorTypeParameters(proto),
@@ -9739,6 +10388,13 @@ TEST(ValidatorTest, ValidEmptyColumnListSpec) {
       types::ColumnListSpecType(),
       MakeResolvedLiteral(values::EmptyArray(types::StringArrayType())));
   GOOGLESQL_EXPECT_OK(validator.ValidateStandaloneResolvedExpr(expr.get()));
+
+  std::unique_ptr<ResolvedExpr> int64_empty_array_expr =
+      MakeResolvedMakeColumnListSpec(
+          types::ColumnListSpecType(),
+          MakeResolvedLiteral(values::EmptyArray(types::Int64ArrayType())));
+  GOOGLESQL_EXPECT_OK(
+      validator.ValidateStandaloneResolvedExpr(int64_empty_array_expr.get()));
 }
 
 TEST(ValidatorTest, InvalidColumnListSpecFeatureDisabled) {
@@ -9858,6 +10514,144 @@ TEST(ValidatorTest, InvalidColumnListSpecEmptyStringElement) {
               ::absl_testing::StatusIs(
                   absl::StatusCode::kInternal,
                   ::testing::HasSubstr("!element.string_value().empty()")));
+}
+
+namespace {
+
+enum class UpdateItemColumnShape {
+  // The item column is referenced by its own item's `expr`.
+  kValid,
+  // The item column is referenced by a sibling item's `expr`.
+  kReferencedBySiblingItem,
+  // The item column is referenced by the UPDATE constructor's `expr`.
+  kReferencedByConstructorExpr,
+  // The item column reuses the column id of `update_element_column`.
+  kDuplicateColumnId,
+  // The item column has a type that doesn't match the updated field.
+  kWrongType,
+};
+
+// Returns a hand-constructed ResolvedUpdateConstructor representing
+//   UPDATE (<input>) { precision: precision, scale: 5 }
+// on NumericTypeParametersProto, where the `precision` item introduces
+// `update_item_column`. `shape` controls where the column is referenced.
+std::unique_ptr<const ResolvedUpdateConstructor> MakeUpdateConstructor(
+    TypeFactory& type_factory, IdStringPool& pool,
+    UpdateItemColumnShape shape) {
+  const google::protobuf::Descriptor* descriptor =
+      NumericTypeParametersProto::descriptor();
+  const ProtoType* proto_type = nullptr;
+  GOOGLESQL_CHECK_OK(type_factory.MakeProtoType(descriptor, &proto_type));
+  const google::protobuf::FieldDescriptor* precision =
+      descriptor->FindFieldByName("precision");
+  const google::protobuf::FieldDescriptor* scale = descriptor->FindFieldByName("scale");
+
+  const ResolvedColumn element_column(1, pool.Make("$update_constructor"),
+                                      pool.Make("update_element_column"),
+                                      proto_type);
+  // `precision` is an INT64 field.
+  const Type* item_column_type = shape == UpdateItemColumnShape::kWrongType
+                                     ? types::StringType()
+                                     : types::Int64Type();
+  const ResolvedColumn item_column(
+      shape == UpdateItemColumnShape::kDuplicateColumnId ? 1 : 2,
+      pool.Make("$update_constructor"), pool.Make("update_item_column"),
+      item_column_type);
+
+  // For kReferencedByConstructorExpr the input is
+  //   REPLACE_FIELDS(<null proto>, <item_column> AS precision)
+  // so that the UPDATE constructor's own `expr` references the item column.
+  std::unique_ptr<const ResolvedExpr> input =
+      MakeResolvedLiteral(Value::Null(proto_type));
+  if (shape == UpdateItemColumnShape::kReferencedByConstructorExpr) {
+    input = MakeResolvedReplaceField(
+        proto_type, std::move(input),
+        MakeNodeVector(MakeResolvedReplaceFieldItem(
+            MakeResolvedColumnRef(types::Int64Type(), item_column,
+                                  /*is_correlated=*/false),
+            /*struct_index_path=*/{}, {precision})));
+  }
+
+  std::vector<std::unique_ptr<const ResolvedUpdateFieldItem>> items;
+  items.push_back(MakeResolvedUpdateFieldItem(
+      MakeResolvedColumnRef(item_column_type, item_column,
+                            /*is_correlated=*/false),
+      {precision}, ResolvedUpdateFieldItem::UPDATE_SINGLE,
+      MakeResolvedColumnHolder(item_column)));
+  items.push_back(MakeResolvedUpdateFieldItem(
+      shape == UpdateItemColumnShape::kReferencedBySiblingItem
+          ? std::unique_ptr<const ResolvedExpr>(MakeResolvedColumnRef(
+                types::Int64Type(), item_column, /*is_correlated=*/false))
+          : MakeResolvedLiteral(Value::Int64(5)),
+      {scale}, ResolvedUpdateFieldItem::UPDATE_SINGLE,
+      /*update_item_column=*/nullptr));
+
+  return MakeResolvedUpdateConstructor(proto_type, std::move(input),
+                                       /*alias=*/"", std::move(items),
+                                       element_column);
+}
+
+}  // namespace
+
+TEST(ValidatorTest, UpdateConstructorItemColumnVisibleToOwnItem) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedUpdateConstructor> expr =
+      MakeUpdateConstructor(type_factory, pool, UpdateItemColumnShape::kValid);
+  Validator validator;
+  GOOGLESQL_EXPECT_OK(validator.ValidateStandaloneResolvedExpr(expr.get()));
+}
+
+TEST(ValidatorTest, UpdateConstructorItemColumnNotVisibleToSiblingItem) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedUpdateConstructor> expr = MakeUpdateConstructor(
+      type_factory, pool, UpdateItemColumnShape::kReferencedBySiblingItem);
+  Validator validator;
+  EXPECT_THAT(
+      validator.ValidateStandaloneResolvedExpr(expr.get()),
+      ::absl_testing::StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::HasSubstr("Incorrect reference to column "
+                               "$update_constructor.update_item_column#2")));
+}
+
+TEST(ValidatorTest, UpdateConstructorItemColumnNotVisibleToConstructorExpr) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedUpdateConstructor> expr = MakeUpdateConstructor(
+      type_factory, pool, UpdateItemColumnShape::kReferencedByConstructorExpr);
+  Validator validator;
+  EXPECT_THAT(
+      validator.ValidateStandaloneResolvedExpr(expr.get()),
+      ::absl_testing::StatusIs(
+          absl::StatusCode::kInternal,
+          ::testing::HasSubstr("Incorrect reference to column "
+                               "$update_constructor.update_item_column#2")));
+}
+
+TEST(ValidatorTest, UpdateConstructorItemColumnMustHaveUniqueColumnId) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedUpdateConstructor> expr = MakeUpdateConstructor(
+      type_factory, pool, UpdateItemColumnShape::kDuplicateColumnId);
+  Validator validator;
+  EXPECT_THAT(validator.ValidateStandaloneResolvedExpr(expr.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr("Duplicate column id 1")));
+}
+
+TEST(ValidatorTest, UpdateConstructorItemColumnMustMatchFieldType) {
+  TypeFactory type_factory;
+  IdStringPool pool;
+  std::unique_ptr<const ResolvedUpdateConstructor> expr = MakeUpdateConstructor(
+      type_factory, pool, UpdateItemColumnShape::kWrongType);
+  Validator validator;
+  EXPECT_THAT(validator.ValidateStandaloneResolvedExpr(expr.get()),
+              ::absl_testing::StatusIs(
+                  absl::StatusCode::kInternal,
+                  ::testing::HasSubstr("update_item_column has type STRING")));
 }
 
 }  // namespace googlesql

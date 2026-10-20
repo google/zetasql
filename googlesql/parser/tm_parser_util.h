@@ -81,6 +81,7 @@ namespace parser {
 // interrupting those tests.
 inline constexpr absl::string_view kQualify = "QUALIFY";
 inline constexpr absl::string_view kGraphTable = "GRAPH_TABLE";
+inline constexpr absl::string_view kAlign = "ALIGN";
 
 namespace internal {
 Token GetNextToken(TokenStream&, absl::string_view*, ParseLocationRange*);

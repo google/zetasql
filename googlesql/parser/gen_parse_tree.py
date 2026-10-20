@@ -6525,7 +6525,7 @@ def main(argv):
       parent='ASTQueryExpression',
       comment="""
      This represents a clause of form "TABLE <target>", where <target> is either
-     a path expression representing a table name, or <target> is a TVF call.
+     a path expression representing a table name, a TVF call, or a query.
      It is currently only supported for relation arguments to table-valued
      functions.
       """,
@@ -6535,10 +6535,13 @@ def main(argv):
               'ASTPathExpression',
               tag_id=2,
               private_comment="""
-              Exactly one of these will be non-null.
+              Exactly one of table_path, tvf, or table_subquery will be non-null.
               """,
           ),
           Field('tvf', 'ASTTVF', tag_id=3),
+          Field('table_subquery', 'ASTQuery', tag_id=6),
+          Field('partition_by', 'ASTPartitionBy', tag_id=4),
+          Field('order_by', 'ASTOrderBy', tag_id=5),
       ],
   )
 

@@ -48,6 +48,12 @@ class ColumnRefVisitor : public ResolvedASTVisitor {
 
   absl::Status VisitResolvedWithExpr(const ResolvedWithExpr* node) override;
 
+  absl::Status VisitResolvedUpdateConstructor(
+      const ResolvedUpdateConstructor* node) override;
+
+  absl::Status VisitResolvedUpdateFieldItem(
+      const ResolvedUpdateFieldItem* node) override;
+
   absl::Status VisitResolvedArrayAggregate(
       const ResolvedArrayAggregate* node) override;
 

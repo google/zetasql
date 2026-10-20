@@ -1,8 +1,8 @@
 ## GoogleSQL - Analyzer Framework for SQL
 
-> GoogleSQL was previously named ZetaSQL. Please refer to [this
-> doc](zetasql_to_googlesql_migration.md) for a guide that helps you to
-> migrate.
+> **Update:** GoogleSQL has increased its release cadence from quarterly to
+> twice a month (on the 1st and 3rd Tuesday of each month, excluding US
+> holidays).
 
 GoogleSQL defines a SQL language (grammar, types, data model, semantics, and
 function library) and implements parsing and analysis for that language as a
@@ -41,6 +41,8 @@ Some other documentation:
         and [research paper](https://research.google/pubs/pub1005959/).
     *   See some [example scripts](googlesql/examples/pipe_queries) and [TPC-H
         queries](googlesql/examples/tpch).
+*   [ZetaSQL to GoogleSQL Migration Guide](zetasql_to_googlesql_migration.md)
+    (GoogleSQL was previously named ZetaSQL).
 
 ## Project Overview
 
@@ -241,6 +243,10 @@ Differential Privacy, please check out
 (https://github.com/google/differential-privacy).
 
 ## Versions
+
+New releases of GoogleSQL are published twice a month, typically on the 1st and
+3rd Tuesday of each month (excluding US holidays), on the
+[Releases](https://github.com/google/googlesql/releases) page and Maven Central.
 
 GoogleSQL makes no guarantees regarding compatibility between releases. Breaking
 changes may be made at any time. Our releases are numbered based on the date of

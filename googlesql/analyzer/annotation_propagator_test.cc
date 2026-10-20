@@ -47,7 +47,6 @@
 namespace googlesql {
 
 using testing::BuildResolvedLiteralsWithCollationForTest;
-using testing::ConcatStringForTest;
 using testing::GetBuiltinFunctionFromCatalogForTest;
 
 static AnalyzerOptions MakeAnalyzerOptions() {
@@ -165,46 +164,6 @@ FunctionCall(GoogleSQL:$make_array(repeated(3) STRING) -> ARRAY<STRING>)
 )"));
 }
 
-TEST_F(CollationAnnotationPropagatorTest,
-       TestNoOpCollationAnnotationPropagationForConcatString) {
-  AnnotationPropagator annotation_propagator(analyzer_options_, type_factory_);
-
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
-                       BuildResolvedLiteralsWithCollationForTest(
-                           {{"foo", "und:ci"}, {"bar", ""}}, analyzer_options_,
-                           *catalog_, type_factory_));
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<const ResolvedExpr> concat_fn,
-      ConcatStringForTest(args[0]->type(), args, analyzer_options_, *catalog_,
-                          type_factory_));
-
-  EXPECT_EQ(concat_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
-FunctionCall(GoogleSQL:concat(STRING, repeated STRING) -> STRING)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-| +-type_annotation_map={Collation:"und:ci"}
-| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
-| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
-  +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
-)"));
-
-  GOOGLESQL_CHECK_OK(annotation_propagator.CheckAndPropagateAnnotations(
-      /*error_node=*/nullptr, const_cast<ResolvedExpr*>(concat_fn.get())));
-
-  // CheckAndPropagateAnnotations is a no-op.
-  EXPECT_EQ(concat_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
-FunctionCall(GoogleSQL:concat(STRING, repeated STRING) -> STRING)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-| +-type_annotation_map={Collation:"und:ci"}
-| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
-| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
-  +-Literal(type=STRING, value="", preserve_in_literal_remover=TRUE)
-)"));
-}
-
 // TODO: Add collation annotation propagation test cases for all
 // remaining functions that uses collation operation -
 // array_min, array_max, array_offset, array_offsets, array_find,
@@ -246,13 +205,15 @@ TEST_F(IsVersionedAnnotationPropagatorTest,
   ASSERT_TRUE(column.type_annotation_map() != nullptr &&
               column.type_annotation_map()->Has<IsVersionedAnnotation>());
 
-  auto column_ref = MakeResolvedColumnRef(type_factory_.get_string(), column,
-                                          /*is_correlated=*/false);
+  auto column_ref = MakeResolvedColumnRef(column, /*is_correlated=*/false);
+  EXPECT_EQ(column_ref->type_annotation_map(), owned_map);
 
+  auto cast =
+      MakeResolvedCast(type_factory_.get_string(), std::move(column_ref),
+                       /*return_null_on_error=*/false);
   GOOGLESQL_ASSERT_OK(propagator.CheckAndPropagateAnnotations(/*error_node=*/nullptr,
-                                                    column_ref.get()));
-
-  EXPECT_EQ(column_ref->type_annotation_map(), nullptr);
+                                                    cast.get()));
+  EXPECT_EQ(cast->type_annotation_map(), nullptr);
 }
 
 }  // namespace googlesql

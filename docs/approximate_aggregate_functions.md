@@ -8,18 +8,19 @@ GoogleSQL supports approximate aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
-Approximate aggregate functions are scalable in terms of memory usage and time,
-but produce approximate results instead of exact results. These functions
-typically require less memory than [exact aggregation functions][aggregate-functions-reference]
+Approximate aggregate functions are scalable in terms of time and resource
+usage, but produce approximate results instead of exact results. These functions
+typically use fewer resources than [exact aggregation functions][aggregate-functions-reference]
 like `COUNT(DISTINCT ...)`, but also introduce statistical uncertainty.
 This makes approximate aggregation appropriate for large data streams for
-which linear memory usage is impractical, as well as for data that is
+which linear memory usage is impractical, as well as for data that's
 already approximate.
 
-The approximate aggregate functions in this section work directly on the
-input data, rather than an intermediate estimation of the data. These functions
-_don't allow_ users to specify the precision for the estimation with
-sketches.
+The approximate aggregate functions in this section compute an estimate
+directly from the input data. These functions don't return a
+[_sketch_][sketches], which is a compact
+summary of the data that you can store and merge later, and they don't let you
+specify the precision of the estimate.
 
 To specify precision with sketches,
 use [HyperLogLog++ functions][hll-functions] to estimate cardinality.
@@ -398,6 +399,8 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 ```
 
 [hll-functions]: https://github.com/google/googlesql/blob/master/docs/hll_functions.md
+
+[sketches]: https://github.com/google/googlesql/blob/master/docs/sketches.md
 
 [aggregate-functions-reference]: https://github.com/google/googlesql/blob/master/docs/aggregate_functions.md
 

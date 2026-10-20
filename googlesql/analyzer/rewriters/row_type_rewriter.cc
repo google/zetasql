@@ -541,6 +541,8 @@ class State {
       const Table* table = table_type->table();
       // So far, we only support joins to tables with DEFAULT ColumnListMode.
       GOOGLESQL_RET_CHECK(table->GetColumnListMode() == Table::ColumnListMode::DEFAULT);
+      GOOGLESQL_RET_CHECK(!table_type->bound_columns().empty());
+      GOOGLESQL_RET_CHECK(!table_type->bound_source_columns().empty());
 
       std::vector<StructType::StructField> struct_fields;
       for (const Column* column : table_type->bound_columns()) {

@@ -63,16 +63,6 @@ absl::Status CopyAnnotationRecursively(int id,
 
 }  // namespace
 
-absl::Status SampleAnnotation::CheckAndPropagateForColumnRef(
-    const ResolvedColumnRef& column_ref, AnnotationMap* result_annotation_map) {
-  if (column_ref.column().type_annotation_map() != nullptr) {
-    GOOGLESQL_RETURN_IF_ERROR(CopyAnnotationRecursively(
-        GetId(), column_ref.column().type_annotation_map(),
-        result_annotation_map));
-  }
-  return absl::OkStatus();
-}
-
 absl::Status SampleAnnotation::CheckAndPropagateForParameter(
     const ResolvedParameter& parameter, AnnotationMap* result_annotation_map) {
   if (result_annotation_map == nullptr) {

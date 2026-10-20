@@ -104,6 +104,7 @@ static const FunctionIdToNameMap& GetFunctionIdToNameMap() {
     LanguageOptions options;
     options.EnableMaximumLanguageFeaturesForDevelopment();
     // Enable relevant ideally_enabled=false features.
+    options.EnableLanguageFeature(FEATURE_TUMBLE_HOP_TVFS_NO_TIMESTAMP_COL);
     options.set_product_mode(PRODUCT_INTERNAL);
 
     absl::Status status = GetBuiltinFunctionsAndTypes(
@@ -242,6 +243,8 @@ absl::Status GetBuiltinFunctionsAndTypes(
   GetArrayAggregationFunctions(&type_factory, options, &functions);
   GetSubscriptFunctions(&type_factory, options, &functions);
   GOOGLESQL_RETURN_IF_ERROR(GetJSONFunctions(&type_factory, options, &functions, &types));
+  GOOGLESQL_RETURN_IF_ERROR(
+      GetVariantFunctions(&type_factory, options, &functions, &types));
   GOOGLESQL_RETURN_IF_ERROR(GetMathFunctions(&type_factory, options, &functions, &types));
   GetHllCountFunctions(&type_factory, options, &functions);
   GetKllQuantilesFunctions(&type_factory, options, &functions);
@@ -283,6 +286,8 @@ absl::Status GetBuiltinFunctionsAndTypes(
                                                     &table_valued_functions));
   GOOGLESQL_RETURN_IF_ERROR(GetKMeansTableValuedFunction(&type_factory, options,
                                                &table_valued_functions));
+  GOOGLESQL_RETURN_IF_ERROR(GetLookupTableTableValuedFunction(&type_factory, options,
+                                                    &table_valued_functions));
   GOOGLESQL_RETURN_IF_ERROR(GetAIFunctions(&type_factory, options, &functions));
 
   return ValidateBuiltinFunctionsAgainstOptions(options, output_properties);

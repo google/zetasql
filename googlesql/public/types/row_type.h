@@ -218,8 +218,10 @@ class TableRefType : public RowOrTableType {
   // The bound columns describe how to scan this virtual table, producing
   // rows by doing a join.
   // The `bound_source_columns` on `bound_source_table` join to
-  // `bound_columns on `table`.
+  // `bound_columns` on `table`.
   // TABLE values hold values for the `bound_source_columns`.
+  // `bound_columns` and `bound_source_columns` may be empty if the engine
+  // handles expanding the TABLE type without using GoogleSQL's RowTypeRewriter.
   const std::vector<const Column*>& bound_columns() const {
     return bound_columns_;
   }
@@ -233,7 +235,7 @@ class TableRefType : public RowOrTableType {
   const RowType* element_type() const { return element_type_->AsRowType(); }
 
   TypeListView ComponentTypes() const override {
-    return absl::MakeConstSpan(&element_type_, 1);
+    return absl::MakeConstSpan(&element_type_, /*size=*/1);
   }
 
  private:

@@ -441,7 +441,11 @@ absl::StatusOr<std::optional<Value>> MaybeExecuteJsonQueryLax(
   // Check if JSONPath is in lax mode.
   // For example: JSON_QUERY(json_col, "lax $.a");
   GOOGLESQL_ASSIGN_OR_RETURN(bool is_lax,
-                   functions::json_internal::IsValidAndLaxJSONPath(json_path));
+                   functions::json_internal::IsValidAndLaxJSONPath(
+                       json_path,
+                       /*enable_wildcard_and_descendant=*/
+                       language_options.LanguageFeatureEnabled(
+                           FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)));
   if (!is_lax) {
     // This is a non-lax path.
     return std::nullopt;
@@ -501,6 +505,22 @@ absl::StatusOr<Value> JsonSubscriptFunction::Eval(
              : Value::Null(output_type());
 }
 
+// Creates a `JsonPathEvaluator` configured for the reference implementation,
+// enabling JSONPath wildcard (`.*`, `[*]`) and recursive descendant (`..`)
+// operators when `FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT` is enabled (and
+// `sql_standard_mode` is true).
+absl::StatusOr<std::unique_ptr<functions::JsonPathEvaluator>>
+CreateJsonPathEvaluator(absl::string_view json_path, bool sql_standard_mode,
+                        const LanguageOptions& language_options) {
+  return functions::JsonPathEvaluator::Create(
+      json_path, sql_standard_mode,
+      /*enable_special_character_escaping_in_values=*/true,
+      /*enable_special_character_escaping_in_keys=*/true,
+      /*enable_wildcard_and_descendant=*/
+      language_options.LanguageFeatureEnabled(
+          FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT));
+}
+
 absl::StatusOr<Value> JsonExtractFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
@@ -538,11 +558,9 @@ absl::StatusOr<Value> JsonExtractFunction::Eval(
   bool sql_standard_mode = (kind() == FunctionKind::kJsonQuery ||
                             kind() == FunctionKind::kJsonValue);
 
-  GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-                   functions::JsonPathEvaluator::Create(
-                       json_path, sql_standard_mode,
-                       /*enable_special_character_escaping_in_values=*/true,
-                       /*enable_special_character_escaping_in_keys=*/true));
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      CreateJsonPathEvaluator(json_path, sql_standard_mode, language_options));
   bool scalar = kind() == FunctionKind::kJsonValue ||
                 kind() == FunctionKind::kJsonExtractScalar;
   if (args[0].type_kind() == TYPE_STRING) {
@@ -570,11 +588,10 @@ absl::StatusOr<Value> JsonExistsFunction::Eval(
       GetJSONValueConstRef(args[0], GetJSONParsingOptions(language_options),
                            json_storage));
 
-  GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-                   functions::JsonPathEvaluator::Create(
-                       args[1].string_value(), /*sql_standard_mode=*/true,
-                       /*enable_special_character_escaping_in_values=*/true,
-                       /*enable_special_character_escaping_in_keys=*/true));
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      CreateJsonPathEvaluator(args[1].string_value(),
+                              /*sql_standard_mode=*/true, language_options));
 
   GOOGLESQL_ASSIGN_OR_RETURN(bool exists,
                    functions::JsonExists(json_value_const_ref, *evaluator));
@@ -584,7 +601,7 @@ absl::StatusOr<Value> JsonExistsFunction::Eval(
 // Builds `JsonPathEvaluator` instances for all non-null paths in `path_array`
 // and sets `*has_null` to true if any element in `path_array` is SQL NULL.
 absl::Status CreateJsonPathEvaluators(
-    const Value& path_array,
+    const Value& path_array, const LanguageOptions& language_options,
     std::vector<std::unique_ptr<functions::JsonPathEvaluator>>&
         evaluators_holder,
     std::vector<const functions::JsonPathEvaluator*>& evaluators,
@@ -597,11 +614,10 @@ absl::Status CreateJsonPathEvaluators(
       *has_null = true;
       continue;
     }
-    GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-                     functions::JsonPathEvaluator::Create(
-                         path_val.string_value(), /*sql_standard_mode=*/true,
-                         /*enable_special_character_escaping_in_values=*/true,
-                         /*enable_special_character_escaping_in_keys=*/true));
+    GOOGLESQL_ASSIGN_OR_RETURN(
+        std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+        CreateJsonPathEvaluator(path_val.string_value(),
+                                /*sql_standard_mode=*/true, language_options));
     evaluators.push_back(evaluator.get());
     evaluators_holder.push_back(std::move(evaluator));
   }
@@ -628,8 +644,8 @@ absl::StatusOr<Value> JsonExistsAnyFunction::Eval(
   bool has_null = false;
   std::vector<std::unique_ptr<functions::JsonPathEvaluator>> evaluators_holder;
   std::vector<const functions::JsonPathEvaluator*> evaluators;
-  GOOGLESQL_RETURN_IF_ERROR(CreateJsonPathEvaluators(args[1], evaluators_holder,
-                                           evaluators, &has_null));
+  GOOGLESQL_RETURN_IF_ERROR(CreateJsonPathEvaluators(
+      args[1], language_options, evaluators_holder, evaluators, &has_null));
 
   // The NULL handling follows from the rewrite-based definition in the spec:
   //   JSON_EXISTS_ANY(j, [a, b]) -> JSON_EXISTS(j, a) OR JSON_EXISTS(j, b)
@@ -664,8 +680,8 @@ absl::StatusOr<Value> JsonExistsAllFunction::Eval(
   bool has_null = false;
   std::vector<std::unique_ptr<functions::JsonPathEvaluator>> evaluators_holder;
   std::vector<const functions::JsonPathEvaluator*> evaluators;
-  GOOGLESQL_RETURN_IF_ERROR(CreateJsonPathEvaluators(args[1], evaluators_holder,
-                                           evaluators, &has_null));
+  GOOGLESQL_RETURN_IF_ERROR(CreateJsonPathEvaluators(
+      args[1], language_options, evaluators_holder, evaluators, &has_null));
 
   // The NULL handling follows from the rewrite-based definition in the spec:
   //   JSON_EXISTS_ALL(j, [a, b]) -> JSON_EXISTS(j, a) AND JSON_EXISTS(j, b)
@@ -792,12 +808,10 @@ absl::StatusOr<Value> JsonExtractArrayFunction::Eval(
                             kind() == FunctionKind::kJsonValueArray);
 
   std::string json_path = args.size() == 2 ? args[1].string_value() : "$";
-
-  GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<functions::JsonPathEvaluator> evaluator,
-                   functions::JsonPathEvaluator::Create(
-                       json_path, sql_standard_mode,
-                       /*enable_special_character_escaping_in_values=*/true,
-                       /*enable_special_character_escaping_in_keys=*/true));
+  const auto& language_options = context->GetLanguageOptions();
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<functions::JsonPathEvaluator> evaluator,
+      CreateJsonPathEvaluator(json_path, sql_standard_mode, language_options));
   bool scalar = kind() == FunctionKind::kJsonValueArray ||
                 kind() == FunctionKind::kJsonExtractStringArray;
   if (args[0].type_kind() == TYPE_STRING) {
@@ -805,13 +819,8 @@ absl::StatusOr<Value> JsonExtractArrayFunction::Eval(
                                                  args[0].string_value())
                   : JsonExtractArrayString(*evaluator, args[0].string_value());
   } else {
-    const auto& language_options = context->GetLanguageOptions();
-    JSONParsingOptions parsing_options{
-        .wide_number_mode = (language_options.LanguageFeatureEnabled(
-                                 FEATURE_JSON_STRICT_NUMBER_PARSING)
-                                 ? JSONParsingOptions::WideNumberMode::kExact
-                                 : JSONParsingOptions::WideNumberMode::kRound)};
-
+    JSONParsingOptions parsing_options =
+        GetJSONParsingOptions(language_options);
     return scalar ? JsonExtractStringArrayJson(*evaluator, args[0],
                                                parsing_options)
                   : JsonExtractArrayJson(*evaluator, args[0], parsing_options);

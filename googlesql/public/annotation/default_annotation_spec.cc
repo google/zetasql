@@ -68,7 +68,8 @@ class AnnotationPropagationVisitor
     AnnotationMap* current_map = it->second.get();
 
     if (input_annotation_map != nullptr) {
-      // We're propagating from the input map to the appropriate merging spot.
+      // We're propagating from the input type and map to the appropriate
+      // merging spot.
       GOOGLESQL_RETURN_IF_ERROR(merge_callback_(input_annotation_map, *current_map));
     }
     return absl::OkStatus();
@@ -147,7 +148,7 @@ absl::Status DefaultAnnotationSpec::CheckAndPropagateForFunctionCallBase(
     const ResolvedFunctionCallBase& function_call,
     AnnotationMap* result_annotation_map) {
   const FunctionSignature& signature = function_call.signature();
-  GOOGLESQL_RET_CHECK(signature.IsConcrete());
+  GOOGLESQL_RET_CHECK(signature.IsConcrete()) << signature.DebugString();
 
   // This map contains only the root templated kinds, (ARG_KIND_EXPR_ANY_1,
   // ARG_KIND_EXPR_ANY_2, ..etc) but not the related kinds like
@@ -239,13 +240,6 @@ absl::Status DefaultAnnotationSpec::CheckAndPropagateForFunctionCallBase(
                        signature.result_type().original_kind(), merging_map));
 
   return MergeAnnotations(merged_result_type_annotations,
-                          *result_annotation_map);
-}
-
-absl::Status DefaultAnnotationSpec::CheckAndPropagateForColumnRef(
-    const ResolvedColumnRef& column_ref, AnnotationMap* result_annotation_map) {
-  if (result_annotation_map == nullptr) return absl::OkStatus();
-  return MergeAnnotations(column_ref.column().type_annotation_map(),
                           *result_annotation_map);
 }
 

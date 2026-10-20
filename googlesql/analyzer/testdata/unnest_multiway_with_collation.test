@@ -171,7 +171,7 @@ QueryStmt
             |                 |   |       | +-ArrayScan
             |                 |   |       |   +-column_list=[$array.arr0#9{Collation:"und:ci"}, $array_offset.offset#10]
             |                 |   |       |   +-array_expr_list=
-            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
+            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
             |                 |   |       |   +-element_column_list=[$array.arr0#9{Collation:"und:ci"}]
             |                 |   |       |   +-array_offset_column=
             |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#10)
@@ -362,7 +362,7 @@ QueryStmt
             |                 |   |       | +-ArrayScan
             |                 |   |       |   +-column_list=[$array.arr0#9{Collation:"und:ci"}, $array_offset.offset#10]
             |                 |   |       |   +-array_expr_list=
-            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
+            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
             |                 |   |       |   +-element_column_list=[$array.arr0#9{Collation:"und:ci"}]
             |                 |   |       |   +-array_offset_column=
             |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#10)
@@ -553,7 +553,7 @@ QueryStmt
             |                 |   |       | +-ArrayScan
             |                 |   |       |   +-column_list=[$array.arr0#9{Collation:"und:ci"}, $array_offset.offset#10]
             |                 |   |       |   +-array_expr_list=
-            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
+            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
             |                 |   |       |   +-element_column_list=[$array.arr0#9{Collation:"und:ci"}]
             |                 |   |       |   +-array_offset_column=
             |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#10)
@@ -769,7 +769,7 @@ QueryStmt
             |                 |   |       | +-ArrayScan
             |                 |   |       |   +-column_list=[$array.arr0#9{Collation:"und:ci"}, $array_offset.offset#10]
             |                 |   |       |   +-array_expr_list=
-            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
+            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#3<{Collation:"und:ci"}>, is_correlated=TRUE)
             |                 |   |       |   +-element_column_list=[$array.arr0#9{Collation:"und:ci"}]
             |                 |   |       |   +-array_offset_column=
             |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#10)
@@ -777,7 +777,7 @@ QueryStmt
             |                 |   |       | +-ArrayScan
             |                 |   |       |   +-column_list=[$array.arr1#11{Collation:"und:binary"}, $array_offset.offset#12]
             |                 |   |       |   +-array_expr_list=
-            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr1#5<{Collation:"und:binary"}>, is_correlated=TRUE)
+            |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:binary"}>, column=$with_expr.arr1#5<{Collation:"und:binary"}>, is_correlated=TRUE)
             |                 |   |       |   +-element_column_list=[$array.arr1#11{Collation:"und:binary"}]
             |                 |   |       |   +-array_offset_column=
             |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#12)
@@ -998,7 +998,7 @@ QueryStmt
                 |                 |   |       | +-ArrayScan
                 |                 |   |       |   +-column_list=[$array.arr0#11{Collation:"und:ci"}, $array_offset.offset#12]
                 |                 |   |       |   +-array_expr_list=
-                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#5<{Collation:"und:ci"}>, is_correlated=TRUE)
+                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#5<{Collation:"und:ci"}>, is_correlated=TRUE)
                 |                 |   |       |   +-element_column_list=[$array.arr0#11{Collation:"und:ci"}]
                 |                 |   |       |   +-array_offset_column=
                 |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#12)
@@ -1006,7 +1006,7 @@ QueryStmt
                 |                 |   |       | +-ArrayScan
                 |                 |   |       |   +-column_list=[$array.arr1#13{Collation:"und:ci"}, $array_offset.offset#14]
                 |                 |   |       |   +-array_expr_list=
-                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr1#7<{Collation:"und:ci"}>, is_correlated=TRUE)
+                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr1#7<{Collation:"und:ci"}>, is_correlated=TRUE)
                 |                 |   |       |   +-element_column_list=[$array.arr1#13{Collation:"und:ci"}]
                 |                 |   |       |   +-array_offset_column=
                 |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#14)
@@ -1255,7 +1255,7 @@ QueryStmt
                 |                 |   |       | +-ArrayScan
                 |                 |   |       |   +-column_list=[$array.arr0#13{Collation:"und:ci"}, $array_offset.offset#14]
                 |                 |   |       |   +-array_expr_list=
-                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr0#7<{Collation:"und:ci"}>, is_correlated=TRUE)
+                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$with_expr.arr0#7<{Collation:"und:ci"}>, is_correlated=TRUE)
                 |                 |   |       |   +-element_column_list=[$array.arr0#13{Collation:"und:ci"}]
                 |                 |   |       |   +-array_offset_column=
                 |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#14)
@@ -1263,7 +1263,7 @@ QueryStmt
                 |                 |   |       | +-ArrayScan
                 |                 |   |       |   +-column_list=[$array.arr1#15{Collation:"und:binary"}, $array_offset.offset#16]
                 |                 |   |       |   +-array_expr_list=
-                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, column=$with_expr.arr1#9<{Collation:"und:binary"}>, is_correlated=TRUE)
+                |                 |   |       |   | +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:binary"}>, column=$with_expr.arr1#9<{Collation:"und:binary"}>, is_correlated=TRUE)
                 |                 |   |       |   +-element_column_list=[$array.arr1#15{Collation:"und:binary"}]
                 |                 |   |       |   +-array_offset_column=
                 |                 |   |       |     +-ColumnHolder(column=$array_offset.offset#16)

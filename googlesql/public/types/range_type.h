@@ -57,7 +57,7 @@ class RangeType : public ListBackedType {
   const Type* element_type() const { return element_type_; }
 
   TypeListView ComponentTypes() const override {
-    return absl::MakeConstSpan(&element_type_, 1);
+    return absl::MakeConstSpan(&element_type_, /*size=*/1);
   }
 
   bool UsingFeatureV12CivilTimeType() const override {

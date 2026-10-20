@@ -394,6 +394,13 @@ class GraphTableQueryResolver {
       GraphElementTable::Kind table_kind, const PropertySet& properties,
       TypeFactory* type_factory, bool is_dynamic = false);
 
+  // Populates `annotation_map` for `type` (a GraphElementType or GraphPathType)
+  // from the graph's property declarations, and propagates column annotations.
+  absl::Status PopulateGraphTypeAnnotationMap(
+      const Type* type, AnnotationMap* annotation_map) const;
+  absl::StatusOr<AnnotatedType> GetAnnotatedGraphType(
+      const ASTNode* error_location, const Type* type) const;
+
   // Resolves the graph reference in graph_table_query_.
   absl::Status ResolveGraphReference(const ASTPathExpression* graph_ref);
 

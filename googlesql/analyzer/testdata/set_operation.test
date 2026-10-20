@@ -3743,7 +3743,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.$col1#4]
         |   +-expr_list=
-        |   | +-$col1#4 := Literal(type=VARIANT, value=<Variant formatting not supported>)
+        |   | +-$col1#4 := Literal(type=VARIANT, value=2)
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.$col1#2]
@@ -3775,7 +3775,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.$col1#4]
         |   +-expr_list=
-        |   | +-$col1#4 := Literal(type=VARIANT, value=<Variant formatting not supported>)
+        |   | +-$col1#4 := Literal(type=VARIANT, value="abc")
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.$col1#2]
@@ -3839,7 +3839,7 @@ QueryStmt
         | +-ProjectScan
         |   +-column_list=[$union_all2_cast.$col1#4]
         |   +-expr_list=
-        |   | +-$col1#4 := Literal(type=VARIANT, value=<Variant formatting not supported>)
+        |   | +-$col1#4 := Literal(type=VARIANT, value=[])
         |   +-input_scan=
         |     +-ProjectScan
         |       +-column_list=[$union_all2.$col1#2]

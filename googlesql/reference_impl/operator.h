@@ -2107,7 +2107,9 @@ class UnpivotOp final : public RelationalOp {
 };
 
 // Represents scan operator for returning all rows corresponding to the current
-// group, before these rows are aggregated.
+// group, before these rows are aggregated. The rows are those accumulated by
+// the enclosing AggregateArg and registered in the EvaluationContext; each
+// output column is evaluated against the params followed by one such row.
 class GroupRowsOp : public RelationalOp {
  public:
   GroupRowsOp(const GroupRowsOp&) = delete;
@@ -2116,9 +2118,14 @@ class GroupRowsOp : public RelationalOp {
   static std::string GetIteratorDebugString(
       absl::string_view input_iter_debug_string);
 
+  // `aggregate_input` is the input of the AggregateOp producing the group rows.
+  // Not owned; that AggregateOp owns both it and this operator.
+  //
+  // `input_rows_lookup_key` is a variable of `aggregate_input` under which the
+  // group rows are registered in the EvaluationContext.
   static absl::StatusOr<std::unique_ptr<GroupRowsOp>> Create(
       std::vector<std::unique_ptr<ExprArg>> columns,
-      VariableId input_rows_lookup_key);
+      const RelationalOp* aggregate_input, VariableId input_rows_lookup_key);
 
   absl::Status SetSchemasForEvaluation(
       absl::Span<const TupleSchema* const> params_schemas) override;
@@ -2140,14 +2147,19 @@ class GroupRowsOp : public RelationalOp {
   enum ArgKind { kColumn };
 
   explicit GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns,
+                       const RelationalOp* aggregate_input,
                        VariableId input_rows_lookup_key);
 
   // Output columns from GroupRowsOp.
   absl::Span<const ExprArg* const> columns() const;
+  absl::Span<ExprArg* const> mutable_columns();
 
-  // The VariableId of the grouping column used as a key to look up the
-  // accumulated group rows.
-  VariableId input_rows_lookup_key_;
+  // The op producing the accumulated group rows; see Create().
+  const RelationalOp* const aggregate_input_;
+
+  // Key for looking up the accumulated rows in the EvaluationContext; see
+  // Create().
+  const VariableId input_rows_lookup_key_;
 };
 
 // A placeholder RelationalOp for returning an iterator to the current rows
@@ -4625,8 +4637,13 @@ class DMLValueExpr : public ValueExpr {
       absl::Span<const std::vector<Value>> dml_returning_rows,
       EvaluationContext* context) const;
 
-  // Evaluates the returning clause for each modified row and populate its
+  // Evaluates the returning clause for each modified row and populates its
   // corresponding returning row as a vector of Value into 'dml_returning_rows'.
+  absl::Status EvalReturningClause(
+      const googlesql::ResolvedReturningClause* returning,
+      absl::Span<const TupleData* const> input_params,
+      EvaluationContext* context, const Value& action_value,
+      std::vector<std::vector<Value>>& dml_returning_rows) const;
   absl::Status EvalReturningClause(
       const googlesql::ResolvedReturningClause* returning,
       absl::Span<const TupleData* const> params, EvaluationContext* context,
@@ -5050,31 +5067,27 @@ class DMLUpdateValueExpr final : public DMLValueExpr {
       const ResolvedInsertStmt* nested_insert,
       absl::Span<const TupleSchema* const> params_schemas);
 
-  // Computes the (at most one) concatenated tuple obtained from 'params',
-  // 'left_tuple' (which must not be NULL) and one of the entries in
-  // 'right_tuples' for which 'where_expr' is true, and returns it in
-  // 'joined_tuple_datas'.  More precisely,
-  // - If 'right_tuples' is NULL, either sets 'joined_tuple_datas' to empty or
-  //   sets 'joined_tuple_data' to correspond to 'params' and ;left_tuple',
-  //   depending on whether 'where_expr->Eval(ConcatSpans(params,
-  //   {&left_tuple}))' is true.
-  // - If 'right_tuples' is non-NULL, materializes all the concatenated
-  //   tuples of the form obtained from 'params', 'left_tuple' and one of the
-  //   'right_tuples' and evaluates 'where_expr' on each of them.
-  //     - If 'where_expr->Eval()' returns true for none of them,
-  //       sets 'joined_tuple_datas' to empty.
-  //     - If 'where_expr->Eval()' returns true for one of them, returns that
-  //       'joined_tuple_datas'.
+  // Finds the tuple from 'from_tuples' (if present) that matches 'target_tuple'
+  // (which must not be NULL) based on 'where_expr', as follows:
+  // - If 'from_tuples' is NULL, evaluates 'where_expr' on 'target_tuple'. If it
+  //   returns true, sets 'is_matched' to true and 'matched_from_tuple' to
+  //   NULL.
+  // - If 'from_tuples' is not NULL, evaluates 'where_expr' on each
+  //   ('target_tuple', 'from_tuple') pair.
+  //     - If 'where_expr->Eval()' returns true for none of them, sets
+  //       'is_matched' to false.
+  //     - If 'where_expr->Eval()' returns true for one of them, sets
+  //       'is_matched' to true and 'matched_from_tuple' to that from_tuple.
   //     - If 'where_expr->Eval()' returns true for more than one of them,
   //       returns an error. (This case corresponds to an otherwise
   //       non-deterministic UPDATE with join.)
-  // The pointers in 'joined_tuple_datas' are only valid for the lifetime of
-  // 'params', 'left_tuple', and 'right_tuples'.
-  absl::Status GetJoinedTupleDatas(
-      absl::Span<const TupleData* const> params, const TupleData* left_tuple,
-      const std::vector<std::unique_ptr<TupleData>>* right_tuples,
-      const ValueExpr* where_expr, EvaluationContext* context,
-      std::vector<const TupleData*>* joined_tuple_datas) const;
+  // The pointer 'matched_from_tuple' is only valid for the lifetime of
+  // 'from_tuples'.
+  absl::Status GetMatchedFromTupleData(
+      absl::Span<const TupleData* const> params, const TupleData* target_tuple,
+      const std::vector<std::unique_ptr<TupleData>>* from_tuples,
+      const ValueExpr* where_expr, EvaluationContext* context, bool* is_matched,
+      const TupleData** matched_from_tuple) const;
 
   // Modifies 'update_map' to incorporate the modifications represented by
   // 'update_item' for the row represented by 'tuples_for_row'. Also populates

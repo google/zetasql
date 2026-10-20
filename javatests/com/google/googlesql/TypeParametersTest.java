@@ -58,27 +58,27 @@ public final class TypeParametersTest {
   }
 
   @Test
-  public void createVectorTypeParametersWithLength() {
-    VectorTypeParametersProto proto = VectorTypeParametersProto.newBuilder().setLength(10).build();
+  public void createVectorTypeParametersWithDims() {
+    VectorTypeParametersProto proto = VectorTypeParametersProto.newBuilder().setDims(10).build();
     TypeParameters typeParameters = new TypeParameters(proto);
     assertThat(typeParameters.isVectorTypeParameters()).isTrue();
-    assertThat(typeParameters.getVectorTypeParameters().getLength()).isEqualTo(10);
-    assertThat(typeParameters.debugString()).isEqualTo("(length=10)");
+    assertThat(typeParameters.getVectorTypeParameters().getDims()).isEqualTo(10);
+    assertThat(typeParameters.debugString()).isEqualTo("(dims=10)");
   }
 
   @Test
-  public void createVectorTypeParametersWithLengthAndEncoding() {
+  public void createVectorTypeParametersWithDimsAndEncoding() {
     VectorTypeParametersProto proto =
         VectorTypeParametersProto.newBuilder()
-            .setLength(10)
+            .setDims(10)
             .setEncoding(VectorEncodingId.Id.FLOAT32)
             .build();
     TypeParameters typeParameters = new TypeParameters(proto);
     assertThat(typeParameters.isVectorTypeParameters()).isTrue();
-    assertThat(typeParameters.getVectorTypeParameters().getLength()).isEqualTo(10);
+    assertThat(typeParameters.getVectorTypeParameters().getDims()).isEqualTo(10);
     assertThat(typeParameters.getVectorTypeParameters().getEncoding())
         .isEqualTo(VectorEncodingId.Id.FLOAT32);
-    assertThat(typeParameters.debugString()).isEqualTo("(length=10, encoding=FLOAT32)");
+    assertThat(typeParameters.debugString()).isEqualTo("(dims=10, encoding=FLOAT32)");
   }
 
   @Test
@@ -150,7 +150,7 @@ public final class TypeParametersTest {
   @Test
   public void serializeAndDeserializeVectorTypeParameters() {
     checkSerializeAndDeserialize(
-        new TypeParameters(VectorTypeParametersProto.newBuilder().setLength(10).build()));
+        new TypeParameters(VectorTypeParametersProto.newBuilder().setDims(10).build()));
   }
 
   @Test
@@ -204,21 +204,21 @@ public final class TypeParametersTest {
 
   @Test
   public void deserializeVectorTypeParametersFailed() {
-    // length <= 0.
+    // dims <= 0.
     TypeParametersProto proto =
         TypeParametersProto.newBuilder()
-            .setVectorTypeParameters(VectorTypeParametersProto.newBuilder().setLength(-10))
+            .setVectorTypeParameters(VectorTypeParametersProto.newBuilder().setDims(-10))
             .build();
     var expected =
         assertThrows(IllegalArgumentException.class, () -> TypeParameters.deserialize(proto));
-    assertThat(expected).hasMessageThat().contains("length must be larger than 0");
+    assertThat(expected).hasMessageThat().contains("dims must be larger than 0");
 
     // encoding == UNKNOWN_VECTOR_ENCODING.
     TypeParametersProto protoUnknownEncoding =
         TypeParametersProto.newBuilder()
             .setVectorTypeParameters(
                 VectorTypeParametersProto.newBuilder()
-                    .setLength(10)
+                    .setDims(10)
                     .setEncoding(VectorEncodingId.Id.UNKNOWN_VECTOR_ENCODING))
             .build();
     var expectedUnknownEncoding =
@@ -310,11 +310,11 @@ public final class TypeParametersTest {
     assertThat(stringParam1.equals(stringParam3)).isFalse();
 
     TypeParameters vectorParam1 =
-        new TypeParameters(VectorTypeParametersProto.newBuilder().setLength(10).build());
+        new TypeParameters(VectorTypeParametersProto.newBuilder().setDims(10).build());
     TypeParameters vectorParam2 =
-        new TypeParameters(VectorTypeParametersProto.newBuilder().setLength(10).build());
+        new TypeParameters(VectorTypeParametersProto.newBuilder().setDims(10).build());
     TypeParameters vectorParam3 =
-        new TypeParameters(VectorTypeParametersProto.newBuilder().setLength(100).build());
+        new TypeParameters(VectorTypeParametersProto.newBuilder().setDims(100).build());
     assertThat(vectorParam1.equals(vectorParam2)).isTrue();
     assertThat(vectorParam1.equals(vectorParam3)).isFalse();
 

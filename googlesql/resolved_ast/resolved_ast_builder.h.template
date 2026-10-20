@@ -238,6 +238,12 @@ class {{node.builder_name}} final {
   # endfor
 
     if ({{status_member_name}}.ok()) {
+  # if node.name == "ResolvedColumnRef"
+      if ({{inner_node_member_name}}->type_annotation_map() == nullptr) {
+        {{inner_node_member_name}}->set_type_annotation_map(
+            {{inner_node_member_name}}->column().type_annotation_map());
+      }
+  # endif
       return std::move({{inner_node_member_name}});
     }
     return {{status_member_name}};

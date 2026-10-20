@@ -841,11 +841,16 @@ class Value {
   static Value NullUuid();
   static Value NullVariant();
 
+  // Factory method to create a Variant null value: A non-null VARIANT value
+  // representing a Variant null, which is a scalar and is distinct from a
+  // SQL NULL of type VARIANT.
+  static Value VariantNull();
+
   // Returns an empty but non-null Geography value.
   static Value EmptyGeography();
 
   // Creates a variant value.
-  static absl::StatusOr<Value> Variant(const Value& inner_value);
+  static absl::StatusOr<Value> Variant(Value inner_value);
 
   // Creates an enum value of the specified 'enum_type'. Unless
   // `allow_unknown_enum_values` is set, 'value' must be a valid numeric value
@@ -1720,6 +1725,11 @@ Value NullBigNumeric();
 Value NullUuid();
 Value NullVariant();
 Value Null(const Type* type);
+
+// Factory method to create a Variant null value: A non-null VARIANT value
+// representing a Variant null, which is a scalar and is distinct from a
+// SQL NULL of type VARIANT.
+Value VariantNull();
 
 // Constructor for an invalid value.
 Value Invalid();

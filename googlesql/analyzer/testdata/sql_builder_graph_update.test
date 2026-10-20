@@ -1,0 +1,585 @@
+[default language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_TERMINAL_NON_RETURNING_UPDATE,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL]
+[default no_test_extract_table_names]
+[default show_sqlbuilder_output]
+[default no_show_resolved_ast]
+
+# SET single static property on node
+GRAPH aml
+MATCH (n:Person)
+SET n.name = 'Alice'
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = "Alice";
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = "Alice";
+==
+
+# SET multiple static properties on node
+GRAPH aml
+MATCH (n:Person)
+SET n.name = 'Alice', n.age = 30
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = "Alice",
+  a_1.age = CAST(30 AS UINT32);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = "Alice",
+  a_1.age = CAST(30 AS UINT32);
+==
+
+# SET static property on edge
+GRAPH aml
+MATCH ()-[e:Transfer]->()
+SET e.amount = 500
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS (% | ! %))
+  -[a_2 IS Transfer]->
+  (a_3 IS (% | ! %))
+SET
+  a_2.amount = CAST(500 AS UINT64);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS (% | ! %))
+  -[a_2 IS Transfer]->
+  (a_3 IS (% | ! %))
+SET
+  a_2.amount = CAST(500 AS UINT64);
+==
+
+# SET properties on both node and edge in a matched path
+GRAPH aml
+MATCH (p:Person)-[e:Transfer]->(a:Account)
+SET p.name = 'Alice', e.amount = 1000
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+  -[a_2 IS Transfer]->
+  (a_3 IS Account)
+SET
+  a_1.name = "Alice",
+  a_2.amount = CAST(1000 AS UINT64);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+  -[a_2 IS Transfer]->
+  (a_3 IS Account)
+SET
+  a_1.name = "Alice",
+  a_2.amount = CAST(1000 AS UINT64);
+==
+
+# SET property items with parameter and value subquery expressions
+[allow_undeclared_parameters]
+GRAPH aml
+MATCH (n:Person)
+SET n.name = @param_name, n.age = (SELECT CAST(30 AS UINT32))
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = CAST(@param_name AS STRING),
+  a_1.age = (
+    SELECT
+      CAST(30 AS UINT32) AS a_2
+  );
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1.name = CAST(@param_name AS STRING),
+  a_1.age = (
+    SELECT
+      CAST(30 AS UINT32) AS a_2
+  );
+
+[UNDECLARED_PARAMETERS]
+param_name: STRING
+==
+
+# Multi-property update with arithmetic expressions on RHS
+GRAPH aml
+MATCH (p:Person)-[e:Transfer]->(a:Account)
+SET p.age = p.age + 1, e.amount = e.amount * 2
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+  -[a_2 IS Transfer]->
+  (a_3 IS Account)
+SET
+  a_1.age = CAST(CAST(a_1.age AS UINT64) + CAST(1 AS UINT64) AS UINT32),
+  a_2.amount = (a_2.amount) *
+  CAST(2 AS UINT64);
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+  -[a_2 IS Transfer]->
+  (a_3 IS Account)
+SET
+  a_1.age = CAST(CAST(a_1.age AS UINT64) + CAST(1 AS UINT64) AS UINT32),
+  a_2.amount = (a_2.amount) *
+  CAST(2 AS UINT64);
+==
+
+# SET all properties specification (subset matching)
+GRAPH aml
+MATCH (n:Person)
+SET n = {name: 'Alice', age: 30}
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = { name : "Alice", age : CAST(30 AS UINT32) };
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = { name : "Alice", age : CAST(30 AS UINT32) };
+==
+
+# SET empty property specification
+GRAPH aml
+MATCH (n:Person)
+SET n = {}
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = {};
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = {};
+==
+
+# SET all properties item with function calls in property specification
+GRAPH aml
+MATCH (n:Person)
+SET n = {name: CONCAT('Alice', '_Smith'), age: CAST(ABS(-30) AS UINT32)}
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = { name : CONCAT("Alice", "_Smith"), age : CAST(ABS(-30) AS UINT32) };
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml
+MATCH
+  (a_1 IS Person)
+SET
+  a_1 = { name : CONCAT("Alice", "_Smith"), age : CAST(ABS(-30) AS UINT32) };
+==
+
+# SET dynamic label with ':' syntax on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n:Vip
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip;
+==
+
+# SET dynamic label with 'IS' syntax on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n IS Vip
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip;
+==
+
+# SET multiple dynamic labels on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n:Vip, n:Active
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip,
+  a_1 IS Active;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 IS Vip,
+  a_1 IS Active;
+==
+
+# REMOVE dynamic label with ':' syntax on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+REMOVE n:Vip
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip;
+==
+
+# REMOVE dynamic label with 'IS' syntax on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+REMOVE n IS Vip
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip;
+==
+
+# REMOVE multiple dynamic labels on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+REMOVE n:Vip, n:Active
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip,
+  a_1 IS Active;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1 IS Vip,
+  a_1 IS Active;
+==
+
+# SET dynamic property on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n.dynamic_property1 = "active"
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1.dynamic_property1 = "active";
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1.dynamic_property1 = "active";
+==
+
+# REMOVE dynamic property on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+REMOVE n.dynamic_property1
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1.dynamic_property1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+REMOVE
+  a_1.dynamic_property1;
+==
+
+# SET all properties on dynamic graph
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n = {code: 2000, new_dyn: "B"}
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 = { code : 2000, new_dyn : "B" };
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1 = { code : 2000, new_dyn : "B" };
+==
+
+# Combining property item and label item on the same variable in SET
+GRAPH aml_dynamic
+MATCH (n:Entity)
+SET n:Vip, n.code = 2000, n.dynamic_property1 = "active"
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1.code = 2000,
+  a_1.dynamic_property1 = "active",
+  a_1 IS Vip;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity)
+SET
+  a_1.code = 2000,
+  a_1.dynamic_property1 = "active",
+  a_1 IS Vip;
+==
+
+# Combining property item, property specification item, and label item in one SET clause
+GRAPH aml_dynamic
+MATCH (n:Entity), (m:Entity)
+SET n:Vip, n = {code: 2000}, m.dynamic_property1 = "active"
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity),
+  (a_2 IS Entity)
+SET
+  a_1 = { code : 2000 },
+  a_1 IS Vip,
+  a_2.dynamic_property1 = "active";
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity),
+  (a_2 IS Entity)
+SET
+  a_1 = { code : 2000 },
+  a_1 IS Vip,
+  a_2.dynamic_property1 = "active";
+==
+
+# Combining property item and label item in one REMOVE clause
+GRAPH aml_dynamic
+MATCH (n:Entity), (m:Entity)
+REMOVE n:Vip, n.dynamic_property1, m.other_flag
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity),
+  (a_2 IS Entity)
+REMOVE
+  a_1.dynamic_property1,
+  a_1 IS Vip,
+  a_2.other_flag;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (a_1 IS Entity),
+  (a_2 IS Entity)
+REMOVE
+  a_1.dynamic_property1,
+  a_1 IS Vip,
+  a_2.other_flag;
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_TERMINAL_NON_RETURNING_UPDATE,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+JSON_TYPE,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+# SET on element unnested via FOR loop from quantified path pattern
+GRAPH aml_dynamic
+MATCH ((a:Entity)-[b:Transfer]->(c:Entity)){1, 3}
+FOR element IN b
+SET element.dynamic_property1 = JSON '"active"'
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (
+    (a_1 IS Entity)
+    -[a_2 IS Transfer]->
+    (a_3 IS Entity)
+  ) { 1, 3 }
+FOR a_4 IN a_2 WITH OFFSET AS a_5
+SET
+  a_4.dynamic_property1 = JSON '"active"';
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (
+    (a_1 IS Entity)
+    -[a_2 IS Transfer]->
+    (a_3 IS Entity)
+  ) { 1, 3 }
+FOR a_4 IN a_2 WITH OFFSET AS a_5
+SET
+  a_4.dynamic_property1 = JSON '"active"';
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_TERMINAL_NON_RETURNING_UPDATE,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+JSON_TYPE,+SQL_GRAPH_BOUNDED_PATH_QUANTIFICATION]
+# REMOVE on element unnested via FOR loop from quantified path pattern
+GRAPH aml_dynamic
+MATCH ((a:Entity)-[b:Transfer]->(c:Entity)){1, 3}
+FOR element IN b
+REMOVE element.dynamic_property1
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (
+    (a_1 IS Entity)
+    -[a_2 IS Transfer]->
+    (a_3 IS Entity)
+  ) { 1, 3 }
+FOR a_4 IN a_2 WITH OFFSET AS a_5
+REMOVE
+  a_4.dynamic_property1;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+GRAPH aml_dynamic
+MATCH
+  (
+    (a_1 IS Entity)
+    -[a_2 IS Transfer]->
+    (a_3 IS Entity)
+  ) { 1, 3 }
+FOR a_4 IN a_2 WITH OFFSET AS a_5
+REMOVE
+  a_4.dynamic_property1;

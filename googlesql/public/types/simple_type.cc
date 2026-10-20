@@ -1208,9 +1208,10 @@ std::string SimpleType::FormatValueContent(
     }
     case TYPE_TOKENLIST:
       return FormatTokenList(value, options);
-    case TYPE_VARIANT:
-      // TODO: Implement this.
-      return "<Variant formatting not supported>";
+    case TYPE_VARIANT: {
+      auto* variant_ptr = value.GetAs<internal::VariantRef*>();
+      return variant_ptr->Format();
+    }
 
     default:
       ABSL_LOG(ERROR) << "Unexpected type kind: " << kind();

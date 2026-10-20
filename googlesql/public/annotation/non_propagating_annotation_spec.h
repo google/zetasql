@@ -20,6 +20,8 @@
 #include <vector>
 
 #include "googlesql/public/types/annotation.h"
+#include "googlesql/public/types/simple_value.h"
+#include "googlesql/resolved_ast/resolved_ast.h"
 #include "absl/status/status.h"
 
 namespace googlesql {
@@ -35,15 +37,10 @@ class NonPropagatingAnnotationSpec : public AnnotationSpec {
     return absl::OkStatus();
   }
 
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override {
-    return absl::OkStatus();
-  }
-
   absl::Status CheckAndPropagateForParameter(
       const ResolvedParameter& parameter,
       AnnotationMap* result_annotation_map) override {
+    CopyAnnotation(parameter.type_annotation_map(), result_annotation_map);
     return absl::OkStatus();
   }
 
@@ -92,6 +89,22 @@ class NonPropagatingAnnotationSpec : public AnnotationSpec {
   absl::Status CheckAndPropagateForCast(
       const ResolvedCast& cast, AnnotationMap* result_annotation_map) override {
     return absl::OkStatus();
+  }
+
+ private:
+  void CopyAnnotation(const AnnotationMap* in, AnnotationMap* out) const {
+    if (in == nullptr || out == nullptr) {
+      return;
+    }
+    if (const SimpleValue* val = in->GetAnnotation(Id()); val != nullptr) {
+      out->SetAnnotation(Id(), *val);
+    }
+    if (in->IsStructMap() && out->IsStructMap()) {
+      for (int i = 0; i < in->AsStructMap()->num_fields(); ++i) {
+        CopyAnnotation(in->AsStructMap()->field(i),
+                       out->AsStructMap()->mutable_field(i));
+      }
+    }
   }
 };
 

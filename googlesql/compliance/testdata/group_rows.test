@@ -381,6 +381,51 @@ ARRAY<STRUCT<joined_gr ARRAY<>>>[
 ]
 ==
 
+[name=group_rows_outer_self_join_condition_spans_both_sides]
+SELECT
+  t1.team,
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT AS STRUCT t1.id AS id1, t1.name AS name1, t2.id AS id2, t2.name AS name2
+    FROM gr()
+    ORDER BY id1
+  )
+FROM TestTable t1
+JOIN TestTable t2 ON t1.team = t2.team AND t1.id <> t2.id
+GROUP BY t1.team
+--
+ARRAY<STRUCT<team STRING, ARRAY<>>>[
+  {
+    "A",
+    ARRAY<STRUCT<id1 INT64, name1 STRING, id2 INT64, name2 STRING>>[unknown order:
+      {2, "boren", 1, "anya"},
+      {1, "anya", 2, "boren"}
+    ]
+  }
+]
+==
+
+[name=group_rows_outer_self_join_read_right_side_filter_on_both]
+SELECT
+  t1.team,
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT t2.name
+    FROM gr()
+    WHERE t1.id < t2.id
+  )
+FROM TestTable t1
+JOIN TestTable t2 ON t1.team = t2.team AND t1.id <> t2.id
+GROUP BY t1.team
+--
+ARRAY<STRUCT<team STRING, ARRAY<>>>[
+  {
+    "A",
+    ARRAY<STRING>["boren"]
+  }
+]
+==
+
 [name=group_rows_joined_with_table]
 SELECT
   team,
@@ -606,6 +651,26 @@ ORDER BY team
 ARRAY<STRUCT<team STRING, has_boren BOOL>>[known order:
   {"A", true},
   {"B", false}
+]
+==
+
+# EXISTS is true as long as the subquery produces rows, even if every selected
+# value is NULL.
+[name=group_rows_in_exists_subquery_null_rows]
+SELECT
+  team,
+  EXISTS(
+    WITH group_rows() AS GROUP ROWS
+    SELECT CAST(NULL AS INT64)
+    FROM group_rows()
+  ) AS has_rows
+FROM TestTable
+GROUP BY team
+ORDER BY team
+--
+ARRAY<STRUCT<team STRING, has_rows BOOL>>[known order:
+  {"A", true},
+  {"B", true}
 ]
 ==
 
@@ -958,6 +1023,20 @@ GROUP BY team
 ARRAY<STRUCT<BOOL>>[unknown order:{true}, {false}]
 ==
 
+# NULL rows in the haystack must not be ignored: there is no mismatch, but
+# the NULL element makes the result NULL rather than TRUE.
+[name=group_rows_within_all_subquery_null_behavior]
+[required_features=WITH_ON_SUBQUERY,WITH_GROUP_ROWS,GENERAL_QUANTIFIED_COMPARISONS]
+SELECT 1 = ALL (
+  WITH group_rows() AS GROUP ROWS
+  SELECT val
+  FROM group_rows()
+)
+FROM UNNEST([1, 1, CAST(NULL AS INT64)]) AS val
+--
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+
 [name=group_rows_within_ne_all_subquery]
 [required_features=WITH_ON_SUBQUERY,WITH_GROUP_ROWS,GENERAL_QUANTIFIED_COMPARISONS]
 SELECT "B" != ALL (
@@ -1086,3 +1165,149 @@ FROM TestTable
 GROUP BY team
 --
 ARRAY<STRUCT<BOOL>>[unknown order:{true}, {false}]
+==
+
+# NULL elements must be preserved in an ARRAY subquery over group rows,
+# matching ARRAY(SELECT ...) outside of GROUP ROWS.
+[name=group_rows_array_subquery_keeps_null_elements]
+SELECT
+  team,
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT IF(id = 1, NULL, id)
+    FROM gr()
+    ORDER BY id
+  )
+FROM TestTable
+GROUP BY team
+ORDER BY team
+--
+ARRAY<STRUCT<team STRING, ARRAY<>>>[known order:
+  {
+    "A",
+    ARRAY<INT64>[unknown order:NULL, 2]
+  },
+  {"B", ARRAY<INT64>[3]}
+]
+==
+
+# A NULL row in a scalar subquery over group rows still counts towards the
+# "more than one element" check.
+[name=group_rows_scalar_subquery_null_row_counts]
+SELECT
+  team,
+  (
+    WITH gr() AS GROUP ROWS
+    SELECT IF(id = 1, NULL, id)
+    FROM gr()
+  )
+FROM TestTable
+GROUP BY team
+--
+ERROR: generic::out_of_range: Scalar subquery produced more than one element.
+==
+
+[name=group_rows_cte_first_in_from_clause]
+WITH t AS (SELECT 1)
+SELECT '', ARRAY(WITH gr() AS GROUP ROWS SELECT x FROM gr())
+FROM t, (SELECT 'a' AS x)
+GROUP BY 1
+--
+ARRAY<STRUCT<STRING, ARRAY<>>>[{"", ARRAY<STRING>["a"]}]
+==
+
+[name=group_rows_cte_in_middle_of_comma_join]
+WITH t AS (SELECT 1 AS y1, 2 AS y2)
+SELECT
+  '',
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT AS STRUCT x, y1, y2, z
+    FROM gr()
+  )
+FROM (SELECT 'a' AS x), t, (SELECT 3.14 AS z)
+GROUP BY 1
+--
+ARRAY<STRUCT<STRING, ARRAY<>>>[
+  {
+    "",
+    ARRAY<STRUCT<x STRING, y1 INT64, y2 INT64, z DOUBLE>>[{"a", 1, 2, 3.14}]
+  }
+]
+==
+
+[name=group_rows_cte_in_middle_select_column_after_cte]
+WITH t AS (SELECT 1 AS y1, 2 AS y2)
+SELECT
+  '',
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT z
+    FROM gr()
+  )
+FROM (SELECT 'a' AS x), t, (SELECT 3.14 AS z)
+GROUP BY 1
+--
+ARRAY<STRUCT<STRING, ARRAY<>>>[{"", ARRAY<DOUBLE>[3.14]}]
+
+==
+
+# Runtime errors inside the GROUP ROWS subquery propagate out of the query.
+[name=group_rows_runtime_error_propagates]
+SELECT
+  team,
+  (
+    WITH gr() AS GROUP ROWS
+    SELECT MIN(DIV(10, id - 1))
+    FROM gr()
+  )
+FROM TestTable
+GROUP BY team
+ORDER BY team
+--
+ERROR: generic::out_of_range: division by zero: 10 / 0
+==
+
+# A SAFE-mode error on one row (id = 1) yields NULL for that row only; later
+# rows in the same group and later groups are evaluated normally.
+[required_features=WITH_ON_SUBQUERY,WITH_GROUP_ROWS,SAFE_FUNCTION_CALL]
+[name=group_rows_safe_error_does_not_affect_later_rows_or_groups]
+SELECT
+  team,
+  ARRAY(
+    WITH gr() AS GROUP ROWS
+    SELECT AS STRUCT id, SAFE.DIV(10, id - 1) AS d
+    FROM gr()
+    ORDER BY id
+  )
+FROM TestTable
+GROUP BY team
+ORDER BY team
+--
+ARRAY<STRUCT<team STRING, ARRAY<>>>[known order:
+  {
+    "A",
+    ARRAY<STRUCT<id INT64, d INT64>>[unknown order:{2, 10}, {1, NULL}]
+  },
+  {
+    "B",
+    ARRAY<STRUCT<id INT64, d INT64>>[{3, 5}]
+  }
+]
+==
+
+# Same as above with an aggregate over the group rows.
+[required_features=WITH_ON_SUBQUERY,WITH_GROUP_ROWS,SAFE_FUNCTION_CALL]
+[name=group_rows_safe_error_in_aggregate_does_not_affect_later_groups]
+SELECT
+  team,
+  (
+    WITH gr() AS GROUP ROWS
+    SELECT MIN(SAFE.DIV(10, id - 1))
+    FROM gr()
+  )
+FROM TestTable
+GROUP BY team
+ORDER BY team
+--
+ARRAY<STRUCT<team STRING, INT64>>[known order:{"A", 10}, {"B", 5}]

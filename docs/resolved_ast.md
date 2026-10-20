@@ -53,6 +53,7 @@ Additional non-generated classes that are documented separately:
       <a id="ResolvedAddColumnAction-toc" href="#ResolvedAddColumnAction">ResolvedAddColumnAction</a>
       <a id="ResolvedAddColumnIdentifierAction-toc" href="#ResolvedAddColumnIdentifierAction">ResolvedAddColumnIdentifierAction</a>
       <a id="ResolvedAddConstraintAction-toc" href="#ResolvedAddConstraintAction">ResolvedAddConstraintAction</a>
+      <a id="ResolvedAddStoredColumnAction-toc" href="#ResolvedAddStoredColumnAction">ResolvedAddStoredColumnAction</a>
       <a id="ResolvedAddSubEntityAction-toc" href="#ResolvedAddSubEntityAction">ResolvedAddSubEntityAction</a>
       <a id="ResolvedAddToRestricteeListAction-toc" href="#ResolvedAddToRestricteeListAction">ResolvedAddToRestricteeListAction</a>
       <a id="ResolvedAlterColumnAction-toc" href="#ResolvedAlterColumnAction">ResolvedAlterColumnAction</a>
@@ -67,6 +68,7 @@ Additional non-generated classes that are documented separately:
       <a id="ResolvedDropColumnAction-toc" href="#ResolvedDropColumnAction">ResolvedDropColumnAction</a>
       <a id="ResolvedDropConstraintAction-toc" href="#ResolvedDropConstraintAction">ResolvedDropConstraintAction</a>
       <a id="ResolvedDropPrimaryKeyAction-toc" href="#ResolvedDropPrimaryKeyAction">ResolvedDropPrimaryKeyAction</a>
+      <a id="ResolvedDropStoredColumnAction-toc" href="#ResolvedDropStoredColumnAction">ResolvedDropStoredColumnAction</a>
       <a id="ResolvedDropSubEntityAction-toc" href="#ResolvedDropSubEntityAction">ResolvedDropSubEntityAction</a>
       <a id="ResolvedFilterUsingAction-toc" href="#ResolvedFilterUsingAction">ResolvedFilterUsingAction</a>
       <a id="ResolvedGrantToAction-toc" href="#ResolvedGrantToAction">ResolvedGrantToAction</a>
@@ -238,11 +240,13 @@ Additional non-generated classes that are documented separately:
     <a id="ResolvedArrayScan-toc" href="#ResolvedArrayScan">ResolvedArrayScan</a>
     <a id="ResolvedAssertScan-toc" href="#ResolvedAssertScan">ResolvedAssertScan</a>
     <a id="ResolvedBarrierScan-toc" href="#ResolvedBarrierScan">ResolvedBarrierScan</a>
+    <a id="ResolvedDeleteScan-toc" href="#ResolvedDeleteScan">ResolvedDeleteScan</a>
     <a id="ResolvedDescribeScan-toc" href="#ResolvedDescribeScan">ResolvedDescribeScan</a>
     <a id="ResolvedExecuteAsRoleScan-toc" href="#ResolvedExecuteAsRoleScan">ResolvedExecuteAsRoleScan</a>
     <a id="ResolvedFilterScan-toc" href="#ResolvedFilterScan">ResolvedFilterScan</a>
     <a id="ResolvedFinishScan-toc" href="#ResolvedFinishScan">ResolvedFinishScan</a>
     <a id="ResolvedGraphCallScan-toc" href="#ResolvedGraphCallScan">ResolvedGraphCallScan</a>
+    <a id="ResolvedGraphDeleteScan-toc" href="#ResolvedGraphDeleteScan">ResolvedGraphDeleteScan</a>
     <a id="ResolvedGraphInsertScan-toc" href="#ResolvedGraphInsertScan">ResolvedGraphInsertScan</a>
     <a id="ResolvedGraphPathScanBase-toc" href="#ResolvedGraphPathScanBase">ResolvedGraphPathScanBase</a>
       <a id="ResolvedGraphElementScan-toc" href="#ResolvedGraphElementScan">ResolvedGraphElementScan</a>
@@ -5962,55 +5966,63 @@ class ResolvedInsertStmt : public <a href="#ResolvedStatement">ResolvedStatement
 <a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedStatement">ResolvedStatement</a>  &rsaquo; ResolvedDeleteStmt
  &nbsp;(<a href="#ResolvedDeleteStmt-toc">tree</a>)
 
-<p><pre><code class="lang-c++"><font color="brown">// This represents a DELETE statement or a nested DELETE inside an
-// UPDATE statement.
+<p><pre><code class="lang-c++"><font color="brown">// This represents one of the following cases:
+// 1) DELETE statement: a top-level DELETE statement.
+// 2) Nested DELETE: a nested DELETE inside an UPDATE statement.
+// 3) DELETE Scan: a DELETE inside a <a href="#ResolvedDeleteScan">ResolvedDeleteScan</a>.
 //
-// For top-level DELETE statements, &lt;table_scan&gt; gives the table to
-// scan and creates <a href="#ResolvedColumn">ResolvedColumns</a> for its columns.  Those columns can
-// be referenced inside the &lt;where_expr&gt;.
+// `table_scan` must be present for DELETE statement and DELETE scan, but
+// must not be present for nested DELETE. `table_scan` gives the target
+// table to scan for rows to delete.
 //
-// For nested DELETEs, there is no &lt;table_scan&gt;.  The &lt;where_expr&gt; can
-// only reference:
-//   (1) the element_column from the <a href="#ResolvedUpdateItem">ResolvedUpdateItem</a> containing this
-//       statement,
-//   (2) columns from the outer statements, and
-//   (3) (optionally) &lt;array_offset_column&gt;, which represents the 0-based
-//       offset of the array element being modified.
+// `where_expr` is required for all cases.
+//   - For DELETE statement and DELETE scan, `where_expr` acts as the join
+//     and filtering condition. It can reference columns from both
+//     `table_scan` and `using_scan`. `table_scan` rows selected by
+//     `where_expr` are deleted.
+//   - For nested DELETE, `where_expr` can only reference `element_column`
+//     from the `<a href="#ResolvedUpdateItem">ResolvedUpdateItem</a>` containing this statement, columns
+//     from the outer statements, and optionally `array_offset_column`.
 //
-// &lt;where_expr&gt; is required.
+// `using_scan` is optional for DELETE statement and required for DELETE
+// scan.
+//   - For both cases, `using_scan` joins with `table_scan` using
+//     `where_expr` as the join and filtering condition. Target table rows
+//     selected after joining and filtering get deleted. When a `table_scan`
+//     row gets matched more than once, it only gets deleted once.
+//   - For DELETE Scan, `using_scan` must be present and it represents the
+//     flowing-through input table. If a input table row matches more than
+//     one `table_scan` row, it is an execution error.
+//   - For DELETE statement, `using_scan` represents the input table resolved
+//     from the `USING` clause (enabled by FEATURE_DML_DELETE_WITH_JOIN; see
+//     (broken link)).
 //
-// If `using_scan` is present, `table_scan` is joined with `using_scan`
-// using join conditions in `where_expr`. Rows selected after joining
-// and filtering are targeted for deletion. When the same target table row
-// gets matched more than once, it only gets deleted once.
-// `using_scan` is only allowed for a top-level DELETE statement, meaning
-// `table_scan` must be present and `array_offset_column` must not be
-// present.
+// `array_offset_column` is only present for nested DELETE. It represents
+// the 0-based offset of the array element being modified.
 //
-// `using_scan` is enabled by FEATURE_DML_DELETE_WITH_JOIN.
-// See (broken link) for more details.
+// `returning` is only present for DELETE statement and DELETE scan:
+//   - For both cases, `returning-&gt;output_column_list` can only access
+//     columns from `table_scan`.
+//   - DELETE scan returns the same input rows from `using_scan`,
+//     plus additional columns from the deleted row
+//     (listed in `returning-&gt;output_column_list`). When an
+//     input row does not match any `table_scan` row, these additional
+//     columns return NULL. When an input row matches more than one
+//     `table_scan` row, it is an execution error.
+//   - DELETE statement only outputs deleted rows from `table_scan`.
 //
-// If &lt;returning&gt; is present, the DELETE statement will return deleted rows
-// back. It can only occur on top-level statements.
-//
-// This returning clause has a &lt;output_column_list&gt; to represent the data
-// sent back to clients. It can only access columns from the &lt;table_scan&gt;.
-//
-// &lt;column_access_list&gt; indicates for each column in &lt;table_scan.column_list&gt;
+// `column_access_list` indicates for each column in `table_scan.column_list`
 // whether it was read and/or written. The query engine may also require
 // read or write permissions across all columns, including unreferenced
 // columns, depending on the operation.
 //
-// If &lt;timestamp_version_column&gt; is present, it represents the read-only
-// timestamp pseudo-column introduced by the `WITH TIMESTAMP [AS alias]` clause.
-// It is a <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a> and is system-generated unless an explicit alias
-// is provided.
-//
-// Note: DELETE statements do not support the AT clause, so &lt;temporal_at&gt;
-// is not present.
-//
-// This field is enabled by FEATURE_VERSION_AWARE_DML.
-// See (broken link) for more details.</font>
+// If `timestamp_version_column` is present, it represents the read-only
+// timestamp pseudo-column introduced by the `WITH TIMESTAMP [AS alias]`
+// clause. It is a <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a> and is system-generated unless an
+// explicit alias is provided. Note: DELETE statements do not support the AT
+// clause, so `temporal_at` is not present. This field is enabled by
+// FEATURE_VERSION_AWARE_DML. See (broken link) for more
+// details.</font>
 class ResolvedDeleteStmt : public <a href="#ResolvedStatement">ResolvedStatement</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_DELETE_STMT;
 
@@ -6031,7 +6043,8 @@ class ResolvedDeleteStmt : public <a href="#ResolvedStatement">ResolvedStatement
   const <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>* timestamp_version_column() const;
 
 <font color="brown">  // The scan representing the data source from the USING clause in
-  // a DELETE statement.</font>
+  // a top-level DELETE statement, or the flowing-through input table
+  // when inside a <a href="#ResolvedDeleteScan">ResolvedDeleteScan</a>.</font>
   const <a href="#ResolvedScan">ResolvedScan</a>* using_scan() const;
 };
 </code></pre></p>
@@ -6289,13 +6302,12 @@ class ResolvedUpdateItemElement : public <a href="#ResolvedArgument">ResolvedArg
 //
 // See (broken link) for more detail on nested DML.
 //
-// If &lt;returning&gt; is present, the UPDATE statement will return updated rows.
-// &lt;returning&gt; can only occur on top-level statements.
+// If `returning` is present, the UPDATE statement will return updated rows.
+// `returning` can only occur on top-level statements.
 //
-// This returning clause has a &lt;output_column_list&gt; to represent the data
-// sent back to clients. It can only access columns from the &lt;table_scan&gt;.
-// The columns in &lt;from_scan&gt; are not allowed.
-// TODO: allow columns in &lt;from_scan&gt; to be referenced.
+// This returning clause has an `output_column_list` to represent the data
+// sent back to clients. It can access columns from the `table_scan`, as
+// well as columns from `from_scan` when present.
 //
 // &lt;topologically_sorted_generated_column_id_list&gt; is set for queries to
 // tables having generated columns. This field is similar to the INSERT case,
@@ -7021,6 +7033,46 @@ class ResolvedAddColumnIdentifierAction : public <a href="#ResolvedAlterAction">
   const <a href="#ResolvedOption">ResolvedOption</a>* options_list(int i) const;
 
   bool is_if_not_exists() const;
+};
+</code></pre></p>
+
+### ResolvedAddStoredColumnAction
+<a id="ResolvedAddStoredColumnAction"></a>
+
+<a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedArgument">ResolvedArgument</a>  &rsaquo; <a href="#ResolvedAlterAction">ResolvedAlterAction</a>  &rsaquo; ResolvedAddStoredColumnAction
+ &nbsp;(<a href="#ResolvedAddStoredColumnAction-toc">tree</a>)
+
+<p><pre><code class="lang-c++"><font color="brown">// ADD STORED COLUMN action for ALTER VECTOR|SEARCH INDEX statement
+// (broken link)
+//
+// &lt;is_if_not_exists&gt; if true, skip if the stored column already exists.
+// &lt;name&gt; is the column name to add as a stored column.</font>
+class ResolvedAddStoredColumnAction : public <a href="#ResolvedAlterAction">ResolvedAlterAction</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_ADD_STORED_COLUMN_ACTION;
+
+  bool is_if_not_exists() const;
+
+  const std::string&amp; name() const;
+};
+</code></pre></p>
+
+### ResolvedDropStoredColumnAction
+<a id="ResolvedDropStoredColumnAction"></a>
+
+<a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedArgument">ResolvedArgument</a>  &rsaquo; <a href="#ResolvedAlterAction">ResolvedAlterAction</a>  &rsaquo; ResolvedDropStoredColumnAction
+ &nbsp;(<a href="#ResolvedDropStoredColumnAction-toc">tree</a>)
+
+<p><pre><code class="lang-c++"><font color="brown">// DROP STORED COLUMN action for ALTER VECTOR|SEARCH INDEX statement
+// (broken link)
+//
+// &lt;is_if_exists&gt; if true, skip if the stored column does not exist.
+// &lt;name&gt; is the stored column name to drop.</font>
+class ResolvedDropStoredColumnAction : public <a href="#ResolvedAlterAction">ResolvedAlterAction</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_DROP_STORED_COLUMN_ACTION;
+
+  bool is_if_exists() const;
+
+  const std::string&amp; name() const;
 };
 </code></pre></p>
 
@@ -8831,21 +8883,23 @@ class ResolvedReturningClause : public <a href="#ResolvedArgument">ResolvedArgum
 
 <font color="brown">  // Specifies the columns in the returned output row with column
   // names. It can reference columns from the target table scan
-  // &lt;table_scan&gt; from INSERT/DELETE/UPDATE statements. Also this list
-  // can have columns computed in the &lt;expr_list&gt; or an &lt;action_column&gt;
+  // `table_scan` from INSERT/DELETE/UPDATE statements (and from
+  // `from_scan` in UPDATE statements when present). Also this list
+  // can have columns computed in the `expr_list` or an `action_column`
   // as the last column.</font>
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedOutputColumn">ResolvedOutputColumn</a>&gt;&gt;&amp; output_column_list() const;
   int output_column_list_size() const;
   const <a href="#ResolvedOutputColumn">ResolvedOutputColumn</a>* output_column_list(int i) const;
 
-<font color="brown">  // Represents the WITH ACTION column in &lt;output_column_list&gt; as a
+<font color="brown">  // Represents the WITH ACTION column in `output_column_list` as a
   // string type column. There are four valid values for this action
   // column: &#34;INSERT&#34;, &#34;REPLACE&#34;, &#34;UPDATE&#34;, and &#34;DELETE&#34;.</font>
   const <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>* action_column() const;
 
 <font color="brown">  // Represents the computed expressions so they can be referenced in
-  // &lt;output_column_list&gt;. Worth noting, it can&#39;t see &lt;action_column&gt;
-  // and can only access columns from the DML statement target table.</font>
+  // `output_column_list`. Worth noting, it can&#39;t see `action_column`
+  // and can only access columns from the DML statement target table
+  // (and from `from_scan` in UPDATE statements when present).</font>
   const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; expr_list() const;
   int expr_list_size() const;
   const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* expr_list(int i) const;
@@ -11414,8 +11468,42 @@ class ResolvedLockMode : public <a href="#ResolvedArgument">ResolvedArgument</a>
 <a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedArgument">ResolvedArgument</a>  &rsaquo; ResolvedUpdateFieldItem
  &nbsp;(<a href="#ResolvedUpdateFieldItem-toc">tree</a>)
 
-<p><pre><code class="lang-c++"><font color="brown">// Represents the state for a single update operation for an UPDATE
-// constructor.</font>
+<p><pre><code class="lang-c++"><font color="brown">// Represents one update item of an UPDATE constructor. The item replaces
+// the value(s) found at &lt;proto_field_path&gt; in the original object, which
+// is the value of the enclosing <a href="#ResolvedUpdateConstructor">ResolvedUpdateConstructor</a>&#39;s `expr` before
+// any item is applied.
+//
+// The item is applied by visiting each position found at
+// &lt;proto_field_path&gt; in the original object. For each position:
+//   1. &lt;update_item_column&gt;, if present, is bound to the original value
+//      at that position,
+//   2. &lt;expr&gt; is evaluated, and
+//   3. its result replaces the value at that same position.
+//
+// For UPDATE_SINGLE and UPDATE_SINGLE_NO_CREATION there is a single
+// position.
+//
+// For UPDATE_MANY, every repeated field on &lt;proto_field_path&gt; is iterated,
+// as nested loops, so there is one position per value found. If the path
+// ends with a repeated field, each position is one element of it.
+// Otherwise, each position is the final field in one of the messages
+// reached.
+//
+// &lt;expr&gt; can reference &lt;update_item_column&gt;, including from a nested
+// <a href="#ResolvedUpdateConstructor">ResolvedUpdateConstructor</a>, whose `expr` is then a <a href="#ResolvedColumnRef">ResolvedColumnRef</a> to
+// &lt;update_item_column&gt;. Other items of the same UPDATE constructor cannot
+// reference it.
+//
+// For example, with
+//   nested_repeated_value = [{nested_repeated_int64: [7, 8]},
+//                            {nested_repeated_int64: [9]}],
+// the item
+//   nested_repeated_value.nested_repeated_int64 *: nested_repeated_int64 + 1
+// visits three positions, with &lt;update_item_column&gt; bound to 7, 8 and 9 in
+// turn, giving [8, 9] and [10].
+//
+// Requires FEATURE_UPDATE_CONSTRUCTOR. See
+// (broken link).</font>
 class ResolvedUpdateFieldItem : public <a href="#ResolvedArgument">ResolvedArgument</a> {
   static const ResolvedNodeKind TYPE = RESOLVED_UPDATE_FIELD_ITEM;
 
@@ -11424,8 +11512,8 @@ class ResolvedUpdateFieldItem : public <a href="#ResolvedArgument">ResolvedArgum
   static const Operation UPDATE_MANY = <a href="#ResolvedUpdateFieldItemEnum">ResolvedUpdateFieldItemEnums</a>::UPDATE_MANY;
   static const Operation UPDATE_SINGLE_NO_CREATION = <a href="#ResolvedUpdateFieldItemEnum">ResolvedUpdateFieldItemEnums</a>::UPDATE_SINGLE_NO_CREATION;
 
-<font color="brown">  // The value that the final field in &lt;proto_field_path&gt; will be set
-  // to.
+<font color="brown">  // The new value for the position currently being updated (see the
+  // node comment).
   //
   // If &lt;expr&gt; is NULL, the field will be unset. If &lt;proto_field_path&gt;
   // is a required field, the engine must return an error if it is set
@@ -11442,6 +11530,20 @@ class ResolvedUpdateFieldItem : public <a href="#ResolvedArgument">ResolvedArgum
 <font color="brown">  // The operation that should be used to apply &lt;expr&gt; to
   // &lt;proto_field_path&gt;.</font>
   <a href="#ResolvedUpdateFieldItem">ResolvedUpdateFieldItem</a>::Operation operation() const;
+
+<font color="brown">  // If present, a column holding the original value at the position
+  // currently being updated (see the node comment). Its type is the
+  // type of the final field of &lt;proto_field_path&gt;, or its element type
+  // when an UPDATE_MANY path ends with a repeated field.
+  //
+  // Set only when &lt;expr&gt; references it.
+  //
+  // IMPORTANT: The value bound to this column must be read from the
+  // proto as it was before the enclosing <a href="#ResolvedUpdateConstructor">ResolvedUpdateConstructor</a>
+  // was applied, not from the partially updated proto. All items of
+  // an UPDATE constructor apply as-if simultaneously, so a preceding
+  // item that writes an overlapping path must not be visible here.</font>
+  const <a href="#ResolvedColumnHolder">ResolvedColumnHolder</a>* update_item_column() const;
 };
 </code></pre></p>
 
@@ -11887,6 +11989,108 @@ class ResolvedMakeColumnListSpec : public <a href="#ResolvedExpr">ResolvedExpr</
   static const ResolvedNodeKind TYPE = RESOLVED_MAKE_COLUMN_LIST_SPEC;
 
   const <a href="#ResolvedExpr">ResolvedExpr</a>* column_name_list() const;
+};
+</code></pre></p>
+
+### ResolvedGraphDeleteScan
+<a id="ResolvedGraphDeleteScan"></a>
+
+<a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedScan">ResolvedScan</a>  &rsaquo; ResolvedGraphDeleteScan
+ &nbsp;(<a href="#ResolvedGraphDeleteScan-toc">tree</a>)
+
+<p><pre><code class="lang-c++"><font color="brown">// Represents a GQL DELETE operator, specifying graph elements to be
+// deleted from a property graph:
+//     [DETACH | NODETACH] DELETE graph_element_reference;
+//
+// For each row of the `input_scan`, compute columns in `delete_item_list`
+// and apply deletions to the target graph elements. The output `column_list`
+// must be a subset of the union of `input_scan`&#39;s `column_list` (excluding
+// columns referenced in `delete_item_list`) and `delete_item_list`&#39;s
+// computed columns.
+//
+// This node is enabled by FEATURE_SQL_GRAPH_TERMINAL_NON_RETURNING_DELETE.
+// See (broken link):dml-delete for more details.</font>
+class ResolvedGraphDeleteScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_GRAPH_DELETE_SCAN;
+
+  const <a href="#ResolvedScan">ResolvedScan</a>* input_scan() const;
+
+<font color="brown">  // A list of computed columns, where each `<a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>`
+  // pairs a target graph element to be deleted (`expr`) with a newly
+  // created `<a href="#ResolvedColumn">ResolvedColumn</a>` (`column`) representing that graph
+  // element in its post-delete state.
+  //
+  // For rows where the target graph element is deleted, `column` gets
+  // an invalid value, so accessing its properties or labels gives a
+  // runtime error. For rows where the target graph element is not
+  // deleted, `column` gets the original column&#39;s value.
+  //
+  // If `expr` evaluates to NULL at runtime, the deletion is treated as
+  // a no-op and `column`&#39;s value remains NULL.
+  //
+  // Multiple `<a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>`s referencing different
+  // `input_scan` columns may be referring to the same underlying graph
+  // element. A GQL DELETE operation is idempotent, so the underlying
+  // graph element will only be deleted once.
+  //
+  // Rules:
+  // 1. `delete_item_list` must not be empty.
+  // 2. Each column in this list must be of GraphElementType.
+  // 3. The `expr` for each `<a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>` in this list must
+  // be a `<a href="#ResolvedColumnRef">ResolvedColumnRef</a>` that references a column from
+  // `input_scan`&#39;s `column_list`.</font>
+  const std::vector&lt;std::unique_ptr&lt;const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>&gt;&gt;&amp; delete_item_list() const;
+  int delete_item_list_size() const;
+  const <a href="#ResolvedComputedColumn">ResolvedComputedColumn</a>* delete_item_list(int i) const;
+
+<font color="brown">  // If true (DETACH mode), all edges connected to nodes in
+  // `delete_item_list` also get deleted.
+  //
+  // Otherwise, if any dangling edge exists after applying deletions
+  // made, raise a runtime error.</font>
+  bool is_detach_mode() const;
+};
+</code></pre></p>
+
+### ResolvedDeleteScan
+<a id="ResolvedDeleteScan"></a>
+
+<a href="#ResolvedNode">ResolvedNode</a> &rsaquo; <a href="#ResolvedScan">ResolvedScan</a>  &rsaquo; ResolvedDeleteScan
+ &nbsp;(<a href="#ResolvedDeleteScan-toc">tree</a>)
+
+<p><pre><code class="lang-c++"><font color="brown">// This represents a pipe DELETE operator.
+// The overall procedure for this operator is as follows:
+//
+// 1) Scan the input table `delete_stmt-&gt;using_scan` and join it with target
+//    table `delete_stmt-&gt;table_scan` using `delete_stmt-&gt;where_expr` as a
+//    join condition and also a filter.
+//
+// 2) For each input row, there can be 0, 1 or multiple matched rows in the
+//    target table:
+//    - If 0 matches, then there is no target table row to delete. However,
+//      the input row still gets returned. Values of columns in
+//      `delete_stmt-&gt;returning` are NULL.
+//    - If 1 match, the matched target table row is deleted and
+//      the input row is returned.
+//    - If multiple matches, a runtime error is returned. (Flow-through
+//      delete must return the same input rows.)
+//
+// 3) If a target table row gets matched more than once to different input
+//    rows, it gets deleted only once.
+//
+// 4) `column_list` can include both input table columns
+//    (`delete_stmt-&gt;using_scan`) and returning columns
+//    (`delete_stmt-&gt;returning`).
+//
+// This operator only occurs inside a <a href="#ResolvedGeneralizedQueryStmt">ResolvedGeneralizedQueryStmt</a>, which
+// must be enabled in SupportedStatementKinds. A pipe delete operator is
+// typically used for rewriting a GQL DML Delete statement or inside a pipe
+// query.
+// See (broken link):delete-scan for more details.</font>
+class ResolvedDeleteScan : public <a href="#ResolvedScan">ResolvedScan</a> {
+  static const ResolvedNodeKind TYPE = RESOLVED_DELETE_SCAN;
+
+  const <a href="#ResolvedDeleteStmt">ResolvedDeleteStmt</a>* delete_stmt() const;
 };
 </code></pre></p>
 

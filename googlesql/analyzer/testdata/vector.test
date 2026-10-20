@@ -121,36 +121,36 @@ SELECT CAST(ENCODE_VECTOR([1.0, 2.0]) AS VECTOR)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
 ==
 
-# Casting to parameterized VECTOR with length only
+# Casting to parameterized VECTOR with dims only
 SELECT CAST(ENCODE_VECTOR([1.0, 2.0]) AS VECTOR(2))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
-    |     +-type_modifiers=type_parameters:(length=2)
+    |     +-type_modifiers=type_parameters:(dims=2)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -160,18 +160,18 @@ SELECT CAST(ENCODE_VECTOR([1.0, 2.0]) AS VECTOR(2, 'FLOAT32'))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -189,14 +189,14 @@ SELECT ENCODE_VECTOR([1.0, 2.0], 2, 'float32')
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-Literal(type=INT64, value=2)
     |     +-Literal(type=STRING, value="float32")
@@ -215,21 +215,21 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
-| +-$query.$col2#2<{VectorLength:2, VectorEncoding:"FLOAT32"}> AS `$col2` [ARRAY<VECTOR>]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col2#2<{VectorDims:2, VectorEncoding:"FLOAT32"}> AS `$col2` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2]
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    | |   +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    | |   +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     | |   +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     | +-$col2#2 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -247,9 +247,9 @@ FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5{VectorLength:2, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
-| +-$query.$col2#6{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
-| +-$query.$col3#7{VectorLength:-1, VectorEncoding:"FLOAT32"} AS `$col3` [VECTOR]
+| +-$query.$col1#5{VectorDims:2, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col2#6{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
+| +-$query.$col3#7{VectorDims:-1, VectorEncoding:"FLOAT32"} AS `$col3` [VECTOR]
 +-query=
   +-WithScan
     +-column_list=$query.[$col1#5, $col2#6, $col3#7]
@@ -270,19 +270,19 @@ QueryStmt
         +-expr_list=
         | +-$col1#5 :=
         | | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-        | |   +-type_annotation_map={VectorLength:2, VectorEncoding:"UNCONSTRAINED"}
+        | |   +-type_annotation_map={VectorDims:2, VectorEncoding:"UNCONSTRAINED"}
         | |   +-ColumnRef(type=ARRAY<FLOAT>, column=t.arr_col#3)
         | |   +-Literal(type=INT64, value=2)
         | |   +-ColumnRef(type=STRING, column=t.encoding_col#4)
         | +-$col2#6 :=
         | | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-        | |   +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+        | |   +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
         | |   +-ColumnRef(type=ARRAY<FLOAT>, column=t.arr_col#3)
         | |   +-Literal(type=INT64, value=2)
         | |   +-Literal(type=STRING, value="FLOAT32")
         | +-$col3#7 :=
         |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-        |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+        |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
         |     +-ColumnRef(type=ARRAY<FLOAT>, column=t.arr_col#3)
         +-input_scan=
           +-WithRefScan(column_list=t.[arr_col#3, encoding_col#4], with_query_name="t")
@@ -446,11 +446,11 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=[t.v1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    |       +-column_list=[t.v1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     |       +-expr_list=
     |       | +-v1#1 :=
     |       |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-input_scan=
     |         +-SingleRowScan
@@ -460,9 +460,9 @@ QueryStmt
         +-expr_list=
         | +-$col1#3 :=
         |   +-FunctionCall(GoogleSQL:$is_null(VECTOR) -> BOOL)
-        |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}, column=t.v1#2{VectorLength:2, VectorEncoding:"FLOAT32"})
+        |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}, column=t.v1#2{VectorDims:2, VectorEncoding:"FLOAT32"})
         +-input_scan=
-          +-WithRefScan(column_list=[t.v1#2{VectorLength:2, VectorEncoding:"FLOAT32"}], with_query_name="t")
+          +-WithRefScan(column_list=[t.v1#2{VectorDims:2, VectorEncoding:"FLOAT32"}], with_query_name="t")
 ==
 
 # IN list comparison is disallowed for VECTOR.
@@ -521,14 +521,14 @@ SELECT ENCODE_VECTOR([1.0, 2.0])
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -538,14 +538,14 @@ SELECT ENCODE_VECTOR([1.0, 2.0], 2, 'FLOAT32')
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-Literal(type=INT64, value=2)
     |     +-Literal(type=STRING, value="FLOAT32")
@@ -557,14 +557,14 @@ SELECT ENCODE_VECTOR(@test_param_array_float, 2, "FLOAT32")
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |     +-Literal(type=INT64, value=2)
     |     +-Literal(type=STRING, value="FLOAT32")
@@ -572,11 +572,11 @@ QueryStmt
       +-SingleRowScan
 ==
 
-#################
-# VECTOR_LENGTH #
-#################
+##########################
+# VECTOR_DIMENSION_COUNT #
+##########################
 
-SELECT VECTOR_LENGTH(ENCODE_VECTOR([1.0, 2.0]))
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR([1.0, 2.0]))
 --
 QueryStmt
 +-output_column_list=
@@ -586,15 +586,15 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(GoogleSQL:vector_length(VECTOR) -> INT64)
+    |   +-FunctionCall(GoogleSQL:vector_dimension_count(VECTOR) -> INT64)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
 ==
 
-SELECT VECTOR_LENGTH(ENCODE_VECTOR([1.0, 2.0], 2, 'FLOAT32'))
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR([1.0, 2.0], 2, 'FLOAT32'))
 --
 QueryStmt
 +-output_column_list=
@@ -604,9 +604,9 @@ QueryStmt
     +-column_list=[$query.$col1#1]
     +-expr_list=
     | +-$col1#1 :=
-    |   +-FunctionCall(GoogleSQL:vector_length(VECTOR) -> INT64)
+    |   +-FunctionCall(GoogleSQL:vector_dimension_count(VECTOR) -> INT64)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -630,7 +630,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:vector_encoding(VECTOR) -> STRING)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -648,7 +648,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:vector_encoding(VECTOR) -> STRING)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -657,14 +657,14 @@ QueryStmt
 ==
 
 # ENCODE_VECTOR does not allow passing ARRAY<DOUBLE> as input.
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<DOUBLE>[1.7e308]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<DOUBLE>[1.7e308]));
 --
 ERROR: No matching signature for function ENCODE_VECTOR
   Argument types: ARRAY<DOUBLE>
   Signature: ENCODE_VECTOR(ARRAY<FLOAT>, [INT64], [STRING])
-    Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type ARRAY<FLOAT> [at 1:22]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<DOUBLE>[1.7e308]));
-                     ^
+    Argument 1: Unable to coerce type ARRAY<DOUBLE> to expected type ARRAY<FLOAT> [at 1:31]
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<DOUBLE>[1.7e308]));
+                              ^
 ==
 
 # ENCODE_VECTOR with an array literal containing an overflowed float32.
@@ -691,10 +691,10 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:cosine_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     +-input_scan=
       +-SingleRowScan
@@ -712,12 +712,12 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:cosine_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -741,10 +741,10 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:dot_product(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     +-input_scan=
       +-SingleRowScan
@@ -762,12 +762,12 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:dot_product(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -791,10 +791,10 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:manhattan_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     +-input_scan=
       +-SingleRowScan
@@ -812,12 +812,12 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:manhattan_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -841,10 +841,10 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:euclidean_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     +-input_scan=
       +-SingleRowScan
@@ -862,12 +862,12 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:euclidean_distance(VECTOR, VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -891,7 +891,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:l1_norm(VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -909,7 +909,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:l1_norm(VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -933,7 +933,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:l2_norm(VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -951,7 +951,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:l2_norm(VECTOR) -> DOUBLE)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -998,7 +998,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:decode_vector(VECTOR) -> ARRAY<FLOAT>)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -1022,7 +1022,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:typeof(VECTOR) -> STRING)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -1042,7 +1042,7 @@ QueryStmt
     |     +-Cast(BOOL -> STRING)
     |       +-FunctionCall(GoogleSQL:$is_null(VECTOR) -> BOOL)
     |         +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |           +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |           +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |           +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     +-input_scan=
       +-SingleRowScan
@@ -1063,7 +1063,7 @@ QueryStmt
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:typeof(VECTOR) -> STRING)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |       +-Parameter(parse_location=28-30, type=ARRAY<FLOAT>, name="p")
     |       +-Literal(type=INT64, value=3)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -1088,7 +1088,7 @@ QueryStmt
     |     +-Cast(BOOL -> STRING)
     |       +-FunctionCall(GoogleSQL:$is_null(VECTOR) -> BOOL)
     |         +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |           +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |           +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |           +-Parameter(parse_location=28-30, type=ARRAY<FLOAT>, name="p")
     |           +-Literal(type=INT64, value=3)
     |           +-Literal(type=STRING, value="FLOAT32")
@@ -1104,20 +1104,20 @@ SELECT CAST(ENCODE_VECTOR([1.0, 2.0], 2, 'FLOAT32') AS VECTOR(2, 'FLOAT32'))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1127,14 +1127,14 @@ SELECT CAST(ENCODE_VECTOR([1.0, 2.0], 2, 'FLOAT32') AS VECTOR)
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-Literal(type=INT64, value=2)
     |     +-Literal(type=STRING, value="FLOAT32")
@@ -1147,19 +1147,19 @@ SELECT CAST(ENCODE_VECTOR([1.0, 2.0], 4) AS VECTOR(2, 'FLOAT32'))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=4)
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -1176,42 +1176,42 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:100, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
-| +-$query.$col2#2{VectorLength:100, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
-| +-$query.$col3#3{VectorLength:100, VectorEncoding:"FLOAT32"} AS `$col3` [VECTOR]
-| +-$query.$col4#4{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col4` [VECTOR]
+| +-$query.$col1#1{VectorDims:100, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col2#2{VectorDims:100, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
+| +-$query.$col3#3{VectorDims:100, VectorEncoding:"FLOAT32"} AS `$col3` [VECTOR]
+| +-$query.$col4#4{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col4` [VECTOR]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2, $col3#3, $col4#4]
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(GoogleSQL:iferror(VECTOR, VECTOR) -> VECTOR)
-    | |   +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    | |   | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     | |   | +-Literal(type=INT64, value=100)
     | |   +-Literal(type=VECTOR, value=NULL)
     | +-$col2#2 :=
     | | +-FunctionCall({SAFE_ERROR_MODE} GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    | |   +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     | |   +-Literal(type=INT64, value=100)
     | +-$col3#3 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    | |   +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   +-Literal(type=BOOL, value=false)
     | |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    | |   | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     | |   | +-Literal(type=INT64, value=100)
     | |   +-Literal(type=VECTOR, value=NULL)
     | +-$col4#4 :=
     |   +-FunctionCall(GoogleSQL:$case_no_value(repeated(1) BOOL, repeated(1) VECTOR, VECTOR) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=BOOL, value=true)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     +-Literal(type=VECTOR, value=NULL)
     +-input_scan=
@@ -1225,31 +1225,31 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:100, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
-| +-$query.$col2#2{VectorLength:-1, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
+| +-$query.$col1#1{VectorDims:100, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col2#2{VectorDims:-1, VectorEncoding:"FLOAT32"} AS `$col2` [VECTOR]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2]
     +-expr_list=
     | +-$col1#1 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    | |   +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   +-Literal(type=BOOL, value=false)
     | |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    | |   | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    | |   | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     | |   | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     | |   | +-Literal(type=INT64, value=100)
     | |   +-Literal(type=VECTOR, value=NULL)
     | +-$col2#2 :=
     |   +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |     +-Literal(type=BOOL, value=false)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=100)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     +-input_scan=
       +-SingleRowScan
@@ -1277,9 +1277,9 @@ FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.v1#3{VectorLength:8, VectorEncoding:"FLOAT32"} AS v1 [VECTOR]
-| +-$query.v2#4{VectorLength:4, VectorEncoding:"FLOAT32"} AS v2 [VECTOR]
-| +-$query.a#5<{VectorLength:16, VectorEncoding:"FLOAT32"}> AS a [ARRAY<VECTOR>]
+| +-$query.v1#3{VectorDims:8, VectorEncoding:"FLOAT32"} AS v1 [VECTOR]
+| +-$query.v2#4{VectorDims:4, VectorEncoding:"FLOAT32"} AS v2 [VECTOR]
+| +-$query.a#5<{VectorDims:16, VectorEncoding:"FLOAT32"}> AS a [ARRAY<VECTOR>]
 +-query=
   +-WithScan
     +-column_list=$query.[v1#3, v2#4, a#5]
@@ -1288,37 +1288,37 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=[t.complex_struct#1<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>]
+    |       +-column_list=[t.complex_struct#1<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>]
     |       +-expr_list=
     |       | +-complex_struct#1 :=
     |       |   +-MakeStruct
     |       |     +-type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>
-    |       |     +-type_annotation_map=<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>
+    |       |     +-type_annotation_map=<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>
     |       |     +-field_list=
     |       |       +-Cast(ARRAY<VECTOR> -> ARRAY<VECTOR>)
-    |       |       | +-type_annotation_map=<{VectorLength:16, VectorEncoding:"FLOAT32"}>
+    |       |       | +-type_annotation_map=<{VectorDims:16, VectorEncoding:"FLOAT32"}>
     |       |       | +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       |       | | +-type_annotation_map=<{VectorLength:4, VectorEncoding:"FLOAT32"}>
+    |       |       | | +-type_annotation_map=<{VectorDims:4, VectorEncoding:"FLOAT32"}>
     |       |       | | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    |       |       | |   +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+    |       |       | |   +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
     |       |       | |   +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3, 4])
     |       |       | |   +-Literal(type=INT64, value=4)
-    |       |       | +-type_modifiers=type_parameters:[(length=16)]
+    |       |       | +-type_modifiers=type_parameters:[(dims=16)]
     |       |       +-MakeStruct
     |       |         +-type=STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>
-    |       |         +-type_annotation_map=<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>
+    |       |         +-type_annotation_map=<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>
     |       |         +-field_list=
     |       |           +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    |       |           | +-type_annotation_map={VectorLength:8, VectorEncoding:"FLOAT32"}
+    |       |           | +-type_annotation_map={VectorDims:8, VectorEncoding:"FLOAT32"}
     |       |           | +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3, 4, 5, 6, 7, 8])
     |       |           | +-Literal(type=INT64, value=8)
     |       |           +-Cast(VECTOR -> VECTOR)
-    |       |           | +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+    |       |           | +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
     |       |           | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(0) STRING) -> VECTOR)
-    |       |           | | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |           | | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |           | | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       |           | | +-Literal(type=INT64, value=2)
-    |       |           | +-type_modifiers=type_parameters:(length=4)
+    |       |           | +-type_modifiers=type_parameters:(dims=4)
     |       |           +-Literal(type=INT64, value=5, has_explicit_type=TRUE)
     |       +-input_scan=
     |         +-SingleRowScan
@@ -1329,39 +1329,39 @@ QueryStmt
         | +-v1#3 :=
         | | +-GetStructField
         | |   +-type=VECTOR
-        | |   +-type_annotation_map={VectorLength:8, VectorEncoding:"FLOAT32"}
+        | |   +-type_annotation_map={VectorDims:8, VectorEncoding:"FLOAT32"}
         | |   +-expr=
         | |   | +-GetStructField
         | |   |   +-type=STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>
-        | |   |   +-type_annotation_map=<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>
+        | |   |   +-type_annotation_map=<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>
         | |   |   +-expr=
-        | |   |   | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>)
+        | |   |   | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>)
         | |   |   +-field_idx=1
         | |   +-field_idx=0
         | +-v2#4 :=
         | | +-GetStructField
         | |   +-type=VECTOR
-        | |   +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+        | |   +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
         | |   +-expr=
         | |   | +-GetStructField
         | |   |   +-type=STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>
-        | |   |   +-type_annotation_map=<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>
+        | |   |   +-type_annotation_map=<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>
         | |   |   +-expr=
-        | |   |   | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>)
+        | |   |   | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>)
         | |   |   +-field_idx=1
         | |   +-field_idx=1
         | +-a#5 :=
         |   +-GetStructField
         |     +-type=ARRAY<VECTOR>
-        |     +-type_annotation_map=<{VectorLength:16, VectorEncoding:"FLOAT32"}>
+        |     +-type_annotation_map=<{VectorDims:16, VectorEncoding:"FLOAT32"}>
         |     +-expr=
-        |     | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>)
+        |     | +-ColumnRef(type=STRUCT<a ARRAY<VECTOR>, b STRUCT<v1 VECTOR, v2 VECTOR, v3 INT64>>, type_annotation_map=<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>, column=t.complex_struct#2<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>)
         |     +-field_idx=0
         +-input_scan=
-          +-WithRefScan(column_list=[t.complex_struct#2<<{VectorLength:16, VectorEncoding:"FLOAT32"}>,<{VectorLength:8, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"},_>>], with_query_name="t")
+          +-WithRefScan(column_list=[t.complex_struct#2<<{VectorDims:16, VectorEncoding:"FLOAT32"}>,<{VectorDims:8, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"},_>>], with_query_name="t")
 ==
 
-# Testing ColumnRef and MakeStruct preserve VECTOR length annotations.
+# Testing ColumnRef and MakeStruct preserve VECTOR dims annotations.
 WITH t AS (
   SELECT ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32") AS v
 )
@@ -1370,8 +1370,8 @@ FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#3<{VectorLength:2, VectorEncoding:"FLOAT32"}> AS `$col1` [STRUCT<v_field VECTOR>]
-| +-$query.v_arr#4<{VectorLength:2, VectorEncoding:"FLOAT32"}> AS v_arr [ARRAY<VECTOR>]
+| +-$query.$col1#3<{VectorDims:2, VectorEncoding:"FLOAT32"}> AS `$col1` [STRUCT<v_field VECTOR>]
+| +-$query.v_arr#4<{VectorDims:2, VectorEncoding:"FLOAT32"}> AS v_arr [ARRAY<VECTOR>]
 +-query=
   +-WithScan
     +-column_list=$query.[$col1#3, v_arr#4]
@@ -1380,11 +1380,11 @@ QueryStmt
     |   +-with_query_name="t"
     |   +-with_subquery=
     |     +-ProjectScan
-    |       +-column_list=[t.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    |       +-column_list=[t.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     |       +-expr_list=
     |       | +-v#1 :=
     |       |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       |     +-Literal(type=INT64, value=2)
     |       |     +-Literal(type=STRING, value="FLOAT32")
@@ -1397,15 +1397,15 @@ QueryStmt
         | +-$col1#3 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<v_field VECTOR>
-        | |   +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+        | |   +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
         | |   +-field_list=
-        | |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}, column=t.v#2{VectorLength:2, VectorEncoding:"FLOAT32"})
+        | |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}, column=t.v#2{VectorDims:2, VectorEncoding:"FLOAT32"})
         | +-v_arr#4 :=
         |   +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-        |     +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
-        |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}, column=t.v#2{VectorLength:2, VectorEncoding:"FLOAT32"})
+        |     +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
+        |     +-ColumnRef(type=VECTOR, type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}, column=t.v#2{VectorDims:2, VectorEncoding:"FLOAT32"})
         +-input_scan=
-          +-WithRefScan(column_list=[t.v#2{VectorLength:2, VectorEncoding:"FLOAT32"}], with_query_name="t")
+          +-WithRefScan(column_list=[t.v#2{VectorDims:2, VectorEncoding:"FLOAT32"}], with_query_name="t")
 ==
 
 # Unannotated and partially annotated column references with complex type STRUCT<v VECTOR, arr ARRAY<VECTOR>>.
@@ -1427,8 +1427,8 @@ FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#5<<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>> AS `$col1` [STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>]
-| +-$query.$col2#6<<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>> AS `$col2` [STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>]
+| +-$query.$col1#5<<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>> AS `$col1` [STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>]
+| +-$query.$col2#6<<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>> AS `$col2` [STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>]
 +-query=
   +-WithScan
     +-column_list=$query.[$col1#5, $col2#6]
@@ -1442,28 +1442,28 @@ QueryStmt
     |       | +-s_unannotated#1 :=
     |       | | +-MakeStruct
     |       | |   +-type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>
-    |       | |   +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>
+    |       | |   +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>
     |       | |   +-field_list=
     |       | |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |     | +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |     | +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |     | +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       | |       +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |       | |       +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |       | |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |         +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |         +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |         +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | +-s_partially_annotated#2 :=
     |       |   +-MakeStruct
     |       |     +-type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>
-    |       |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>
+    |       |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>
     |       |     +-field_list=
     |       |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       |       | +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       |       | +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       |       | +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       |       +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       |         +-type_annotation_map=<{VectorLength:3, VectorEncoding:"FLOAT32"}>
+    |       |         +-type_annotation_map=<{VectorDims:3, VectorEncoding:"FLOAT32"}>
     |       |         +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |           +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |       |           +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |       |           +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3])
     |       |           +-Literal(type=INT64, value=3)
     |       |           +-Literal(type=STRING, value="FLOAT32")
@@ -1476,15 +1476,15 @@ QueryStmt
         | +-$col1#5 :=
         | | +-MakeStruct
         | |   +-type=STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>
-        | |   +-type_annotation_map=<<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>>
+        | |   +-type_annotation_map=<<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>>
         | |   +-field_list=
-        | |     +-ColumnRef(type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>, column=t.s_unannotated#3<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>)
+        | |     +-ColumnRef(type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>, column=t.s_unannotated#3<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>)
         | +-$col2#6 :=
         |   +-MakeStruct
         |     +-type=STRUCT<s STRUCT<v VECTOR, arr ARRAY<VECTOR>>>
-        |     +-type_annotation_map=<<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>>
+        |     +-type_annotation_map=<<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>>
         |     +-field_list=
-        |       +-ColumnRef(type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>, column=t.s_partially_annotated#4<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>)
+        |       +-ColumnRef(type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>, column=t.s_partially_annotated#4<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>)
         +-input_scan=
           +-WithRefScan(column_list=t.[s_unannotated#3, s_partially_annotated#4], with_query_name="t")
 ==
@@ -1503,21 +1503,21 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=100)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     +-input_scan=
       +-SingleRowScan
@@ -1530,19 +1530,19 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |     | +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=100)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -1550,32 +1550,32 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# Testing multi-element ARRAY<VECTOR> with conflicting lengths ensuring third element cannot revive length.
+# Testing multi-element ARRAY<VECTOR> with conflicting dims ensuring third element cannot revive dims.
 SELECT
   [ENCODE_VECTOR([1.0], 2, "FLOAT32"), ENCODE_VECTOR([1.0], 3, "FLOAT32"), ENCODE_VECTOR([1.0], 4, "FLOAT32")]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(3) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1])
     |     | +-Literal(type=INT64, value=3)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1])
     |       +-Literal(type=INT64, value=4)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -1583,27 +1583,27 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# Testing merging ARRAY<VECTOR> with the same length and encoding.
+# Testing merging ARRAY<VECTOR> with the same dims and encoding.
 SELECT
   [ENCODE_VECTOR([1.0, 2.0], 100, "FLOAT32"), ENCODE_VECTOR([1.0, 2.0], 100, "FLOAT32")]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:100, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:100, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:100, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:100, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:100, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:100, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=100)
     |     | +-Literal(type=STRING, value="FLOAT32")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:100, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:100, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=100)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -1616,18 +1616,18 @@ SELECT ARRAY_CONCAT([ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")], [])
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:2, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:2, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:2, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:2, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<VECTOR>, repeated(1) ARRAY<VECTOR>) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |     | +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |     | +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |     | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     |   +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     |   +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     |   +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     |   +-Literal(type=INT64, value=2)
     |     |   +-Literal(type=STRING, value="FLOAT32")
@@ -1641,18 +1641,18 @@ SELECT ARRAY_CONCAT([ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")], ARRAY<VECTOR>[NUL
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:2, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:2, VectorEncoding:"FLOAT32"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:2, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:2, VectorEncoding:"FLOAT32"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<VECTOR>, repeated(1) ARRAY<VECTOR>) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |     +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |     | +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |     | +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |     | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     |   +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     |   +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     |   +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     |   +-Literal(type=INT64, value=2)
     |     |   +-Literal(type=STRING, value="FLOAT32")
@@ -1665,90 +1665,90 @@ QueryStmt
 # SET Operation and Recursive Scan #
 ####################################
 
-# Set operation with matching vector length annotations.
+# Set operation with matching vector dims annotations.
 SELECT ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32") AS v
 UNION ALL
 SELECT ENCODE_VECTOR([3.0, 4.0], 2, "FLOAT32") AS v
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.v#3{VectorLength:2, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-$union_all.v#3{VectorDims:2, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-SetOperationScan
-    +-column_list=[$union_all.v#3{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$union_all.v#3{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | |   +-column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       | |   +-expr_list=
       | |   | +-v#1 :=
       | |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-      | |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+      | |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
       | |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
       | |   |     +-Literal(type=INT64, value=2)
       | |   |     +-Literal(type=STRING, value="FLOAT32")
       | |   +-input_scan=
       | |     +-SingleRowScan
-      | +-output_column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | +-output_column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all2.v#2{VectorLength:2, VectorEncoding:"FLOAT32"}]
+        |   +-column_list=[$union_all2.v#2{VectorDims:2, VectorEncoding:"FLOAT32"}]
         |   +-expr_list=
         |   | +-v#2 :=
         |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-        |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+        |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
         |   |     +-Literal(type=ARRAY<FLOAT>, value=[3, 4])
         |   |     +-Literal(type=INT64, value=2)
         |   |     +-Literal(type=STRING, value="FLOAT32")
         |   +-input_scan=
         |     +-SingleRowScan
-        +-output_column_list=[$union_all2.v#2{VectorLength:2, VectorEncoding:"FLOAT32"}]
+        +-output_column_list=[$union_all2.v#2{VectorDims:2, VectorEncoding:"FLOAT32"}]
 ==
 
-# Set operation with conflicting vector length annotations.
+# Set operation with conflicting vector dims annotations.
 SELECT ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32") AS v
 UNION ALL
 SELECT ENCODE_VECTOR([3.0, 4.0, 5.0], 3, "FLOAT32") AS v
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-SetOperationScan
-    +-column_list=[$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | |   +-column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       | |   +-expr_list=
       | |   | +-v#1 :=
       | |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-      | |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+      | |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
       | |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
       | |   |     +-Literal(type=INT64, value=2)
       | |   |     +-Literal(type=STRING, value="FLOAT32")
       | |   +-input_scan=
       | |     +-SingleRowScan
-      | +-output_column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | +-output_column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all2.v#2{VectorLength:3, VectorEncoding:"FLOAT32"}]
+        |   +-column_list=[$union_all2.v#2{VectorDims:3, VectorEncoding:"FLOAT32"}]
         |   +-expr_list=
         |   | +-v#2 :=
         |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-        |   |     +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+        |   |     +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
         |   |     +-Literal(type=ARRAY<FLOAT>, value=[3, 4, 5])
         |   |     +-Literal(type=INT64, value=3)
         |   |     +-Literal(type=STRING, value="FLOAT32")
         |   +-input_scan=
         |     +-SingleRowScan
-        +-output_column_list=[$union_all2.v#2{VectorLength:3, VectorEncoding:"FLOAT32"}]
+        +-output_column_list=[$union_all2.v#2{VectorDims:3, VectorEncoding:"FLOAT32"}]
 ==
 
 # Set operation with annotated and bound parameter branches.
@@ -1758,38 +1758,38 @@ SELECT ENCODE_VECTOR(@test_param_array_float) AS v
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-SetOperationScan
-    +-column_list=[$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | |   +-column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       | |   +-expr_list=
       | |   | +-v#1 :=
       | |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-      | |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+      | |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
       | |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
       | |   |     +-Literal(type=INT64, value=2)
       | |   |     +-Literal(type=STRING, value="FLOAT32")
       | |   +-input_scan=
       | |     +-SingleRowScan
-      | +-output_column_list=[$union_all1.v#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+      | +-output_column_list=[$union_all1.v#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all2.v#2{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+        |   +-column_list=[$union_all2.v#2{VectorDims:-1, VectorEncoding:"FLOAT32"}]
         |   +-expr_list=
         |   | +-v#2 :=
         |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-        |   |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+        |   |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
         |   |     +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
         |   +-input_scan=
         |     +-SingleRowScan
-        +-output_column_list=[$union_all2.v#2{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+        +-output_column_list=[$union_all2.v#2{VectorDims:-1, VectorEncoding:"FLOAT32"}]
 ==
 
 # Set operation with unannotated vector branch first followed by annotated vector branch.
@@ -1799,38 +1799,38 @@ SELECT ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32") AS v
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-SetOperationScan
-    +-column_list=[$union_all.v#3{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$union_all.v#3{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     +-op_type=UNION_ALL
     +-input_item_list=
       +-SetOperationItem
       | +-scan=
       | | +-ProjectScan
-      | |   +-column_list=[$union_all1.v#1{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+      | |   +-column_list=[$union_all1.v#1{VectorDims:-1, VectorEncoding:"FLOAT32"}]
       | |   +-expr_list=
       | |   | +-v#1 :=
       | |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-      | |   |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+      | |   |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
       | |   |     +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
       | |   +-input_scan=
       | |     +-SingleRowScan
-      | +-output_column_list=[$union_all1.v#1{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+      | +-output_column_list=[$union_all1.v#1{VectorDims:-1, VectorEncoding:"FLOAT32"}]
       +-SetOperationItem
         +-scan=
         | +-ProjectScan
-        |   +-column_list=[$union_all2.v#2{VectorLength:2, VectorEncoding:"FLOAT32"}]
+        |   +-column_list=[$union_all2.v#2{VectorDims:2, VectorEncoding:"FLOAT32"}]
         |   +-expr_list=
         |   | +-v#2 :=
         |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-        |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+        |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
         |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
         |   |     +-Literal(type=INT64, value=2)
         |   |     +-Literal(type=STRING, value="FLOAT32")
         |   +-input_scan=
         |     +-SingleRowScan
-        +-output_column_list=[$union_all2.v#2{VectorLength:2, VectorEncoding:"FLOAT32"}]
+        +-output_column_list=[$union_all2.v#2{VectorDims:2, VectorEncoding:"FLOAT32"}]
 ==
 
 # Set operation with unannotated column reference branch first followed by annotated branch.
@@ -1844,10 +1844,10 @@ SELECT v_annotated AS v FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.v#7{VectorLength:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-$union_all.v#7{VectorDims:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-WithScan
-    +-column_list=[$union_all.v#7{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$union_all.v#7{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t"
@@ -1857,11 +1857,11 @@ QueryStmt
     |       +-expr_list=
     |       | +-v_unannotated#1 :=
     |       | | +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |   +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |   +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |   +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | +-v_annotated#2 :=
     |       |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       |     +-Literal(type=INT64, value=2)
     |       |     +-Literal(type=STRING, value="FLOAT32")
@@ -1869,23 +1869,23 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-SetOperationScan
-        +-column_list=[$union_all.v#7{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+        +-column_list=[$union_all.v#7{VectorDims:-1, VectorEncoding:"FLOAT32"}]
         +-op_type=UNION_ALL
         +-input_item_list=
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[t.v_unannotated#3{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+          | |   +-column_list=[t.v_unannotated#3{VectorDims:-1, VectorEncoding:"FLOAT32"}]
           | |   +-input_scan=
           | |     +-WithRefScan(column_list=t.[v_unannotated#3, v_annotated#4], with_query_name="t")
-          | +-output_column_list=[t.v_unannotated#3{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+          | +-output_column_list=[t.v_unannotated#3{VectorDims:-1, VectorEncoding:"FLOAT32"}]
           +-SetOperationItem
             +-scan=
             | +-ProjectScan
-            |   +-column_list=[t.v_annotated#6{VectorLength:2, VectorEncoding:"FLOAT32"}]
+            |   +-column_list=[t.v_annotated#6{VectorDims:2, VectorEncoding:"FLOAT32"}]
             |   +-input_scan=
             |     +-WithRefScan(column_list=t.[v_unannotated#5, v_annotated#6], with_query_name="t")
-            +-output_column_list=[t.v_annotated#6{VectorLength:2, VectorEncoding:"FLOAT32"}]
+            +-output_column_list=[t.v_annotated#6{VectorDims:2, VectorEncoding:"FLOAT32"}]
 ==
 
 # Set operation on complex type STRUCT<v VECTOR, arr ARRAY<VECTOR>> putting kUnconstrained in conflicting slots.
@@ -1912,10 +1912,10 @@ SELECT s_annotated2 AS s FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.s#13<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>> AS s [STRUCT<v VECTOR, arr ARRAY<VECTOR>>]
+| +-$union_all.s#13<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>> AS s [STRUCT<v VECTOR, arr ARRAY<VECTOR>>]
 +-query=
   +-WithScan
-    +-column_list=[$union_all.s#13<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>]
+    +-column_list=[$union_all.s#13<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t"
@@ -1926,47 +1926,47 @@ QueryStmt
     |       | +-s_unannotated#1 :=
     |       | | +-MakeStruct
     |       | |   +-type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>
-    |       | |   +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>
+    |       | |   +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>
     |       | |   +-field_list=
     |       | |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |     | +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |     | +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |     | +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       | |       +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |       | |       +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |       | |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |         +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |         +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |         +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | +-s_annotated1#2 :=
     |       | | +-MakeStruct
     |       | |   +-type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>
-    |       | |   +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>
+    |       | |   +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>
     |       | |   +-field_list=
     |       | |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       | |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       | |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       | |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       | |     | +-Literal(type=INT64, value=2)
     |       | |     | +-Literal(type=STRING, value="FLOAT32")
     |       | |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       | |       +-type_annotation_map=<{VectorLength:3, VectorEncoding:"FLOAT32"}>
+    |       | |       +-type_annotation_map=<{VectorDims:3, VectorEncoding:"FLOAT32"}>
     |       | |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       | |         +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |       | |         +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |       | |         +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3])
     |       | |         +-Literal(type=INT64, value=3)
     |       | |         +-Literal(type=STRING, value="FLOAT32")
     |       | +-s_annotated2#3 :=
     |       |   +-MakeStruct
     |       |     +-type=STRUCT<v VECTOR, arr ARRAY<VECTOR>>
-    |       |     +-type_annotation_map=<{VectorLength:5, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>
+    |       |     +-type_annotation_map=<{VectorDims:5, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>
     |       |     +-field_list=
     |       |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |       | +-type_annotation_map={VectorLength:5, VectorEncoding:"FLOAT32"}
+    |       |       | +-type_annotation_map={VectorDims:5, VectorEncoding:"FLOAT32"}
     |       |       | +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3, 4, 5])
     |       |       | +-Literal(type=INT64, value=5)
     |       |       | +-Literal(type=STRING, value="FLOAT32")
     |       |       +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       |         +-type_annotation_map=<{VectorLength:3, VectorEncoding:"FLOAT32"}>
+    |       |         +-type_annotation_map=<{VectorDims:3, VectorEncoding:"FLOAT32"}>
     |       |         +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |           +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |       |           +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |       |           +-Literal(type=ARRAY<FLOAT>, value=[4, 5, 6])
     |       |           +-Literal(type=INT64, value=3)
     |       |           +-Literal(type=STRING, value="FLOAT32")
@@ -1974,30 +1974,30 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-SetOperationScan
-        +-column_list=[$union_all.s#13<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>]
+        +-column_list=[$union_all.s#13<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>]
         +-op_type=UNION_ALL
         +-input_item_list=
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[t.s_unannotated#4<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>]
+          | |   +-column_list=[t.s_unannotated#4<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>]
           | |   +-input_scan=
           | |     +-WithRefScan(column_list=t.[s_unannotated#4, s_annotated1#5, s_annotated2#6], with_query_name="t")
-          | +-output_column_list=[t.s_unannotated#4<{VectorLength:-1, VectorEncoding:"FLOAT32"},<{VectorLength:-1, VectorEncoding:"FLOAT32"}>>]
+          | +-output_column_list=[t.s_unannotated#4<{VectorDims:-1, VectorEncoding:"FLOAT32"},<{VectorDims:-1, VectorEncoding:"FLOAT32"}>>]
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[t.s_annotated1#8<{VectorLength:2, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>]
+          | |   +-column_list=[t.s_annotated1#8<{VectorDims:2, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>]
           | |   +-input_scan=
           | |     +-WithRefScan(column_list=t.[s_unannotated#7, s_annotated1#8, s_annotated2#9], with_query_name="t")
-          | +-output_column_list=[t.s_annotated1#8<{VectorLength:2, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>]
+          | +-output_column_list=[t.s_annotated1#8<{VectorDims:2, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>]
           +-SetOperationItem
             +-scan=
             | +-ProjectScan
-            |   +-column_list=[t.s_annotated2#12<{VectorLength:5, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>]
+            |   +-column_list=[t.s_annotated2#12<{VectorDims:5, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>]
             |   +-input_scan=
             |     +-WithRefScan(column_list=t.[s_unannotated#10, s_annotated1#11, s_annotated2#12], with_query_name="t")
-            +-output_column_list=[t.s_annotated2#12<{VectorLength:5, VectorEncoding:"FLOAT32"},<{VectorLength:3, VectorEncoding:"FLOAT32"}>>]
+            +-output_column_list=[t.s_annotated2#12<{VectorDims:5, VectorEncoding:"FLOAT32"},<{VectorDims:3, VectorEncoding:"FLOAT32"}>>]
 ==
 
 # Set operation on STRUCT<v1 VECTOR, v2 VECTOR> where one branch has v1 annotated and v2 unannotated,
@@ -2019,10 +2019,10 @@ SELECT s2 AS s FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-$union_all.s#7<{VectorLength:-1, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}> AS s [STRUCT<v1 VECTOR, v2 VECTOR>]
+| +-$union_all.s#7<{VectorDims:-1, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}> AS s [STRUCT<v1 VECTOR, v2 VECTOR>]
 +-query=
   +-WithScan
-    +-column_list=[$union_all.s#7<{VectorLength:-1, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+    +-column_list=[$union_all.s#7<{VectorDims:-1, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t"
@@ -2033,28 +2033,28 @@ QueryStmt
     |       | +-s1#1 :=
     |       | | +-MakeStruct
     |       | |   +-type=STRUCT<v1 VECTOR, v2 VECTOR>
-    |       | |   +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}>
+    |       | |   +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}>
     |       | |   +-field_list=
     |       | |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       | |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       | |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       | |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       | |     | +-Literal(type=INT64, value=2)
     |       | |     | +-Literal(type=STRING, value="FLOAT32")
     |       | |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | |       +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | |       +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | |       +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       | +-s2#2 :=
     |       |   +-MakeStruct
     |       |     +-type=STRUCT<v1 VECTOR, v2 VECTOR>
-    |       |     +-type_annotation_map=<{VectorLength:3, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"}>
+    |       |     +-type_annotation_map=<{VectorDims:3, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"}>
     |       |     +-field_list=
     |       |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |       | +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |       |       | +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |       |       | +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3])
     |       |       | +-Literal(type=INT64, value=3)
     |       |       | +-Literal(type=STRING, value="FLOAT32")
     |       |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |         +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+    |       |         +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
     |       |         +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3, 4])
     |       |         +-Literal(type=INT64, value=4)
     |       |         +-Literal(type=STRING, value="FLOAT32")
@@ -2062,23 +2062,23 @@ QueryStmt
     |         +-SingleRowScan
     +-query=
       +-SetOperationScan
-        +-column_list=[$union_all.s#7<{VectorLength:-1, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+        +-column_list=[$union_all.s#7<{VectorDims:-1, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
         +-op_type=UNION_ALL
         +-input_item_list=
           +-SetOperationItem
           | +-scan=
           | | +-ProjectScan
-          | |   +-column_list=[t.s1#3<{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+          | |   +-column_list=[t.s1#3<{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
           | |   +-input_scan=
           | |     +-WithRefScan(column_list=t.[s1#3, s2#4], with_query_name="t")
-          | +-output_column_list=[t.s1#3<{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"}>]
+          | +-output_column_list=[t.s1#3<{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"}>]
           +-SetOperationItem
             +-scan=
             | +-ProjectScan
-            |   +-column_list=[t.s2#6<{VectorLength:3, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"}>]
+            |   +-column_list=[t.s2#6<{VectorDims:3, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"}>]
             |   +-input_scan=
             |     +-WithRefScan(column_list=t.[s1#5, s2#6], with_query_name="t")
-            +-output_column_list=[t.s2#6<{VectorLength:3, VectorEncoding:"FLOAT32"},{VectorLength:4, VectorEncoding:"FLOAT32"}>]
+            +-output_column_list=[t.s2#6<{VectorDims:3, VectorEncoding:"FLOAT32"},{VectorDims:4, VectorEncoding:"FLOAT32"}>]
 ==
 
 # UNION DISTINCT is disallowed for VECTOR because VECTOR does not support grouping.
@@ -2101,10 +2101,10 @@ SELECT v FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-t.v#9{VectorLength:2, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-t.v#9{VectorDims:2, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-WithScan
-    +-column_list=[t.v#9{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[t.v#9{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t"
@@ -2121,7 +2121,7 @@ QueryStmt
     |       |   |   | +-id#1 := Literal(type=INT64, value=1)
     |       |   |   | +-v#2 :=
     |       |   |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |   |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |   |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |   |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       |   |   |     +-Literal(type=INT64, value=2)
     |       |   |   |     +-Literal(type=STRING, value="FLOAT32")
@@ -2132,7 +2132,7 @@ QueryStmt
     |         +-SetOperationItem
     |           +-scan=
     |           | +-ProjectScan
-    |           |   +-column_list=[$union_all2.$col1#7, t.v#6{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    |           |   +-column_list=[$union_all2.$col1#7, t.v#6{VectorDims:2, VectorEncoding:"FLOAT32"}]
     |           |   +-expr_list=
     |           |   | +-$col1#7 :=
     |           |   |   +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
@@ -2147,16 +2147,16 @@ QueryStmt
     |           |         +-FunctionCall(GoogleSQL:$less(INT64, INT64) -> BOOL)
     |           |           +-ColumnRef(type=INT64, column=t.id#5)
     |           |           +-Literal(type=INT64, value=10)
-    |           +-output_column_list=[$union_all2.$col1#7, t.v#6{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    |           +-output_column_list=[$union_all2.$col1#7, t.v#6{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-query=
     | +-ProjectScan
-    |   +-column_list=[t.v#9{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    |   +-column_list=[t.v#9{VectorDims:2, VectorEncoding:"FLOAT32"}]
     |   +-input_scan=
     |     +-WithRefScan(column_list=t.[id#8, v#9], with_query_name="t")
     +-recursive=TRUE
 ==
 
-# Recursive scan with conflicting vector length in recursive term.
+# Recursive scan with conflicting vector dims in recursive term.
 WITH RECURSIVE t AS (
   SELECT 1 AS id, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32") AS v
   UNION ALL
@@ -2166,10 +2166,10 @@ SELECT v FROM t
 --
 QueryStmt
 +-output_column_list=
-| +-t.v#10{VectorLength:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
+| +-t.v#10{VectorDims:-1, VectorEncoding:"FLOAT32"} AS v [VECTOR]
 +-query=
   +-WithScan
-    +-column_list=[t.v#10{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    +-column_list=[t.v#10{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     +-with_entry_list=
     | +-WithEntry
     |   +-with_query_name="t"
@@ -2186,7 +2186,7 @@ QueryStmt
     |       |   |   | +-id#1 := Literal(type=INT64, value=1)
     |       |   |   | +-v#2 :=
     |       |   |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       |   |   |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       |   |   |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       |   |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       |   |   |     +-Literal(type=INT64, value=2)
     |       |   |   |     +-Literal(type=STRING, value="FLOAT32")
@@ -2205,7 +2205,7 @@ QueryStmt
     |           |   | |   +-Literal(type=INT64, value=1)
     |           |   | +-v#8 :=
     |           |   |   +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |           |   |     +-type_annotation_map={VectorLength:3, VectorEncoding:"FLOAT32"}
+    |           |   |     +-type_annotation_map={VectorDims:3, VectorEncoding:"FLOAT32"}
     |           |   |     +-Literal(type=ARRAY<FLOAT>, value=[1, 2, 3])
     |           |   |     +-Literal(type=INT64, value=3)
     |           |   |     +-Literal(type=STRING, value="FLOAT32")
@@ -2221,7 +2221,7 @@ QueryStmt
     |           +-output_column_list=$union_all2.[$col1#7, v#8]
     +-query=
     | +-ProjectScan
-    |   +-column_list=[t.v#10{VectorLength:-1, VectorEncoding:"FLOAT32"}]
+    |   +-column_list=[t.v#10{VectorDims:-1, VectorEncoding:"FLOAT32"}]
     |   +-input_scan=
     |     +-WithRefScan(column_list=t.[id#9, v#10], with_query_name="t")
     +-recursive=TRUE
@@ -2238,7 +2238,7 @@ QueryStmt
 
 # Collation and VECTOR annotations occupy independent slots of the same STRUCT:
 # the STRING field carries only Collation, the VECTOR fields carry only
-# VectorLength/VectorEncoding, and the INT64 field carries neither ("_").
+# VectorDims/VectorEncoding, and the INT64 field carries neither ("_").
 [no_run_sqlbuilder]
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT]
 SELECT STRUCT(
@@ -2249,27 +2249,27 @@ SELECT STRUCT(
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{Collation:"und:ci"},{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"},_> AS `$col1` [STRUCT<s STRING, v_annotated VECTOR, v_unannotated VECTOR, n INT64>]
+| +-$query.$col1#1<{Collation:"und:ci"},{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"},_> AS `$col1` [STRUCT<s STRING, v_annotated VECTOR, v_unannotated VECTOR, n INT64>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{Collation:"und:ci"},{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"},_>]
+    +-column_list=[$query.$col1#1<{Collation:"und:ci"},{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"},_>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-MakeStruct
     |     +-type=STRUCT<s STRING, v_annotated VECTOR, v_unannotated VECTOR, n INT64>
-    |     +-type_annotation_map=<{Collation:"und:ci"},{VectorLength:2, VectorEncoding:"FLOAT32"},{VectorLength:-1, VectorEncoding:"FLOAT32"},_>
+    |     +-type_annotation_map=<{Collation:"und:ci"},{VectorDims:2, VectorEncoding:"FLOAT32"},{VectorDims:-1, VectorEncoding:"FLOAT32"},_>
     |     +-field_list=
     |       +-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
     |       | +-type_annotation_map={Collation:"und:ci"}
     |       | +-Literal(type=STRING, value="abc")
     |       | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
     |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       | +-Literal(type=INT64, value=2)
     |       | +-Literal(type=STRING, value="FLOAT32")
     |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(0) INT64, optional(0) STRING) -> VECTOR)
-    |       | +-type_annotation_map={VectorLength:-1, VectorEncoding:"FLOAT32"}
+    |       | +-type_annotation_map={VectorDims:-1, VectorEncoding:"FLOAT32"}
     |       | +-Parameter(type=ARRAY<FLOAT>, name="test_param_array_float")
     |       +-Literal(type=INT64, value=5)
     +-input_scan=
@@ -2290,7 +2290,7 @@ CreateTableStmt
   +-ColumnDefinition(name="v", type=VECTOR, column=t.v#1)
 ==
 
-# 2. VECTOR column with a length type parameter
+# 2. VECTOR column with a dims type parameter
 CREATE TABLE t(v VECTOR(128))
 --
 CreateTableStmt
@@ -2300,18 +2300,18 @@ CreateTableStmt
     +-name="v"
     +-type=VECTOR
     +-annotations=
-    | +-ColumnAnnotations(type_parameters=(length=128))
+    | +-ColumnAnnotations(type_parameters=(dims=128))
     +-column=t.v#1
 ==
 
 CREATE TABLE t(v VECTOR(0))
 --
-ERROR: VECTOR length must be greater than 0 [at 1:24]
+ERROR: VECTOR dims must be greater than 0 [at 1:24]
 CREATE TABLE t(v VECTOR(0))
                        ^
 ==
 
-# 3. VECTOR column with both length and encoding type parameters
+# 3. VECTOR column with both dims and encoding type parameters
 CREATE TABLE t(v VECTOR(128, 'FLOAT32'))
 --
 CreateTableStmt
@@ -2321,7 +2321,7 @@ CreateTableStmt
     +-name="v"
     +-type=VECTOR
     +-annotations=
-    | +-ColumnAnnotations(type_parameters=(length=128, encoding=FLOAT32))
+    | +-ColumnAnnotations(type_parameters=(dims=128, encoding=FLOAT32))
     +-column=t.v#1
 ==
 
@@ -2352,7 +2352,7 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations
     |   +-child_list=
-    |     +-ColumnAnnotations(type_parameters=(length=4))
+    |     +-ColumnAnnotations(type_parameters=(dims=4))
     +-column=t.v#1
 ==
 
@@ -2367,7 +2367,7 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations
     |   +-child_list=
-    |     +-ColumnAnnotations(type_parameters=(length=4, encoding=FLOAT32))
+    |     +-ColumnAnnotations(type_parameters=(dims=4, encoding=FLOAT32))
     +-column=t.v#1
 ==
 
@@ -2391,7 +2391,7 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations
     |   +-child_list=
-    |     +-ColumnAnnotations(type_parameters=(length=4))
+    |     +-ColumnAnnotations(type_parameters=(dims=4))
     +-column=t.v#1
 ==
 
@@ -2406,7 +2406,7 @@ CreateTableStmt
     +-annotations=
     | +-ColumnAnnotations
     |   +-child_list=
-    |     +-ColumnAnnotations(type_parameters=(length=4, encoding=FLOAT32))
+    |     +-ColumnAnnotations(type_parameters=(dims=4, encoding=FLOAT32))
     +-column=t.v#1
 ==
 
@@ -2422,20 +2422,20 @@ CreateTableStmt
     +-name="v"
     +-type=VECTOR
     +-annotations=
-    | +-ColumnAnnotations(type_parameters=(length=4, encoding=FLOAT32))
+    | +-ColumnAnnotations(type_parameters=(dims=4, encoding=FLOAT32))
     +-column=t.v#2
     +-generated_column_info=
       +-GeneratedColumnInfo
         +-parse_location=60-92
         +-expression=
           +-Cast(VECTOR -> VECTOR)
-            +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+            +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
             +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-            | +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
+            | +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
             | +-ColumnRef(type=ARRAY<FLOAT>, column=t.arr#1)
             | +-Literal(type=INT64, value=4)
             | +-Literal(type=STRING, value="FLOAT32")
-            +-type_modifiers=type_parameters:(length=4, encoding=FLOAT32)
+            +-type_modifiers=type_parameters:(dims=4, encoding=FLOAT32)
 ==
 
 # Table with generated column asserting restricted type parameters on unannotated column.
@@ -2452,58 +2452,58 @@ CreateTableStmt
     +-name="v_restricted"
     +-type=VECTOR
     +-annotations=
-    | +-ColumnAnnotations(type_parameters=(length=4, encoding=FLOAT32))
+    | +-ColumnAnnotations(type_parameters=(dims=4, encoding=FLOAT32))
     +-column=t.v_restricted#2
     +-generated_column_info=
       +-GeneratedColumnInfo
         +-parse_location=68-69
         +-expression=
           +-Cast(VECTOR -> VECTOR)
-            +-type_annotation_map={VectorLength:4, VectorEncoding:"FLOAT32"}
-            +-ColumnRef(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, column=t.v#1)
-            +-type_modifiers=type_parameters:(length=4, encoding=FLOAT32)
+            +-type_annotation_map={VectorDims:4, VectorEncoding:"FLOAT32"}
+            +-ColumnRef(type=VECTOR, column=t.v#1)
+            +-type_modifiers=type_parameters:(dims=4, encoding=FLOAT32)
 ==
 
 ####################
 # Query Parameters #
 ####################
 
-# Declared named VECTOR parameters are assigned unconstrained length and
+# Declared named VECTOR parameters are assigned unconstrained dims and
 # encoding, including VECTOR slots nested in ARRAY and STRUCT.
 SELECT @test_param_vector, @test_param_array_vector, @test_param_struct_vector
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
-| +-$query.$col2#2<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
-| +-$query.$col3#3<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"},_> AS `$col3` [STRUCT<v VECTOR, i INT64>]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col2#2<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
+| +-$query.$col3#3<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"},_> AS `$col3` [STRUCT<v VECTOR, i INT64>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
-    | +-$col1#1 := Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
-    | +-$col2#2 := Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, name="test_param_array_vector")
-    | +-$col3#3 := Parameter(type=STRUCT<v VECTOR, i INT64>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"},_>, name="test_param_struct_vector")
+    | +-$col1#1 := Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
+    | +-$col2#2 := Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, name="test_param_array_vector")
+    | +-$col3#3 := Parameter(type=STRUCT<v VECTOR, i INT64>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"},_>, name="test_param_struct_vector")
     +-input_scan=
       +-SingleRowScan
 ==
 
 # Casting a declared named VECTOR parameter to a parameterized VECTOR type
-# asserts the target length and encoding.
+# asserts the target dims and encoding.
 SELECT CAST(@test_param_vector AS VECTOR(2, "FLOAT32"))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -2516,18 +2516,18 @@ ALTERNATION GROUP: IF(true, @test_param_vector, ENCODE_VECTOR([1.0, 2.0], 2, "FL
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}]
+    +-column_list=[$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}
+    |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}
     |     +-Literal(type=BOOL, value=true)
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2538,17 +2538,17 @@ ALTERNATION GROUP: [@test_param_vector, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2559,20 +2559,20 @@ ALTERNATION GROUP: [ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32"), @test_param_vector]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="test_param_vector")
     +-input_scan=
       +-SingleRowScan
 ==
@@ -2583,19 +2583,19 @@ SELECT ARRAY_CONCAT(@test_param_array_vector, [ENCODE_VECTOR([1.0, 2.0], 2, "FLO
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<VECTOR>, repeated(1) ARRAY<VECTOR>) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, name="test_param_array_vector")
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, name="test_param_array_vector")
     |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |       +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |         +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |         +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |         +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |         +-Literal(type=INT64, value=2)
     |         +-Literal(type=STRING, value="FLOAT32")
@@ -2612,7 +2612,7 @@ SELECT @test_param_vector
        ^
 ==
 
-# Declared VECTOR parameters are assigned unconstrained length and encoding,
+# Declared VECTOR parameters are assigned unconstrained dims and encoding,
 # including VECTOR slots nested in ARRAY and STRUCT.
 [parameter_mode=positional]
 [positional_parameter_types=VECTOR,ARRAY<VECTOR>,STRUCT<v VECTOR>]
@@ -2620,38 +2620,38 @@ SELECT ?, ?, ?
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
-| +-$query.$col2#2<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
-| +-$query.$col3#3<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col3` [STRUCT<v VECTOR>]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col2#2<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
+| +-$query.$col3#3<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col3` [STRUCT<v VECTOR>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
-    | +-$col1#1 := Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
-    | +-$col2#2 := Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, position=2)
-    | +-$col3#3 := Parameter(type=STRUCT<v VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, position=3)
+    | +-$col1#1 := Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
+    | +-$col2#2 := Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, position=2)
+    | +-$col3#3 := Parameter(type=STRUCT<v VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, position=3)
     +-input_scan=
       +-SingleRowScan
 ==
 
 # Casting a declared VECTOR parameter to a parameterized VECTOR type asserts the
-# target length and encoding.
+# target dims and encoding.
 [parameter_mode=positional]
 [positional_parameter_types=VECTOR]
 SELECT CAST(? AS VECTOR(2, "FLOAT32"))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -2666,18 +2666,18 @@ ALTERNATION GROUP: IF(true, ?, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32"))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}]
+    +-column_list=[$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}
+    |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}
     |     +-Literal(type=BOOL, value=true)
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2688,17 +2688,17 @@ ALTERNATION GROUP: [?, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, position=1)
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2714,19 +2714,19 @@ SELECT ARRAY_CONCAT(?, [ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")])
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<VECTOR>, repeated(1) ARRAY<VECTOR>) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, position=1)
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, position=1)
     |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |       +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |         +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |         +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |         +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |         +-Literal(type=INT64, value=2)
     |         +-Literal(type=STRING, value="FLOAT32")
@@ -2734,7 +2734,7 @@ QueryStmt
       +-SingleRowScan
 ==
 
-# Undeclared parameters are assigned unconstrained length and encoding once
+# Undeclared parameters are assigned unconstrained dims and encoding once
 # they are typed as VECTOR through function signature matching.
 [allow_undeclared_parameters]
 SELECT DOT_PRODUCT(@p, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32"))
@@ -2748,9 +2748,9 @@ QueryStmt
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:dot_product(VECTOR, VECTOR) -> DOUBLE)
-    |     +-Parameter(parse_location=19-21, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
+    |     +-Parameter(parse_location=19-21, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2762,7 +2762,7 @@ p: VECTOR
 ==
 
 # Undeclared parameters typed as VECTOR through CAST are assigned unconstrained
-# length and encoding, including VECTOR slots nested in ARRAY and STRUCT.
+# dims and encoding, including VECTOR slots nested in ARRAY and STRUCT.
 [allow_undeclared_parameters]
 SELECT
   CAST(@p1 AS VECTOR),
@@ -2771,16 +2771,16 @@ SELECT
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
-| +-$query.$col2#2<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
-| +-$query.$col3#3<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"},_> AS `$col3` [STRUCT<v VECTOR, i INT64>]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col2#2<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col2` [ARRAY<VECTOR>]
+| +-$query.$col3#3<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"},_> AS `$col3` [STRUCT<v VECTOR, i INT64>]
 +-query=
   +-ProjectScan
     +-column_list=$query.[$col1#1, $col2#2, $col3#3]
     +-expr_list=
-    | +-$col1#1 := Parameter(parse_location=14-17, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p1")
-    | +-$col2#2 := Parameter(parse_location=37-40, type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, name="p2")
-    | +-$col3#3 := Parameter(parse_location=67-70, type=STRUCT<v VECTOR, i INT64>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"},_>, name="p3")
+    | +-$col1#1 := Parameter(parse_location=14-17, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p1")
+    | +-$col2#2 := Parameter(parse_location=37-40, type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, name="p2")
+    | +-$col3#3 := Parameter(parse_location=67-70, type=STRUCT<v VECTOR, i INT64>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"},_>, name="p3")
     +-input_scan=
       +-SingleRowScan
 
@@ -2791,22 +2791,22 @@ p3: STRUCT<v VECTOR, i INT64>
 ==
 
 # Casting a VECTOR parameter to a parameterized VECTOR type asserts the target
-# length and encoding.
+# dims and encoding.
 [allow_undeclared_parameters]
 SELECT CAST(@p AS VECTOR(2, "FLOAT32"))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:2, VectorEncoding:"FLOAT32"}]
+    +-column_list=[$query.$col1#1{VectorDims:2, VectorEncoding:"FLOAT32"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-Cast(VECTOR -> VECTOR)
-    |     +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
-    |     +-Parameter(parse_location=12-14, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
-    |     +-type_modifiers=type_parameters:(length=2, encoding=FLOAT32)
+    |     +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
+    |     +-Parameter(parse_location=12-14, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
+    |     +-type_modifiers=type_parameters:(dims=2, encoding=FLOAT32)
     +-input_scan=
       +-SingleRowScan
 
@@ -2820,18 +2820,18 @@ SELECT IF(true, @p, ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32"))
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
+| +-$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"} AS `$col1` [VECTOR]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}]
+    +-column_list=[$query.$col1#1{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:if(BOOL, VECTOR, VECTOR) -> VECTOR)
-    |     +-type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}
+    |     +-type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}
     |     +-Literal(type=BOOL, value=true)
-    |     +-Parameter(parse_location=16-18, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
+    |     +-Parameter(parse_location=16-18, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2851,17 +2851,17 @@ ALTERNATION GROUP: [CAST(@p AS VECTOR), ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32")]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(parse_location=13-15, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(parse_location=13-15, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |       +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |       +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |       +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |       +-Literal(type=INT64, value=2)
     |       +-Literal(type=STRING, value="FLOAT32")
@@ -2875,20 +2875,20 @@ ALTERNATION GROUP: [ENCODE_VECTOR([1.0, 2.0], 2, "FLOAT32"), CAST(@p AS VECTOR)]
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VECTOR) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
     |     +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |     | +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |     | +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |     | +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |     | +-Literal(type=INT64, value=2)
     |     | +-Literal(type=STRING, value="FLOAT32")
-    |     +-Parameter(parse_location=54-56, type=VECTOR, type_annotation_map={VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
+    |     +-Parameter(parse_location=54-56, type=VECTOR, type_annotation_map={VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}, name="p")
     +-input_scan=
       +-SingleRowScan
 
@@ -2905,19 +2905,19 @@ SELECT ARRAY_CONCAT(
 --
 QueryStmt
 +-output_column_list=
-| +-$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
+| +-$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}> AS `$col1` [ARRAY<VECTOR>]
 +-query=
   +-ProjectScan
-    +-column_list=[$query.$col1#1<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>]
+    +-column_list=[$query.$col1#1<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>]
     +-expr_list=
     | +-$col1#1 :=
     |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<VECTOR>, repeated(1) ARRAY<VECTOR>) -> ARRAY<VECTOR>)
-    |     +-type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>
-    |     +-Parameter(parse_location=28-32, type=ARRAY<VECTOR>, type_annotation_map=<{VectorLength:-1, VectorEncoding:"UNCONSTRAINED"}>, name="arr")
+    |     +-type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>
+    |     +-Parameter(parse_location=28-32, type=ARRAY<VECTOR>, type_annotation_map=<{VectorDims:-1, VectorEncoding:"UNCONSTRAINED"}>, name="arr")
     |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) VECTOR) -> ARRAY<VECTOR>)
-    |       +-type_annotation_map=<{VectorLength:2, VectorEncoding:"FLOAT32"}>
+    |       +-type_annotation_map=<{VectorDims:2, VectorEncoding:"FLOAT32"}>
     |       +-FunctionCall(GoogleSQL:encode_vector(ARRAY<FLOAT>, optional(1) INT64, optional(1) STRING) -> VECTOR)
-    |         +-type_annotation_map={VectorLength:2, VectorEncoding:"FLOAT32"}
+    |         +-type_annotation_map={VectorDims:2, VectorEncoding:"FLOAT32"}
     |         +-Literal(type=ARRAY<FLOAT>, value=[1, 2])
     |         +-Literal(type=INT64, value=2)
     |         +-Literal(type=STRING, value="FLOAT32")

@@ -36,6 +36,7 @@
 #include "googlesql/testing/test_value.h"
 #include "googlesql/testing/using_test_value.cc"
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -3488,10 +3489,6 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonExists() {
       {"json_exists", {json_val, String("")}, NullBool(), OUT_OF_RANGE});
   tests.push_back(
       {"json_exists", {json_val, String("invalid")}, NullBool(), OUT_OF_RANGE});
-  tests.push_back(
-      {"json_exists", {json_val, String("$.*")}, NullBool(), OUT_OF_RANGE});
-  tests.push_back(
-      {"json_exists", {json_val, String("$.a..b")}, NullBool(), OUT_OF_RANGE});
 
   // --- JSON_EXISTS_ANY ---
   const Value paths_existing = StringArray({"$.a", "$.b"});
@@ -3574,6 +3571,462 @@ std::vector<FunctionTestCall> GetFunctionTestsJsonExists() {
   for (FunctionTestCall& test : tests) {
     test.params.AddRequiredFeature(FEATURE_JSON_TYPE);
     test.params.AddRequiredFeature(FEATURE_JSON_EXISTS_FUNCTIONS);
+  }
+
+  return tests;
+}
+
+std::vector<FunctionTestCall> GetFunctionTestsJsonPathWildcardsAndDescendant() {
+  std::vector<FunctionTestCall> tests;
+
+  // Malformed wildcard and descendant syntax, strict bracket-index violations
+  // (negative indices and underscores when wildcards or descendants are
+  // present), and wildcards or descendants in lax JSONPaths return OUT_OF_RANGE
+  // whether or not FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is enabled.
+  // Note: For valid wildcard/descendant steps combined with strict bracket
+  // index violations or lax mode (e.g. "$.*[-1]" or "lax $.*"), the specific
+  // rejection reason differs depending on the feature flag: when disabled, the
+  // wildcard/descendant operator itself is rejected as unsupported; when
+  // enabled, the negative/underscore index or lax wildcard/descendant is
+  // rejected instead.
+  const Value json_val =
+      ParseJson(R"({"a": 1, "b": null, "c": [1, 2], "d": "foo"})");
+  for (absl::string_view path :
+       {"$.a..", "$...*", "$.foo*", "$.*[-1]", "$.*[-0]", "$.*[1_2]",
+        "$.a..[-1]", "$.a..[-0]", "$.a..[1_2]", "lax $.*", "lax $[*]",
+        "lax $..a", "lax recursive $.*", "lax recursive $..a"}) {
+    tests.push_back(
+        {"json_exists", {json_val, String(path)}, NullBool(), OUT_OF_RANGE});
+  }
+
+  // When FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is not enabled, wildcard
+  // and descendant operators in JSON_EXISTS*, JSON_QUERY*, and JSON_VALUE*
+  // return OUT_OF_RANGE (and NULL in SAFE mode, whereas enabling the feature
+  // evaluates to a non-NULL scalar/array result on these documents).
+  struct UnsupportedPathTestCase {
+    absl::string_view path;
+    absl::string_view scalar_doc;
+    absl::string_view array_doc;
+  };
+  const UnsupportedPathTestCase unsupported_cases[] = {
+      {"$.*", R"({"a": "foo"})", R"({"a": []})"},
+      {"$[*]", R"(["foo"])", R"([[]])"},
+      {"$..a", R"({"a": "foo"})", R"({"a": []})"},
+      {"$.b..*", R"({"b": {"c": "foo"}})", R"({"b": {"c": []}})"},
+      {"$..[*]", R"({"d": ["foo"]})", R"([[]])"},
+  };
+  for (const UnsupportedPathTestCase& tc : unsupported_cases) {
+    const Value scalar_doc_json = ParseJson(tc.scalar_doc);
+    const Value array_doc_json = ParseJson(tc.array_doc);
+    tests.push_back(
+        {"json_exists",
+         QueryParamsWithResult({scalar_doc_json, String(tc.path)}, NullBool(),
+                               OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_exists_any",
+         QueryParamsWithResult(
+             {scalar_doc_json, StringArray({std::string(tc.path)})}, NullBool(),
+             OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_exists_all",
+         QueryParamsWithResult(
+             {scalar_doc_json, StringArray({std::string(tc.path)})}, NullBool(),
+             OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_query",
+         QueryParamsWithResult({scalar_doc_json, String(tc.path)}, NullJson(),
+                               OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_value",
+         QueryParamsWithResult({scalar_doc_json, String(tc.path)}, NullString(),
+                               OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_query_array",
+         QueryParamsWithResult({array_doc_json, String(tc.path)},
+                               Value::Null(types::JsonArrayType()),
+                               OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+    tests.push_back(
+        {"json_value_array",
+         QueryParamsWithResult({array_doc_json, String(tc.path)},
+                               Value::Null(types::StringArrayType()),
+                               OUT_OF_RANGE)
+             .AddProhibitedFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT)});
+  }
+
+  const Value store_json = ParseJson(R"({
+    "store": {
+      "book": [
+        {"price": 8.95, "title": "Sayings of the Century"},
+        {"price": 12.99, "title": "Sword of Honour"}
+      ],
+      "bicycle": {"price": 19.95, "color": "red", "tags": ["fast", "red"]}
+    }
+  })");
+
+  // Store example (JSON inputs across JSON_EXISTS, JSON_QUERY, JSON_VALUE,
+  // JSON_QUERY_ARRAY, and JSON_VALUE_ARRAY)
+  tests.push_back(
+      {"json_exists", {store_json, String("$..price")}, Value::Bool(true)});
+  tests.push_back(
+      {"json_exists", {store_json, String("$..isbn")}, Value::Bool(false)});
+  tests.push_back({"json_query", {store_json, String("$..price")}, NullJson()});
+  tests.push_back({"json_query",
+                   {store_json, String("$..bicycle.price")},
+                   ParseJson("19.95")});
+  tests.push_back({"json_value",
+                   {store_json, String("$..bicycle.price")},
+                   String("19.95")});
+  tests.push_back(
+      {"json_value", {store_json, String("$..price")}, NullString()});
+  tests.push_back(
+      {"json_value", {store_json, String("$..bicycle")}, NullString()});
+  tests.push_back(
+      {"json_query_array",
+       {store_json, String("$..book")},
+       values::Array(
+           types::JsonArrayType(),
+           {ParseJson(R"({"price":8.95,"title":"Sayings of the Century"})"),
+            ParseJson(R"({"price":12.99,"title":"Sword of Honour"})")})});
+  tests.push_back({"json_query_array",
+                   {store_json, String("$..price")},
+                   Value::Null(types::JsonArrayType())});
+  tests.push_back({"json_query_array",
+                   {store_json, String("$..bicycle")},
+                   Value::Null(types::JsonArrayType())});
+  tests.push_back({"json_value_array",
+                   {store_json, String("$..tags")},
+                   StringArray({"fast", "red"})});
+  tests.push_back({"json_value_array",
+                   {store_json, String("$..book")},
+                   Value::Null(types::StringArrayType())});
+  tests.push_back({"json_value_array",
+                   {ParseJson(R"({"a": ["x"], "b": ["y"]})"), String("$.*")},
+                   Value::Null(types::StringArrayType())});
+  tests.push_back(
+      {"json_value_array",
+       {ParseJson(R"({"a": {"tags": ["x", null]}})"), String("$..tags")},
+       values::Array(types::StringArrayType(), {String("x"), NullString()})});
+
+  // Note: Wildcard and descendant rejection on STRING inputs is covered by
+  // GetJsonTestsCommon() / GetJsonArrayTestsCommon() when the feature is
+  // disabled and by FunctionEvaluationTest in reference_impl/function_test.cc
+  // when FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is enabled.
+
+  // Legacy JSON_EXTRACT* functions reject wildcards and descendants whether or
+  // not FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is enabled, so these cases
+  // don't require the feature. Rejection with the feature enabled is tested in
+  // reference_impl/function_test.cc.
+  for (absl::string_view legacy_fn : {"json_extract", "json_extract_scalar"}) {
+    tests.push_back({legacy_fn,
+                     {store_json, String("$.*")},
+                     legacy_fn == "json_extract" ? NullJson() : NullString(),
+                     OUT_OF_RANGE});
+    tests.push_back({legacy_fn,
+                     {store_json, String("$..price")},
+                     legacy_fn == "json_extract" ? NullJson() : NullString(),
+                     OUT_OF_RANGE});
+  }
+  tests.push_back({"json_extract_array",
+                   {store_json, String("$..book")},
+                   Value::Null(types::JsonArrayType()),
+                   OUT_OF_RANGE});
+  tests.push_back({"json_extract_string_array",
+                   {store_json, String("$..tags")},
+                   Value::Null(types::StringArrayType()),
+                   OUT_OF_RANGE});
+
+  // Array Wildcard ([*])
+  const Value items_json = ParseJson(R"({"items": [{"id": 10}, {"id": 20}]})");
+  const Value single_item_json = ParseJson(R"({"items": [{"id": 10}]})");
+  const Value scalar_items_json = ParseJson(R"({"items": [1, 2]})");
+  tests.push_back({"json_exists",
+                   {items_json, String("$.items[*].id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists",
+                   {scalar_items_json, String("$.items[*].id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_query",
+                   {single_item_json, String("$.items[*].id")},
+                   ParseJson("10")});
+  tests.push_back(
+      {"json_query", {items_json, String("$.items[*].id")}, NullJson()});
+
+  // Object Wildcard (.*)
+  const Value depts_json = ParseJson(
+      R"({"depts": {"eng": {"lead": "Alice"}, "sales": {"lead": "Bob"}}})");
+  const Value single_dept_json =
+      ParseJson(R"({"depts": {"eng": {"lead": "Alice"}}})");
+  const Value empty_depts_json =
+      ParseJson(R"({"depts": {"eng": {}, "sales": {}}})");
+  tests.push_back({"json_exists",
+                   {depts_json, String("$.depts.*.lead")},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists",
+                   {empty_depts_json, String("$.depts.*.lead")},
+                   Value::Bool(false)});
+  tests.push_back({"json_value",
+                   {single_dept_json, String("$.depts.*.lead")},
+                   String("Alice")});
+  tests.push_back(
+      {"json_value", {depts_json, String("$.depts.*.lead")}, NullString()});
+
+  // Recursive Descendant (..) and container specificity
+  const Value nested_target_json =
+      ParseJson(R"({"a": 1, "b": [{"c": {"target": 99}}]})");
+  const Value multi_target_json =
+      ParseJson(R"({"target": 1, "b": {"target": 2}})");
+  const Value empty_tags_json = ParseJson(R"({"user": {"tags": []}})");
+  const Value non_empty_tags_json = ParseJson(R"({"user": {"tags": [1]}})");
+  const Value simple_array_json = ParseJson("[1, 2, 3]");
+
+  tests.push_back({"json_exists",
+                   {nested_target_json, String("$..target")},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists",
+                   {nested_target_json, String("$..other")},
+                   Value::Bool(false)});
+  tests.push_back({"json_query",
+                   {nested_target_json, String("$..target")},
+                   ParseJson("99")});
+  tests.push_back(
+      {"json_query", {multi_target_json, String("$..target")}, NullJson()});
+  tests.push_back({"json_exists",
+                   {non_empty_tags_json, String("$..[*]")},
+                   Value::Bool(true)});
+  tests.push_back(
+      {"json_exists", {empty_tags_json, String("$..[*]")}, Value::Bool(false)});
+  tests.push_back(
+      {"json_exists", {simple_array_json, String("$.*")}, Value::Bool(false)});
+  tests.push_back(
+      {"json_exists", {simple_array_json, String("$..*")}, Value::Bool(false)});
+
+  // JSON_EXISTS_ANY and JSON_EXISTS_ALL with wildcards/descendants
+  const Value wildcard_match_with_null =
+      values::Array(StringArrayType(), {String("$..price"), NullString()});
+  const Value wildcard_miss_with_null =
+      values::Array(StringArrayType(), {String("$..isbn"), NullString()});
+  tests.push_back({"json_exists_any",
+                   {store_json, StringArray({"$..isbn", "$..price"})},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists_any",
+                   {store_json, StringArray({"$..isbn", "$.store.*.missing"})},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists_any",
+                   {store_json, wildcard_match_with_null},
+                   Value::Bool(true)});
+  tests.push_back(
+      {"json_exists_any", {store_json, wildcard_miss_with_null}, NullBool()});
+  tests.push_back(
+      {"json_exists_all",
+       {store_json, StringArray({"$..price", "$.store.book[*].title"})},
+       Value::Bool(true)});
+  tests.push_back({"json_exists_all",
+                   {store_json, StringArray({"$..price", "$..isbn"})},
+                   Value::Bool(false)});
+  tests.push_back(
+      {"json_exists_all", {store_json, wildcard_match_with_null}, NullBool()});
+  tests.push_back({"json_exists_all",
+                   {store_json, wildcard_miss_with_null},
+                   Value::Bool(false)});
+
+  // GoogleSQL Default JSONPath Semantics:
+  // Non-matching branches yield 0 matches without aborting sibling branches
+  // (unlike ISO SQL strict mode), while container types are still strictly
+  // enforced without implicit array wrapping/unwrapping (unlike lax mode).
+  const Value het_array_json = ParseJson(R"([{"a": 1}, {"b": 2}])");
+  const Value hom_array_json = ParseJson(R"([{"a": 1}, {"a": 2}])");
+  tests.push_back(
+      {"json_exists", {het_array_json, String("$[*].a")}, Value::Bool(true)});
+  tests.push_back(
+      {"json_exists", {hom_array_json, String("$[*].a")}, Value::Bool(true)});
+  tests.push_back(
+      {"json_query", {het_array_json, String("$[*].a")}, ParseJson("1")});
+  tests.push_back(
+      {"json_query", {hom_array_json, String("$[*].a")}, NullJson()});
+
+  // Object wildcard ($.*.id) where one sibling has the key and another does
+  // not, or where sibling members are scalars/arrays/null (e.g.,
+  // TOKENIZE_DOCUMENT / JSON_EXISTS use case):
+  const Value tokenize_doc_json =
+      ParseJson(R"({"a": {"id": 123}, "b": {"foo": "bar"}})");
+  const Value mixed_member_types_json = ParseJson(
+      R"({"num": 42, "arr": [1, 2], "nil": null, "obj": {"id": 123}})");
+  tests.push_back({"json_exists",
+                   {tokenize_doc_json, String("$.*.id")},
+                   Value::Bool(true)});
+  tests.push_back(
+      {"json_query", {tokenize_doc_json, String("$.*.id")}, ParseJson("123")});
+  tests.push_back({"json_exists",
+                   {mixed_member_types_json, String("$.*.id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_query",
+                   {mixed_member_types_json, String("$.*.id")},
+                   ParseJson("123")});
+
+  // Array wildcard ($[*]) with mixed element types (scalars, null, arrays,
+  // objects missing the target key, and one matching object) or ragged array
+  // bounds ($[*][1]):
+  const Value mixed_array_elements_json =
+      ParseJson(R"([1, "str", null, [10], {"other": 2}, {"id": 99}])");
+  const Value ragged_2d_array_json =
+      ParseJson(R"([[10], "not_array", [20, 30]])");
+  tests.push_back({"json_exists",
+                   {mixed_array_elements_json, String("$[*].id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_query",
+                   {mixed_array_elements_json, String("$[*].id")},
+                   ParseJson("99")});
+  tests.push_back({"json_exists",
+                   {ragged_2d_array_json, String("$[*][1]")},
+                   Value::Bool(true)});
+  tests.push_back({"json_query",
+                   {ragged_2d_array_json, String("$[*][1]")},
+                   ParseJson("30")});
+
+  // Contrast with lax mode and linear default mode: Wildcard and descendant
+  // paths strictly enforce container types on every step (no implicit array
+  // unwrapping on `.id`, no implicit array wrapping on `[0]` or `[*]`, `.0` /
+  // `."0"` matches objects only, and `[0]` matches arrays only).
+  const Value nested_array_in_obj_json = ParseJson(R"({"a": [{"id": 123}]})");
+  const Value nested_obj_in_obj_json = ParseJson(R"({"a": {"id": 123}})");
+  const Value nested_numeric_key_obj_json =
+      ParseJson(R"({"a": {"0": {"id": 123}}})");
+  tests.push_back({"json_exists",
+                   {nested_array_in_obj_json, String("$.*.id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists",
+                   {nested_array_in_obj_json, String("$.*.0.id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists",
+                   {nested_array_in_obj_json, String("$.*[0].id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists",
+                   {nested_array_in_obj_json, String("$.*[*].id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_exists",
+                   {nested_obj_in_obj_json, String("$.*[0].id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists",
+                   {nested_obj_in_obj_json, String("$.*[*].id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists",
+                   {nested_numeric_key_obj_json, String("$.*[0].id")},
+                   Value::Bool(false)});
+  tests.push_back({"json_exists",
+                   {nested_numeric_key_obj_json, String(R"($.*."0".id)")},
+                   Value::Bool(true)});
+
+  // JSON null at a matched wildcard branch still counts as an existing node
+  // for JSON_EXISTS, returns JSON 'null' for JSON_QUERY, and returns SQL NULL
+  // for JSON_VALUE, even when sibling branches do not match:
+  const Value null_leaf_wildcard_json =
+      ParseJson(R"({"a": {"id": null}, "b": {"foo": "bar"}})");
+  tests.push_back({"json_exists",
+                   {null_leaf_wildcard_json, String("$.*.id")},
+                   Value::Bool(true)});
+  tests.push_back({"json_query",
+                   {null_leaf_wildcard_json, String("$.*.id")},
+                   ParseJson("null")});
+  tests.push_back({"json_value",
+                   {null_leaf_wildcard_json, String("$.*.id")},
+                   NullString()});
+
+  const Value pg_doc_json = ParseJson(R"({"a": {"b": 1}})");
+  const Value mixed_branches_json =
+      ParseJson(R"({"x": {"b": 1}, "y": {"b": {"c": 2}}})");
+  tests.push_back(
+      {"json_exists", {pg_doc_json, String("$..b")}, Value::Bool(true)});
+  tests.push_back(
+      {"json_exists", {pg_doc_json, String("$..b.c")}, Value::Bool(false)});
+  tests.push_back(
+      {"json_exists", {pg_doc_json, String("$.*.b")}, Value::Bool(true)});
+  tests.push_back(
+      {"json_exists", {pg_doc_json, String("$.*.b.c")}, Value::Bool(false)});
+  // Both descendant ($..b.c) and object wildcard ($.*.b.c) ignore the
+  // non-matching branch "x" and return the single match from branch "y".
+  tests.push_back({"json_exists",
+                   {mixed_branches_json, String("$..b.c")},
+                   Value::Bool(true)});
+  tests.push_back(
+      {"json_query", {mixed_branches_json, String("$..b.c")}, ParseJson("2")});
+  tests.push_back({"json_exists",
+                   {mixed_branches_json, String("$.*.b.c")},
+                   Value::Bool(true)});
+  tests.push_back(
+      {"json_query", {mixed_branches_json, String("$.*.b.c")}, ParseJson("2")});
+
+  for (FunctionTestCall& test : tests) {
+    if (test.params.param(0).type()->IsJson()) {
+      test.params.AddRequiredFeature(FEATURE_JSON_TYPE);
+    }
+    if (absl::StartsWith(test.function_name, "json_exists")) {
+      test.params.AddRequiredFeature(FEATURE_JSON_EXISTS_FUNCTIONS);
+    }
+    if (absl::EndsWith(test.function_name, "_array") &&
+        test.function_name != "json_extract_array") {
+      test.params.AddRequiredFeature(FEATURE_JSON_ARRAY_FUNCTIONS);
+    }
+    if (test.params.status().ok()) {
+      test.params.AddRequiredFeature(FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT);
+    }
+  }
+
+  return tests;
+}
+
+std::vector<QueryParamsWithResult>
+GetStatementTestsJsonQueryLaxWithWildcardsAndDescendant() {
+  // Tests the interaction between FEATURE_JSON_QUERY_LAX and
+  // FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT on the SQL expression:
+  //   JSON_QUERY(JSON_QUERY(@p0, @p1), @p2)
+  // Both features are explicitly required on every test case so that
+  // required_feature_integrity_test verifies that removing either feature
+  // changes the outcome.
+  std::vector<QueryParamsWithResult> tests;
+
+  const Value store_doc =
+      ParseJson(R"({"store": {"books": [{"price": 10}, {"price": 20}]}})");
+  const Value items_doc =
+      ParseJson(R"([{"item": {"id": 10}}, {"item": {"other": 20}}])");
+
+  // 1. Inner JSON_QUERY uses wildcard/descendant (evaluated with
+  //    FEATURE_JSON_QUERY_LAX also enabled); outer JSON_QUERY uses lax mode.
+  tests.push_back(QueryParamsWithResult(
+      {store_doc, String("$.*.books"), String("lax $.price")},
+      ParseJson("[10, 20]")));
+  tests.push_back(QueryParamsWithResult(
+      {store_doc, String("$..books"), String("lax $.price")},
+      ParseJson("[10, 20]")));
+
+  // 2. Inner JSON_QUERY uses lax mode; outer JSON_QUERY uses
+  //    wildcard/descendant (evaluated with FEATURE_JSON_QUERY_LAX also
+  //    enabled).
+  tests.push_back(QueryParamsWithResult(
+      {items_doc, String("lax $.item"), String("$[*].id")}, ParseJson("10")));
+  tests.push_back(QueryParamsWithResult(
+      {items_doc, String("lax $.item"), String("$..id")}, ParseJson("10")));
+
+  // 3. When both features are enabled, non-lax wildcard/descendant paths
+  //    succeed while lax paths containing wildcards or descendants are still
+  //    rejected with OUT_OF_RANGE.
+  const Value simple_doc = ParseJson(R"({"a": {"id": 10}})");
+  for (absl::string_view invalid_lax_path :
+       {"lax $.*", "lax $[*]", "lax $..id", "lax recursive $.*",
+        "lax recursive $..id"}) {
+    tests.push_back(QueryParamsWithResult(
+        {simple_doc, String("$.*"), String(invalid_lax_path)}, NullJson(),
+        OUT_OF_RANGE));
+  }
+
+  for (QueryParamsWithResult& test : tests) {
+    test.AddRequiredFeatures({FEATURE_JSON_TYPE, FEATURE_JSON_QUERY_LAX,
+                              FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT});
   }
 
   return tests;

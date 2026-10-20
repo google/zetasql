@@ -336,6 +336,11 @@ class RewriteApplicabilityChecker : public ResolvedASTVisitor {
           node->function_call_signature()->context_id() == googlesql::FN_HOP) {
         applicable_rewrites_->insert(REWRITE_HOP_FUNCTION);
       }
+      if (node->function_call_signature() != nullptr &&
+          node->function_call_signature()->context_id() ==
+              googlesql::FN_TVF_LOOKUP_TABLE) {
+        applicable_rewrites_->insert(REWRITE_LOOKUP_TABLE_TVF);
+      }
     }
     if (node->tvf()->Is<SQLTableValuedFunction>() ||
         node->tvf()->Is<TemplatedSQLTVF>()) {

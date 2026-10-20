@@ -1429,12 +1429,17 @@ TEST(IsTypeCastableToJsonTest, TypeCastableToJson) {
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
                        factory.MakeMapType(types::StringType(), int64_type));
 
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const ArrayType* array_map_type,
+                       factory.MakeArrayType(map_type));
+
   // Feature disabled
   EXPECT_FALSE(IsTypeCastableToJson(int64_type, options_disabled));
+  EXPECT_FALSE(IsTypeCastableToJson(geography_type, options_disabled));
   EXPECT_TRUE(IsTypeCastableToJson(json_type, options_disabled));
 
   // Feature enabled
   EXPECT_TRUE(IsTypeCastableToJson(int64_type, options_enabled));
+  EXPECT_TRUE(IsTypeCastableToJson(geography_type, options_enabled));
   EXPECT_TRUE(IsTypeCastableToJson(json_type, options_enabled));
 
   // Cast MAP
@@ -1442,9 +1447,10 @@ TEST(IsTypeCastableToJsonTest, TypeCastableToJson) {
 
   // Cast array of supported type
   EXPECT_TRUE(IsTypeCastableToJson(array_int64_type, options_enabled));
+  EXPECT_TRUE(IsTypeCastableToJson(array_geography_type, options_enabled));
 
   // Cast array of unsupported type
-  EXPECT_FALSE(IsTypeCastableToJson(array_geography_type, options_enabled));
+  EXPECT_FALSE(IsTypeCastableToJson(array_map_type, options_enabled));
 }
 
 TEST(IsTypeCastableToVariantTest, TypeCastableToVariant) {

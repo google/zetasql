@@ -60,10 +60,10 @@ enum FunctionSignatureId {
   // 3000-3099 Map functions                  (NextId: 3020)
   // 3100-3199 Measure functions              (NextId: 3101)
   // 3200-3299 MATCH_RECOGNIZE functions      (NextId: 3207)
-  // 3300-3399 Aggregate functions III        (NextId: 3303)
-  // 3400-3499 Misc functions II              (NextId: 3439)
+  // 3300-3399 Aggregate functions III        (NextId: 3304)
+  // 3400-3499 Misc functions II              (NextId: 3444)
   // 3500-3599 Vector functions               (NextId: 3502)
-  // 4000-4099 Table valued functions         (NextId: 4006)
+  // 4000-4099 Table valued functions         (NextId: 4007)
   // 5000-5023 AI functions                   (Fully used)
   // 5024-5049 Table valued functions II      (NextId: 5041)
   // 5050-5099 AI functions II                (NextId: 5062)
@@ -968,7 +968,12 @@ enum FunctionSignatureId {
   // VARIANT functions
   FN_VARIANT_SUBSCRIPT_INT64 = 3431;   // $subscript(variant, int64) -> variant
   FN_VARIANT_SUBSCRIPT_STRING = 3432;  // $subscript(variant, string) -> variant
-
+  FN_VARIANT_QUERY = 3439;          // variant_query(variant, string) -> variant
+  FN_IS_VARIANT_NULL = 3440;        // is_variant_null(variant) -> bool
+  FN_VARIANT_TYPE = 3441;           // variant_type(variant) -> string
+  FN_SCHEMA_OF_VARIANT = 3442;      // schema_of_variant(variant) -> string
+  FN_SCHEMA_OF_VARIANT_AGG = 3303;  // schema_of_variant_agg(variant) -> string
+  FN_VARIANT_VALUE = 3443;  // variant_value(variant[, string]) -> string
   // These TO_JSON signatures are no longer supported
   reserved "FN_TO_JSON_UNSUPPORTED_FIELDS";
   reserved 1948;  // FN_TO_JSON_UNSUPPORTED_FIELDS
@@ -1813,11 +1818,11 @@ enum FunctionSignatureId {
   FN_ZSTD_DECOMPRESS_TO_STRING = 2693;
 
   // Vector functions
-  FN_ENCODE_VECTOR = 3500;       // encode_vector(ARRAY<FLOAT>) -> vector
-  FN_DOT_PRODUCT_VECTOR = 3501;  // dot_product(vector, vector) -> double
-  FN_DECODE_VECTOR = 3502;       // decode_vector(vector) -> array<float>
-  FN_VECTOR_LENGTH = 3503;       // vector_length(vector) -> int64
-  FN_VECTOR_ENCODING = 3504;     // vector_encoding(vector) -> string
+  FN_ENCODE_VECTOR = 3500;           // encode_vector(ARRAY<FLOAT>) -> vector
+  FN_DOT_PRODUCT_VECTOR = 3501;      // dot_product(vector, vector) -> double
+  FN_DECODE_VECTOR = 3502;           // decode_vector(vector) -> array<float>
+  FN_VECTOR_DIMENSION_COUNT = 3503;  // vector_dimension_count(vector) -> int64
+  FN_VECTOR_ENCODING = 3504;         // vector_encoding(vector) -> string
   FN_COSINE_DISTANCE_VECTOR =
       3505;  // cosine_distance(vector, vector) -> double
   FN_EUCLIDEAN_DISTANCE_VECTOR =
@@ -1852,6 +1857,9 @@ enum FunctionSignatureId {
 
   // KMEANS(table, string, int64, string, double, json) -> ANY TABLE
   FN_KMEANS_TVF = 4005;
+
+  // LookupTable(STRING) -> ANY TABLE
+  FN_TVF_LOOKUP_TABLE = 4006;
 
   FN_SINGLE_VECTOR_SEARCH_TVF_FLOAT_ARRAY_WITH_PROTO_OPTIONS =
       5025;  // VECTOR_SEARCH(table, string, array<float>,

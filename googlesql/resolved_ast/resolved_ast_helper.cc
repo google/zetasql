@@ -71,6 +71,24 @@ absl::Status ColumnRefVisitor::VisitResolvedWithExpr(
   return ResolvedASTVisitor::VisitResolvedWithExpr(node);
 }
 
+absl::Status ColumnRefVisitor::VisitResolvedUpdateConstructor(
+    const ResolvedUpdateConstructor* node) {
+  // Exclude the element column because it is internal: this node introduces
+  // it, and only expressions under this node reference it.
+  local_columns_.insert(node->update_element_column());
+  return ResolvedASTVisitor::VisitResolvedUpdateConstructor(node);
+}
+
+absl::Status ColumnRefVisitor::VisitResolvedUpdateFieldItem(
+    const ResolvedUpdateFieldItem* node) {
+  // Exclude the item column because it is internal: this node introduces it,
+  // and only its own `expr` references it.
+  if (node->update_item_column() != nullptr) {
+    local_columns_.insert(node->update_item_column()->column());
+  }
+  return ResolvedASTVisitor::VisitResolvedUpdateFieldItem(node);
+}
+
 absl::Status ColumnRefVisitor::VisitResolvedArrayAggregate(
     const ResolvedArrayAggregate* node) {
   // Exclude the element column because it is internal.

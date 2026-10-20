@@ -354,11 +354,21 @@ InputArgumentType InputArgumentType::ModelInputArgumentType(
   return type;
 }
 
+InputArgumentType InputArgumentType::ModelInputArgumentType(
+    const Model* model) {
+  return ModelInputArgumentType(TVFModelArgument(model));
+}
+
 InputArgumentType InputArgumentType::ModelInputArgumentType() {
   InputArgumentType type;
   type.EnsureData().annotated_type = AnnotatedType(nullptr);
   type.category_ = kModel;
   return type;
+}
+
+const Model* InputArgumentType::model() const {
+  return ReadOnlyData().model_arg != nullptr ? ReadOnlyData().model_arg->model()
+                                             : nullptr;
 }
 
 InputArgumentType InputArgumentType::ConnectionInputArgumentType(

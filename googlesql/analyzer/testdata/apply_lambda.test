@@ -1,14 +1,5 @@
 [default language_features=NONE]
 [default enabled_ast_rewrites=DEFAULTS]
-
-select apply(10, x->x+1)
---
-ERROR: Lambda is not supported [at 1:18]
-select apply(10, x->x+1)
-                 ^
-==
-
-# Need both language features or the function doesn't show up.
 [language_features=NONE,+NAMED_ARGUMENTS{{|,+INLINE_LAMBDA_ARGUMENT}}{{|,+CHAINED_FUNCTION_CALLS}}]
 select apply()
 --
@@ -17,7 +8,7 @@ ALTERNATION GROUPS:
     ,+CHAINED_FUNCTION_CALLS
     ,+INLINE_LAMBDA_ARGUMENT,
 --
-ERROR: Function not found: APPLY [at 1:8]
+ERROR: Function not found: apply; Did you mean upper? [at 1:8]
 select apply()
        ^
 --

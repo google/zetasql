@@ -60,6 +60,12 @@ TEST_P(VariantValuePrimitiveTest, PrimitiveStates) {
   EXPECT_THAT(ref.GetArraySize(), StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST_P(VariantValuePrimitiveTest, ToValue) {
+  const Value& val = GetParam();
+  VariantValueView view(val);
+  EXPECT_EQ(view.ToValue(), val);
+}
+
 INSTANTIATE_TEST_SUITE_P(
     AllPrimitives, VariantValuePrimitiveTest,
     ::testing::Values(Value::Int32(123), Value::Uint32(123), Value::Int64(123),
@@ -1112,6 +1118,51 @@ TEST(VariantLifetimeTest, ValueCopyLifetimeIndependence) {
   EXPECT_THAT(member_ref.GetPrimitiveValue(), IsOkAndHolds(Value::Int64(1)));
 }
 
+TEST(VariantLifetimeTest, NestedJsonLifetimeIndependence) {
+  std::optional<VariantValueView> child_obj_ref;
+  std::optional<VariantValueView> child_arr_elem_ref;
+
+  {
+    GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+        JSONValue parsed_json,
+        JSONValue::ParseJSONString(
+            R"({"nested": {"k": "hello"}, "arr": [{"elem": 42}, 99]})"));
+    auto root_val =
+        std::make_unique<Value>(Value::Json(std::move(parsed_json)));
+    auto root_view = std::make_unique<VariantValueView>(*root_val);
+
+    // Destroy the source Value first; root_view retains ownership.
+    root_val.reset();
+
+    GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView nested_obj,
+                         root_view->GetKeyValueIfExists("nested"));
+    GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView arr_view,
+                         root_view->GetKeyValueIfExists("arr"));
+
+    // Destroy the root VariantValueView; intermediate views retain the root
+    // JSON document via reference counting.
+    root_view.reset();
+
+    GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView elem0,
+                         arr_view.GetElementIfExists(0));
+    child_obj_ref = std::move(nested_obj);
+    child_arr_elem_ref = std::move(elem0);
+  }
+
+  // Both root_val, root_view, and intermediate views are now out of scope.
+  ASSERT_TRUE(child_obj_ref.has_value());
+  EXPECT_TRUE(child_obj_ref->IsObject());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView k_ref,
+                       child_obj_ref->GetKeyValueIfExists("k"));
+  EXPECT_THAT(k_ref.GetPrimitiveValue(), IsOkAndHolds(Value::String("hello")));
+
+  ASSERT_TRUE(child_arr_elem_ref.has_value());
+  EXPECT_TRUE(child_arr_elem_ref->IsObject());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView elem_val_ref,
+                       child_arr_elem_ref->GetKeyValueIfExists("elem"));
+  EXPECT_THAT(elem_val_ref.GetPrimitiveValue(), IsOkAndHolds(Value::Int64(42)));
+}
+
 // Boundary cases like invalid JSON, empty objects/arrays, etc.
 
 TEST(VariantValueTest, InvalidUnparsedJsonNestedInStruct) {
@@ -1491,6 +1542,15 @@ TEST(VariantValueTest, GetMembersProto) {
   VariantValueView ks_ref(
       Value::Proto(ks_proto_type, ks_msg.SerializeAsCord()));
   EXPECT_THAT(ks_ref.GetMembers(), StatusIs(absl::StatusCode::kUnimplemented));
+
+  // Empty proto with zero fields returns empty members vector.
+  const ProtoType* empty_proto_type;
+  GOOGLESQL_ASSERT_OK(factory.MakeProtoType(googlesql_test::EmptyMessage::descriptor(),
+                                  &empty_proto_type));
+  googlesql_test::EmptyMessage empty_msg;
+  VariantValueView empty_ref(
+      Value::Proto(empty_proto_type, empty_msg.SerializeAsCord()));
+  EXPECT_THAT(empty_ref.GetMembers(), IsOkAndHolds(testing::IsEmpty()));
 }
 
 TEST(VariantValueTest, GetMembersNestedComplexTypes) {
@@ -1665,10 +1725,14 @@ TEST(VariantValueTest, DebugStringPrimitivesAndNulls) {
 
   // SQL NULL
   EXPECT_EQ(VariantValueView(Value::NullInt64()).DebugString(), "NULL");
+  EXPECT_EQ(Value::Null(types::VariantType()).DebugString(), "NULL");
 
   // Variant Null (JSON null)
   Value variant_null = Value::Json(JSONValue());
   EXPECT_EQ(VariantValueView(variant_null).DebugString(), "null");
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value wrapped_variant_null,
+                       Value::Variant(variant_null));
+  EXPECT_EQ(wrapped_variant_null.DebugString(), "null");
 
   // Primitives
   EXPECT_EQ(VariantValueView(Value::Int64(42)).DebugString(), "42");
@@ -1702,6 +1766,8 @@ TEST(VariantValueTest, DebugStringObjectsAndArrays) {
                                       Value::NullInt64()}));
   EXPECT_EQ(VariantValueView(struct_val).DebugString(),
             R"({"a": 1, "b": "two", "c": null})");
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_struct, Value::Variant(struct_val));
+  EXPECT_EQ(variant_struct.DebugString(), R"({"a": 1, "b": "two", "c": null})");
 
   // Struct with duplicate field names and anonymous field
   const StructType* dup_struct_type;
@@ -1741,6 +1807,9 @@ TEST(VariantValueTest, DebugStringObjectsAndArrays) {
       R"({"arr": [1, null, {"nested": "ok"}], "flag": true})");
   EXPECT_EQ(VariantValueView(json_val).DebugString(),
             R"({"arr": [1, null, {"nested": "ok"}], "flag": true})");
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_json, Value::Variant(json_val));
+  EXPECT_EQ(variant_json.DebugString(),
+            R"({"arr": [1, null, {"nested": "ok"}], "flag": true})");
 
   // Array of Structs with SQL NULL element
   const ArrayType* struct_array_type;
@@ -1748,6 +1817,9 @@ TEST(VariantValueTest, DebugStringObjectsAndArrays) {
   Value struct_array_val =
       Value::Array(struct_array_type, {struct_val, Value::Null(struct_type)});
   EXPECT_EQ(VariantValueView(struct_array_val).DebugString(),
+            R"([{"a": 1, "b": "two", "c": null}, null])");
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_array, Value::Variant(struct_array_val));
+  EXPECT_EQ(variant_array.DebugString(),
             R"([{"a": 1, "b": "two", "c": null}, null])");
 
   // Proto with primitive and repeated primitive fields
@@ -1790,12 +1862,16 @@ TEST(VariantValueTest, DebugStringNonSimpleViewFallback) {
                                     {Value::Int64(2), Value::NullString()}}));
   EXPECT_EQ(VariantValueView(int_map_val).DebugString(),
             int_map_val.DebugString());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_int_map, Value::Variant(int_map_val));
+  EXPECT_EQ(variant_int_map.DebugString(), int_map_val.DebugString());
 
   // Range is not a Simple View Object/Array/Primitive and delegates directly
   // to Value::DebugString().
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value range_val,
                        Value::MakeRange(Value::Date(1), Value::Date(2)));
   EXPECT_EQ(VariantValueView(range_val).DebugString(), range_val.DebugString());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_range, Value::Variant(range_val));
+  EXPECT_EQ(variant_range.DebugString(), range_val.DebugString());
 
   // Corrupted unparsed JSON object and array fail view extraction and fall
   // back to Value::DebugString().
@@ -1817,6 +1893,234 @@ TEST(VariantValueTest, DebugStringNonSimpleViewFallback) {
   Value ks_proto_val = Value::Proto(ks_proto_type, ks_msg.SerializeAsCord());
   EXPECT_EQ(VariantValueView(ks_proto_val).DebugString(),
             ks_proto_val.DebugString());
+}
+
+TEST(VariantValueTest, ToValueFromStructVariantValueView) {
+  TypeFactory factory;
+  const StructType* struct_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeStructType({{"a", types::Int64Type()}}, &struct_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value struct_val,
+                       Value::MakeStruct(struct_type, {Value::Int64(42)}));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value root_variant, Value::Variant(struct_val));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView root_view,
+                       root_variant.variant_value());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView field_view,
+                       root_view.GetKeyValueIfExists("a"));
+
+  Value field_val = field_view.ToValue();
+  EXPECT_EQ(field_val, Value::Int64(42));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value field_variant, Value::Variant(field_val));
+  EXPECT_TRUE(field_variant.type()->IsVariant());
+}
+
+TEST(VariantValueTest, ToValueFromStructWithComplexFields) {
+  TypeFactory factory;
+  const StructType* nested_struct_type = nullptr;
+  GOOGLESQL_ASSERT_OK(
+      factory.MakeStructType({{"x", types::Int64Type()}}, &nested_struct_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      Value nested_struct_val,
+      Value::MakeStruct(nested_struct_type, {Value::Int64(10)}));
+
+  const ArrayType* array_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeArrayType(types::Int64Type(), &array_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      Value array_val,
+      Value::MakeArray(array_type, {Value::Int64(1), Value::Int64(2)}));
+
+  const StructType* outer_struct_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeStructType(
+      {{"nested_struct", nested_struct_type}, {"nested_array", array_type}},
+      &outer_struct_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      Value outer_struct_val,
+      Value::MakeStruct(outer_struct_type, {nested_struct_val, array_val}));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value root_variant, Value::Variant(outer_struct_val));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView root_view,
+                       root_variant.variant_value());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView struct_field_view,
+                       root_view.GetKeyValueIfExists("nested_struct"));
+  EXPECT_EQ(struct_field_view.ToValue(), nested_struct_val);
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value struct_field_variant,
+                       Value::Variant(struct_field_view.ToValue()));
+  EXPECT_TRUE(struct_field_variant.type()->IsVariant());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView array_field_view,
+                       root_view.GetKeyValueIfExists("nested_array"));
+  EXPECT_EQ(array_field_view.ToValue(), array_val);
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value array_field_variant,
+                       Value::Variant(array_field_view.ToValue()));
+  EXPECT_TRUE(array_field_variant.type()->IsVariant());
+}
+
+TEST(VariantValueTest, ToValueFromJsonVariantValueView) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue json,
+                       JSONValue::ParseJSONString(R"({"a": 42})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value root_variant,
+                       Value::Variant(Value::Json(std::move(json))));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView root_view,
+                       root_variant.variant_value());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView field_view,
+                       root_view.GetKeyValueIfExists("a"));
+
+  Value field_val = field_view.ToValue();
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue expected_json,
+                       JSONValue::ParseJSONString("42"));
+  EXPECT_EQ(field_val, Value::Json(std::move(expected_json)));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value field_variant, Value::Variant(field_val));
+  EXPECT_TRUE(field_variant.type()->IsVariant());
+}
+
+TEST(VariantValueTest, ToValueFromJsonSubObject) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue json, JSONValue::ParseJSONString(
+                                           R"({"obj": {"nested": "value"}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value root_variant,
+                       Value::Variant(Value::Json(std::move(json))));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView root_view,
+                       root_variant.variant_value());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView field_view,
+                       root_view.GetKeyValueIfExists("obj"));
+
+  Value field_val = field_view.ToValue();
+  EXPECT_TRUE(field_val.type()->IsJson());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue expected_sub_obj,
+                       JSONValue::ParseJSONString(R"({"nested": "value"})"));
+  EXPECT_EQ(field_val, Value::Json(std::move(expected_sub_obj)));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value field_variant, Value::Variant(field_val));
+  EXPECT_TRUE(field_variant.type()->IsVariant());
+}
+
+TEST(VariantValueTest, ToValueFromVariantNullField) {
+  // 1. JSON object with null field
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue json,
+                       JSONValue::ParseJSONString(R"({"a": null})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value root_variant,
+                       Value::Variant(Value::Json(std::move(json))));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView root_view,
+                       root_variant.variant_value());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView field_view,
+                       root_view.GetKeyValueIfExists("a"));
+  EXPECT_TRUE(field_view.IsVariantNull());
+
+  Value field_val = field_view.ToValue();
+  EXPECT_TRUE(field_val.is_valid());
+  EXPECT_TRUE(field_val.type()->IsJson());
+  EXPECT_TRUE(field_val.json_value().IsNull());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value field_variant, Value::Variant(field_val));
+  EXPECT_TRUE(field_variant.type()->IsVariant());
+  EXPECT_FALSE(field_variant.is_null());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView field_variant_view,
+                       field_variant.variant_value());
+  EXPECT_TRUE(field_variant_view.IsVariantNull());
+
+  // 2. Struct with SQL NULL field exposed as VariantNull
+  TypeFactory factory;
+  const StructType* struct_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeStructType({{"a", types::Int64Type()}}, &struct_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value struct_val,
+                       Value::MakeStruct(struct_type, {Value::NullInt64()}));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value struct_variant, Value::Variant(struct_val));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView struct_view,
+                       struct_variant.variant_value());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView struct_null_field_view,
+                       struct_view.GetKeyValueIfExists("a"));
+  EXPECT_TRUE(struct_null_field_view.IsVariantNull());
+  Value struct_null_val = struct_null_field_view.ToValue();
+  EXPECT_TRUE(struct_null_val.is_valid());
+  EXPECT_TRUE(struct_null_val.type()->IsJson());
+  EXPECT_TRUE(struct_null_val.json_value().IsNull());
+
+  // 3. Array with SQL NULL element exposed as VariantNull
+  const ArrayType* array_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeArrayType(types::Int64Type(), &array_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value array_val,
+                       Value::MakeArray(array_type, {Value::NullInt64()}));
+  VariantValueView array_view(array_val);
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView elem_view,
+                       array_view.GetElementIfExists(0));
+  EXPECT_TRUE(elem_view.IsVariantNull());
+  Value elem_val = elem_view.ToValue();
+  EXPECT_TRUE(elem_val.is_valid());
+  EXPECT_TRUE(elem_val.type()->IsJson());
+  EXPECT_TRUE(elem_val.json_value().IsNull());
+}
+
+TEST(VariantValueTest, ToValueFromJsonNullAndSqlNull) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue json, JSONValue::ParseJSONString("null"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_null,
+                       Value::Variant(Value::Json(std::move(json))));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView var_null_view,
+                       variant_null.variant_value());
+  EXPECT_TRUE(var_null_view.IsVariantNull());
+  Value var_null_to_value = var_null_view.ToValue();
+  EXPECT_TRUE(var_null_to_value.is_valid());
+  EXPECT_TRUE(var_null_to_value.type()->IsJson());
+  EXPECT_TRUE(var_null_to_value.json_value().IsNull());
+
+  VariantValueView sql_null_adapter(Value::NullVariant());
+  EXPECT_TRUE(sql_null_adapter.is_null());
+  Value sql_null_to_value = sql_null_adapter.ToValue();
+  EXPECT_TRUE(sql_null_to_value.is_null());
+}
+
+TEST(VariantValueTest, ToValueFromVariantNull) {
+  Value variant_null = Value::VariantNull();
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView var_null_view,
+                       variant_null.variant_value());
+  EXPECT_TRUE(var_null_view.IsVariantNull());
+  Value var_null_to_value = var_null_view.ToValue();
+  EXPECT_TRUE(var_null_to_value.is_valid());
+  EXPECT_TRUE(var_null_to_value.type()->IsJson());
+  EXPECT_TRUE(var_null_to_value.json_value().IsNull());
+}
+
+TEST(VariantValueTest, ToValueFromSqlArray) {
+  TypeFactory factory;
+  const ArrayType* array_type = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeArrayType(types::Int64Type(), &array_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      Value array_val,
+      Value::MakeArray(array_type, {Value::Int64(1), Value::Int64(2)}));
+  VariantValueView array_view(array_val);
+  EXPECT_EQ(array_view.ToValue(), array_val);
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::vector<VariantValueView> elements,
+                       array_view.GetElements());
+  ASSERT_EQ(elements.size(), 2);
+  EXPECT_EQ(elements[0].ToValue(), Value::Int64(1));
+  EXPECT_EQ(elements[1].ToValue(), Value::Int64(2));
+}
+
+TEST(VariantValueTest, ToValueFromJsonArray) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue json_arr,
+                       JSONValue::ParseJSONString("[1, 2]"));
+  Value root_json_val = Value::Json(std::move(json_arr));
+  VariantValueView array_view(root_json_val);
+  EXPECT_EQ(array_view.ToValue(), root_json_val);
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::vector<VariantValueView> elements,
+                       array_view.GetElements());
+  ASSERT_EQ(elements.size(), 2);
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue expected_elem0,
+                       JSONValue::ParseJSONString("1"));
+  EXPECT_EQ(elements[0].ToValue(), Value::Json(std::move(expected_elem0)));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue expected_elem1,
+                       JSONValue::ParseJSONString("2"));
+  EXPECT_EQ(elements[1].ToValue(), Value::Json(std::move(expected_elem1)));
+}
+
+TEST(VariantValueTest, ToValueFromInvalidValue) {
+  VariantValueView invalid_view(Value{});
+  EXPECT_FALSE(invalid_view.is_valid());
+  EXPECT_FALSE(invalid_view.ToValue().is_valid());
 }
 
 }  // namespace

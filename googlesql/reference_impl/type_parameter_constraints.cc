@@ -162,13 +162,13 @@ static absl::Status ApplyVectorConstraints(const TypeParameters& type_params,
       << "Failed to parse VECTOR backing value";
   GOOGLESQL_ASSIGN_OR_RETURN(Value decoded_array,
                    Value::Deserialize(value_proto, types::FloatArrayType()));
-  int64_t actual_length = decoded_array.num_elements();
-  if (vector_params->has_length()) {
-    int64_t expected_length = vector_params->length();
-    if (actual_length != expected_length) {
+  int64_t actual_dims = decoded_array.num_elements();
+  if (vector_params->has_dims()) {
+    int64_t expected_dims = vector_params->dims();
+    if (actual_dims != expected_dims) {
       return absl::OutOfRangeError(absl::Substitute(
-          "VECTOR($0) has length $0 but got a vector with length $1",
-          expected_length, actual_length));
+          "VECTOR($0) has dims $0 but got a vector with dims $1", expected_dims,
+          actual_dims));
     }
   }
   return absl::OkStatus();

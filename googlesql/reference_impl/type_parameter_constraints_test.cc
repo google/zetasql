@@ -486,39 +486,38 @@ absl::StatusOr<Value> MakeVectorValue(TypeFactory* type_factory,
                             Value::Bytes(proto.SerializeAsString()));
 }
 
-TEST(TypeParametersTest, VectorWithLengthOk) {
+TEST(TypeParametersTest, VectorWithDimsOk) {
   TypeFactory type_factory;
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value vector_val,
                        MakeVectorValue(&type_factory, {1.0f, 2.0f, 3.0f}));
   VectorTypeParametersProto proto;
-  proto.set_length(3);
+  proto.set_dims(3);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, vector_val),
               IsOk());
 }
 
-TEST(TypeParametersTest, VectorWithLengthFails) {
+TEST(TypeParametersTest, VectorWithDimsFails) {
   TypeFactory type_factory;
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value vector_val,
                        MakeVectorValue(&type_factory, {1.0f, 2.0f}));
   VectorTypeParametersProto proto;
-  proto.set_length(3);
+  proto.set_dims(3);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   EXPECT_THAT(
       ApplyConstraints(type_params, PRODUCT_INTERNAL, vector_val),
-      StatusIs(
-          absl::StatusCode::kOutOfRange,
-          HasSubstr("VECTOR(3) has length 3 but got a vector with length 2")));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("VECTOR(3) has dims 3 but got a vector with dims 2")));
 }
 
-TEST(TypeParametersTest, VectorNullWithLengthOk) {
+TEST(TypeParametersTest, VectorNullWithDimsOk) {
   TypeFactory type_factory;
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* vector_type, MakeVectorType(&type_factory));
   Value vector_null = Value::Null(vector_type);
   VectorTypeParametersProto proto;
-  proto.set_length(3);
+  proto.set_dims(3);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   EXPECT_THAT(ApplyConstraints(type_params, PRODUCT_INTERNAL, vector_null),
@@ -544,7 +543,7 @@ TEST(TypeParametersTest, ArrayOfVectorWithTypeParametersOk) {
   Value array_val = Value::Array(array_type, {v1, v2});
 
   VectorTypeParametersProto proto;
-  proto.set_length(2);
+  proto.set_dims(2);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters vector_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   TypeParameters array_params =
@@ -564,16 +563,15 @@ TEST(TypeParametersTest, ArrayOfVectorWithTypeParametersFails) {
   Value array_val = Value::Array(array_type, {v1, v2});
 
   VectorTypeParametersProto proto;
-  proto.set_length(2);
+  proto.set_dims(2);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters vector_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   TypeParameters array_params =
       TypeParameters::MakeTypeParametersWithChildList({vector_params});
   EXPECT_THAT(
       ApplyConstraints(array_params, PRODUCT_INTERNAL, array_val),
-      StatusIs(
-          absl::StatusCode::kOutOfRange,
-          HasSubstr("VECTOR(2) has length 2 but got a vector with length 3")));
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("VECTOR(2) has dims 2 but got a vector with dims 3")));
 }
 
 TEST(TypeParametersTest, VectorWithFloat32EncodingOk) {
@@ -581,7 +579,7 @@ TEST(TypeParametersTest, VectorWithFloat32EncodingOk) {
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value vector_val,
                        MakeVectorValue(&type_factory, {1.0f, 2.0f}));
   VectorTypeParametersProto proto;
-  proto.set_length(2);
+  proto.set_dims(2);
   proto.set_encoding(googlesql::VectorEncodingId::FLOAT32);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));

@@ -583,6 +583,9 @@ class VariantRef {
   // Returns the underlying value held by this Variant.
   virtual const Value& inner_value() const = 0;
 
+  // Returns the formatted string representation of this Variant.
+  virtual std::string Format() const = 0;
+
   // Returns the physical byte size of this VariantRef, including the size of
   // the inner value.
   virtual uint64_t physical_byte_size() const = 0;

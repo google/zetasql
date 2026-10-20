@@ -947,7 +947,7 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Function not found: ARRAY_FIRST_N [at 1:8]
+ERROR: Function not found: ARRAY_FIRST_N; Did you mean array_first? [at 1:8]
 SELECT ARRAY_FIRST_N([1, 2, 3], 1);
        ^
 ==
@@ -1067,7 +1067,7 @@ QueryStmt
 --
 ALTERNATION GROUP: <empty>
 --
-ERROR: Function not found: ARRAY_LAST_N [at 1:8]
+ERROR: Function not found: ARRAY_LAST_N; Did you mean array_last? [at 1:8]
 SELECT ARRAY_LAST_N([1, 2, 3], 1);
        ^
 ==

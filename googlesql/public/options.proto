@@ -121,7 +121,7 @@ message LanguageFeatureOptions {
 //
 // It's deprecated to use an enum ID which corresponds to a version. All new
 // enum names should use the next available ID starting from 0.
-// Next ID: 193
+// Next ID: 196
 enum LanguageFeature {
   reserved 3 to 4, 36 to 39, 44 to 46, 48, 54, 55, 74, 99, 107, 108, 110, 124,
       132, 134, 140, 163, 13003, 13046, 14001, 14012, 14022, 14024, 14040,
@@ -947,8 +947,7 @@ enum LanguageFeature {
 
   // Enables the creation of Format Preserving Encryption (FPE) key type using
   // KEYS.NEW_KEYSET and KEYS.NEW_WRAPPED_KEYSET functions.
-  FEATURE_FPE_NEW_KEYSET = 168
-      [(language_feature_options).in_development = true];
+  FEATURE_FPE_NEW_KEYSET = 168;
 
   // Enable the Declarative Type Framework.
   FEATURE_DECLARATIVE_TYPE_FRAMEWORK = 169
@@ -997,13 +996,20 @@ enum LanguageFeature {
 
   // Enables JSONPath wildcard and descendant operators (.*, [*], ..).
   // See (broken link) for details.
-  FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT = 188
-      [(language_feature_options).in_development = true];
+  FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT = 188;
 
   // Enable support for specifying multiple connections in WITH CONNECTION
   // clause. See (broken link).
   FEATURE_MULTI_CONNECTIONS = 192
       [(language_feature_options).in_development = true];
+
+  // Enables referencing columns from joined tables (the FROM clause) in the
+  // RETURNING clause of UPDATE statements (b/177308065).
+  // REQUIRES: FEATURE_DML_RETURNING and FEATURE_DML_UPDATE_WITH_JOIN.
+  FEATURE_DML_UPDATE_RETURNING_FROM_COLUMNS = 194 [
+    (language_feature_options).language_version = VERSION_1_5,
+    (language_feature_options).in_development = true
+  ];
 
   // -> Add more cross-version features here.
   // -> DO NOT add more versioned features into versions that are frozen.
@@ -2200,11 +2206,8 @@ enum LanguageFeature {
   // Enables MAP braced constructor literal syntax.
   // See (broken link):map_literal for more details.
   // REQUIRES: FEATURE_MAP_TYPE feature to be enabled first.
-  // TODO: b/490428363 - Remove in_development
-  FEATURE_MAP_LITERAL = 14132 [
-    (language_feature_options).language_version = VERSION_1_5,
-    (language_feature_options).in_development = true
-  ];
+  FEATURE_MAP_LITERAL = 14132
+      [(language_feature_options).language_version = VERSION_1_5];
 
   // The following NET functions are only available internally, this feature
   // flag marks them available externally: NET.FORMAT_IP, NET.PARSE_IP,
@@ -2298,6 +2301,24 @@ enum LanguageFeature {
     (language_feature_options).language_version = VERSION_1_5,
     (language_feature_options).in_development = true
   ];
+
+  // When enabled, scalar properties in CREATE PROPERTY GRAPH DDL may
+  // reference scalar properties of *other* element tables in the graph,
+  // addressed by the other element table's alias, e.g. `products.list_price AS
+  // unit_price` defined on the `orders` node.
+  //
+  // Whether the referenced element table is reachable across a 1:1 or N:1 edge
+  // is enforced by the analyzer.
+  //
+  // See (broken link) for more details.
+  FEATURE_SQL_GRAPH_CROSS_ENTITY_SCALAR_PROPERTIES = 193 [
+    (language_feature_options).language_version = VERSION_1_5,
+    (language_feature_options).in_development = true
+  ];
+
+  // Enables support for LookupTable TVF.
+  FEATURE_LOOKUP_TABLE_TVF = 195
+      [(language_feature_options).in_development = true];
 
   // User code that switches on this enum must have a default case so
   // builds won't break if new enums get added.
@@ -2574,6 +2595,12 @@ enum ResolvedASTRewrite {
 
   // Rewrites the HOP time window TVF.
   REWRITE_HOP_FUNCTION = 44 [
+    (rewrite_options).default_enabled = true,
+    (rewrite_options).in_development = true
+  ];
+
+  // Rewrites the LookupTable TVF into a ResolvedTableScan.
+  REWRITE_LOOKUP_TABLE_TVF = 45 [
     (rewrite_options).default_enabled = true,
     (rewrite_options).in_development = true
   ];

@@ -38,6 +38,7 @@
 
 namespace googlesql {
 
+class Model;
 class TVFConnectionArgument;
 class TVFModelArgument;
 class TVFRelation;
@@ -284,12 +285,11 @@ class InputArgumentType {
       const TVFRelation& relation_input_schema,
       bool is_pipe_input_table = false);
 
-  // Constructor for model arguments. Only for use when analyzing
-  // table-valued functions. 'model_arg' specifies the model object for the
-  // provided input. For more information about model argument,
-  // see table_valued_function.h.
+  // Constructor for model arguments. `model_arg` or `model` specifies the model
+  // object for the provided input.
   static InputArgumentType ModelInputArgumentType(
       const TVFModelArgument& model_arg);
+  static InputArgumentType ModelInputArgumentType(const Model* model);
   static InputArgumentType ModelInputArgumentType();
 
   // Constructor for connection arguments. Only for use when analyzing
@@ -323,6 +323,7 @@ class InputArgumentType {
     ABSL_DCHECK(has_relation_input_schema());
     return *ReadOnlyData().relation_input_schema;
   }
+  const Model* model() const;
   bool is_pipe_input_table() const { return is_pipe_input_table_; }
 
   bool is_chained_function_call_input() const {
@@ -384,10 +385,9 @@ class InputArgumentType {
     // is only need for one TVFRelation instance to exist.
     std::shared_ptr<const TVFRelation> relation_input_schema;
 
-    // This is only non-NULL for table-valued functions. It holds the model
-    // argument. This is a shared pointer only because the InputArgumentType
-    // is copyable and there is only need for one TVFModelArgument instance to
-    // exist.
+    // Holds the model argument when `category_` == kModel. This is a shared
+    // pointer only because InputArgumentType is copyable and there is only
+    // need for one TVFModelArgument instance to exist.
     std::shared_ptr<const TVFModelArgument> model_arg;
 
     // This is only non-NULL for table-valued functions. It holds the

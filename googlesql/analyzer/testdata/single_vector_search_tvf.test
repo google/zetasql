@@ -234,9 +234,9 @@ ALTERNATION GROUPS:
     MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
     MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
-SELECT * FROM vector_search(
-              ^
+ERROR: Named argument query_value not found in signature for call to function VECTOR_SEARCH [at 4:3]
+  query_value => ARRAY<DOUBLE>[1.0, 2.0, 3.0],
+  ^
 ==
 
 # Call with alias
@@ -581,9 +581,9 @@ ALTERNATION GROUPS:
     MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
     MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
-SELECT * FROM vector_search(
-              ^
+ERROR: Named argument query_value not found in signature for call to function VECTOR_SEARCH [at 4:3]
+  query_value => ARRAY<DOUBLE>[1.0, 2.0, 3.0],
+  ^
 ==
 
 # max_distance argument is not a literal or query parameter
@@ -689,9 +689,9 @@ ALTERNATION GROUPS:
     MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
     MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
-SELECT * FROM vector_search(
-              ^
+ERROR: Named argument query_value not found in signature for call to function VECTOR_SEARCH [at 4:3]
+  query_value => ARRAY<DOUBLE>[1.0, 2.0, 3.0],
+  ^
 ==
 
 # Single VECTOR_SEARCH, options arg not passed with named argument
@@ -717,9 +717,9 @@ ALTERNATION GROUPS:
     MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
     MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
-SELECT * FROM vector_search(
-              ^
+ERROR: Named argument query_value not found in signature for call to function VECTOR_SEARCH [at 4:3]
+  query_value => ARRAY<DOUBLE>[1.0, 2.0, 3.0],
+  ^
 ==
 
 # top_k argument is 0
@@ -871,6 +871,6 @@ CreateFunctionStmt
 # SINGLE_HYBRID_VECTOR_SEARCH_TVF language feature disabled
 SELECT * FROM vector_search(TABLE base_table, 'embedding', query_value => ARRAY<DOUBLE>[1.0, 2.0, 3.0])
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 2:15]
-SELECT * FROM vector_search(TABLE base_table, 'embedding', query_value => ARR...
-              ^
+ERROR: Named argument query_value not found in signature for call to function VECTOR_SEARCH [at 2:60]
+...FROM vector_search(TABLE base_table, 'embedding', query_value => ARRAY<DOU...
+                                                     ^

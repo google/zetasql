@@ -110,7 +110,7 @@ absl::StatusOr<TVFDeclarationOptions> ProcessTVFDeclarationOptions(
 
 const auto& GetWarningKeywords() {
   static const absl::NoDestructor<LanguageOptions::KeywordSet> kWarningKeywords(
-      {kQualify, kGraphTable});
+      {kQualify, kGraphTable, kAlign});
   return *kWarningKeywords;
 }
 

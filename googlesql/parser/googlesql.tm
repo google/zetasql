@@ -1128,6 +1128,15 @@ catch_all: /./ -100 {
 // Textmapper's default resolution is for shift, which is the desired resolution
 // in this case.
 //
+// AMBIGUOUS CASE 22: TABLE(...)
+// -----------------------------
+// The TABLE keyword is non-reserved and can be used as an identifier. With
+// parenthesized TABLE(...) syntax in `table_clause_no_keyword`, "TABLE"
+// followed by "(" causes one shift/reduce conflict between
+// `setof_NonReservedKeyword` (for a function call `table(...)`) and
+// `table_clause_unreserved`. It is resolved in favor of
+// `table_clause_unreserved` (shift), which is the desired behavior.
+//
 // Total expected shift/reduce conflicts as described above:
 //   1: SAFE CAST
 //   2: CREATE TABLE CONSTRAINTS
@@ -1151,11 +1160,12 @@ catch_all: /./ -100 {
 //   1: Graph SET
 //   2: FUNCTION and MAP templated types
 //   1: type_name followed by "."
-%expect 40;
+//   1: TABLE
+%expect 41;
 
-// Precedence for operator tokens. The operator precedence is defined by the
-// order of the declarations here, with tokens specified in the same declaration
-// having the same precedence.
+// Precedence for operator tokens. The operator precedence is defined from
+// lowest to highest by the order of the declarations here, with tokens
+// specified in the same declaration having the same precedence.
 //
 // Precedences are a total order, so resolving any conflict using precedence has
 // non-local effects. Only use precedences that are widely globally accepted,
@@ -1221,7 +1231,7 @@ catch_all: /./ -100 {
 // expressions, but Textmapper requires both the rule and the lookahead token to
 // have a precedence level to enable precedence based conflict resolution, hence
 // the requirement to give precedence to "(", "[", "{", and ".". These operators
-// share the lowest precedence since they just need to have a precedence level
+// share the highest precedence since they just need to have a precedence level
 // to enable conflict resolution.
 %left PRIMARY_PRECEDENCE "(" "[" "{" ".";
 
@@ -6997,14 +7007,29 @@ table_subquery {ASTTableSubquery*}:
     }
 ;
 
-table_clause_no_keyword {ASTNode*}:
-    path_expression[table_name]
-    {
-      $$ = MakeNode<ASTTableClause>(@$, $table_name);
-    }
+table_clause_target {ASTNode*}:
+    path_expression
   | tvf as_alias[alias]? pivot_or_unpivot_clause[pivot]?
     {
-      $$ = MakeNode<ASTTableClause>(@$, ExtendNodeRight($tvf, $alias, $pivot));
+      $$ = ExtendNodeRight($tvf, $alias, $pivot);
+    }
+;
+
+table_clause_target_parenthesized {ASTNode*}:
+    table_clause_target
+  | parenthesized_query
+;
+
+table_clause_no_keyword {ASTTableClause*}:
+    table_clause_target
+    {
+      $$ = MakeNode<ASTTableClause>(@$, $table_clause_target);
+    }
+  | "(" table_clause_target_parenthesized opt_partition_by_clause opt_order_by_clause ")"
+    {
+      $$ = MakeNode<ASTTableClause>(
+          @$, $table_clause_target_parenthesized, $opt_partition_by_clause,
+          $opt_order_by_clause);
     }
 ;
 

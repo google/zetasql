@@ -20,13 +20,14 @@
 #include <utility>
 #include <vector>
 
+#include "googlesql/common/errors.h"
 #include "googlesql/parser/ast_node.h"
 #include "googlesql/parser/parse_tree_errors.h"
 #include "googlesql/public/analyzer_options.h"
 #include "googlesql/public/annotation/collation.h"
 #include "googlesql/public/annotation/is_versioned.h"
+#include "googlesql/public/annotation/vector_dims.h"
 #include "googlesql/public/annotation/vector_encoding.h"
-#include "googlesql/public/annotation/vector_length.h"
 #include "googlesql/public/function.h"
 #include "googlesql/public/options.pb.h"
 #include "googlesql/public/sql_function.h"
@@ -69,8 +70,7 @@ void AnnotationPropagator::InitializeAnnotationSpecs(
   }
 
   if (analyzer_options.language().LanguageFeatureEnabled(FEATURE_VECTOR_TYPE)) {
-    owned_annotation_specs_.push_back(
-        std::make_unique<VectorLengthAnnotation>());
+    owned_annotation_specs_.push_back(std::make_unique<VectorDimsAnnotation>());
     owned_annotation_specs_.push_back(
         std::make_unique<VectorEncodingAnnotation>());
   }
@@ -93,10 +93,9 @@ static absl::Status CheckAndPropagateAnnotationsImpl(
   for (AnnotationSpec* annotation_spec : *annotation_specs) {
     switch (resolved_node->node_kind()) {
       case RESOLVED_COLUMN_REF: {
-        auto* column_ref = resolved_node->GetAs<ResolvedColumnRef>();
-        GOOGLESQL_RETURN_IF_ERROR(annotation_spec->CheckAndPropagateForColumnRef(
-            *column_ref, annotation_map));
-      } break;
+        GOOGLESQL_RET_CHECK_FAIL()
+            << "Should have propagated all annotations on ColumnRef";
+      }
       case RESOLVED_ARGUMENT_REF: {
         // ResolvedArgRef passes through all annotations.
         // We should have already propagated them all directly, instead of
@@ -231,6 +230,16 @@ static absl::Status PropagateAnnotationsForSqlFunctionCall(ResolvedExpr& expr) {
   return absl::OkStatus();
 }
 
+static absl::Status PropagateStatusWithErrorLocation(
+    absl::Status status, const ASTNode* error_node) {
+  if (!status.ok() && error_node != nullptr) {
+    return StatusWithInternalErrorLocation(
+        status, GetErrorLocationPoint(error_node,
+                                      /*include_leftmost_child=*/false));
+  }
+  return status;
+}
+
 absl::Status AnnotationPropagator::CheckAndPropagateAnnotations(
     const ASTNode* error_node, ResolvedNode* resolved_node) {
   if (!analyzer_options_.language().LanguageFeatureEnabled(
@@ -250,11 +259,10 @@ absl::Status AnnotationPropagator::CheckAndPropagateAnnotations(
     }
     std::unique_ptr<AnnotationMap> annotation_map =
         AnnotationMap::Create(expr->type());
-    absl::Status status = CheckAndPropagateAnnotationsImpl(
-        resolved_node, &annotation_specs_, annotation_map.get());
-    if (!status.ok() && error_node != nullptr) {
-      return MakeSqlErrorAt(error_node) << status.message();
-    }
+    GOOGLESQL_RETURN_IF_ERROR(PropagateStatusWithErrorLocation(
+        CheckAndPropagateAnnotationsImpl(resolved_node, &annotation_specs_,
+                                         annotation_map.get()),
+        error_node));
     // It is possible that annotation_map is empty after all the propagation,
     // set type_annotation_map to nullptr in this case.
     if (annotation_map->Empty()) {
@@ -282,12 +290,10 @@ absl::Status AnnotationPropagator::CheckAndPropagateAnnotations(
     // Check and propagate the annotations for set operations for every
     // AnnotationSpec supported by the resolver.
     for (AnnotationSpec* annotation_spec : annotation_specs_) {
-      absl::Status status =
+      GOOGLESQL_RETURN_IF_ERROR(PropagateStatusWithErrorLocation(
           annotation_spec->CheckAndPropagateForSetOperationScan(
-              *set_operation_scan, annotation_map_ptrs);
-      if (!status.ok() && error_node != nullptr) {
-        return MakeSqlErrorAt(error_node) << status.message();
-      }
+              *set_operation_scan, annotation_map_ptrs),
+          error_node));
     }
 
     std::vector<ResolvedColumn> annotated_column_list;
@@ -358,11 +364,10 @@ absl::Status AnnotationPropagator::CheckAndPropagateAnnotationsForRecursiveScan(
   // Check and propagate the annotations for recursive scan for every
   // AnnotationSpec supported by the resolver.
   for (AnnotationSpec* annotation_spec : annotation_specs_) {
-    absl::Status status = annotation_spec->CheckAndPropagateForRecursiveScan(
-        *recursive_scan, annotation_map_ptrs);
-    if (!status.ok() && error_node != nullptr) {
-      return MakeSqlErrorAt(error_node) << status.message();
-    }
+    GOOGLESQL_RETURN_IF_ERROR(PropagateStatusWithErrorLocation(
+        annotation_spec->CheckAndPropagateForRecursiveScan(*recursive_scan,
+                                                           annotation_map_ptrs),
+        error_node));
   }
 
   std::vector<ResolvedColumn> annotated_column_list;

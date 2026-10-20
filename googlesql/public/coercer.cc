@@ -791,29 +791,34 @@ absl::StatusOr<const GraphElementType*> Coercer::GetCommonGraphElementSuperType(
   }
 
   std::vector<GraphElementType::PropertyType> property_type_collection;
+  std::vector<std::string> element_table_collection;
   bool is_dynamic = false;
   for (const auto& arg : arguments) {
     if (arg.type()->IsGraphElement()) {
-      absl::c_copy(arg.type()->AsGraphElement()->property_types(),
+      const auto* graph_element_type = arg.type()->AsGraphElement();
+      absl::c_copy(graph_element_type->property_types(),
                    std::back_inserter(property_type_collection));
-      is_dynamic = is_dynamic || arg.type()->AsGraphElement()->is_dynamic();
+      absl::c_copy(graph_element_type->element_tables(),
+                   std::back_inserter(element_table_collection));
+      is_dynamic = is_dynamic || graph_element_type->is_dynamic();
     }
   }
 
-  // TypeFactory will handle duplicate property types and report error for
-  // inconsistent property types (property type with same name but different
-  // value type).
+  // TypeFactory will handle duplicate property types and element tables, and
+  // report error for inconsistent property types (property type with same name
+  // but different value type).
   const GraphElementType* supertype;
   if (is_dynamic) {
     GOOGLESQL_RETURN_IF_ERROR(type_factory_->MakeDynamicGraphElementType(
         dominant_graph_element_type->graph_reference(),
         dominant_graph_element_type->element_kind(), property_type_collection,
-        &supertype));
+        element_table_collection, &supertype));
   } else {
     GOOGLESQL_RETURN_IF_ERROR(type_factory_->MakeGraphElementType(
         dominant_graph_element_type->graph_reference(),
         dominant_graph_element_type->element_kind(),
-        std::move(property_type_collection), &supertype));
+        std::move(property_type_collection), element_table_collection,
+        &supertype));
   }
   return supertype;
 }

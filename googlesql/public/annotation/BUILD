@@ -68,6 +68,7 @@ cc_library(
     hdrs = ["non_propagating_annotation_spec.h"],
     deps = [
         "//googlesql/public/types",
+        "//googlesql/resolved_ast",
         "@com_google_absl//absl/status",
     ],
 )
@@ -82,17 +83,17 @@ cc_library(
 )
 
 cc_library(
-    name = "vector_length",
-    srcs = ["vector_length.cc"],
-    hdrs = ["vector_length.h"],
+    name = "vector_dims",
+    srcs = ["vector_dims.cc"],
+    hdrs = ["vector_dims.h"],
     deps = [
         ":default_annotation",
         "//googlesql/base:ret_check",
         "//googlesql/base:status",
         "//googlesql/public:builtin_function_cc_proto",
         "//googlesql/public:constant",
-        "//googlesql/public:function_cc_proto",
         "//googlesql/public:parse_location",
+        "//googlesql/public:type_parameters_cc_proto",
         "//googlesql/public/types:type",
         "//googlesql/resolved_ast",
         "@com_google_absl//absl/status",

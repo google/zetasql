@@ -944,28 +944,28 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_ci#1 AS string_ci [STRING]
 | +-$pipe_select.newcol1#5 AS newcol1 [STRING]
 | +-$pipe_set.newcol2#7 AS newcol2 [STRING]
 +-query=
   +-ProjectScan
-    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $pipe_select.newcol1#5, $pipe_select.newcol2#6, $pipe_set.newcol2#7]
+    +-column_list=[CollatedTable.string_ci#1, $pipe_select.newcol1#5, $pipe_select.newcol2#6, $pipe_set.newcol2#7]
     +-expr_list=
     | +-newcol2#7 :=
     |   +-FunctionCall(GoogleSQL:concat(STRING, repeated(1) STRING) -> STRING)
-    |     +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1)
     |     +-Literal(type=STRING, value="yyy")
     +-input_scan=
       +-ProjectScan
-        +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $pipe_select.newcol1#5, $pipe_select.newcol2#6]
+        +-column_list=[CollatedTable.string_ci#1, $pipe_select.newcol1#5, $pipe_select.newcol2#6]
         +-expr_list=
         | +-newcol1#5 :=
         | | +-FunctionCall(GoogleSQL:concat(STRING, repeated(1) STRING) -> STRING)
-        | |   +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1)
         | |   +-Literal(type=STRING, value="xxx")
         | +-newcol2#6 := Literal(type=INT64, value=NULL)
         +-input_scan=
-          +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+          +-TableScan(column_list=[CollatedTable.string_ci#1], table=CollatedTable, column_index_list=[0])
 --
 ALTERNATION GROUP: ,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT
 --

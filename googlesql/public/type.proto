@@ -246,6 +246,9 @@ message GraphElementTypeProto {
   reserved 3;  // was graph_full_name.
   repeated string graph_reference = 4;
   optional bool is_dynamic = 5;
+  // Case-insensitive names of the underlying element tables, or empty if the
+  // graph element is not associated with any element table.
+  repeated string element_tables = 6;
 }
 
 message GraphPathTypeProto {

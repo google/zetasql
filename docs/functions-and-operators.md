@@ -4258,12 +4258,31 @@ WHERE x > 1;
 ## Conditional expressions
 
 GoogleSQL supports conditional expressions.
-Conditional expressions impose constraints on the evaluation order of their
-inputs. In essence, they are evaluated left to right, with short-circuiting, and
-only evaluate the output value that was chosen. In contrast, all inputs to
-regular functions are evaluated before calling the function. Short-circuiting in
-conditional expressions can be exploited for error handling or performance
-tuning.
+
+### Evaluation order and short-circuiting 
+<a id="short_circuiting"></a>
+
+In contrast to regular functions, where all inputs are evaluated before calling
+the function, conditional expressions impose constraints on the evaluation
+semantics of their inputs:
+
+*   Conditional expressions behave as if input expressions are evaluated from
+    left to right and only up to the chosen output expression. Evaluation errors
+    in unchosen expressions are ignored. If an expression that must be evaluated
+    to determine the result produces an evaluation error, the query fails with
+    that error. You can use short-circuiting semantics for error handling, such
+    as avoiding division-by-zero errors. For more information, see
+    [short-circuiting][short-circuit-eval].
+*   If the final result and error-handling behavior match short-circuiting
+    semantics, input expressions might be evaluated in parallel or before the
+    conditional expression is evaluated. These input expressions include scalar
+    expressions and scalar subqueries in unchosen branches. Because all input
+    expressions might still execute, don't rely solely on conditional
+    expressions for performance tuning. To
+    conditionally execute subqueries, use procedural control flow statements
+    (such as `IF ... THEN` statements in procedural SQL) rather than conditional
+    expressions. For more information, see
+    [lazy physical execution][lazy-eval].
 
 ### Expression list
 
@@ -4366,8 +4385,10 @@ CASE expr
 **Description**
 
 Compares `expr` to `expr_to_match` of each successive `WHEN` clause and returns
-the first result where this comparison evaluates to `TRUE`. The remaining `WHEN`
-clauses and `else_result` aren't evaluated.
+the first result where this comparison evaluates to `TRUE`. The expression
+behaves as if the remaining `WHEN` clauses and `else_result` aren't evaluated.
+For more information, see
+[Evaluation order and short-circuiting][case-expr-short-circuiting].
 
 If the `expr = expr_to_match` comparison evaluates to `FALSE` or `NULL` for all
 `WHEN` clauses, returns the evaluation of `else_result` if present; if
@@ -4421,6 +4442,8 @@ FROM Numbers
  +------------------*/
 ```
 
+[case-expr-short-circuiting]: #short_circuiting
+
 [logical-operators]: #logical_operators
 
 [case]: #case
@@ -4441,8 +4464,10 @@ CASE
 **Description**
 
 Evaluates the condition of each successive `WHEN` clause and returns the
-first result where the condition evaluates to `TRUE`; any remaining `WHEN`
-clauses and `else_result` aren't evaluated.
+first result where the condition evaluates to `TRUE`. The expression behaves
+as if any remaining `WHEN` clauses and `else_result` aren't evaluated. For
+more information, see
+[Evaluation order and short-circuiting][case-short-circuiting].
 
 If all conditions evaluate to `FALSE` or `NULL`, returns evaluation of
 `else_result` if present; if `else_result` isn't present, then returns `NULL`.
@@ -4490,6 +4515,8 @@ FROM Numbers
  +------------------*/
 ```
 
+[case-short-circuiting]: #short_circuiting
+
 [cond-exp-supertype]: https://github.com/google/googlesql/blob/master/docs/conversion_rules.md#supertypes
 
 [logical-operators]: #logical_operators
@@ -4504,9 +4531,18 @@ COALESCE(expr[, ...])
 **Description**
 
 Returns the value of the first non-`NULL` expression, if any, otherwise
-`NULL`. The remaining expressions aren't evaluated. An input expression can be
-any type. There may be multiple input expression types.
-All input expressions must be implicitly coercible to a common
+`NULL`.
+
+The expression behaves as if the remaining expressions aren't evaluated:
+evaluation errors in an expression are ignored if any preceding expression
+evaluates to a non-`NULL` value, even though all input expressions might still
+be evaluated. If no preceding expression evaluates to a non-`NULL` value and an
+expression produces an evaluation error, the query fails with that error. For
+more information, see
+[Evaluation order and short-circuiting][coalesce-short-circuiting].
+
+An input expression can be any type. There can be multiple input expression
+types. All input expressions must be implicitly coercible to a common
 [supertype][cond-exp-supertype].
 
 **Return Data Type**
@@ -4535,6 +4571,33 @@ SELECT COALESCE(NULL, 'B', 'C') as result
  +--------*/
 ```
 
+```googlesql
+-- The first expression is non-NULL, so it's used. The division-by-zero error
+-- from the second expression isn't produced.
+SELECT COALESCE(10, 1 / 0) as result
+
+/*--------+
+ | result |
+ +--------+
+ | 10     |
+ +--------*/
+```
+
+In the following example, `COALESCE` includes scalar subqueries as fallback
+arguments. Because conditional expressions don't guarantee lazy execution, all
+three subqueries might be evaluated even if the first subquery returns a
+non-`NULL` value:
+
+```googlesql
+SELECT COALESCE(
+  (SELECT event_date FROM recent_events LIMIT 1),
+  (SELECT MAX(event_date) FROM weekly_events),
+  (SELECT MAX(event_date) FROM all_events)
+)
+```
+
+[coalesce-short-circuiting]: #short_circuiting
+
 [cond-exp-supertype]: https://github.com/google/googlesql/blob/master/docs/conversion_rules.md#supertypes
 
 ### `IF` 
@@ -4547,9 +4610,10 @@ IF(expr, true_result, else_result)
 **Description**
 
 If `expr` evaluates to `TRUE`, returns `true_result`, else returns the
-evaluation for `else_result`. `else_result` isn't evaluated if `expr` evaluates
-to `TRUE`. `true_result` isn't evaluated if `expr` evaluates to `FALSE` or
-`NULL`.
+evaluation for `else_result`. The expression behaves as if `else_result` isn't
+evaluated when `expr` evaluates to `TRUE`, and as if `true_result` isn't
+evaluated when `expr` evaluates to `FALSE` or `NULL`. For more information,
+see [Evaluation order and short-circuiting][if-short-circuiting].
 
 `expr` must be a boolean expression. `true_result` and `else_result`
 must be coercible to a common [supertype][cond-exp-supertype].
@@ -4586,6 +4650,8 @@ SELECT
  +------------------*/
 ```
 
+[if-short-circuiting]: #short_circuiting
+
 [cond-exp-supertype]: https://github.com/google/googlesql/blob/master/docs/conversion_rules.md#supertypes
 
 ### `IFNULL` 
@@ -4598,7 +4664,14 @@ IFNULL(expr, null_result)
 **Description**
 
 If `expr` evaluates to `NULL`, returns `null_result`. Otherwise, returns
-`expr`. If `expr` doesn't evaluate to `NULL`, `null_result` isn't evaluated.
+`expr`.
+
+If `expr` is non-`NULL`, the expression behaves as if `null_result` isn't
+evaluated: evaluation errors in `null_result` are ignored, even though both
+input expressions might still be evaluated. If `expr` evaluates to `NULL` and
+`null_result` produces an evaluation error, the query fails with that error.
+For more information, see
+[Evaluation order and short-circuiting][ifnull-short-circuiting].
 
 `expr` and `null_result` can be any type and must be implicitly coercible to
 a common [supertype][cond-exp-supertype]. Synonym for
@@ -4629,6 +4702,20 @@ SELECT IFNULL(10, 0) as result
  | 10     |
  +--------*/
 ```
+
+```googlesql
+-- The first expression is non-NULL, so it's used. The division-by-zero error
+-- from the second expression isn't produced.
+SELECT IFNULL(10, 1 / 0) as result
+
+/*--------+
+ | result |
+ +--------+
+ | 10     |
+ +--------*/
+```
+
+[ifnull-short-circuiting]: #short_circuiting
 
 [cond-exp-supertype]: https://github.com/google/googlesql/blob/master/docs/conversion_rules.md#supertypes
 
@@ -4734,6 +4821,14 @@ SELECT ZEROIFNULL(NULL) AS result
  | 0      |
  +--------*/
 ```
+
+<!-- mdlint off(WHITESPACE_LINE_LENGTH) -->
+
+[short-circuit-eval]: https://en.wikipedia.org/wiki/Short-circuit_evaluation
+
+[lazy-eval]: https://en.wikipedia.org/wiki/Lazy_evaluation
+
+<!-- mdlint on -->
 
 ---
 ## FUNCTIONS
@@ -7860,18 +7955,19 @@ GoogleSQL supports approximate aggregate functions.
 To learn about the syntax for aggregate function calls, see
 [Aggregate function calls][agg-function-calls].
 
-Approximate aggregate functions are scalable in terms of memory usage and time,
-but produce approximate results instead of exact results. These functions
-typically require less memory than [exact aggregation functions][aggregate-functions-reference]
+Approximate aggregate functions are scalable in terms of time and resource
+usage, but produce approximate results instead of exact results. These functions
+typically use fewer resources than [exact aggregation functions][aggregate-functions-reference]
 like `COUNT(DISTINCT ...)`, but also introduce statistical uncertainty.
 This makes approximate aggregation appropriate for large data streams for
-which linear memory usage is impractical, as well as for data that is
+which linear memory usage is impractical, as well as for data that's
 already approximate.
 
-The approximate aggregate functions in this section work directly on the
-input data, rather than an intermediate estimation of the data. These functions
-_don't allow_ users to specify the precision for the estimation with
-sketches.
+The approximate aggregate functions in this section compute an estimate
+directly from the input data. These functions don't return a
+[_sketch_][sketches], which is a compact
+summary of the data that you can store and merge later, and they don't let you
+specify the precision of the estimate.
 
 To specify precision with sketches,
 use [HyperLogLog++ functions][hll-functions] to estimate cardinality.
@@ -8250,6 +8346,8 @@ UNNEST([STRUCT("apple" AS x, 0 AS weight), (NULL, NULL)]);
 ```
 
 [hll-functions]: #hll_functions
+
+[sketches]: https://github.com/google/googlesql/blob/master/docs/sketches.md
 
 [aggregate-functions-reference]: #aggregate_functions
 
@@ -16792,7 +16890,8 @@ determine the optimal privacy parameters for your dataset and organization.
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -16811,10 +16910,15 @@ and can support the following arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`DOUBLE`
++ Without a report format: `DOUBLE`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -16908,6 +17012,83 @@ GROUP BY item;
  +----------+------------------*/
 ```
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'JSON') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4.0,"num_inputs":1.0,         |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8.0}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":8.0,"num_inputs":2.0,         |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":18.5,                    |
+ |          |   "upper_bound":18.5},"value":18.5}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'PROTO') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { float_value: 8.0 noise_confidence_interval {             |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { float_value: 4.0 }               |
+ |          | upper_bound { float_value: 8.0 } num_inputs: 1 num_outside: 0 }  |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { float_value: 72.0 noise_confidence_interval {            |
+ |          | lower_bound: 72.0 upper_bound: 72.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 64.0 }              |
+ |          | upper_bound { float_value: 128.0 } num_inputs: 1 num_outside: 0 }|
+ +----------+------------------------------------------------------------------+
+ | pen      | value { float_value: 18.5 noise_confidence_interval {            |
+ |          | lower_bound: 18.5 upper_bound: 18.5 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 8.0 }               |
+ |          | upper_bound { float_value: 32.0 } num_inputs: 2 num_outside: 0 } |
+ +----------+------------------------------------------------------------------*/
+```
+
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
@@ -16920,6 +17101,10 @@ noise, see [Remove noise][dp-noise].
 [dp-syntax]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: #json_report_format
+
+[proto-report-format]: #proto_report_format
 
 ### `COUNT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_count"></a>
@@ -16936,7 +17121,8 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -16953,10 +17139,15 @@ and can support the following arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`INT64`
++ Without a report format: `INT64`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -17053,6 +17244,71 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(*, contribution_bounds_per_group=>(0, 100), report_format=>'JSON') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":1.0,                     |
+ |          |   "upper_bound":1.0},"value":1}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":4.0,                     |
+ |          |   "upper_bound":4.0},"value":4}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":3.0,                     |
+ |          |   "upper_bound":3.0},"value":3}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(*, contribution_bounds_per_group=>(0, 100), report_format=>'PROTO') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 1 noise_confidence_interval {                 |
+ |          | lower_bound: 1.0 upper_bound: 1.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 4 noise_confidence_interval {                 |
+ |          | lower_bound: 4.0 upper_bound: 4.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 3 noise_confidence_interval {                 |
+ |          | lower_bound: 3.0 upper_bound: 3.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 #### Signature 2 
 <a id="dp_count_signature2"></a>
 
@@ -17060,7 +17316,8 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -17078,10 +17335,15 @@ and can support these arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`INT64`
++ Without a report format: `INT64`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -17177,6 +17439,71 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(item, contribution_bounds_per_group=>(0, 100), report_format=>'JSON') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":1.0,                     |
+ |          |   "upper_bound":1.0},"value":1}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":4.0,                     |
+ |          |   "upper_bound":4.0},"value":4}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":3.0,                     |
+ |          |   "upper_bound":3.0},"value":3}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(item, contribution_bounds_per_group=>(0, 100), report_format=>'PROTO') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 1 noise_confidence_interval {                 |
+ |          | lower_bound: 1.0 upper_bound: 1.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 4 noise_confidence_interval {                 |
+ |          | lower_bound: 4.0 upper_bound: 4.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 3 noise_confidence_interval {                 |
+ |          | lower_bound: 3.0 upper_bound: 3.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 [dp-clamp-implicit]: #dp_implicit_clamping
 
 [dp-from-clause]: https://github.com/google/googlesql/blob/master/docs/differential-privacy.md#dp_from_rules
@@ -17190,6 +17517,10 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: #json_report_format
+
+[proto-report-format]: #proto_report_format
 
 ### `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_percentile_cont"></a>
@@ -17295,7 +17626,8 @@ GROUP BY item;
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -17312,14 +17644,19 @@ and can support these arguments:
 + `contribution_bounds_per_group`: A named argument with a
   [contribution bound][dp-clamped-named]. Performs clamping for each group
   separately before performing intermediate grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-One of the following [supertypes][dp-supertype]:
++ Without a report format, one of the following [supertypes][dp-supertype]:
 
-+ `INT64`
-+ `UINT64`
-+ `DOUBLE`
+  + `INT64`
+  + `UINT64`
+  + `DOUBLE`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -17416,6 +17753,83 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Use differential privacy][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    SUM(quantity, report_format=>'JSON') quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | quantity                                                         |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4,"num_inputs":1.0,           |
+ |          |   "num_outside":0.0,"upper_bound":8},                            |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64,"num_inputs":1.0,          |
+ |          |   "num_outside":0.0,"upper_bound":256},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":144.0,                   |
+ |          |   "upper_bound":144.0},"value":144}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":16,"num_inputs":2.0,          |
+ |          |   "num_outside":0.0,"upper_bound":64},                           |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":58.0,                    |
+ |          |   "upper_bound":58.0},"value":58}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    SUM(quantity, report_format=>'PROTO') quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | quantity                                                         |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 8 noise_confidence_interval {                 |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { int_value: 4 }                   |
+ |          | upper_bound { int_value: 8 } num_inputs: 1 num_outside: 0 }      |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 144 noise_confidence_interval {               |
+ |          | lower_bound: 144.0 upper_bound: 144.0 confidence_level: 0.95 } } |
+ |          | bounding_report { lower_bound { int_value: 64 }                  |
+ |          | upper_bound { int_value: 256 } num_inputs: 1 num_outside: 0 }    |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 58 noise_confidence_interval {                |
+ |          | lower_bound: 58.0 upper_bound: 58.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { int_value: 16 }                  |
+ |          | upper_bound { int_value: 64 } num_inputs: 2 num_outside: 0 }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 [dp-example-tables]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-noise]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#eliminate_noise
@@ -17427,6 +17841,10 @@ noise, see [Use differential privacy][dp-noise].
 [dp-syntax]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: #json_report_format
+
+[proto-report-format]: #proto_report_format
 
 ### `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_var_pop"></a>
@@ -17533,10 +17951,13 @@ Warning: This function has been deprecated. Use
 
 ```googlesql
 WITH ANONYMIZATION ...
-  ANON_AVG(expression [clamped_between_clause])
+  ANON_AVG(expression [clamped_between_clause] [with_report_clause])
 
 clamped_between_clause:
   CLAMPED BETWEEN lower_bound AND upper_bound
+
+with_report_clause:
+  WITH REPORT(FORMAT={JSON|PROTO})
 ```
 
 **Description**
@@ -17552,10 +17973,14 @@ can support these arguments:
   such as `INT64`.
 + `clamped_between_clause`: Perform [clamping][dp-clamping] per
   privacy unit column averages.
++ `with_report_clause`: Produce a [`JSON`-formatted report][json-report-format]
+  or [`PROTO`-formatted report][proto-report-format] with the results.
 
 **Return type**
 
-`DOUBLE`
++ Without a report: `DOUBLE`
++ With a `JSON`-formatted report: `JSON`
++ With a `PROTO`-formatted report: `PROTO`
 
 **Examples**
 
@@ -17604,6 +18029,47 @@ GROUP BY item;
  +----------+------------------*/
 ```
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    ANON_AVG(quantity WITH REPORT(FORMAT=JSON)) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":4.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{"confidence_level":0.95,|
+ |          |   "lower_bound":8.0,"upper_bound":8.0},"value":8.0}}             |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":64.0,"num_inputs":1.0,       |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}}                             |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":8.0,"num_inputs":2.0,        |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{"confidence_level":0.95,|
+ |          |   "lower_bound":18.5,"upper_bound":18.5},"value":18.5}}.         |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
@@ -17612,6 +18078,10 @@ noise [here][dp-noise].
 [dp-noise]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamping]: #dp_clamping
+
+[json-report-format]: #json_report_format
+
+[proto-report-format]: #proto_report_format
 
 ### `ANON_COUNT` (DEPRECATED) 
 <a id="anon_count"></a>
@@ -18417,6 +18887,199 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-clamped-named-imp]: #dp_clamped_named_implicit
+
+### `JSON` report format 
+<a id="json_report_format"></a>
+
+Some differentially private aggregate functions can return a
+`JSON`-formatted report that has the following values:
+
+```json
+{
+  "bounding_report": {
+    "lower_bound": number,
+    "num_inputs": number,
+    "num_outside": number,
+    "upper_bound": number
+  },
+  "result": {
+    "noise_confidence_interval": {
+      "confidence_level": number,
+      "lower_bound": number,
+      "upper_bound": number
+    },
+    "value": number
+  }
+}
+```
+
+Definitions:
+
++ `result`: The value produced by the function and its
+  noise confidence interval.
+
+  + `noise_confidence_interval`: The probability that the results will
+    fall between a set of values.
+
+    + `confidence_level`: The percentage of probability that the
+      confidence interval contains the true results.
+
+    + `lower_bound`: The lower bound of the confidence interval.
+
+    + `upper_bound`: The upper bound of the confidence interval.
+
+  + `value`: The value produced by the function.
++ `bounding_report`: Bounding report that's only generated when
+  [implicit clamping][dp-clamped-named-imp] is used.
+
+  + `lower_bound`: The inferred lower bound used for clamping.
+
+  + `upper_bound`: The inferred upper bound used for clamping.
+
+  + `num_inputs`: Total noisy count of inputs.
+
+  + `num_outside`: Noisy number of inputs lying outside of bounds.
+
+**Example**
+
+With the following query, you can include a `JSON`-formatted report with your
+results. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'JSON') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4.0,"num_inputs":1.0,         |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8.0}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":8.0,"num_inputs":2.0,         |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":18.5,                    |
+ |          |   "upper_bound":18.5},"value":18.5}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+### `PROTO` report format 
+<a id="proto_report_format"></a>
+
+Some differentially private aggregate functions can return a
+`PROTO`-formatted report that has the following values:
+
+```proto
+{
+  {
+    value {
+      [float|int]_value: double or int64
+      noise_confidence_interval {
+        lower_bound: double
+        upper_bound: double
+        confidence_level: double
+      }
+    }
+    bounding_report {
+      lower_bound {
+        [float|int]_value: double or int64
+      }
+      upper_bound {
+        [float|int]_value: double or int64
+      }
+      num_inputs: double
+      num_outside: double
+    }
+  }
+}
+```
+
+Definitions:
+
++ `value`: The value produced by the function and its
+  noise confidence interval.
+
+  + `float_value` or `int_value`: The value produced by the function.
+
+  + `noise_confidence_interval`: The probability that the results will
+    fall between a set of values.
+
+    + `lower_bound`: The lower bound of the confidence interval.
+
+    + `upper_bound`: The upper bound of the confidence interval.
+
+    + `confidence_level`: The percentage of probability that the
+      confidence interval contains the true results.
++ `bounding_report`: Bounding report that's only generated when
+  [implicit clamping][dp-clamped-named-imp] is used.
+
+  + `lower_bound`: The inferred lower bound used for clamping.
+
+  + `upper_bound`: The inferred upper bound used for clamping.
+
+  + `num_inputs`: Total noisy count of inputs.
+
+  + `num_outside`: Noisy number of inputs lying outside of bounds.
+
+**Example**
+
+With the following query, you can include a `PROTO`-formatted report with your
+results. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'PROTO') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { float_value: 8.0 noise_confidence_interval {             |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { float_value: 4.0 }               |
+ |          | upper_bound { float_value: 8.0 } num_inputs: 1 num_outside: 0 }  |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { float_value: 72.0 noise_confidence_interval {            |
+ |          | lower_bound: 72.0 upper_bound: 72.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 64.0 }              |
+ |          | upper_bound { float_value: 128.0 } num_inputs: 1 num_outside: 0 }|
+ +----------+------------------------------------------------------------------+
+ | pen      | value { float_value: 18.5 noise_confidence_interval {            |
+ |          | lower_bound: 18.5 upper_bound: 18.5 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 8.0 }               |
+ |          | upper_bound { float_value: 32.0 } num_inputs: 2 num_outside: 0 } |
+ +----------+------------------------------------------------------------------*/
+```
 
 [dp-guide]: https://github.com/google/googlesql/blob/master/docs/differential-privacy.md
 
@@ -23348,7 +24011,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the fingerprint of a <code>STRING</code> or
-    <code>BYTES</code> value, using the FarmHash Fingerprint64 algorithm.
+    <code>BYTES</code> value using the FarmHash Fingerprint64 algorithm.
   </td>
 </tr>
 
@@ -23357,7 +24020,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the 128-bit fingerprint of a <code>STRING</code> or
-    <code>BYTES</code> value, using the <a href="/third_party/highwayhash/README.md?cl=head">HighwayHash algorithm</a>
+    <code>BYTES</code> value using the <a href="/third_party/highwayhash/README.md?cl=head">HighwayHash algorithm</a>
 .
   </td>
 </tr>
@@ -23367,7 +24030,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
-    <code>BYTES</code> value, using the MD5 algorithm.
+    <code>BYTES</code> value using the MD5 algorithm.
   </td>
 </tr>
 
@@ -23376,7 +24039,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
-    <code>BYTES</code> value, using the SHA-1 algorithm.
+    <code>BYTES</code> value using the SHA-1 algorithm.
   </td>
 </tr>
 
@@ -23385,7 +24048,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
-    <code>BYTES</code> value, using the SHA-256 algorithm.
+    <code>BYTES</code> value using the SHA-256 algorithm.
   </td>
 </tr>
 
@@ -23394,7 +24057,7 @@ GoogleSQL supports the following hash functions.
 </td>
   <td>
     Computes the hash of a <code>STRING</code> or
-    <code>BYTES</code> value, using the SHA-512 algorithm.
+    <code>BYTES</code> value using the SHA-512 algorithm.
   </td>
 </tr>
 
@@ -23403,16 +24066,35 @@ GoogleSQL supports the following hash functions.
 
 ### `FARM_FINGERPRINT`
 
-```
+```googlesql
 FARM_FINGERPRINT(value)
 ```
 
 **Description**
 
 Computes the fingerprint of the `STRING` or `BYTES` input using the
-`Fingerprint64` function from the
-[open-source FarmHash library][hash-link-to-farmhash-github]. The output
-of this function for a particular input will never change.
+`Fingerprint64` function from the [open-source FarmHash
+library][hash-link-to-farmhash-github]. The output is a signed
+INT64 value, uniformly distributed in the
+`[-2^63, 2^63 - 1]` range. The output of this function for a particular input
+never changes across runs or query engine implementations.
+
+Use `FARM_FINGERPRINT` when you need a fast, deterministic 64-bit signed
+integer (`INT64`) for non-cryptographic use cases, such as
+the following:
+
+*   Sharding, partitioning, or bucketing large datasets consistently across
+    distributed pipelines.
+*   Generating stable integer identifiers or grouping keys from strings.
+*   Sampling rows deterministically (`ABS(FARM_FINGERPRINT(id)) % 10 = 0`).
+
+`FARM_FINGERPRINT` isn't a cryptographic hash function, so don't use it for
+security verification or adversarial inputs. Because it outputs
+64 bits, collision probability increases as the number of distinct elements
+exceeds four billion (`~2^32` items).
+
+For cryptographic verification or lower collision probability, use
+[`HIGHWAY_FINGERPRINT128`][highway_fingerprint128] or [`SHA256`][sha256].
 
 **Return type**
 
@@ -23442,13 +24124,17 @@ FROM example;
 
 [hash-link-to-farmhash-github]: https://github.com/google/farmhash
 
+[highway_fingerprint128]: #highway_fingerprint128
+
+[sha256]: #sha256
+
 ### `HIGHWAY_FINGERPRINT128`
 
-```
+```googlesql
 HIGHWAY_FINGERPRINT128(input STRING[, key BYTES]) -> BYTES
 ```
 
-```
+```googlesql
 HIGHWAY_FINGERPRINT128(input BYTES[, key BYTES]) -> BYTES
 ```
 
@@ -23459,13 +24145,27 @@ Computes the 128-bit fingerprint of a `STRING` or `BYTES` input value using the
 array of bytes. The optional `key` argument adds unpredictability to the hash
 output for security.
 
-This function returns 16 bytes.
+Use `HIGHWAY_FINGERPRINT128` when you require high-speed, 128-bit fingerprinting
+(`BYTES` output) with lower collision probability (`~2^64` distinct elements
+before collision risk increases) than 64-bit fingerprinting (`~2^32` elements).
+
+Specifically, use `HIGHWAY_FINGERPRINT128` with the optional 32-byte `key`
+parameter to protect your pipeline against hash-flooding denial-of-service
+(DoS) attacks or when processing untrusted, user-provided string values where
+unkeyed fingerprinting could be exploited to engineer collisions.
+
+While `HIGHWAY_FINGERPRINT128` offers keyed defense against hash
+flooding, it is a fast pseudorandom function rather than a cryptographic hash
+digest.
+
+For cryptographic verification or signatures, use
+[`SHA256`][sha256] or [`SHA512`][sha512].
 
 **Return type**
 
 BYTES
 
-**Arguments**
+**Definitions**
 
 *   `input`: A `STRING` or `BYTES` value to be hashed.
 *   `key`: (Optional) A `BYTES` value that makes the hash output unpredictable
@@ -23502,28 +24202,41 @@ SELECT HIGHWAY_FINGERPRINT128(
 
 [highwayhash]: /third_party/highwayhash/README.md?cl=head
 
+[sha256]: #sha256
+
+[sha512]: #sha512
+
 ### `MD5`
 
-```
+```googlesql
 MD5(input)
 ```
 
 **Description**
 
 Computes the hash of the input using the
-[MD5 algorithm][hash-link-to-md5-wikipedia]. The input can either be
+[MD5 algorithm][hash-link-to-md5-wikipedia]. The input can be either
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
-This function returns 16 bytes.
+Use `MD5` only for backward compatibility with legacy databases, historic
+checksums, or external communication protocols and deduplication workflows that
+strictly mandate an MD5 digest.
 
-Warning: MD5 is no longer considered secure.
-For increased security use another hashing function.
+Warning: `MD5` uses a vulnerable 128-bit algorithm and isn't secure against
+cryptographic collision attacks. Don't use `MD5` for new implementations,
+digital signatures, passwords, or security verification.
+
+For cryptographic security, use
+[`SHA256`][sha256] or [`SHA512`][sha512].
+
+For fast 128-bit non-cryptographic fingerprinting, use
+[`HIGHWAY_FINGERPRINT128`][highway_fingerprint128].
 
 **Return type**
 
-`BYTES`
+BYTES
 
-**Example**
+**Examples**
 
 ```googlesql
 SELECT MD5("Hello World") as md5;
@@ -23537,28 +24250,42 @@ SELECT MD5("Hello World") as md5;
 
 [hash-link-to-md5-wikipedia]: https://en.wikipedia.org/wiki/MD5
 
+[sha256]: #sha256
+
+[sha512]: #sha512
+
+[highway_fingerprint128]: #highway_fingerprint128
+
 ### `SHA1`
 
-```
+```googlesql
 SHA1(input)
 ```
 
 **Description**
 
 Computes the hash of the input using the
-[SHA-1 algorithm][hash-link-to-sha-1-wikipedia]. The input can either be
+[SHA-1 algorithm][hash-link-to-sha-1-wikipedia]. The input can be either
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
-This function returns 20 bytes.
+Use `SHA1` only when backward compatibility with legacy datasets, external
+APIs, or historical cryptographic identifiers (such as git commit hashes or
+legacy verification records) is strictly required.
 
-Warning: SHA1 is no longer considered secure.
-For increased security, use another hashing function.
+Warning: `SHA-1` has known cryptographic vulnerabilities and isn't secure
+against collision attacks. Don't use `SHA1` for new cryptographic designs,
+digital signatures, or security verification.
+
+For cryptographic verification, use
+
+[`SHA256`][sha256] or [`SHA512`][sha512]
+.
 
 **Return type**
 
-`BYTES`
+BYTES
 
-**Example**
+**Examples**
 
 ```googlesql
 SELECT SHA1("Hello World") as sha1;
@@ -23572,25 +24299,45 @@ SELECT SHA1("Hello World") as sha1;
 
 [hash-link-to-sha-1-wikipedia]: https://en.wikipedia.org/wiki/SHA-1
 
+[sha256]: #sha256
+
+[sha512]: #sha512
+
 ### `SHA256`
 
-```
+```googlesql
 SHA256(input)
 ```
 
 **Description**
 
 Computes the hash of the input using the
-[SHA-256 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
+[SHA-256 algorithm][hash-link-to-sha-2-wikipedia]. The input can be either
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
-This function returns 32 bytes.
+Use `SHA256` when you require a cryptographically secure hash function, such
+as the following use cases:
+
+*   Verifying string or binary data integrity and generating tamper-evident
+    checksums.
+*   Creating secure cryptographic digests or globally unique content identifiers
+    (256-bit hash space provides effectively zero collision probability).
+*   Interoperating with authentication workflows, digital signatures, and
+    security protocols requiring standard SHA-2 digests.
+
+Computing `SHA256` is computationally more expensive than non-cryptographic
+fingerprinting
+(for example,
+[`FARM_FINGERPRINT`][farm_fingerprint] or
+[`HIGHWAY_FINGERPRINT128`][highway_fingerprint128]).
+Avoid using `SHA256` solely for simple data sharding, bucketing, or indexing
+where high throughput and compact integer output are required.
 
 **Return type**
 
-`BYTES`
+BYTES
 
-**Example**
+**Examples**
 
 ```googlesql
 SELECT SHA256("Hello World") as sha256;
@@ -23598,31 +24345,52 @@ SELECT SHA256("Hello World") as sha256;
 
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
 
+[farm_fingerprint]: #farm_fingerprint
+
+[highway_fingerprint128]: #highway_fingerprint128
+
 ### `SHA512`
 
-```
+```googlesql
 SHA512(input)
 ```
 
 **Description**
 
 Computes the hash of the input using the
-[SHA-512 algorithm][hash-link-to-sha-2-wikipedia]. The input can either be
+[SHA-512 algorithm][hash-link-to-sha-2-wikipedia]. The input can be either
 `STRING` or `BYTES`. The string version treats the input as an array of bytes.
 
-This function returns 64 bytes.
+Use `SHA512` when you require maximum cryptographic security (512-bit output),
+such as the following use cases:
+
+*   High-security data verification, digital signatures, and cryptographic
+    protocols where SHA-512 digests are mandated by compliance standards.
+*   Applications requiring ultra-low collision probability or resistance to
+    future-proofing attacks with hash outputs larger than 256 bits.
+*   Processing platforms on 64-bit hardware architectures where SHA-512
+    operates with high efficiency.
+
+`SHA512` produces a 64-byte digest, double the size of
+[`SHA256`][sha256] (32 bytes).
+When storing digests in tables or transmitting over the network where storage
+and bandwidth efficiency are essential, use
+[`SHA256`][sha256] unless 512-bit
+security is specifically required.
 
 **Return type**
 
-`BYTES`
+BYTES
 
-**Example**
+**Examples**
 
 ```googlesql
 SELECT SHA512("Hello World") as sha512;
 ```
 
 [hash-link-to-sha-2-wikipedia]: https://en.wikipedia.org/wiki/SHA-2
+
+[sha256]: #sha256
 
 ## HyperLogLog++ functions 
 <a id="hll_functions"></a>
@@ -23631,15 +24399,17 @@ The [HyperLogLog++ algorithm (HLL++)][hll-sketches] estimates
 [cardinality][cardinality] from sketches.
 
 HLL++ functions are approximate aggregate functions.
-Approximate aggregation typically requires less
-memory than exact aggregation functions,
+Approximate aggregation typically uses fewer
+resources than exact aggregation functions,
 like [`COUNT(DISTINCT)`][count-distinct], but also introduces statistical error.
 This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-A data sketch is a compact summary of a data aggregation. If you don't need
-materialized sketches, you can alternatively use an
+A data sketch is a compact summary of a data
+aggregation. For more information, see
+[Sketches][sketches]. If you don't need to
+store sketches, you can alternatively use an
 [approximate aggregate function with system-defined precision][approx-functions-reference],
 such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
 `APPROX_COUNT_DISTINCT` doesn't allow partial aggregations, re-aggregations,
@@ -23970,6 +24740,8 @@ FROM
 [approx-count-distinct]: #approx_count_distinct
 
 [approx-functions-reference]: #approximate_aggregate_functions
+
+[sketches]: https://github.com/google/googlesql/blob/master/docs/sketches.md
 
 ## Interval functions
 

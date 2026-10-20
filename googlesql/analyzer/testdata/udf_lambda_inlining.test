@@ -261,6 +261,37 @@ CreateFunctionStmt
     +-ArgumentRef(type=ARRAY<INT64>, name="x")
 ==
 
+# Defines a higher-order SQL function that invokes its function-typed parameter
+# 'f' inside a scalar subquery expression. Used to test inliner behavior across
+# subquery boundaries when expanding higher-order function arguments.
+[prepare_database=udf_db_with_apply_int]
+CREATE FUNCTION ApplyIntInSubquery(f FUNCTION<INT64 -> INT64>, x INT64) AS (
+  (SELECT f(x))
+);
+--
+CreateFunctionStmt
++-name_path=ApplyIntInSubquery
++-return_type=INT64
++-argument_name_list=[f, x]
++-signature=(FUNCTION<INT64->INT64> f, INT64 x) -> INT64
++-language="SQL"
++-code="(SELECT f(x))"
++-function_expression=
+  +-SubqueryExpr
+    +-type=INT64
+    +-subquery_type=SCALAR
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$expr_subquery.$col1#1]
+        +-expr_list=
+        | +-$col1#1 :=
+        |   +-FunctionCall(FUNCTION_TYPED_PARAMETER:f(INT64) -> INT64)
+        |     +-ArgumentRef(type=INT64, name="x")
+        +-input_scan=
+          +-SingleRowScan
+==
+
+
 
 [prepare_database=udf_db_inlining]
 create function g1(p1 FUNCTION<INT64 -> INT64>, p2 FUNCTION<INT64 -> INT64>, x INT64) AS (p1(p2(x)));
@@ -855,7 +886,6 @@ WITH T1 AS (SELECT 1 as id, 10 as val)
 SELECT id, apply_int(y -> apply_int(z -> z + val, y), 5) as case18
 FROM T1;
 --
-
 QueryStmt
 +-output_column_list=
 | +-T1.id#3 AS id [INT64]
@@ -2110,9 +2140,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#9]
+    |         +-column_list=[$with_expr.injected#10]
     |         +-expr_list=
-    |         | +-injected#9 :=
+    |         | +-injected#10 :=
     |         |   +-SubqueryExpr
     |         |     +-type=ARRAY<BOOL>
     |         |     +-subquery_type=SCALAR
@@ -2120,47 +2150,47 @@ QueryStmt
     |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#3)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$expr_subquery.$col1#8]
+    |         |         +-column_list=[$expr_subquery.$col1#9]
     |         |         +-expr_list=
-    |         |         | +-$col1#8 :=
+    |         |         | +-$col1#9 :=
     |         |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
     |         |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
     |         |         |     +-Literal(type=ARRAY<BOOL>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<BOOL>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
-    |         |         |           +-column_list=[$expr_subquery.$col1#7]
+    |         |         |           +-column_list=[$expr_subquery.$col1#8]
     |         |         |           +-is_ordered=TRUE
     |         |         |           +-input_scan=
     |         |         |           | +-ProjectScan
-    |         |         |           |   +-column_list=[$array.element#5, $array_offset.off#6, $expr_subquery.$col1#7]
+    |         |         |           |   +-column_list=[$array.element#6, $array_offset.off#7, $expr_subquery.$col1#8]
     |         |         |           |   +-expr_list=
-    |         |         |           |   | +-$col1#7 :=
+    |         |         |           |   | +-$col1#8 :=
     |         |         |           |   |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#5)
+    |         |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#6)
     |         |         |           |   |     +-Literal(type=INT64, value=1)
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
-    |         |         |           |       +-column_list=[$array.element#5, $array_offset.off#6]
+    |         |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
     |         |         |           |       +-array_expr_list=
-    |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#4, is_correlated=TRUE)
-    |         |         |           |       +-element_column_list=[$array.element#5]
+    |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
+    |         |         |           |       +-element_column_list=[$array.element#6]
     |         |         |           |       +-array_offset_column=
-    |         |         |           |         +-ColumnHolder(column=$array_offset.off#6)
+    |         |         |           |         +-ColumnHolder(column=$array_offset.off#7)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
     |         |         |               +-column_ref=
-    |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#6)
+    |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_to_transform#4]
+    |         |             +-column_list=[$subquery1.array_to_transform#5]
     |         |             +-expr_list=
-    |         |             | +-array_to_transform#4 := ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#3, is_correlated=TRUE)
+    |         |             | +-array_to_transform#5 := ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#3, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -2227,9 +2257,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#15]
+    |         +-column_list=[$with_expr.injected#17]
     |         +-expr_list=
-    |         | +-injected#15 :=
+    |         | +-injected#17 :=
     |         |   +-SubqueryExpr
     |         |     +-type=ARRAY<BOOL>
     |         |     +-subquery_type=SCALAR
@@ -2237,47 +2267,47 @@ QueryStmt
     |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#4)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$expr_subquery.$col1#14]
+    |         |         +-column_list=[$expr_subquery.$col1#16]
     |         |         +-expr_list=
-    |         |         | +-$col1#14 :=
+    |         |         | +-$col1#16 :=
     |         |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
     |         |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#12)
     |         |         |     +-Literal(type=ARRAY<BOOL>, value=NULL)
     |         |         |     +-SubqueryExpr
     |         |         |       +-type=ARRAY<BOOL>
     |         |         |       +-subquery_type=ARRAY
     |         |         |       +-parameter_list=
-    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10)
+    |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#12)
     |         |         |       +-subquery=
     |         |         |         +-OrderByScan
-    |         |         |           +-column_list=[$expr_subquery.$col1#13]
+    |         |         |           +-column_list=[$expr_subquery.$col1#15]
     |         |         |           +-is_ordered=TRUE
     |         |         |           +-input_scan=
     |         |         |           | +-ProjectScan
-    |         |         |           |   +-column_list=[$array.element#11, $array_offset.off#12, $expr_subquery.$col1#13]
+    |         |         |           |   +-column_list=[$array.element#13, $array_offset.off#14, $expr_subquery.$col1#15]
     |         |         |           |   +-expr_list=
-    |         |         |           |   | +-$col1#13 :=
+    |         |         |           |   | +-$col1#15 :=
     |         |         |           |   |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#11)
+    |         |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#13)
     |         |         |           |   |     +-Literal(type=INT64, value=4)
     |         |         |           |   +-input_scan=
     |         |         |           |     +-ArrayScan
-    |         |         |           |       +-column_list=[$array.element#11, $array_offset.off#12]
+    |         |         |           |       +-column_list=[$array.element#13, $array_offset.off#14]
     |         |         |           |       +-array_expr_list=
-    |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10, is_correlated=TRUE)
-    |         |         |           |       +-element_column_list=[$array.element#11]
+    |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#12, is_correlated=TRUE)
+    |         |         |           |       +-element_column_list=[$array.element#13]
     |         |         |           |       +-array_offset_column=
-    |         |         |           |         +-ColumnHolder(column=$array_offset.off#12)
+    |         |         |           |         +-ColumnHolder(column=$array_offset.off#14)
     |         |         |           +-order_by_item_list=
     |         |         |             +-OrderByItem
     |         |         |               +-column_ref=
-    |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
+    |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#14)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$subquery1.array_to_transform#10]
+    |         |             +-column_list=[$subquery1.array_to_transform#12]
     |         |             +-expr_list=
-    |         |             | +-array_to_transform#10 :=
+    |         |             | +-array_to_transform#12 :=
     |         |             |   +-SubqueryExpr
     |         |             |     +-type=ARRAY<INT64>
     |         |             |     +-subquery_type=SCALAR
@@ -2285,47 +2315,47 @@ QueryStmt
     |         |             |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#4, is_correlated=TRUE)
     |         |             |     +-subquery=
     |         |             |       +-ProjectScan
-    |         |             |         +-column_list=[$expr_subquery.$col1#9]
+    |         |             |         +-column_list=[$expr_subquery.$col1#11]
     |         |             |         +-expr_list=
-    |         |             |         | +-$col1#9 :=
+    |         |             |         | +-$col1#11 :=
     |         |             |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
     |         |             |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
+    |         |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7)
     |         |             |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
     |         |             |         |     +-SubqueryExpr
     |         |             |         |       +-type=ARRAY<INT64>
     |         |             |         |       +-subquery_type=ARRAY
     |         |             |         |       +-parameter_list=
-    |         |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
+    |         |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7)
     |         |             |         |       +-subquery=
     |         |             |         |         +-OrderByScan
-    |         |             |         |           +-column_list=[$expr_subquery.$col1#8]
+    |         |             |         |           +-column_list=[$expr_subquery.$col1#10]
     |         |             |         |           +-is_ordered=TRUE
     |         |             |         |           +-input_scan=
     |         |             |         |           | +-ProjectScan
-    |         |             |         |           |   +-column_list=[$array.element#6, $array_offset.off#7, $expr_subquery.$col1#8]
+    |         |             |         |           |   +-column_list=[$array.element#8, $array_offset.off#9, $expr_subquery.$col1#10]
     |         |             |         |           |   +-expr_list=
-    |         |             |         |           |   | +-$col1#8 :=
+    |         |             |         |           |   | +-$col1#10 :=
     |         |             |         |           |   |   +-FunctionCall(GoogleSQL:$multiply(INT64, INT64) -> INT64)
-    |         |             |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#6)
+    |         |             |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#8)
     |         |             |         |           |   |     +-Literal(type=INT64, value=2)
     |         |             |         |           |   +-input_scan=
     |         |             |         |           |     +-ArrayScan
-    |         |             |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
+    |         |             |         |           |       +-column_list=[$array.element#8, $array_offset.off#9]
     |         |             |         |           |       +-array_expr_list=
-    |         |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
-    |         |             |         |           |       +-element_column_list=[$array.element#6]
+    |         |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7, is_correlated=TRUE)
+    |         |             |         |           |       +-element_column_list=[$array.element#8]
     |         |             |         |           |       +-array_offset_column=
-    |         |             |         |           |         +-ColumnHolder(column=$array_offset.off#7)
+    |         |             |         |           |         +-ColumnHolder(column=$array_offset.off#9)
     |         |             |         |           +-order_by_item_list=
     |         |             |         |             +-OrderByItem
     |         |             |         |               +-column_ref=
-    |         |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
+    |         |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
     |         |             |         +-input_scan=
     |         |             |           +-ProjectScan
-    |         |             |             +-column_list=[$subquery1.array_to_transform#5]
+    |         |             |             +-column_list=[$subquery1.array_to_transform#7]
     |         |             |             +-expr_list=
-    |         |             |             | +-array_to_transform#5 := ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#4, is_correlated=TRUE)
+    |         |             |             | +-array_to_transform#7 := ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#4, is_correlated=TRUE)
     |         |             |             +-input_scan=
     |         |             |               +-SingleRowScan
     |         |             +-input_scan=
@@ -2625,34 +2655,34 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#5]
+    |         +-column_list=[$with_expr.injected#6]
     |         +-expr_list=
-    |         | +-injected#5 :=
+    |         | +-injected#6 :=
     |         |   +-SubqueryExpr
     |         |     +-type=BOOL
     |         |     +-subquery_type=SCALAR
     |         |     +-parameter_list=
-    |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#3)
+    |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#4)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#6]
+    |         |         +-column_list=[$with_expr.injected#7]
     |         |         +-expr_list=
-    |         |         | +-injected#6 :=
+    |         |         | +-injected#7 :=
     |         |         |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#4)
+    |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#5)
     |         |         |     +-Literal(type=INT64, value=0)
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_lambda.x#4]
+    |         |             +-column_list=[$inlined_lambda.x#5]
     |         |             +-expr_list=
-    |         |             | +-x#4 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#3, is_correlated=TRUE)
+    |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#4, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
     |           +-ProjectScan
-    |             +-column_list=[$inlined_templated_udf.x#3]
+    |             +-column_list=[$inlined_templated_udf.x#4]
     |             +-expr_list=
-    |             | +-x#3 := Literal(type=INT64, value=1)
+    |             | +-x#4 := Literal(type=INT64, value=1)
     |             +-input_scan=
     |               +-SingleRowScan
     +-input_scan=
@@ -2704,9 +2734,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#6]
+    |         +-column_list=[$with_expr.injected#7]
     |         +-expr_list=
-    |         | +-injected#6 :=
+    |         | +-injected#7 :=
     |         |   +-SubqueryExpr
     |         |     +-type=BOOL
     |         |     +-subquery_type=SCALAR
@@ -2714,35 +2744,35 @@ QueryStmt
     |         |     | +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#3)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#7]
+    |         |         +-column_list=[$with_expr.injected#8]
     |         |         +-expr_list=
-    |         |         | +-injected#7 :=
+    |         |         | +-injected#8 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=BOOL
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
     |         |         |     | +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#3, is_correlated=TRUE)
-    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#4)
+    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#5)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$with_expr.injected#8]
+    |         |         |         +-column_list=[$with_expr.injected#9]
     |         |         |         +-expr_list=
-    |         |         |         | +-injected#8 :=
+    |         |         |         | +-injected#9 :=
     |         |         |         |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#5)
+    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
     |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#3, is_correlated=TRUE)
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$inlined_lambda.x#5]
+    |         |         |             +-column_list=[$inlined_lambda.x#6]
     |         |         |             +-expr_list=
-    |         |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#4, is_correlated=TRUE)
+    |         |         |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#5, is_correlated=TRUE)
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_templated_udf.x#4]
+    |         |             +-column_list=[$inlined_templated_udf.x#5]
     |         |             +-expr_list=
-    |         |             | +-x#4 := Literal(type=INT64, value=1)
+    |         |             | +-x#5 := Literal(type=INT64, value=1)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -2835,35 +2865,35 @@ QueryStmt
         |     | +-ColumnRef(type=INT64, column=T.a#2)
         |     +-subquery=
         |       +-ProjectScan
-        |         +-column_list=[$with_expr.injected#7]
+        |         +-column_list=[$with_expr.injected#8]
         |         +-expr_list=
-        |         | +-injected#7 :=
+        |         | +-injected#8 :=
         |         |   +-SubqueryExpr
         |         |     +-type=BOOL
         |         |     +-subquery_type=SCALAR
         |         |     +-parameter_list=
         |         |     | +-ColumnRef(type=INT64, column=T.a#2, is_correlated=TRUE)
-        |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#5)
+        |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#6)
         |         |     +-subquery=
         |         |       +-ProjectScan
-        |         |         +-column_list=[$with_expr.injected#8]
+        |         |         +-column_list=[$with_expr.injected#9]
         |         |         +-expr_list=
-        |         |         | +-injected#8 :=
+        |         |         | +-injected#9 :=
         |         |         |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-        |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
+        |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#7)
         |         |         |     +-ColumnRef(type=INT64, column=T.a#2, is_correlated=TRUE)
         |         |         +-input_scan=
         |         |           +-ProjectScan
-        |         |             +-column_list=[$inlined_lambda.x#6]
+        |         |             +-column_list=[$inlined_lambda.x#7]
         |         |             +-expr_list=
-        |         |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#5, is_correlated=TRUE)
+        |         |             | +-x#7 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#6, is_correlated=TRUE)
         |         |             +-input_scan=
         |         |               +-SingleRowScan
         |         +-input_scan=
         |           +-ProjectScan
-        |             +-column_list=[$inlined_templated_udf.x#5]
+        |             +-column_list=[$inlined_templated_udf.x#6]
         |             +-expr_list=
-        |             | +-x#5 := Literal(type=INT64, value=1)
+        |             | +-x#6 := Literal(type=INT64, value=1)
         |             +-input_scan=
         |               +-SingleRowScan
         +-input_scan=
@@ -3123,9 +3153,9 @@ QueryStmt
     |     | +-ColumnRef(type=INT64, column=t.col#1)
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#7]
+    |         +-column_list=[$with_expr.injected#8]
     |         +-expr_list=
-    |         | +-injected#7 :=
+    |         | +-injected#8 :=
     |         |   +-SubqueryExpr
     |         |     +-type=BOOL
     |         |     +-subquery_type=SCALAR
@@ -3133,35 +3163,35 @@ QueryStmt
     |         |     | +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#4)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#8]
+    |         |         +-column_list=[$with_expr.injected#9]
     |         |         +-expr_list=
-    |         |         | +-injected#8 :=
+    |         |         | +-injected#9 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=BOOL
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
     |         |         |     | +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#4, is_correlated=TRUE)
-    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#5)
+    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_templated_udf.x#6)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$with_expr.injected#9]
+    |         |         |         +-column_list=[$with_expr.injected#10]
     |         |         |         +-expr_list=
-    |         |         |         | +-injected#9 :=
+    |         |         |         | +-injected#10 :=
     |         |         |         |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
+    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#7)
     |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_outer_udf.a#4, is_correlated=TRUE)
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$inlined_lambda.x#6]
+    |         |         |             +-column_list=[$inlined_lambda.x#7]
     |         |         |             +-expr_list=
-    |         |         |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#5, is_correlated=TRUE)
+    |         |         |             | +-x#7 := ColumnRef(type=INT64, column=$inlined_templated_udf.x#6, is_correlated=TRUE)
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_templated_udf.x#5]
+    |         |             +-column_list=[$inlined_templated_udf.x#6]
     |         |             +-expr_list=
-    |         |             | +-x#5 := Literal(type=INT64, value=1)
+    |         |             | +-x#6 := Literal(type=INT64, value=1)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -3564,9 +3594,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#6]
+    |         +-column_list=[$with_expr.injected#7]
     |         +-expr_list=
-    |         | +-injected#6 :=
+    |         | +-injected#7 :=
     |         |   +-SubqueryExpr
     |         |     +-type=INT64
     |         |     +-subquery_type=SCALAR
@@ -3574,34 +3604,34 @@ QueryStmt
     |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int.x#3)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#7]
+    |         |         +-column_list=[$with_expr.injected#8]
     |         |         +-expr_list=
-    |         |         | +-injected#7 :=
+    |         |         | +-injected#8 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=INT64
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
-    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int.x#4)
+    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int.x#5)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$with_expr.injected#8]
+    |         |         |         +-column_list=[$with_expr.injected#9]
     |         |         |         +-expr_list=
-    |         |         |         | +-injected#8 :=
+    |         |         |         | +-injected#9 :=
     |         |         |         |   +-FunctionCall(GoogleSQL:$multiply(INT64, INT64) -> INT64)
-    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#5)
+    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
     |         |         |         |     +-Literal(type=INT64, value=2)
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$inlined_lambda.x#5]
+    |         |         |             +-column_list=[$inlined_lambda.x#6]
     |         |         |             +-expr_list=
-    |         |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_apply_int.x#4, is_correlated=TRUE)
+    |         |         |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_apply_int.x#5, is_correlated=TRUE)
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_apply_int.x#4]
+    |         |             +-column_list=[$inlined_apply_int.x#5]
     |         |             +-expr_list=
-    |         |             | +-x#4 := ColumnRef(type=INT64, column=$inlined_propagate_int.x#3, is_correlated=TRUE)
+    |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_propagate_int.x#3, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -3744,9 +3774,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#8]
+    |         +-column_list=[$with_expr.injected#11]
     |         +-expr_list=
-    |         | +-injected#8 :=
+    |         | +-injected#11 :=
     |         |   +-SubqueryExpr
     |         |     +-type=INT64
     |         |     +-subquery_type=SCALAR
@@ -3754,68 +3784,68 @@ QueryStmt
     |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int_3.x#3)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#9]
+    |         |         +-column_list=[$with_expr.injected#12]
     |         |         +-expr_list=
-    |         |         | +-injected#9 :=
+    |         |         | +-injected#12 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=INT64
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
-    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int_2.x#4)
+    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int_2.x#5)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$with_expr.injected#10]
+    |         |         |         +-column_list=[$with_expr.injected#13]
     |         |         |         +-expr_list=
-    |         |         |         | +-injected#10 :=
+    |         |         |         | +-injected#13 :=
     |         |         |         |   +-SubqueryExpr
     |         |         |         |     +-type=INT64
     |         |         |         |     +-subquery_type=SCALAR
     |         |         |         |     +-parameter_list=
-    |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int.x#5)
+    |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_int.x#7)
     |         |         |         |     +-subquery=
     |         |         |         |       +-ProjectScan
-    |         |         |         |         +-column_list=[$with_expr.injected#11]
+    |         |         |         |         +-column_list=[$with_expr.injected#14]
     |         |         |         |         +-expr_list=
-    |         |         |         |         | +-injected#11 :=
+    |         |         |         |         | +-injected#14 :=
     |         |         |         |         |   +-SubqueryExpr
     |         |         |         |         |     +-type=INT64
     |         |         |         |         |     +-subquery_type=SCALAR
     |         |         |         |         |     +-parameter_list=
-    |         |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_base.x#6)
+    |         |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_base.x#9)
     |         |         |         |         |     +-subquery=
     |         |         |         |         |       +-ProjectScan
-    |         |         |         |         |         +-column_list=[$with_expr.injected#12]
+    |         |         |         |         |         +-column_list=[$with_expr.injected#15]
     |         |         |         |         |         +-expr_list=
-    |         |         |         |         |         | +-injected#12 :=
+    |         |         |         |         |         | +-injected#15 :=
     |         |         |         |         |         |   +-FunctionCall(GoogleSQL:$multiply(INT64, INT64) -> INT64)
-    |         |         |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#7)
+    |         |         |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#10)
     |         |         |         |         |         |     +-Literal(type=INT64, value=2)
     |         |         |         |         |         +-input_scan=
     |         |         |         |         |           +-ProjectScan
-    |         |         |         |         |             +-column_list=[$inlined_lambda.x#7]
+    |         |         |         |         |             +-column_list=[$inlined_lambda.x#10]
     |         |         |         |         |             +-expr_list=
-    |         |         |         |         |             | +-x#7 := ColumnRef(type=INT64, column=$inlined_apply_int_base.x#6, is_correlated=TRUE)
+    |         |         |         |         |             | +-x#10 := ColumnRef(type=INT64, column=$inlined_apply_int_base.x#9, is_correlated=TRUE)
     |         |         |         |         |             +-input_scan=
     |         |         |         |         |               +-SingleRowScan
     |         |         |         |         +-input_scan=
     |         |         |         |           +-ProjectScan
-    |         |         |         |             +-column_list=[$inlined_apply_int_base.x#6]
+    |         |         |         |             +-column_list=[$inlined_apply_int_base.x#9]
     |         |         |         |             +-expr_list=
-    |         |         |         |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_propagate_int.x#5, is_correlated=TRUE)
+    |         |         |         |             | +-x#9 := ColumnRef(type=INT64, column=$inlined_propagate_int.x#7, is_correlated=TRUE)
     |         |         |         |             +-input_scan=
     |         |         |         |               +-SingleRowScan
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$inlined_propagate_int.x#5]
+    |         |         |             +-column_list=[$inlined_propagate_int.x#7]
     |         |         |             +-expr_list=
-    |         |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_propagate_int_2.x#4, is_correlated=TRUE)
+    |         |         |             | +-x#7 := ColumnRef(type=INT64, column=$inlined_propagate_int_2.x#5, is_correlated=TRUE)
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_propagate_int_2.x#4]
+    |         |             +-column_list=[$inlined_propagate_int_2.x#5]
     |         |             +-expr_list=
-    |         |             | +-x#4 := ColumnRef(type=INT64, column=$inlined_propagate_int_3.x#3, is_correlated=TRUE)
+    |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_propagate_int_3.x#3, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -3926,9 +3956,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#8]
+    |         +-column_list=[$with_expr.injected#10]
     |         +-expr_list=
-    |         | +-injected#8 :=
+    |         | +-injected#10 :=
     |         |   +-SubqueryExpr
     |         |     +-type=INT64
     |         |     +-subquery_type=SCALAR
@@ -3936,54 +3966,54 @@ QueryStmt
     |         |     | +-ColumnRef(type=INT64, column=$inlined_propagate_both.x#4)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#9]
+    |         |         +-column_list=[$with_expr.injected#11]
     |         |         +-expr_list=
-    |         |         | +-injected#9 :=
+    |         |         | +-injected#11 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=INT64
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
-    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_2.x#5)
+    |         |         |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_2.x#7)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$with_expr.injected#11]
+    |         |         |         +-column_list=[$with_expr.injected#13]
     |         |         |         +-expr_list=
-    |         |         |         | +-injected#11 :=
+    |         |         |         | +-injected#13 :=
     |         |         |         |   +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
-    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#7)
+    |         |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#9)
     |         |         |         |     +-Literal(type=INT64, value=1)
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$inlined_lambda.x#7]
+    |         |         |             +-column_list=[$inlined_lambda.x#9]
     |         |         |             +-expr_list=
-    |         |         |             | +-x#7 :=
+    |         |         |             | +-x#9 :=
     |         |         |             |   +-SubqueryExpr
     |         |         |             |     +-type=INT64
     |         |         |             |     +-subquery_type=SCALAR
     |         |         |             |     +-parameter_list=
-    |         |         |             |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_2.x#5, is_correlated=TRUE)
+    |         |         |             |     | +-ColumnRef(type=INT64, column=$inlined_apply_int_2.x#7, is_correlated=TRUE)
     |         |         |             |     +-subquery=
     |         |         |             |       +-ProjectScan
-    |         |         |             |         +-column_list=[$with_expr.injected#10]
+    |         |         |             |         +-column_list=[$with_expr.injected#12]
     |         |         |             |         +-expr_list=
-    |         |         |             |         | +-injected#10 :=
+    |         |         |             |         | +-injected#12 :=
     |         |         |             |         |   +-FunctionCall(GoogleSQL:$multiply(INT64, INT64) -> INT64)
-    |         |         |             |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
+    |         |         |             |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.x#8)
     |         |         |             |         |     +-Literal(type=INT64, value=2)
     |         |         |             |         +-input_scan=
     |         |         |             |           +-ProjectScan
-    |         |         |             |             +-column_list=[$inlined_lambda.x#6]
+    |         |         |             |             +-column_list=[$inlined_lambda.x#8]
     |         |         |             |             +-expr_list=
-    |         |         |             |             | +-x#6 := ColumnRef(type=INT64, column=$inlined_apply_int_2.x#5, is_correlated=TRUE)
+    |         |         |             |             | +-x#8 := ColumnRef(type=INT64, column=$inlined_apply_int_2.x#7, is_correlated=TRUE)
     |         |         |             |             +-input_scan=
     |         |         |             |               +-SingleRowScan
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_apply_int_2.x#5]
+    |         |             +-column_list=[$inlined_apply_int_2.x#7]
     |         |             +-expr_list=
-    |         |             | +-x#5 := ColumnRef(type=INT64, column=$inlined_propagate_both.x#4, is_correlated=TRUE)
+    |         |             | +-x#7 := ColumnRef(type=INT64, column=$inlined_propagate_both.x#4, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -4411,8 +4441,8 @@ QueryStmt
     |         |         |         |     +-type=INT64
     |         |         |         |     +-subquery_type=SCALAR
     |         |         |         |     +-parameter_list=
-    |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
     |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_outer_udf_with_subquery.a#4, is_correlated=TRUE)
+    |         |         |         |     | +-ColumnRef(type=INT64, column=$inlined_lambda.x#6)
     |         |         |         |     +-subquery=
     |         |         |         |       +-ProjectScan
     |         |         |         |         +-column_list=[$expr_subquery.$col1#7]
@@ -5264,9 +5294,9 @@ QueryStmt
     |     +-subquery_type=SCALAR
     |     +-subquery=
     |       +-ProjectScan
-    |         +-column_list=[$with_expr.injected#13]
+    |         +-column_list=[$with_expr.injected#15]
     |         +-expr_list=
-    |         | +-injected#13 :=
+    |         | +-injected#15 :=
     |         |   +-SubqueryExpr
     |         |     +-type=ARRAY<BOOL>
     |         |     +-subquery_type=SCALAR
@@ -5274,81 +5304,81 @@ QueryStmt
     |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_OuterPropagate.arr#4)
     |         |     +-subquery=
     |         |       +-ProjectScan
-    |         |         +-column_list=[$with_expr.injected#14]
+    |         |         +-column_list=[$with_expr.injected#16]
     |         |         +-expr_list=
-    |         |         | +-injected#14 :=
+    |         |         | +-injected#16 :=
     |         |         |   +-SubqueryExpr
     |         |         |     +-type=ARRAY<BOOL>
     |         |         |     +-subquery_type=SCALAR
     |         |         |     +-parameter_list=
-    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#5)
+    |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#6)
     |         |         |     +-subquery=
     |         |         |       +-ProjectScan
-    |         |         |         +-column_list=[$expr_subquery.$col1#11]
+    |         |         |         +-column_list=[$expr_subquery.$col1#13]
     |         |         |         +-expr_list=
-    |         |         |         | +-$col1#11 :=
+    |         |         |         | +-$col1#13 :=
     |         |         |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
     |         |         |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
-    |         |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7)
+    |         |         |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#9)
     |         |         |         |     +-Literal(type=ARRAY<BOOL>, value=NULL)
     |         |         |         |     +-SubqueryExpr
     |         |         |         |       +-type=ARRAY<BOOL>
     |         |         |         |       +-subquery_type=ARRAY
     |         |         |         |       +-parameter_list=
-    |         |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7)
+    |         |         |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#9)
     |         |         |         |       +-subquery=
     |         |         |         |         +-OrderByScan
-    |         |         |         |           +-column_list=[$expr_subquery.$col1#10]
+    |         |         |         |           +-column_list=[$expr_subquery.$col1#12]
     |         |         |         |           +-is_ordered=TRUE
     |         |         |         |           +-input_scan=
     |         |         |         |           | +-ProjectScan
-    |         |         |         |           |   +-column_list=[$array.element#8, $array_offset.off#9, $expr_subquery.$col1#10]
+    |         |         |         |           |   +-column_list=[$array.element#10, $array_offset.off#11, $expr_subquery.$col1#12]
     |         |         |         |           |   +-expr_list=
-    |         |         |         |           |   | +-$col1#10 :=
+    |         |         |         |           |   | +-$col1#12 :=
     |         |         |         |           |   |   +-SubqueryExpr
     |         |         |         |           |   |     +-type=BOOL
     |         |         |         |           |   |     +-subquery_type=SCALAR
     |         |         |         |           |   |     +-parameter_list=
-    |         |         |         |           |   |     | +-ColumnRef(type=INT64, column=$array.element#8)
+    |         |         |         |           |   |     | +-ColumnRef(type=INT64, column=$array.element#10)
     |         |         |         |           |   |     +-subquery=
     |         |         |         |           |   |       +-ProjectScan
-    |         |         |         |           |   |         +-column_list=[$with_expr.injected#15]
+    |         |         |         |           |   |         +-column_list=[$with_expr.injected#17]
     |         |         |         |           |   |         +-expr_list=
-    |         |         |         |           |   |         | +-injected#15 :=
+    |         |         |         |           |   |         | +-injected#17 :=
     |         |         |         |           |   |         |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
-    |         |         |         |           |   |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.y#12)
+    |         |         |         |           |   |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.y#14)
     |         |         |         |           |   |         |     +-Literal(type=INT64, value=1)
     |         |         |         |           |   |         +-input_scan=
     |         |         |         |           |   |           +-ProjectScan
-    |         |         |         |           |   |             +-column_list=[$inlined_lambda.y#12]
+    |         |         |         |           |   |             +-column_list=[$inlined_lambda.y#14]
     |         |         |         |           |   |             +-expr_list=
-    |         |         |         |           |   |             | +-y#12 := ColumnRef(type=INT64, column=$array.element#8, is_correlated=TRUE)
+    |         |         |         |           |   |             | +-y#14 := ColumnRef(type=INT64, column=$array.element#10, is_correlated=TRUE)
     |         |         |         |           |   |             +-input_scan=
     |         |         |         |           |   |               +-SingleRowScan
     |         |         |         |           |   +-input_scan=
     |         |         |         |           |     +-ArrayScan
-    |         |         |         |           |       +-column_list=[$array.element#8, $array_offset.off#9]
+    |         |         |         |           |       +-column_list=[$array.element#10, $array_offset.off#11]
     |         |         |         |           |       +-array_expr_list=
-    |         |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#7, is_correlated=TRUE)
-    |         |         |         |           |       +-element_column_list=[$array.element#8]
+    |         |         |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#9, is_correlated=TRUE)
+    |         |         |         |           |       +-element_column_list=[$array.element#10]
     |         |         |         |           |       +-array_offset_column=
-    |         |         |         |           |         +-ColumnHolder(column=$array_offset.off#9)
+    |         |         |         |           |         +-ColumnHolder(column=$array_offset.off#11)
     |         |         |         |           +-order_by_item_list=
     |         |         |         |             +-OrderByItem
     |         |         |         |               +-column_ref=
-    |         |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#9)
+    |         |         |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#11)
     |         |         |         +-input_scan=
     |         |         |           +-ProjectScan
-    |         |         |             +-column_list=[$subquery1.array_to_transform#7]
+    |         |         |             +-column_list=[$subquery1.array_to_transform#9]
     |         |         |             +-expr_list=
-    |         |         |             | +-array_to_transform#7 := ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#5, is_correlated=TRUE)
+    |         |         |             | +-array_to_transform#9 := ColumnRef(type=ARRAY<INT64>, column=$inlined_PropagateTransform.arr#6, is_correlated=TRUE)
     |         |         |             +-input_scan=
     |         |         |               +-SingleRowScan
     |         |         +-input_scan=
     |         |           +-ProjectScan
-    |         |             +-column_list=[$inlined_PropagateTransform.arr#5]
+    |         |             +-column_list=[$inlined_PropagateTransform.arr#6]
     |         |             +-expr_list=
-    |         |             | +-arr#5 := ColumnRef(type=ARRAY<INT64>, column=$inlined_OuterPropagate.arr#4, is_correlated=TRUE)
+    |         |             | +-arr#6 := ColumnRef(type=ARRAY<INT64>, column=$inlined_OuterPropagate.arr#4, is_correlated=TRUE)
     |         |             +-input_scan=
     |         |               +-SingleRowScan
     |         +-input_scan=
@@ -5591,3 +5621,343 @@ CreateFunctionStmt
             | +-repeated_key_2#8 := Literal(type=STRING, value="c")
             +-input_scan=
               +-SingleRowScan
+==
+
+# Verifies that passing a lambda that forwards the caller's own function-typed
+# parameter 'f' into 'ApplyIntInSubquery' does not cause double lambda expansion
+# or infinite recursion during AST rewriting.
+[enabled_ast_rewrites=DEFAULTS,+INLINE_SQL_FUNCTIONS]
+[use_database=udf_db_with_apply_int]
+CREATE FUNCTION ForwardFunctionParamInSubquery(f FUNCTION<INT64 -> INT64>) AS (
+  ApplyIntInSubquery(z -> f(z) + 1, 1)
+);
+--
+CreateFunctionStmt
++-name_path=ForwardFunctionParamInSubquery
++-return_type=INT64
++-argument_name_list=[f]
++-signature=(FUNCTION<INT64->INT64> f) -> INT64
++-language="SQL"
++-code="ApplyIntInSubquery(z -> f(z) + 1, 1)"
++-function_expression=
+  +-FunctionCall(Lazy_resolution_function:ApplyIntInSubquery(FUNCTION<INT64->INT64> f, INT64 x) -> INT64)
+    +-FunctionArgument
+    | +-inline_lambda=
+    |   +-InlineLambda
+    |     +-argument_list=[$lambda_arg.z#1]
+    |     +-body=
+    |       +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
+    |         +-FunctionCall(FUNCTION_TYPED_PARAMETER:f(INT64) -> INT64)
+    |         | +-ColumnRef(type=INT64, column=$lambda_arg.z#1)
+    |         +-Literal(type=INT64, value=1)
+    +-FunctionArgument
+      +-expr=
+        +-Literal(type=INT64, value=1)
+
+[REWRITTEN AST]
+CreateFunctionStmt
++-name_path=ForwardFunctionParamInSubquery
++-return_type=INT64
++-argument_name_list=[f]
++-signature=(FUNCTION<INT64->INT64> f) -> INT64
++-language="SQL"
++-code="ApplyIntInSubquery(z -> f(z) + 1, 1)"
++-function_expression=
+  +-SubqueryExpr
+    +-type=INT64
+    +-subquery_type=SCALAR
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$with_expr.injected#5]
+        +-expr_list=
+        | +-injected#5 :=
+        |   +-SubqueryExpr
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$expr_subquery.$col1#2]
+        |         +-expr_list=
+        |         | +-$col1#2 :=
+        |         |   +-SubqueryExpr
+        |         |     +-type=INT64
+        |         |     +-subquery_type=SCALAR
+        |         |     +-parameter_list=
+        |         |     | +-ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3, is_correlated=TRUE)
+        |         |     +-subquery=
+        |         |       +-ProjectScan
+        |         |         +-column_list=[$with_expr.injected#6]
+        |         |         +-expr_list=
+        |         |         | +-injected#6 :=
+        |         |         |   +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
+        |         |         |     +-FunctionCall(FUNCTION_TYPED_PARAMETER:f(INT64) -> INT64)
+        |         |         |     | +-ColumnRef(type=INT64, column=$inlined_lambda.z#4)
+        |         |         |     +-Literal(type=INT64, value=1)
+        |         |         +-input_scan=
+        |         |           +-ProjectScan
+        |         |             +-column_list=[$inlined_lambda.z#4]
+        |         |             +-expr_list=
+        |         |             | +-z#4 := ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3, is_correlated=TRUE)
+        |         |             +-input_scan=
+        |         |               +-SingleRowScan
+        |         +-input_scan=
+        |           +-SingleRowScan
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$inlined_ApplyIntInSubquery.x#3]
+            +-expr_list=
+            | +-x#3 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+# Verifies that passing a lambda referencing the caller's scalar argument 'y'
+# into 'ApplyIntInSubquery' properly replaces and correlates the caller's argument
+# reference across the callee's subquery boundary.
+[enabled_ast_rewrites=DEFAULTS,+INLINE_SQL_FUNCTIONS]
+[use_database=udf_db_with_apply_int]
+CREATE FUNCTION ForwardCallerArgumentInSubquery(y INT64) AS (
+  ApplyIntInSubquery(z -> z + y, 1)
+);
+--
+CreateFunctionStmt
++-name_path=ForwardCallerArgumentInSubquery
++-return_type=INT64
++-argument_name_list=[y]
++-signature=(INT64 y) -> INT64
++-language="SQL"
++-code="ApplyIntInSubquery(z -> z + y, 1)"
++-function_expression=
+  +-FunctionCall(Lazy_resolution_function:ApplyIntInSubquery(FUNCTION<INT64->INT64> f, INT64 x) -> INT64)
+    +-FunctionArgument
+    | +-inline_lambda=
+    |   +-InlineLambda
+    |     +-argument_list=[$lambda_arg.z#1]
+    |     +-body=
+    |       +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
+    |         +-ColumnRef(type=INT64, column=$lambda_arg.z#1)
+    |         +-ArgumentRef(type=INT64, name="y")
+    +-FunctionArgument
+      +-expr=
+        +-Literal(type=INT64, value=1)
+
+[REWRITTEN AST]
+CreateFunctionStmt
++-name_path=ForwardCallerArgumentInSubquery
++-return_type=INT64
++-argument_name_list=[y]
++-signature=(INT64 y) -> INT64
++-language="SQL"
++-code="ApplyIntInSubquery(z -> z + y, 1)"
++-function_expression=
+  +-SubqueryExpr
+    +-type=INT64
+    +-subquery_type=SCALAR
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$with_expr.injected#5]
+        +-expr_list=
+        | +-injected#5 :=
+        |   +-SubqueryExpr
+        |     +-type=INT64
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$expr_subquery.$col1#2]
+        |         +-expr_list=
+        |         | +-$col1#2 :=
+        |         |   +-SubqueryExpr
+        |         |     +-type=INT64
+        |         |     +-subquery_type=SCALAR
+        |         |     +-parameter_list=
+        |         |     | +-ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3, is_correlated=TRUE)
+        |         |     +-subquery=
+        |         |       +-ProjectScan
+        |         |         +-column_list=[$with_expr.injected#6]
+        |         |         +-expr_list=
+        |         |         | +-injected#6 :=
+        |         |         |   +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
+        |         |         |     +-ColumnRef(type=INT64, column=$inlined_lambda.z#4)
+        |         |         |     +-ArgumentRef(type=INT64, name="y")
+        |         |         +-input_scan=
+        |         |           +-ProjectScan
+        |         |             +-column_list=[$inlined_lambda.z#4]
+        |         |             +-expr_list=
+        |         |             | +-z#4 := ColumnRef(type=INT64, column=$inlined_ApplyIntInSubquery.x#3, is_correlated=TRUE)
+        |         |             +-input_scan=
+        |         |               +-SingleRowScan
+        |         +-input_scan=
+        |           +-SingleRowScan
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$inlined_ApplyIntInSubquery.x#3]
+            +-expr_list=
+            | +-x#3 := Literal(type=INT64, value=1)
+            +-input_scan=
+              +-SingleRowScan
+==
+
+# Verifies that forwarding a caller's function-typed parameter 'f2' into a
+# callee's first parameter 'f1' (where 'MultiPropagate' has parameters 'f1' and
+# 'f2' and forwards 'FUNCTION f1' and 'FUNCTION f2' as arguments) does not
+# trigger a second lookup on 'f2' and overwrite the forwarded reference with the
+# concrete lambda passed for 'f2'.
+[enabled_ast_rewrites=DEFAULTS,+INLINE_SQL_FUNCTIONS]
+[use_database=udf_db_with_transform]
+CREATE FUNCTION ForwardWithCollidingParamName(
+    arr ARRAY<INT64>, f2 FUNCTION<INT64 -> INT64>) AS (
+  MultiPropagate(arr, FUNCTION f2, x -> x > 0)
+);
+--
+CreateFunctionStmt
++-name_path=ForwardWithCollidingParamName
++-return_type=ARRAY<BOOL>
++-argument_name_list=[arr, f2]
++-signature=(ARRAY<INT64> arr, FUNCTION<INT64->INT64> f2) -> ARRAY<BOOL>
++-language="SQL"
++-code="MultiPropagate(arr, FUNCTION f2, x -> x > 0)"
++-function_expression=
+  +-FunctionCall(Lazy_resolution_function:MultiPropagate(ARRAY<INT64> arr, FUNCTION<INT64->INT64> f1, FUNCTION<INT64->BOOL> f2) -> ARRAY<BOOL>)
+    +-FunctionArgument
+    | +-expr=
+    |   +-ArgumentRef(type=ARRAY<INT64>, name="arr")
+    +-FunctionArgument
+    | +-function_ref=
+    |   +-FunctionRef(function=FUNCTION_TYPED_PARAMETER:f2, signature=(INT64) -> INT64)
+    +-FunctionArgument
+      +-inline_lambda=
+        +-InlineLambda
+          +-argument_list=[$lambda_arg.x#1]
+          +-body=
+            +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
+              +-ColumnRef(type=INT64, column=$lambda_arg.x#1)
+              +-Literal(type=INT64, value=0)
+
+[REWRITTEN AST]
+CreateFunctionStmt
++-name_path=ForwardWithCollidingParamName
++-return_type=ARRAY<BOOL>
++-argument_name_list=[arr, f2]
++-signature=(ARRAY<INT64> arr, FUNCTION<INT64->INT64> f2) -> ARRAY<BOOL>
++-language="SQL"
++-code="MultiPropagate(arr, FUNCTION f2, x -> x > 0)"
++-function_expression=
+  +-SubqueryExpr
+    +-type=ARRAY<BOOL>
+    +-subquery_type=SCALAR
+    +-subquery=
+      +-ProjectScan
+        +-column_list=[$with_expr.injected#15]
+        +-expr_list=
+        | +-injected#15 :=
+        |   +-SubqueryExpr
+        |     +-type=ARRAY<BOOL>
+        |     +-subquery_type=SCALAR
+        |     +-parameter_list=
+        |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#2)
+        |     +-subquery=
+        |       +-ProjectScan
+        |         +-column_list=[$expr_subquery.$col1#14]
+        |         +-expr_list=
+        |         | +-$col1#14 :=
+        |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<BOOL>, ARRAY<BOOL>) -> ARRAY<BOOL>)
+        |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
+        |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10)
+        |         |     +-Literal(type=ARRAY<BOOL>, value=NULL)
+        |         |     +-SubqueryExpr
+        |         |       +-type=ARRAY<BOOL>
+        |         |       +-subquery_type=ARRAY
+        |         |       +-parameter_list=
+        |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10)
+        |         |       +-subquery=
+        |         |         +-OrderByScan
+        |         |           +-column_list=[$expr_subquery.$col1#13]
+        |         |           +-is_ordered=TRUE
+        |         |           +-input_scan=
+        |         |           | +-ProjectScan
+        |         |           |   +-column_list=[$array.element#11, $array_offset.off#12, $expr_subquery.$col1#13]
+        |         |           |   +-expr_list=
+        |         |           |   | +-$col1#13 :=
+        |         |           |   |   +-FunctionCall(GoogleSQL:$greater(INT64, INT64) -> BOOL)
+        |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#11)
+        |         |           |   |     +-Literal(type=INT64, value=0)
+        |         |           |   +-input_scan=
+        |         |           |     +-ArrayScan
+        |         |           |       +-column_list=[$array.element#11, $array_offset.off#12]
+        |         |           |       +-array_expr_list=
+        |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#10, is_correlated=TRUE)
+        |         |           |       +-element_column_list=[$array.element#11]
+        |         |           |       +-array_offset_column=
+        |         |           |         +-ColumnHolder(column=$array_offset.off#12)
+        |         |           +-order_by_item_list=
+        |         |             +-OrderByItem
+        |         |               +-column_ref=
+        |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#12)
+        |         +-input_scan=
+        |           +-ProjectScan
+        |             +-column_list=[$subquery1.array_to_transform#10]
+        |             +-expr_list=
+        |             | +-array_to_transform#10 :=
+        |             |   +-SubqueryExpr
+        |             |     +-type=ARRAY<INT64>
+        |             |     +-subquery_type=SCALAR
+        |             |     +-parameter_list=
+        |             |     | +-ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#2, is_correlated=TRUE)
+        |             |     +-subquery=
+        |             |       +-ProjectScan
+        |             |         +-column_list=[$expr_subquery.$col1#9]
+        |             |         +-expr_list=
+        |             |         | +-$col1#9 :=
+        |             |         |   +-FunctionCall(GoogleSQL:if(BOOL, ARRAY<INT64>, ARRAY<INT64>) -> ARRAY<INT64>)
+        |             |         |     +-FunctionCall(GoogleSQL:$is_null(ARRAY<INT64>) -> BOOL)
+        |             |         |     | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
+        |             |         |     +-Literal(type=ARRAY<INT64>, value=NULL)
+        |             |         |     +-SubqueryExpr
+        |             |         |       +-type=ARRAY<INT64>
+        |             |         |       +-subquery_type=ARRAY
+        |             |         |       +-parameter_list=
+        |             |         |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5)
+        |             |         |       +-subquery=
+        |             |         |         +-OrderByScan
+        |             |         |           +-column_list=[$expr_subquery.$col1#8]
+        |             |         |           +-is_ordered=TRUE
+        |             |         |           +-input_scan=
+        |             |         |           | +-ProjectScan
+        |             |         |           |   +-column_list=[$array.element#6, $array_offset.off#7, $expr_subquery.$col1#8]
+        |             |         |           |   +-expr_list=
+        |             |         |           |   | +-$col1#8 :=
+        |             |         |           |   |   +-FunctionCall(FUNCTION_TYPED_PARAMETER:f2(INT64) -> INT64)
+        |             |         |           |   |     +-ColumnRef(type=INT64, column=$array.element#6)
+        |             |         |           |   +-input_scan=
+        |             |         |           |     +-ArrayScan
+        |             |         |           |       +-column_list=[$array.element#6, $array_offset.off#7]
+        |             |         |           |       +-array_expr_list=
+        |             |         |           |       | +-ColumnRef(type=ARRAY<INT64>, column=$subquery1.array_to_transform#5, is_correlated=TRUE)
+        |             |         |           |       +-element_column_list=[$array.element#6]
+        |             |         |           |       +-array_offset_column=
+        |             |         |           |         +-ColumnHolder(column=$array_offset.off#7)
+        |             |         |           +-order_by_item_list=
+        |             |         |             +-OrderByItem
+        |             |         |               +-column_ref=
+        |             |         |                 +-ColumnRef(type=INT64, column=$array_offset.off#7)
+        |             |         +-input_scan=
+        |             |           +-ProjectScan
+        |             |             +-column_list=[$subquery1.array_to_transform#5]
+        |             |             +-expr_list=
+        |             |             | +-array_to_transform#5 := ColumnRef(type=ARRAY<INT64>, column=$inlined_MultiPropagate.arr#2, is_correlated=TRUE)
+        |             |             +-input_scan=
+        |             |               +-SingleRowScan
+        |             +-input_scan=
+        |               +-SingleRowScan
+        +-input_scan=
+          +-ProjectScan
+            +-column_list=[$inlined_MultiPropagate.arr#2]
+            +-expr_list=
+            | +-arr#2 := ArgumentRef(type=ARRAY<INT64>, name="arr")
+            +-input_scan=
+              +-SingleRowScan
+

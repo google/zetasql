@@ -799,23 +799,23 @@ ALTERNATION GROUPS:
 --
 QueryStmt
 +-output_column_list=
-| +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_ci#1 AS string_ci [STRING]
 | +-$analytic.newcol#6 AS newcol [STRING]
 +-query=
   +-AnalyticScan
-    +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}, $analytic.newcol#6]
+    +-column_list=[CollatedTable.string_ci#1, $analytic.newcol#6]
     +-input_scan=
     | +-ProjectScan
-    |   +-column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}]
+    |   +-column_list=[CollatedTable.string_ci#1]
     |   +-input_scan=
-    |     +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+    |     +-TableScan(column_list=[CollatedTable.string_ci#1], table=CollatedTable, column_index_list=[0])
     +-function_group_list=
       +-AnalyticFunctionGroup
         +-analytic_function_list=
           +-newcol#6 :=
             +-AnalyticFunctionCall(GoogleSQL:max(STRING) -> STRING)
               +-FunctionCall(GoogleSQL:coalesce(repeated(1) STRING) -> STRING)
-              | +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+              | +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1)
               +-window_frame=
                 +-WindowFrame(frame_unit=ROWS)
                   +-start_expr=

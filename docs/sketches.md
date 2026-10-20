@@ -42,8 +42,9 @@ Consider a table with the following data:
   </tbody>
 </table>
 
-Computing the total number of users for both products isn't possible because we
-don't know how many users used both products in the table.
+Computing the total number of users for both products isn't possible because
+the table doesn't show how many users used both
+products.
 
 A solution is to store sketches in the table instead. Each sketch is an
 approximate and compact representation of a particular input property, such as
@@ -73,9 +74,9 @@ In summary, a sketch has these main properties:
 ## Re-aggregation with sketch merging
 
 Sketches let you store and merge data for efficient re-aggregation. This makes
-sketches particularly useful for materialized views of data sets. You can merge
-sketches to construct a summary of multiple data streams based on partial
-sketches created for each stream.
+sketches particularly useful for storing precomputed summaries of data sets,
+known as _materialized views_. You can merge sketches to construct a summary
+of multiple data streams based on partial sketches created for each stream.
 
 For example, if you create a sketch for the estimated number of distinct users
 every day, you can get the number of distinct users during the last seven days

@@ -63,13 +63,6 @@ class VectorEncodingAnnotation : public DefaultAnnotationSpec {
     return map != nullptr && map->Has<VectorEncodingAnnotation>();
   }
 
-  // Propagates vector encoding annotations from the referenced column.
-  // Unannotated vector columns (or nested vector slots) are assigned
-  // kUnconstrained ("UNCONSTRAINED").
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override;
-
   // Assigns an annotation to the output of a cast if the target type is a
   // VECTOR and specifies an encoding parameter, e.g.
   // CAST(.. AS VECTOR(4, 'FLOAT32')).

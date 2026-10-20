@@ -1104,13 +1104,13 @@ Algebrizer::AlgebrizeBuiltinFunctionCallWithAlgebrizedArguments(
         subquery_type);
   } else if (name == "float64") {
     kind = FunctionKind::kDouble;
-  } else if (name == "vector_length") {
+  } else if (name == "vector_dimension_count") {
     // TODO: Add support for other encodings.
-    // Determine the specific VectorLengthFunction evaluator based on the
-    // encoding. Currently, it defaults to the Float32 variant. When new
+    // Determine the specific VectorDimensionCountFunction evaluator based on
+    // the encoding. Currently, it defaults to the Float32 variant. When new
     // encodings are added, this can be extended to inspect
     // `function_call->argument_list()[0]->type()`.
-    kind = FunctionKind::kVectorFloat32Length;
+    kind = FunctionKind::kVectorFloat32DimensionCount;
   } else if (auto mapped_kind = kSignatureIdToKindMap.find(
                  function_call->signature().context_id());
              mapped_kind != kSignatureIdToKindMap.end()) {
@@ -1774,9 +1774,19 @@ Algebrizer::AlgebrizeAggregateSubquery(
         case ResolvedSubqueryExpr::NOT_LIKE_ANY:
           function_kind = FunctionKind::kOrAgg;
           break;
-        default:
+        case ResolvedSubqueryExpr::EQ_ALL:
+        case ResolvedSubqueryExpr::NE_ALL:
+        case ResolvedSubqueryExpr::LT_ALL:
+        case ResolvedSubqueryExpr::LE_ALL:
+        case ResolvedSubqueryExpr::GT_ALL:
+        case ResolvedSubqueryExpr::GE_ALL:
+        case ResolvedSubqueryExpr::LIKE_ALL:
+        case ResolvedSubqueryExpr::NOT_LIKE_ALL:
           function_kind = FunctionKind::kAndAgg;
           break;
+        default:
+          GOOGLESQL_RET_CHECK_FAIL() << "Unexpected subquery_type: "
+                           << subquery_expr->subquery_type();
       }
       function_input_type = BoolType();
 
@@ -1888,41 +1898,23 @@ Algebrizer::AlgebrizeAggregateSubquery(
                        << subquery_expr->subquery_type();
   }
 
-  // For ANY and ALL subqueries, we must not ignore NULLs. If we did, the
-  // underlying kOrAgg/kAndAgg function would not see NULLs and would
-  // incorrectly return FALSE/TRUE instead of NULL when there are no matches
-  // but the haystack contains NULLs.
-  bool ignores_null = true;
-  switch (subquery_expr->subquery_type()) {
-    case ResolvedSubqueryExpr::IN:
-    case ResolvedSubqueryExpr::EQ_ANY:
-    case ResolvedSubqueryExpr::NE_ANY:
-    case ResolvedSubqueryExpr::LT_ANY:
-    case ResolvedSubqueryExpr::LE_ANY:
-    case ResolvedSubqueryExpr::GT_ANY:
-    case ResolvedSubqueryExpr::GE_ANY:
-    case ResolvedSubqueryExpr::LIKE_ANY:
-    case ResolvedSubqueryExpr::NOT_LIKE_ANY:
-    case ResolvedSubqueryExpr::EQ_ALL:
-    case ResolvedSubqueryExpr::NE_ALL:
-    case ResolvedSubqueryExpr::LT_ALL:
-    case ResolvedSubqueryExpr::LE_ALL:
-    case ResolvedSubqueryExpr::GT_ALL:
-    case ResolvedSubqueryExpr::GE_ALL:
-    case ResolvedSubqueryExpr::LIKE_ALL:
-    case ResolvedSubqueryExpr::NOT_LIKE_ALL:
-      ignores_null = false;
-      break;
-    default:
-      ignores_null = true;
-      break;
-  }
+  // The aggregate function must never ignore NULL rows produced by the
+  // subquery:
+  // - For ARRAY subqueries, NULL elements must be preserved in the result.
+  // - For SCALAR subqueries, a NULL row still counts towards the "more than
+  //   one element" check.
+  // - For ANY and ALL subqueries, the underlying kOrAgg/kAndAgg function would
+  //   otherwise incorrectly return FALSE/TRUE instead of NULL when there are no
+  //   matches but the haystack contains NULLs.
+  // - For EXISTS subqueries, the argument is a non-NULL constant, so this has
+  //   no effect.
+  constexpr bool kIgnoresNull = false;
 
   // Create an aggregate function call.
   std::unique_ptr<AggregateFunctionBody> function_body =
       std::make_unique<BuiltinAggregateFunction>(
           function_kind, subquery_expr->type(), arguments.size(),
-          function_input_type, ignores_null);
+          function_input_type, kIgnoresNull);
 
   // Create aggregate arg with group rows subquery and wrapping function.
   return AggregateArg::Create(
@@ -5585,6 +5577,14 @@ Algebrizer::AlgebrizeAggregateScanBase(
     GOOGLESQL_RET_CHECK(output_columns.insert(column).second) << column.DebugString();
   }
 
+  // Record the aggregate input RelationalOp for algebrizing GroupRowsScans in
+  // the aggregate list. `input` must be the op AggregateOp accumulates rows
+  // from, i.e. it must not be wrapped after this point.
+  for (const ResolvedColumn& column :
+       aggregate_scan->input_scan()->column_list()) {
+    aggregate_inputs_[column] = input.get();
+  }
+
   // Build the list of aggregate functions.
   std::vector<std::unique_ptr<AggregateArg>> aggregators;
   for (const std::unique_ptr<const ResolvedComputedColumnBase>& agg_expr :
@@ -7787,6 +7787,11 @@ absl::Status Algebrizer::AlgebrizeDescendantsOfDMLStatement(
                                                 resolved_scan_map));
       }
 
+      if (stmt->using_scan() != nullptr) {
+        GOOGLESQL_RETURN_IF_ERROR(
+            PopulateResolvedScanMap(stmt->using_scan(), resolved_scan_map));
+      }
+
       if (stmt->array_offset_column() != nullptr) {
         // The array offset column can only be set for nested DELETEs.
         GOOGLESQL_RET_CHECK(resolved_table_scan_or_null == nullptr);
@@ -8719,20 +8724,29 @@ Algebrizer::AlgebrizeGroupRowsScan(
         std::make_unique<ExprArg>(variable, std::move(argument)));
   }
 
-  // Use the first group rows column reference as a lookup key to the
-  // accumulated set of grouped rows.
-  VariableId input_rows_lookup_key;
+  // Find the RelationalOp producing the rows this scan reads: the input of the
+  // AggregateScan whose input produces the referenced columns. All columns of a
+  // GroupRowsScan reference the same input, so the first one identifies it.
   GOOGLESQL_RET_CHECK(!expr_list.empty());
   GOOGLESQL_RET_CHECK_EQ(expr_list[0]->expr()->node_kind(), RESOLVED_COLUMN_REF);
-  const ResolvedColumnRef* col_ref =
-      expr_list[0]->expr()->GetAs<ResolvedColumnRef>();
-  GOOGLESQL_ASSIGN_OR_RETURN(
-      input_rows_lookup_key,
-      column_to_variable_->LookupVariableNameForColumn(col_ref->column()));
+  const ResolvedColumn& input_column =
+      expr_list[0]->expr()->GetAs<ResolvedColumnRef>()->column();
+  const auto it = aggregate_inputs_.find(input_column);
+  GOOGLESQL_RET_CHECK(it != aggregate_inputs_.end())
+      << "No aggregate input RelationalOp was recorded for column "
+      << input_column.DebugString() << " read by GroupRowsScan";
+  const RelationalOp* aggregate_input = it->second;
 
+  // The accumulated group rows are registered in the EvaluationContext under
+  // every variable of the aggregation input; use the variable of
+  // `input_column` as the key for looking them up.
   GOOGLESQL_ASSIGN_OR_RETURN(
-      std::unique_ptr<RelationalOp> group_rows_op,
-      GroupRowsOp::Create(std::move(arguments), input_rows_lookup_key));
+      const VariableId input_rows_lookup_key,
+      column_to_variable_->LookupVariableNameForColumn(input_column));
+
+  GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<RelationalOp> group_rows_op,
+                   GroupRowsOp::Create(std::move(arguments), aggregate_input,
+                                       input_rows_lookup_key));
   return std::move(group_rows_op);  // necessary to work around bugs in gcc.
 }
 

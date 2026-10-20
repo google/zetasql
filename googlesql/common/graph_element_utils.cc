@@ -16,6 +16,7 @@
 
 #include "googlesql/common/graph_element_utils.h"
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -25,6 +26,7 @@
 #include "googlesql/public/types/array_type.h"
 #include "googlesql/public/types/struct_type.h"
 #include "googlesql/public/types/type.h"
+#include "googlesql/public/value.h"
 #include "googlesql/resolved_ast/resolved_ast.h"
 #include "googlesql/resolved_ast/resolved_node.h"
 #include "googlesql/base/status_macros.h"
@@ -181,20 +183,20 @@ bool HasSearchPrefix(
                             PATH_SEARCH_PREFIX_TYPE_UNSPECIFIED;
 }
 
-absl::StatusOr<Value> IntersectPeriods(const Value& period1,
-                                       const Value& period2) {
+absl::StatusOr<std::optional<Value>> IntersectPeriods(const Value& period1,
+                                                      const Value& period2) {
   GOOGLESQL_RET_CHECK(!period1.is_null() && !period2.is_null());
   GOOGLESQL_RET_CHECK(period1.type()->IsRange() && period2.type()->IsRange());
   GOOGLESQL_RET_CHECK(period1.type()->AsRange()->element_type()->IsTimestamp());
   GOOGLESQL_RET_CHECK(period2.type()->AsRange()->element_type()->IsTimestamp());
 
+  // A NULL start sorts before any timestamp, so this picks the later start and
+  // treats NULL as unbounded.
   Value intersect_start = period1.start().LessThan(period2.start())
                               ? period2.start()
                               : period1.start();
   Value intersect_end;
-  if (period1.end().is_null() && period2.end().is_null()) {
-    intersect_end = Value::NullTimestamp();
-  } else if (period1.end().is_null()) {
+  if (period1.end().is_null()) {
     intersect_end = period2.end();
   } else if (period2.end().is_null()) {
     intersect_end = period1.end();
@@ -203,7 +205,13 @@ absl::StatusOr<Value> IntersectPeriods(const Value& period1,
         period1.end().LessThan(period2.end()) ? period1.end() : period2.end();
   }
 
-  return Value::MakeRange(intersect_start, intersect_end);
+  if (!intersect_start.is_null() && !intersect_end.is_null() &&
+      !intersect_start.LessThan(intersect_end)) {
+    return std::nullopt;
+  }
+  GOOGLESQL_ASSIGN_OR_RETURN(Value intersection,
+                   Value::MakeRange(intersect_start, intersect_end));
+  return intersection;
 }
 
 absl::StatusOr<bool> PeriodContainsPoint(const Value& period,
@@ -213,10 +221,10 @@ absl::StatusOr<bool> PeriodContainsPoint(const Value& period,
   GOOGLESQL_RET_CHECK(period.type()->AsRange()->element_type()->IsTimestamp());
   GOOGLESQL_RET_CHECK(point.type()->IsTimestamp());
 
-  bool le_start = period.start().is_null() || !point.LessThan(period.start());
-  bool gt_end = period.end().is_null() || point.LessThan(period.end());
+  bool ge_start = period.start().is_null() || !point.LessThan(period.start());
+  bool lt_end = period.end().is_null() || point.LessThan(period.end());
 
-  return le_start && gt_end;
+  return ge_start && lt_end;
 }
 
 }  // namespace googlesql

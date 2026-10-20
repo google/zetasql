@@ -53,8 +53,8 @@
 namespace googlesql {
 namespace {
 
-// TODO: Update NULL handling for SOURCE/DEST/ALL_DIFFERENT/SAME
-// when NULL graph elements are supported.
+// TODO: Update NULL handling for ALL_DIFFERENT/SAME when NULL
+// graph elements are supported.
 absl::Status CheckNonNullArguments(absl::string_view func_or_op_name,
                                    absl::Span<const Value> args) {
   if (absl::c_any_of(args, [](const Value& x) { return x.is_null(); })) {
@@ -298,14 +298,19 @@ absl::StatusOr<Value> SourceDestPredicateFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   GOOGLESQL_RET_CHECK_EQ(args.size(), 2);
-  GOOGLESQL_RETURN_IF_ERROR(CheckNonNullArguments(kind() == FunctionKind::kIsSourceNode
-                                            ? "operator SOURCE"
-                                            : "operator DEST",
-                                        args));
   const Value& node_value = args[0];
   const Value& edge_value = args[1];
-  GOOGLESQL_RET_CHECK(node_value.type()->IsGraphElement() && node_value.IsNode());
-  GOOGLESQL_RET_CHECK(edge_value.type()->IsGraphElement() && edge_value.IsEdge());
+
+  GOOGLESQL_RET_CHECK(node_value.type()->IsGraphElement() &&
+            node_value.type()->AsGraphElement()->IsNode());
+  GOOGLESQL_RET_CHECK(edge_value.type()->IsGraphElement() &&
+            edge_value.type()->AsGraphElement()->IsEdge());
+
+  // A NULL node or edge (e.g. from OPTIONAL MATCH or an outer join) yields
+  // NULL, see GG-0042 ((broken link):nullable-graph-element).
+  if (node_value.is_null() || edge_value.is_null()) {
+    return Value::Null(output_type());
+  }
 
   bool result;
   switch (kind()) {
@@ -504,18 +509,20 @@ absl::StatusOr<Value> PathFirstLastFunction::Eval(
 absl::StatusOr<Value> PathCreateFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
-  GOOGLESQL_RET_CHECK_GE(args.size(), 1);
-  GOOGLESQL_RET_CHECK_EQ(args.size() % 2, 1);
-  GOOGLESQL_RETURN_IF_ERROR(CheckNonNullArguments("function PATH", args));
-  GOOGLESQL_RET_CHECK(absl::c_all_of(
-      args, [](const Value& arg) { return arg.type()->IsGraphElement(); }));
+  absl::Span<const Value> element_args = args;
+  GOOGLESQL_RET_CHECK_GE(element_args.size(), 1);
+  GOOGLESQL_RET_CHECK_EQ(element_args.size() % 2, 1);
+  GOOGLESQL_RETURN_IF_ERROR(CheckNonNullArguments("function PATH", element_args));
+  GOOGLESQL_RET_CHECK(absl::c_all_of(element_args, [](const Value& arg) {
+    return arg.type()->IsGraphElement();
+  }));
 
   const GraphPathType* path_type = output_type()->AsGraphPath();
   GOOGLESQL_RET_CHECK(path_type != nullptr);
   std::vector<Value> path_components;
-  path_components.reserve(args.size());
-  for (int i = 0; i < args.size(); ++i) {
-    const Value& arg = args[i];
+  path_components.reserve(element_args.size());
+  for (int i = 0; i < element_args.size(); ++i) {
+    const Value& arg = element_args[i];
     GOOGLESQL_RET_CHECK_EQ(arg.IsNode(), i % 2 == 0);
     switch (kind()) {
       case FunctionKind::kUncheckedPathCreate: {
@@ -524,12 +531,14 @@ absl::StatusOr<Value> PathCreateFunction::Eval(
       case FunctionKind::kPathCreate: {
         if (i % 2 == 1) {
           GOOGLESQL_RET_CHECK(arg.IsEdge());
-          bool forward =
-              args[i - 1].GetIdentifier() == arg.GetSourceNodeIdentifier() &&
-              args[i + 1].GetIdentifier() == arg.GetDestNodeIdentifier();
-          bool backward =
-              args[i - 1].GetIdentifier() == arg.GetDestNodeIdentifier() &&
-              args[i + 1].GetIdentifier() == arg.GetSourceNodeIdentifier();
+          bool forward = element_args[i - 1].GetIdentifier() ==
+                             arg.GetSourceNodeIdentifier() &&
+                         element_args[i + 1].GetIdentifier() ==
+                             arg.GetDestNodeIdentifier();
+          bool backward = element_args[i - 1].GetIdentifier() ==
+                              arg.GetDestNodeIdentifier() &&
+                          element_args[i + 1].GetIdentifier() ==
+                              arg.GetSourceNodeIdentifier();
           if (!forward && !backward) {
             return ::googlesql_base::OutOfRangeErrorBuilder()
                    << "The arguments to PATH must contain edges that "
@@ -546,8 +555,7 @@ absl::StatusOr<Value> PathCreateFunction::Eval(
     GOOGLESQL_RETURN_IF_ERROR(
         AppendComponentToPath(arg, path_type, context, path_components));
   }
-  return Value::MakeGraphPath(output_type()->AsGraphPath(),
-                              std::move(path_components));
+  return Value::MakeGraphPath(path_type, std::move(path_components));
 }
 
 absl::StatusOr<Value> PathConcatFunction::Eval(

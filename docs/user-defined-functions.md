@@ -843,7 +843,10 @@ You can call a Lua UDF in the same way that you call a built-in
 function. For details, see [Function calls][function-calls].
 
 ### Data types supported
-The valid data types for arguments and return values are INT32, UINT32, INT64, UINT64, FLOAT, DOUBLE, STRING, BOOL, and PROTO. If the function returns the Lua type nil, it gets converted to a NULL value of the specified return data type.
+
+The valid data types for arguments and return values are INT32, UINT32, INT64,
+UINT64, FLOAT, DOUBLE, STRING, BOOL, and PROTO. If the function returns the Lua
+type nil, it gets converted to a NULL value of the specified return data type.
 
 ### Lua UDF examples
 

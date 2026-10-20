@@ -326,11 +326,17 @@ absl::Status Resolver::ResolveAlterActions(
       case AST_ADD_COLUMN_ACTION:
       case AST_DROP_COLUMN_ACTION:
       case AST_RENAME_COLUMN_ACTION:
-      case AST_ALTER_COLUMN_TYPE_ACTION: {
-        if (!(ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT ||
+      case AST_ALTER_COLUMN_TYPE_ACTION:
+      case AST_ADD_STORED_COLUMN_ACTION:
+      case AST_DROP_STORED_COLUMN_ACTION: {
+        if (!((ast_statement->node_kind() == AST_ALTER_TABLE_STATEMENT &&
+               action->node_kind() != AST_ADD_STORED_COLUMN_ACTION &&
+               action->node_kind() != AST_DROP_STORED_COLUMN_ACTION) ||
               (ast_statement->node_kind() == AST_ALTER_INDEX_STATEMENT &&
                (action->node_kind() == AST_ADD_COLUMN_ACTION ||
-                action->node_kind() == AST_DROP_COLUMN_ACTION)))) {
+                action->node_kind() == AST_DROP_COLUMN_ACTION ||
+                action->node_kind() == AST_ADD_STORED_COLUMN_ACTION ||
+                action->node_kind() == AST_DROP_STORED_COLUMN_ACTION)))) {
           // Views, models, etc don't support ADD/DROP/RENAME/SET DATA TYPE
           // columns.
           return MakeSqlErrorAt(action)
@@ -342,24 +348,35 @@ absl::Status Resolver::ResolveAlterActions(
         }
         std::unique_ptr<const ResolvedAlterAction> resolved_action;
         switch (action->node_kind()) {
+          case AST_ADD_STORED_COLUMN_ACTION:
+            GOOGLESQL_RETURN_IF_ERROR(ResolveAddStoredColumnToIndex(
+                alter_statement_kind, altered_table,
+                action->GetAsOrDie<ASTAddStoredColumnAction>(), &new_columns,
+                &column_to_drop, &resolved_action));
+            break;
+          case AST_DROP_STORED_COLUMN_ACTION:
+            GOOGLESQL_RETURN_IF_ERROR(ResolveDropStoredColumnFromIndex(
+                alter_statement_kind, altered_table,
+                action->GetAsOrDie<ASTDropStoredColumnAction>(), &new_columns,
+                &column_to_drop, &resolved_action));
+            break;
           case AST_ADD_COLUMN_ACTION: {
             if (ast_statement->node_kind() == AST_ALTER_INDEX_STATEMENT) {
               GOOGLESQL_RETURN_IF_ERROR(ResolveAddColumnToIndex(
                   alter_statement_kind,
                   action->GetAsOrNull<ASTAddColumnAction>(), &new_columns,
-                  &resolved_action));
+                  &column_to_drop, &resolved_action));
               break;
             }
             const auto* add_column_action =
                 action->GetAsOrDie<ASTAddColumnAction>();
             if (add_column_action->column_definition()
-                    ->schema()
-                    ->generated_column_info() != nullptr) {
-              if (has_drop_column_action) {
-                return MakeSqlErrorAt(action)
-                       << "ALTER TABLE does not support mixing ADD COLUMN of "
-                          "generated columns with DROP COLUMN yet";
-              }
+                        ->schema()
+                        ->generated_column_info() != nullptr &&
+                has_drop_column_action) {
+              return MakeSqlErrorAt(action)
+                     << "ALTER TABLE does not support mixing ADD COLUMN of "
+                        "generated columns with DROP COLUMN yet";
             }
             GOOGLESQL_RETURN_IF_ERROR(ResolveAddColumnAction(
                 table_name_id_string, altered_table, add_column_action,
@@ -628,22 +645,19 @@ absl::Status Resolver::ResolveAlterActions(
             ast_add_sub_entity_action->options_list(),
             /*allow_alter_array_operators=*/false, &resolved_options));
 
-        auto resolved_add_sub_entity_action = MakeResolvedAddSubEntityAction(
+        alter_actions->push_back(MakeResolvedAddSubEntityAction(
             ast_add_sub_entity_action->type()->GetAsString(),
             ast_add_sub_entity_action->name()->GetAsString(),
             std::move(resolved_options),
-            ast_add_sub_entity_action->is_if_not_exists());
-        alter_actions->push_back(std::move(resolved_add_sub_entity_action));
+            ast_add_sub_entity_action->is_if_not_exists()));
       } break;
       case AST_DROP_SUB_ENTITY_ACTION: {
         const auto* ast_drop_sub_entity_action =
             action->GetAsOrDie<ASTDropSubEntityAction>();
-
-        auto resolved_drop_sub_entity_action = MakeResolvedDropSubEntityAction(
+        alter_actions->push_back(MakeResolvedDropSubEntityAction(
             ast_drop_sub_entity_action->type()->GetAsString(),
             ast_drop_sub_entity_action->name()->GetAsString(),
-            ast_drop_sub_entity_action->is_if_exists());
-        alter_actions->push_back(std::move(resolved_drop_sub_entity_action));
+            ast_drop_sub_entity_action->is_if_exists()));
       } break;
       case AST_REBUILD_ACTION: {
         if (ast_statement->node_kind() != AST_ALTER_INDEX_STATEMENT) {
@@ -660,7 +674,7 @@ absl::Status Resolver::ResolveAlterActions(
     }
   }
   return absl::OkStatus();
-}
+}  // NOLINT(readability/fn_size)
 
 absl::Status Resolver::ResolveAlterDatabaseStatement(
     const ASTAlterDatabaseStatement* ast_statement,
@@ -834,7 +848,7 @@ absl::Status Resolver::ResolveAlterTableStatement(
 
 absl::Status Resolver::ResolveAddColumnToIndex(
     absl::string_view alter_statement_kind, const ASTAddColumnAction* action,
-    IdStringSetCase* new_columns,
+    IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
     std::unique_ptr<const ResolvedAlterAction>* alter_action) {
   GOOGLESQL_RET_CHECK(*alter_action == nullptr);
 
@@ -846,6 +860,12 @@ absl::Status Resolver::ResolveAddColumnToIndex(
     return MakeSqlErrorAt(action)
            << "Duplicate column name " << column_name << " in ALTER "
            << alter_statement_kind << " ADD COLUMN";
+  }
+  if (columns_to_drop->find(column_name) != columns_to_drop->end()) {
+    return MakeSqlErrorAt(column_definition->name())
+           << "Column " << column_name
+           << " cannot be added and dropped by the same ALTER "
+           << alter_statement_kind << " statement";
   }
   if (action->column_position() != nullptr) {
     return MakeSqlErrorAt(action->column_position())
@@ -889,6 +909,83 @@ absl::Status Resolver::ResolveAddColumnToIndex(
       column_name.ToStringView(), std::move(resolved_options),
       action->is_if_not_exists());
 
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveAddStoredColumnToIndex(
+    absl::string_view alter_statement_kind, const Table* table,
+    const ASTAddStoredColumnAction* action, IdStringSetCase* new_columns,
+    IdStringSetCase* columns_to_drop,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  GOOGLESQL_RET_CHECK(*alter_action == nullptr);
+
+  const IdString column_name = action->column_name()->GetAsIdString();
+  if (!new_columns->insert(column_name).second) {
+    return MakeSqlErrorAt(action->column_name())
+           << "Duplicate column name " << column_name << " in ALTER "
+           << alter_statement_kind << " ADD STORED COLUMN";
+  }
+  if (columns_to_drop->find(column_name) != columns_to_drop->end()) {
+    return MakeSqlErrorAt(action->column_name())
+           << "Column " << column_name
+           << " cannot be added and dropped by the same ALTER "
+           << alter_statement_kind << " statement";
+  }
+
+  if (table != nullptr) {
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr) {
+      return MakeSqlErrorAt(action->column_name())
+             << "Column not found: " << column_name;
+    }
+    if (column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(action->column_name())
+             << "ALTER " << alter_statement_kind
+             << " ADD STORED COLUMN cannot store pseudo-column " << column_name;
+    }
+  }
+
+  *alter_action = MakeResolvedAddStoredColumnAction(action->is_if_not_exists(),
+                                                    column_name.ToStringView());
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveDropStoredColumnFromIndex(
+    absl::string_view alter_statement_kind, const Table* table,
+    const ASTDropStoredColumnAction* action, IdStringSetCase* new_columns,
+    IdStringSetCase* columns_to_drop,
+    std::unique_ptr<const ResolvedAlterAction>* alter_action) {
+  GOOGLESQL_RET_CHECK(*alter_action == nullptr);
+
+  const IdString column_name = action->column_name()->GetAsIdString();
+  if (!columns_to_drop->insert(column_name).second) {
+    return MakeSqlErrorAt(action->column_name())
+           << "ALTER " << alter_statement_kind
+           << " DROP STORED COLUMN cannot drop column " << column_name
+           << " multiple times";
+  }
+  if (new_columns->find(column_name) != new_columns->end()) {
+    return MakeSqlErrorAt(action->column_name())
+           << "Column " << column_name
+           << " cannot be added and dropped by the same ALTER "
+           << alter_statement_kind << " statement";
+  }
+
+  if (table != nullptr) {
+    const Column* column = table->FindColumnByName(column_name.ToString());
+    if (column == nullptr && !action->is_if_exists()) {
+      return MakeSqlErrorAt(action->column_name())
+             << "Column not found: " << column_name;
+    }
+    if (column != nullptr && column->IsPseudoColumn()) {
+      return MakeSqlErrorAt(action->column_name())
+             << "ALTER " << alter_statement_kind
+             << " DROP STORED COLUMN cannot drop pseudo-column " << column_name;
+    }
+  }
+
+  *alter_action = MakeResolvedDropStoredColumnAction(
+      action->is_if_exists(), column_name.ToStringView());
   return absl::OkStatus();
 }
 
@@ -1666,6 +1763,8 @@ absl::Status Resolver::ResolveAlterIndexStatement(
       case AST_DROP_COLUMN_ACTION:
       case AST_ALTER_COLUMN_OPTIONS_ACTION:
       case AST_SET_OPTIONS_ACTION:
+      case AST_ADD_STORED_COLUMN_ACTION:
+      case AST_DROP_STORED_COLUMN_ACTION:
         break;
       default:
         return MakeSqlErrorAt(action)

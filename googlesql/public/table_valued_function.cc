@@ -974,7 +974,9 @@ absl::StatusOr<TVFRelation> CreateTVFRelationFromTable(const Table* table) {
   int value_column_idx = -1;
   for (int i = 0; i < table->NumColumns(); ++i) {
     const Column* col = table->GetColumn(i);
-    columns.emplace_back(col->Name(), col->GetType(), col->IsPseudoColumn());
+    columns.emplace_back(
+        col->Name(), AnnotatedType(col->GetType(), col->GetTypeAnnotationMap()),
+        col->IsPseudoColumn());
     if (!col->IsPseudoColumn()) {
       non_pseudo_column_count++;
       value_column_idx = i;

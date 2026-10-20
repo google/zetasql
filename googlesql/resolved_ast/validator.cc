@@ -58,10 +58,14 @@
 #include "googlesql/public/type.pb.h"
 #include "googlesql/public/type_parameters.pb.h"
 #include "googlesql/public/types/annotation.h"
+#include "googlesql/public/types/array_type.h"
 #include "googlesql/public/types/collation.h"
+#include "googlesql/public/types/enum_type.h"
 #include "googlesql/public/types/graph_element_type.h"
 #include "googlesql/public/types/measure_type.h"
+#include "googlesql/public/types/proto_type.h"
 #include "googlesql/public/types/row_type.h"
+#include "googlesql/public/types/type.h"
 #include "googlesql/public/types/type_parameters.h"
 #include "googlesql/public/value.h"
 #include "googlesql/public/with_modifier_mode.h"
@@ -6725,6 +6729,10 @@ absl::Status Validator::ValidateResolvedScan(
       scan_subtype_status = ValidateResolvedGraphUpdateScan(
           scan->GetAs<ResolvedGraphUpdateScan>(), visible_parameters);
       break;
+    case RESOLVED_GRAPH_DELETE_SCAN:
+      scan_subtype_status = ValidateResolvedGraphDeleteScan(
+          scan->GetAs<ResolvedGraphDeleteScan>(), visible_parameters);
+      break;
     case RESOLVED_FINISH_SCAN:
       scan_subtype_status = ValidateResolvedFinishScan(
           scan->GetAs<ResolvedFinishScan>(), visible_parameters);
@@ -6772,6 +6780,10 @@ absl::Status Validator::ValidateResolvedScan(
     case RESOLVED_UPDATE_SCAN:
       scan_subtype_status = ValidateResolvedUpdateScan(
           scan->GetAs<ResolvedUpdateScan>(), visible_parameters);
+      break;
+    case RESOLVED_DELETE_SCAN:
+      scan_subtype_status = ValidateResolvedDeleteScan(
+          scan->GetAs<ResolvedDeleteScan>(), visible_parameters);
       break;
     case RESOLVED_SUBPIPELINE_INPUT_SCAN:
       scan_subtype_status = ValidateResolvedSubpipelineInputScan(
@@ -7392,7 +7404,7 @@ absl::Status Validator::ValidateResolvedDeleteStmt(
   }
 
   if (array_element_column == nullptr) {
-    // Top-level DELETE.
+    // DELETE statement or DELETE scan.
     VALIDATOR_RET_CHECK(stmt->array_offset_column() == nullptr);
     VALIDATOR_RET_CHECK_EQ(stmt->table_scan()->column_index_list().size(),
                            stmt->column_access_list().size());
@@ -7426,7 +7438,8 @@ absl::Status Validator::ValidateResolvedDeleteStmt(
       << "DeleteStmt has WHERE expression with non-BOOL type: "
       << stmt->where_expr()->type()->DebugString();
   if (stmt->returning() != nullptr) {
-    // Returning clause is only valid on top-level DELETE.
+    // Returning clause is only valid on top-level DELETE or inside
+    // ResolvedDeleteScan.
     VALIDATOR_RET_CHECK_EQ(array_element_column, nullptr);
     GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedReturningClause(stmt->returning(),
                                                     target_visible_columns));
@@ -7527,6 +7540,10 @@ absl::Status Validator::ValidateResolvedUpdateStmt(
     // Returning clause is only valid on top-level UPDATE.
     VALIDATOR_RET_CHECK_EQ(array_element_column, nullptr);
     std::set<ResolvedColumn> returning_visible_columns = target_visible_columns;
+    if (stmt->from_scan() != nullptr) {
+      GOOGLESQL_RETURN_IF_ERROR(AddColumnList(stmt->from_scan()->column_list(),
+                                    &returning_visible_columns));
+    }
     if (stmt->timestamp_version_column() != nullptr) {
       returning_visible_columns.insert(
           stmt->timestamp_version_column()->column());
@@ -8218,6 +8235,18 @@ absl::Status Validator::ValidateAlterIndexActions(
                "VECTOR|SEARCH INDEX statement, found in "
             << stmt->node_kind_string();
         break;
+      case RESOLVED_ADD_STORED_COLUMN_ACTION:
+        VALIDATOR_RET_CHECK_EQ(stmt->node_kind(), RESOLVED_ALTER_INDEX_STMT)
+            << "AddStoredColumn action is only supported in ALTER "
+               "VECTOR|SEARCH INDEX statement, found in "
+            << stmt->node_kind_string();
+        break;
+      case RESOLVED_DROP_STORED_COLUMN_ACTION:
+        VALIDATOR_RET_CHECK_EQ(stmt->node_kind(), RESOLVED_ALTER_INDEX_STMT)
+            << "DropStoredColumn action is only supported in ALTER "
+               "VECTOR|SEARCH INDEX statement, found in "
+            << stmt->node_kind_string();
+        break;
       case RESOLVED_DROP_COLUMN_ACTION:
       case RESOLVED_ALTER_COLUMN_OPTIONS_ACTION:
       case RESOLVED_SET_OPTIONS_ACTION:
@@ -8297,6 +8326,18 @@ absl::Status Validator::ValidateResolvedAlterObjectStmt(
     } else if (action->node_kind() == RESOLVED_DROP_COLUMN_ACTION) {
       const std::string name =
           action->GetAs<ResolvedDropColumnAction>()->name();
+      VALIDATOR_RET_CHECK(columns_to_drop.insert(name).second)
+          << "Column dropped twice: " << name;
+      VALIDATOR_RET_CHECK(new_columns.find(name) == new_columns.end())
+          << "Newly added column is being dropped: " << name;
+    } else if (action->node_kind() == RESOLVED_ADD_STORED_COLUMN_ACTION) {
+      const std::string name =
+          action->GetAs<ResolvedAddStoredColumnAction>()->name();
+      VALIDATOR_RET_CHECK(new_columns.insert(name).second)
+          << "Column added twice: " << name;
+    } else if (action->node_kind() == RESOLVED_DROP_STORED_COLUMN_ACTION) {
+      const std::string name =
+          action->GetAs<ResolvedDropStoredColumnAction>()->name();
       VALIDATOR_RET_CHECK(columns_to_drop.insert(name).second)
           << "Column dropped twice: " << name;
       VALIDATOR_RET_CHECK(new_columns.find(name) == new_columns.end())
@@ -8403,6 +8444,11 @@ absl::Status Validator::ValidateResolvedAlterAction(
       GOOGLESQL_RETURN_IF_ERROR(
           ValidateOptionsList(add_column_identifier_action->options_list()));
     } break;
+    case RESOLVED_ADD_STORED_COLUMN_ACTION: {
+      auto* add_stored_column_action =
+          action->GetAs<ResolvedAddStoredColumnAction>();
+      VALIDATOR_RET_CHECK(!add_stored_column_action->name().empty());
+    } break;
     case RESOLVED_ADD_TO_RESTRICTEE_LIST_ACTION:
       // Nothing to do
       break;
@@ -8410,6 +8456,11 @@ absl::Status Validator::ValidateResolvedAlterAction(
       VALIDATOR_RET_CHECK(
           !action->GetAs<ResolvedDropColumnAction>()->name().empty());
       break;
+    case RESOLVED_DROP_STORED_COLUMN_ACTION: {
+      auto* drop_stored_column_action =
+          action->GetAs<ResolvedDropStoredColumnAction>();
+      VALIDATOR_RET_CHECK(!drop_stored_column_action->name().empty());
+    } break;
     case RESOLVED_RENAME_COLUMN_ACTION: {
       GOOGLESQL_RET_CHECK(!action->GetAs<ResolvedRenameColumnAction>()->name().empty());
       GOOGLESQL_RET_CHECK(
@@ -9436,6 +9487,37 @@ absl::Status Validator::ValidateResolvedUpdateScan(
   return absl::OkStatus();
 }
 
+absl::Status Validator::ValidateResolvedDeleteScan(
+    const ResolvedDeleteScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, scan);
+
+  VALIDATOR_RET_CHECK(in_generalized_query_stmt_);
+
+  VALIDATOR_RET_CHECK(scan->delete_stmt() != nullptr);
+  GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedDeleteStmt(scan->delete_stmt(),
+                                             /*outer_visible_columns=*/nullptr,
+                                             /*array_element_column=*/nullptr));
+
+  VALIDATOR_RET_CHECK(scan->delete_stmt()->using_scan() != nullptr);
+
+  std::set<ResolvedColumn> output_visible_columns;
+  GOOGLESQL_RETURN_IF_ERROR(
+      AddColumnList(scan->delete_stmt()->using_scan()->column_list(),
+                    &output_visible_columns));
+  if (scan->delete_stmt()->returning() != nullptr) {
+    for (const auto& output_column :
+         scan->delete_stmt()->returning()->output_column_list()) {
+      output_visible_columns.insert(output_column->column());
+    }
+  }
+
+  GOOGLESQL_RETURN_IF_ERROR(CheckColumnList(scan, output_visible_columns));
+
+  return absl::OkStatus();
+}
+
 absl::Status Validator::ValidateResolvedInsertScan(
     const ResolvedInsertScan* scan,
     const std::set<ResolvedColumn>& visible_parameters) {
@@ -10127,7 +10209,8 @@ absl::Status Validator::ValidateInnerGraphLinearScanStructure(
               << "ResolvedFinishScan must be preceded by a DML operation";
           VALIDATOR_RET_CHECK(
               primitive_ops[i - 1]->Is<ResolvedGraphInsertScan>() ||
-              primitive_ops[i - 1]->Is<ResolvedGraphUpdateScan>())
+              primitive_ops[i - 1]->Is<ResolvedGraphUpdateScan>() ||
+              primitive_ops[i - 1]->Is<ResolvedGraphDeleteScan>())
               << "ResolvedFinishScan must be preceded by a DML operation";
           break;
         default:
@@ -10197,6 +10280,10 @@ absl::Status Validator::ValidateInnerGraphLinearScanStructure(
         case RESOLVED_GRAPH_UPDATE_SCAN:
           input_scan =
               primitive_ops[i]->GetAs<ResolvedGraphUpdateScan>()->input_scan();
+          break;
+        case RESOLVED_GRAPH_DELETE_SCAN:
+          input_scan =
+              primitive_ops[i]->GetAs<ResolvedGraphDeleteScan>()->input_scan();
           break;
         default:
           VALIDATOR_RET_CHECK_FAIL();
@@ -10673,6 +10760,62 @@ absl::Status Validator::ValidateResolvedGraphUpdateScan(
   }
 
   GOOGLESQL_RETURN_IF_ERROR(CheckColumnList(scan, available_output_columns));
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateResolvedGraphDeleteScan(
+    const ResolvedGraphDeleteScan* scan,
+    const std::set<ResolvedColumn>& visible_parameters) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  PushErrorContext push(this, scan);
+  const ResolvedScan* input_scan = scan->input_scan();
+
+  // Validate input scan first.
+  VALIDATOR_RET_CHECK_NE(input_scan, nullptr) << "Input scan must not be null";
+  GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedScan(input_scan, visible_parameters));
+
+  const std::vector<std::unique_ptr<const ResolvedComputedColumn>>&
+      delete_item_list = scan->delete_item_list();
+  // Must be at least one item specified for deletion.
+  VALIDATOR_RET_CHECK(!delete_item_list.empty())
+      << "At least one graph element must be specified for deletion";
+
+  std::set<ResolvedColumn> visible_columns;
+  GOOGLESQL_RETURN_IF_ERROR(AddColumnList(input_scan->column_list(), &visible_columns));
+
+  // Validation includes checking that each `delete_item` is only of graph
+  // element type and that each `delete_item->expr()` must reference a column
+  // from the input scan. We only check `delete_item->expr()` because
+  // `ValidateResolvedComputedColumn` already checks that
+  // `delete_item->column().type()` == `delete_item->expr()->type()`.
+  // TODO - Allow referencing external scope (e.g., correlated
+  // columns) in the future.
+  for (const auto& delete_item : delete_item_list) {
+    GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedComputedColumn(
+        visible_columns, visible_parameters, delete_item.get()));
+    const ResolvedExpr* delete_item_expr = delete_item->expr();
+    const Type* delete_item_expr_type = delete_item_expr->type();
+    VALIDATOR_RET_CHECK(delete_item_expr->Is<ResolvedColumnRef>())
+        << "Delete item `expr` must be a column reference";
+    VALIDATOR_RET_CHECK(delete_item_expr_type->IsGraphElement())
+        << "An item being deleted must be a graph element, but found invalid "
+           "type "
+        << delete_item_expr_type->DebugString();
+  }
+
+  // Remove the pre-delete columns referenced in `delete_item_list` from
+  // `visible_columns` because we don't allow those pre-delete columns to be
+  // accessed later.
+  for (const auto& delete_item : delete_item_list) {
+    visible_columns.erase(
+        delete_item->expr()->GetAs<ResolvedColumnRef>()->column());
+  }
+  GOOGLESQL_RETURN_IF_ERROR(
+      AddColumnsFromComputedColumnList(delete_item_list, &visible_columns));
+  // Checks that the output columns must be a subset of the visible columns,
+  // which are the set of `input_scan` output columns not specified for deletion
+  // and the new computed columns from `delete_item_list`.
+  GOOGLESQL_RETURN_IF_ERROR(CheckColumnList(scan, visible_columns));
   return absl::OkStatus();
 }
 
@@ -11370,9 +11513,24 @@ absl::Status Validator::ValidateResolvedUpdateConstructor(
 
   for (const std::unique_ptr<const ResolvedUpdateFieldItem>& update_field_item :
        update_constructor->update_field_item_list()) {
-    GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedExpr(
-        update_visible_columns, visible_parameters, update_field_item->expr()));
     VALIDATOR_RET_CHECK(!update_field_item->proto_field_path().empty());
+
+    // `update_item_column` holds the value at `proto_field_path` before the
+    // update. It is visible to this item's `expr` only, not to sibling items
+    // or to the `expr` of the UPDATE constructor.
+    std::set<ResolvedColumn> item_visible_columns = update_visible_columns;
+    if (update_field_item->update_item_column() != nullptr) {
+      const ResolvedColumn& update_item_column =
+          update_field_item->update_item_column()->column();
+      GOOGLESQL_RETURN_IF_ERROR(CheckUniqueColumnId(update_item_column));
+      GOOGLESQL_RETURN_IF_ERROR(ValidateUpdateItemColumnType(
+          update_item_column, update_field_item->proto_field_path().back(),
+          update_field_item->operation()));
+      VALIDATOR_RET_CHECK(
+          item_visible_columns.insert(update_item_column).second);
+    }
+    GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedExpr(
+        item_visible_columns, visible_parameters, update_field_item->expr()));
     const absl::string_view base_proto_name = update_constructor->expr()
                                                   ->type()
                                                   ->AsProto()
@@ -11381,6 +11539,41 @@ absl::Status Validator::ValidateResolvedUpdateConstructor(
     GOOGLESQL_RETURN_IF_ERROR(ValidateProtoFieldPath(
         base_proto_name, update_field_item->proto_field_path()));
     update_field_item->operation();  // Mark field as visited.
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Validator::ValidateUpdateItemColumnType(
+    const ResolvedColumn& update_item_column,
+    const google::protobuf::FieldDescriptor* leaf_field,
+    ResolvedUpdateFieldItem::Operation operation) {
+  VALIDATOR_RET_CHECK(leaf_field != nullptr);
+  const Type* type = update_item_column.type();
+  VALIDATOR_RET_CHECK(type != nullptr);
+  // For UPDATE_MANY on a repeated field the column holds one element, so it
+  // has the element type. Otherwise it holds the whole field value, which is
+  // an array if the field is repeated.
+  if (leaf_field->is_repeated() &&
+      operation != ResolvedUpdateFieldItem::UPDATE_MANY) {
+    VALIDATOR_RET_CHECK(type->IsArray())
+        << "update_item_column for repeated field " << leaf_field->full_name()
+        << " must be an array, but has type " << type->DebugString();
+    type = type->AsArray()->element_type();
+  }
+  TypeKind expected_kind;
+  GOOGLESQL_RETURN_IF_ERROR(
+      ProtoType::FieldDescriptorToTypeKindBase(leaf_field, &expected_kind));
+  VALIDATOR_RET_CHECK_EQ(type->kind(), expected_kind)
+      << "update_item_column has type " << type->DebugString()
+      << ", which does not match field " << leaf_field->full_name();
+  if (type->IsProto()) {
+    VALIDATOR_RET_CHECK(leaf_field->message_type() != nullptr);
+    VALIDATOR_RET_CHECK_EQ(type->AsProto()->descriptor()->full_name(),
+                           leaf_field->message_type()->full_name());
+  } else if (type->IsEnum()) {
+    VALIDATOR_RET_CHECK(leaf_field->enum_type() != nullptr);
+    VALIDATOR_RET_CHECK_EQ(type->AsEnum()->enum_descriptor()->full_name(),
+                           leaf_field->enum_type()->full_name());
   }
   return absl::OkStatus();
 }
@@ -11398,7 +11591,11 @@ absl::Status Validator::ValidateResolvedMakeColumnListSpec(
   VALIDATOR_RET_CHECK_NE(column_name_list, nullptr);
   GOOGLESQL_RETURN_IF_ERROR(ValidateResolvedExpr(visible_columns, visible_parameters,
                                        column_name_list));
-  VALIDATOR_RET_CHECK(IsStringArray(column_name_list->type()));
+  const bool is_empty_array_literal =
+      column_name_list->Is<ResolvedLiteral>() &&
+      column_name_list->GetAs<ResolvedLiteral>()->value().is_empty_array();
+  VALIDATOR_RET_CHECK(is_empty_array_literal ||
+                      IsStringArray(column_name_list->type()));
   VALIDATOR_RET_CHECK(IsAnalysisConstant(column_name_list));
 
   std::optional<Value> array_value;

@@ -365,6 +365,7 @@ public class FunctionArgumentTypeTest {
             .setDescriptorResolutionTableOffset(1234)
             .setArgumentCollationMode(FunctionEnums.ArgumentCollationMode.AFFECTS_PROPAGATION)
             .setArgumentAliasKind(FunctionEnums.ArgumentAliasKind.ARGUMENT_ALIASED)
+            .setSupportsOrderBy(true)
             .build();
     FileDescriptorSetsBuilder fileDescriptorSetsBuilder = new FileDescriptorSetsBuilder();
     assertThat(options)

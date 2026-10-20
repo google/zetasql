@@ -696,10 +696,11 @@ bool Function::SupportsWithinClause() const {
   // Currently, the WITHIN clause is restricted to built-in functions because
   // supporting user-defined aggregates (UDAs) requires further design.
   // In particular, GoogleSQL UDAs can contain multi-level aggregation (MLA),
-  // for which WITHIN clause support has not yet been designed. While this
-  // limitation stems primarily from the inliner and reference implementation
-  // rather than the resolver, we disallow it here until the requirements
-  // and complexity are fully understood.
+  // for which WITHIN clause support has not yet been designed. While the
+  // language specification allows any aggregate functions including UDAs, the
+  // current implementation limitation stems primarily from the inliner and
+  // reference implementation rather than the resolver. So we disallow it here
+  // until the complexity is fully understood.
   if (!IsGoogleSQLBuiltin()) {
     return false;
   }

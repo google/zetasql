@@ -15,7 +15,7 @@ SELECT KEYS.NEW_KEYSET(CAST(NULL AS STRING))
 
 SELECT KEYS.NEW_KEYSET('invalid key type')
 --
-ERROR: First argument (key type) in function KEYS.NEW_KEYSET must be one of 'AEAD_AES_GCM_256', 'DETERMINISTIC_AEAD_AES_SIV_CMAC_256', but is 'invalid key type' [at 1:8]
+ERROR: First argument (key type) in function KEYS.NEW_KEYSET must be one of 'AEAD_AES_GCM_256', 'DETERMINISTIC_AEAD_AES_SIV_CMAC_256', 'FPE_FF1', but is 'invalid key type' [at 1:8]
 SELECT KEYS.NEW_KEYSET('invalid key type')
        ^
 ==

@@ -614,7 +614,7 @@ TEST_F(ResolverTest, ResolveTypeInvalidTypeNameTests) {
       StatusIs(_, HasSubstr("TIMESTAMP precision must be 0, 3, 6, 9, or 12")));
 
   EXPECT_THAT(resolver_->ResolveTypeName("vector(0)", &type),
-              StatusIs(_, HasSubstr("VECTOR length must be greater than 0")));
+              StatusIs(_, HasSubstr("VECTOR dims must be greater than 0")));
 
   EXPECT_THAT(
       resolver_->ResolveTypeName("string collate 'abc'", &type),

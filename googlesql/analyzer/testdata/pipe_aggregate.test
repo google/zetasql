@@ -1568,16 +1568,16 @@ QueryStmt
   +-AggregateScan
     +-column_list=[$groupby.grouping_ci#6, $aggregate.max_ci#5]
     +-input_scan=
-    | +-TableScan(column_list=[CollatedTable.string_ci#1{Collation:"und:ci"}], table=CollatedTable, column_index_list=[0])
+    | +-TableScan(column_list=[CollatedTable.string_ci#1], table=CollatedTable, column_index_list=[0])
     +-group_by_list=
     | +-grouping_ci#6 :=
     |   +-FunctionCall(GoogleSQL:coalesce(repeated(1) STRING) -> STRING)
-    |     +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+    |     +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1)
     +-aggregate_list=
       +-max_ci#5 :=
         +-AggregateFunctionCall(GoogleSQL:max(STRING) -> STRING)
           +-FunctionCall(GoogleSQL:coalesce(repeated(1) STRING) -> STRING)
-            +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1{Collation:"und:ci"})
+            +-ColumnRef(type=STRING, column=CollatedTable.string_ci#1)
 --
 ALTERNATION GROUP: ,+ANNOTATION_FRAMEWORK,+COLLATION_SUPPORT
 --

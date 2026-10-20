@@ -342,12 +342,29 @@ void Unparser::visitASTSqlFunctionBody(const ASTSqlFunctionBody* node,
 }
 
 void Unparser::visitASTTableClause(const ASTTableClause* node, void* data) {
-  print("TABLE ");
+  const bool need_parens = node->table_subquery() != nullptr ||
+                           node->partition_by() != nullptr ||
+                           node->order_by() != nullptr;
+  print(need_parens ? "TABLE(" : "TABLE ");
   if (node->table_path() != nullptr) {
     node->table_path()->Accept(this, data);
   }
   if (node->tvf() != nullptr) {
     node->tvf()->Accept(this, data);
+  }
+  if (node->table_subquery() != nullptr) {
+    print("(");
+    node->table_subquery()->Accept(this, data);
+    print(")");
+  }
+  if (node->partition_by() != nullptr) {
+    node->partition_by()->Accept(this, data);
+  }
+  if (node->order_by() != nullptr) {
+    node->order_by()->Accept(this, data);
+  }
+  if (need_parens) {
+    print(")");
   }
 }
 
@@ -3201,6 +3218,15 @@ void Unparser::visitASTFunctionCall(const ASTFunctionCall* node, void* data) {
     print("(");
     node->function()->Accept(this, data);
     print(")");
+  } else if (node->function()->num_names() == 1 &&
+             googlesql_base::CaseEqual(
+                 node->function()->first_name()->GetAsIdString().ToStringView(),
+                 "table")) {
+    // Always quote a single-part function name "table" so that when it appears
+    // as a TVF argument (e.g., MyTVF(`table`(1 + 2))), it does not unparse as
+    // unquoted TABLE(...) and re-parse as a TableClause.
+    print(ToAlwaysQuotedIdentifierLiteral(
+        node->function()->first_name()->GetAsIdString().ToStringView()));
   } else {
     node->function()->Accept(this, data);
   }

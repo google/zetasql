@@ -618,33 +618,46 @@ TypeKind:TYPE_STRING
 collation_propagated_to_sql_function
 ==
 
-[required_features=TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS,TABLE_VALUED_FUNCTIONS]
 [name=collation_in_tvf_with_any_string_applies_correct_defaults]
 SELECT
   col, x, y, COUNT(*) AS count
 FROM tvf_with_any_string((SELECT col_ci AS col FROM StringTable))
+WHERE COLLATE('a', 'und:ci') = 'A'  -- Dummy tautology for the feature_integrity_test.
 GROUP BY col, x, y
 ORDER BY col
 --
 ARRAY<STRUCT<col STRING, x STRING, y STRING, count INT64>>[{"A", "A", "B", 2}]
 --
 AggregateFunctionSignature::COUNT(*):FN_COUNT_STAR
+FunctionErrorMode::COLLATE:FN_COLLATE:DEFAULT_ERROR_MODE
 FunctionErrorMode::COUNT(*):FN_COUNT_STAR:DEFAULT_ERROR_MODE
+FunctionName::COLLATE
 FunctionName::COUNT(*)
+FunctionSignature::COLLATE:FN_COLLATE
 FunctionSignature::COUNT(*):FN_COUNT_STAR
 LanguageFeature::FEATURE_TABLE_VALUED_FUNCTIONS
+LanguageFeature:VERSION_1_3:FEATURE_ANNOTATION_FRAMEWORK
 LanguageFeature:VERSION_1_4:FEATURE_TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS
+LanguageFeature:VERSION_1_5:FEATURE_COLLATION_SUPPORT
+OperatorName:=
+OperatorSignature:=:FN_EQUAL
 ProductMode:InternalAndExternal
 ResolvedNodeKind:Expression:RESOLVED_AGGREGATE_FUNCTION_CALL
+ResolvedNodeKind:Expression:RESOLVED_CAST
 ResolvedNodeKind:Expression:RESOLVED_COLUMN_REF
+ResolvedNodeKind:Expression:RESOLVED_FUNCTION_CALL
 ResolvedNodeKind:Expression:RESOLVED_LITERAL
 ResolvedNodeKind:Scan:RESOLVED_AGGREGATE_SCAN
+ResolvedNodeKind:Scan:RESOLVED_FILTER_SCAN
 ResolvedNodeKind:Scan:RESOLVED_ORDER_BY_SCAN
 ResolvedNodeKind:Scan:RESOLVED_PROJECT_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TABLE_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TVFSCAN
 ResolvedNodeKind:Statement:RESOLVED_QUERY_STMT
+Special:InDevelopment
 TimeResolution:Any
+TypeCast:TYPE_STRING:TYPE_STRING
+TypeKind:TYPE_BOOL
 TypeKind:TYPE_INT64
 TypeKind:TYPE_STRING
 ==
@@ -715,19 +728,24 @@ TypeKind:TYPE_BOOL
 TypeKind:TYPE_STRING
 ==
 
-[required_features=TABLE_VALUED_FUNCTIONS,TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS]
 [name=collation_in_tvf_fixed_table_passthrough_implicit_return]
 SELECT
   col_ci,
   cnt
 FROM tvf_fixed_table_passthrough_implicit_return(TABLE StringTable)
 WHERE col_ci = 'a' AND col_ci != 'A'
+  AND COLLATE('a', 'und:ci') = 'A'  -- Dummy tautology for the feature_integrity_test.
 ORDER BY col_ci
 --
 ARRAY<STRUCT<col_ci STRING, cnt INT64>>[{"a", 2}]
 --
+FunctionErrorMode::COLLATE:FN_COLLATE:DEFAULT_ERROR_MODE
+FunctionName::COLLATE
+FunctionSignature::COLLATE:FN_COLLATE
 LanguageFeature::FEATURE_TABLE_VALUED_FUNCTIONS
+LanguageFeature:VERSION_1_3:FEATURE_ANNOTATION_FRAMEWORK
 LanguageFeature:VERSION_1_4:FEATURE_TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS
+LanguageFeature:VERSION_1_5:FEATURE_COLLATION_SUPPORT
 OperatorName:!=
 OperatorName:=
 OperatorName:AND
@@ -735,6 +753,7 @@ OperatorSignature:!=:FN_NOT_EQUAL
 OperatorSignature:=:FN_EQUAL
 OperatorSignature:AND:FN_AND
 ProductMode:InternalAndExternal
+ResolvedNodeKind:Expression:RESOLVED_CAST
 ResolvedNodeKind:Expression:RESOLVED_COLUMN_REF
 ResolvedNodeKind:Expression:RESOLVED_FUNCTION_CALL
 ResolvedNodeKind:Expression:RESOLVED_LITERAL
@@ -744,7 +763,9 @@ ResolvedNodeKind:Scan:RESOLVED_PROJECT_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TABLE_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TVFSCAN
 ResolvedNodeKind:Statement:RESOLVED_QUERY_STMT
+Special:InDevelopment
 TimeResolution:Any
+TypeCast:TYPE_STRING:TYPE_STRING
 TypeKind:TYPE_BOOL
 TypeKind:TYPE_STRING
 ==
@@ -774,19 +795,24 @@ TypeKind:TYPE_STRING
 collation_propagated_to_sql_function
 ==
 
-[required_features=TABLE_VALUED_FUNCTIONS,TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS]
 [name=collation_in_tvf_fixed_table_passthrough_explicit_return]
 SELECT
   col_ci,
   cnt
 FROM tvf_fixed_table_passthrough_explicit_return(TABLE StringTable)
 WHERE col_ci = 'a' AND col_ci != 'A'
+  AND COLLATE('a', 'und:ci') = 'A'  -- Dummy tautology for the feature_integrity_test.
 ORDER BY col_ci
 --
 ARRAY<STRUCT<col_ci STRING, cnt INT64>>[{"a", 2}]
 --
+FunctionErrorMode::COLLATE:FN_COLLATE:DEFAULT_ERROR_MODE
+FunctionName::COLLATE
+FunctionSignature::COLLATE:FN_COLLATE
 LanguageFeature::FEATURE_TABLE_VALUED_FUNCTIONS
+LanguageFeature:VERSION_1_3:FEATURE_ANNOTATION_FRAMEWORK
 LanguageFeature:VERSION_1_4:FEATURE_TYPE_ANNOTATIONS_ON_SQL_FUNCTION_ARGUMENTS
+LanguageFeature:VERSION_1_5:FEATURE_COLLATION_SUPPORT
 OperatorName:!=
 OperatorName:=
 OperatorName:AND
@@ -794,6 +820,7 @@ OperatorSignature:!=:FN_NOT_EQUAL
 OperatorSignature:=:FN_EQUAL
 OperatorSignature:AND:FN_AND
 ProductMode:InternalAndExternal
+ResolvedNodeKind:Expression:RESOLVED_CAST
 ResolvedNodeKind:Expression:RESOLVED_COLUMN_REF
 ResolvedNodeKind:Expression:RESOLVED_FUNCTION_CALL
 ResolvedNodeKind:Expression:RESOLVED_LITERAL
@@ -803,6 +830,8 @@ ResolvedNodeKind:Scan:RESOLVED_PROJECT_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TABLE_SCAN
 ResolvedNodeKind:Scan:RESOLVED_TVFSCAN
 ResolvedNodeKind:Statement:RESOLVED_QUERY_STMT
+Special:InDevelopment
 TimeResolution:Any
+TypeCast:TYPE_STRING:TYPE_STRING
 TypeKind:TYPE_BOOL
 TypeKind:TYPE_STRING

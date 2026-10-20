@@ -25,7 +25,6 @@
 #include <memory>
 #include <optional>
 #include <string>
-#include <utility>
 #include <vector>
 
 #include "googlesql/public/functions/json_internal.h"
@@ -43,17 +42,15 @@
 namespace googlesql {
 namespace functions {
 
-namespace json_internal {
-
-class ValidJSONPathIterator;
-
-}  // namespace json_internal
-
 // Utility class for Json extraction. Optimized for reuse of a constant
 // json_path, whereas the above functions normalize json_path on every call.
 class JsonPathEvaluator {
  public:
-  ~JsonPathEvaluator();
+  virtual ~JsonPathEvaluator();
+
+  // Not copyable or movable.
+  JsonPathEvaluator(const JsonPathEvaluator&) = delete;
+  JsonPathEvaluator& operator=(const JsonPathEvaluator&) = delete;
 
   // Creates a new evaluator for a constant `json_path`. `json_path` does not
   // need to persist beyond the call to `Create()`.
@@ -85,6 +82,12 @@ class JsonPathEvaluator {
   //    * Reverse solidus, '\'
   //    * Control characters (U+0000 through U+001F).
   //
+  // When `enable_wildcard_and_descendant` is true (and `sql_standard_mode` is
+  // true), wildcard (`.*`, `[*]`) and recursive descendant (`..`) operators are
+  // permitted in `json_path`. They are only supported for JSON inputs: the
+  // `absl::string_view` overloads of the `Extract*` methods return
+  // OUT_OF_RANGE for such a `json_path`.
+  //
   // Error cases:
   // * OUT_OF_RANGE - `json_path` is malformed.
   // * OUT_OF_RANGE - `json_path` uses a (currently) unsupported expression
@@ -92,7 +95,8 @@ class JsonPathEvaluator {
   static absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> Create(
       absl::string_view json_path, bool sql_standard_mode,
       bool enable_special_character_escaping_in_values,
-      bool enable_special_character_escaping_in_keys);
+      bool enable_special_character_escaping_in_keys,
+      bool enable_wildcard_and_descendant = false);
 
   // Extracts a value from `json` according to the JSONPath string json_path
   // provided in Create().
@@ -109,8 +113,10 @@ class JsonPathEvaluator {
   //   json_path: $.a.b[0].c
   //   value -> "foo" (i.e. quoted string)
   //
-  //  Since JsonPathEvaluator is only created on valid JSON paths this
-  //  will always return OK.
+  // Error cases:
+  // * OUT_OF_RANGE - `json` exceeds the maximum nesting depth.
+  // * OUT_OF_RANGE - `json_path` has wildcard or recursive descendant
+  //   operators, which are only supported for JSON inputs.
   //
   // Null cases:
   // * `json` is malformed and fails to parse.
@@ -120,17 +126,25 @@ class JsonPathEvaluator {
   //
   // When `issue_warning` is passed in, if there's a potential incorrect
   // behavior that does not cause an error, the callback will be triggered.
+  virtual absl::Status Extract(
+      absl::string_view json, std::string* value, bool* is_null,
+      std::optional<std::function<void(absl::Status)>> issue_warning) const = 0;
   absl::Status Extract(absl::string_view json, std::string* value,
-                       bool* is_null,
-                       std::optional<std::function<void(absl::Status)>>
-                           issue_warning = std::nullopt) const;
+                       bool* is_null) const {
+    return Extract(json, value, is_null, /*issue_warning=*/std::nullopt);
+  }
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
-  // * json_path does not match anything.
+  // * json_path does not match anything (or matches multiple elements).
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
-  std::optional<JSONValueConstRef> Extract(JSONValueConstRef input) const;
+  virtual std::optional<JSONValueConstRef> Extract(
+      JSONValueConstRef input) const = 0;
+
+  // Checks if `json_path` matches at least one element in `input` (including a
+  // JSON `null` literal).
+  virtual bool ExtractExists(JSONValueConstRef input) const = 0;
 
   // Similar to the above, but the 'json_path' provided in Create() must refer
   // to a scalar value in 'json'.
@@ -146,12 +160,12 @@ class JsonPathEvaluator {
   // Error cases are the same as in JsonExtract.
   // Null cases are the same as in JsonExtract, except for the addition of:
   // * json_path does not correspond to a scalar value in json.
-  absl::Status ExtractScalar(absl::string_view json, std::string* value,
-                             bool* is_null) const;
+  virtual absl::Status ExtractScalar(absl::string_view json, std::string* value,
+                                     bool* is_null) const = 0;
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
-  // * json_path does not match anything.
+  // * json_path does not match anything (or matches multiple elements).
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to a scalar value in json.
@@ -183,14 +197,18 @@ class JsonPathEvaluator {
   //
   // When `issue_warning` is passed in, if there's a potential incorrect
   // behavior that does not cause an error, the callback will be triggered.
+  virtual absl::Status ExtractArray(
+      absl::string_view json, std::vector<std::string>* value, bool* is_null,
+      std::optional<std::function<void(absl::Status)>> issue_warning) const = 0;
   absl::Status ExtractArray(absl::string_view json,
-                            std::vector<std::string>* value, bool* is_null,
-                            std::optional<std::function<void(absl::Status)>>
-                                issue_warning = std::nullopt) const;
+                            std::vector<std::string>* value,
+                            bool* is_null) const {
+    return ExtractArray(json, value, is_null, /*issue_warning=*/std::nullopt);
+  }
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
-  // * json_path does not match anything.
+  // * json_path does not match anything (or matches multiple elements).
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to an array value in json.
@@ -215,13 +233,13 @@ class JsonPathEvaluator {
   // Error cases are the same as in ExtractArray function.
   // Null cases are the same as in ExtractArray, except for the addition of:
   // * json_path does not correspond to an array of scalar objects in json.
-  absl::Status ExtractStringArray(
+  virtual absl::Status ExtractStringArray(
       absl::string_view json, std::vector<std::optional<std::string>>* value,
-      bool* is_null) const;
+      bool* is_null) const = 0;
 
   // Similar to the string version above, but for JSON types.
   // Returns std::nullopt to indicate that:
-  // * json_path does not match anything.
+  // * json_path does not match anything (or matches multiple elements).
   // * json_path uses an array index but the value is not an array, or the path
   //   uses a name but the value is not an object.
   // * json_path does not correspond to an array of scalars in json.
@@ -229,26 +247,16 @@ class JsonPathEvaluator {
       JSONValueConstRef input) const;
 
   ABSL_DEPRECATED("Set escaping in JsonPathEvaluator::Create() instead.")
-  void enable_special_character_escaping() {
-    enable_special_character_escaping_in_values_ = true;
-  }
+  virtual void enable_special_character_escaping() {}
 
   // Sets the callback to be invoked when a string with special characters was
   // returned for JSON_EXTRACT, but special character escaping was turned off.
   // No callback will be made if this is set to an empty target.
-  void set_escaping_needed_callback(
-      std::function<void(absl::string_view, bool)> callback) {
-    escaping_needed_callback_ = std::move(callback);
-  }
+  virtual void set_escaping_needed_callback(
+      std::function<void(absl::string_view, bool)> callback) {}
 
- private:
-  JsonPathEvaluator(std::unique_ptr<json_internal::ValidJSONPathIterator> itr,
-                    bool enable_special_character_escaping_in_values,
-                    bool enable_special_character_escaping_in_keys);
-  const std::unique_ptr<json_internal::ValidJSONPathIterator> path_iterator_;
-  bool enable_special_character_escaping_in_values_ = false;
-  bool enable_special_character_escaping_in_keys_ = false;
-  std::function<void(absl::string_view, bool)> escaping_needed_callback_;
+ protected:
+  JsonPathEvaluator() = default;
 };
 
 // Converts a JSONPath token (unquoted and unescaped) into a SQL standard

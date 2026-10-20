@@ -36,6 +36,7 @@
 #include "googlesql/public/language_options.h"
 #include "googlesql/public/table_valued_function.h"
 #include "googlesql/public/type.h"
+#include "absl/base/nullability.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -456,6 +457,15 @@ std::string CheckHasIntervalTypeArgument(
 // to STRING.
 bool CanStringConcatCoerceFrom(const googlesql::Type* arg_type);
 
+// Traverses `type` and its component types, returning the first type that
+// is not supported in JSON conversion functions. If `type` is fully supported
+// then nullptr is returned.
+// TODO: b/483763571 - Expand this function to cover types more exhaustively.
+// Desired behavior for extended types and existing unsupported types will need
+// to be considered.
+const Type* /*absl_nullable*/ GetUnsupportedTypeForJsonConversion(
+    const Type* /*absl_nonnull*/ type);
+
 // Compute the result type for TOP_COUNT and TOP_SUM.
 // The output type is
 //   ARRAY<
@@ -699,6 +709,11 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
                               NameToFunctionMap* functions,
                               NameToTypeMap* types);
 
+absl::Status GetVariantFunctions(TypeFactory* type_factory,
+                                 const GoogleSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions,
+                                 NameToTypeMap* types);
+
 absl::Status GetNumericFunctions(TypeFactory* type_factory,
                                  const GoogleSQLBuiltinFunctionOptions& options,
                                  NameToFunctionMap* functions,
@@ -804,6 +819,11 @@ absl::Status GetTimeSeriesTableValuedFunctions(
 
 // Adds KMEANS TVF to the given map.
 absl::Status GetKMeansTableValuedFunction(
+    TypeFactory* type_factory, const GoogleSQLBuiltinFunctionOptions& options,
+    NameToTableValuedFunctionMap* table_valued_functions);
+
+// Adds LookupTable TVF to the given map.
+absl::Status GetLookupTableTableValuedFunction(
     TypeFactory* type_factory, const GoogleSQLBuiltinFunctionOptions& options,
     NameToTableValuedFunctionMap* table_valued_functions);
 

@@ -732,14 +732,7 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRef(
     ResolvedStatement::ObjectAccess access_flags) {
   ABSL_DCHECK(column.IsInitialized());
   RecordColumnAccess(column, access_flags);
-  std::unique_ptr<ResolvedColumnRef> resolved_node =
-      MakeResolvedColumnRef(column.type(), column, is_correlated);
-  // TODO: Replace ABSL_DCHECK below with GOOGLESQL_RETURN_IF_ERROR and update all
-  // the references of this function.
-  absl::Status status =
-      CheckAndPropagateAnnotations(/*error_node=*/nullptr, resolved_node.get());
-  GOOGLESQL_DCHECK_OK(status);
-  return resolved_node;
+  return MakeResolvedColumnRef(column, is_correlated);
 }
 
 std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
@@ -768,11 +761,8 @@ std::unique_ptr<ResolvedColumnRef> Resolver::MakeColumnRefWithCorrelation(
 // static
 std::unique_ptr<const ResolvedColumnRef> Resolver::CopyColumnRef(
     const ResolvedColumnRef* column_ref) {
-  auto resolved_column_ref = MakeResolvedColumnRef(
-      column_ref->type(), column_ref->column(), column_ref->is_correlated());
-  resolved_column_ref->set_type_annotation_map(
-      column_ref->type_annotation_map());
-  return resolved_column_ref;
+  return MakeResolvedColumnRef(column_ref->column(),
+                               column_ref->is_correlated());
 }
 
 absl::Status Resolver::ResolvePathExpressionAsType(
@@ -1495,6 +1485,7 @@ absl::Status Resolver::ResolveType(
     const ASTType* type,
     const ResolveTypeModifiersOptions& resolve_type_modifier_options,
     const Type** resolved_type, TypeModifiers* resolved_type_modifiers) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
   if (!resolve_type_modifier_options.allow_type_parameters ||
       !resolve_type_modifier_options.allow_collation) {
     GOOGLESQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
@@ -1614,6 +1605,8 @@ absl::Status Resolver::ResolveArrayType(
       !resolve_type_modifier_options.allow_collation) {
     GOOGLESQL_RET_CHECK(resolve_type_modifier_options.context.has_value());
   }
+
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
 
   const Type* resolved_element_type;
   TypeModifiers resolved_element_type_modifiers;
@@ -2326,6 +2319,12 @@ absl::Status Resolver::PruneColumnLists(const ResolvedNode* node) const {
             node->GetAs<ResolvedDeleteStmt>()->column_access_list_size() == 0)
       << "SetColumnAccessList was called before PruneColumnList";
 
+  GOOGLESQL_RET_CHECK(node->node_kind() != googlesql::RESOLVED_DELETE_SCAN ||
+            node->GetAs<ResolvedDeleteScan>()
+                    ->delete_stmt()
+                    ->column_access_list_size() == 0)
+      << "SetColumnAccessList was called before PruneColumnList";
+
   std::vector<const ResolvedNode*> scan_nodes;
   node->GetDescendantsSatisfying(&ResolvedNode::IsScan, &scan_nodes);
 
@@ -2499,6 +2498,23 @@ absl::Status Resolver::CheckAndPropagateAnnotations(
     const ASTNode* error_node, ResolvedNode* resolved_node) {
   return annotation_propagator_->CheckAndPropagateAnnotations(error_node,
                                                               resolved_node);
+}
+
+absl::Status Resolver::InitializeAnnotationsForInputColumn(
+    const ASTNode* error_node, AnnotatedType* annotated_type) {
+  if (!analyzer_options_.language().LanguageFeatureEnabled(
+          FEATURE_ANNOTATION_FRAMEWORK)) {
+    annotated_type->annotation_map = nullptr;
+    return absl::OkStatus();
+  }
+  std::unique_ptr<ResolvedParameter> dummy_parameter =
+      MakeResolvedParameter(annotated_type->type, /*name=*/"", /*position=*/0,
+                            /*is_untyped=*/false);
+  dummy_parameter->set_type_annotation_map(annotated_type->annotation_map);
+  GOOGLESQL_RETURN_IF_ERROR(
+      CheckAndPropagateAnnotations(error_node, dummy_parameter.get()));
+  annotated_type->annotation_map = dummy_parameter->type_annotation_map();
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ThrowErrorIfExprHasCollation(

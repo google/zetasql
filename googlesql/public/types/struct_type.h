@@ -222,12 +222,6 @@ class StructType : public ListBackedType {
   const std::vector<StructField> fields_;
   const std::vector<const Type*> component_types_;
 
-  // The deepest nesting depth in the type tree rooted at this StructType, i.e.,
-  // the maximum nesting_depth of the field types, plus 1 for the StructType
-  // itself. If all fields are simple types, then this is 1. This field is not
-  // serialized. It is recalculated during deserialization.
-  const int nesting_depth_;
-
   // Lazily built map from name to struct field index. Ambiguous lookups are
   // designated with an index of -1. This is only built if FindField is called.
   // The key to the map is casefolded (lowercase) normalized representation of
@@ -235,6 +229,12 @@ class StructType : public ListBackedType {
   mutable absl::Mutex mutex_;
   mutable absl::flat_hash_map<std::string, int> field_name_to_index_map_
       ABSL_GUARDED_BY(mutex_);
+
+  // The deepest nesting depth in the type tree rooted at this StructType, i.e.,
+  // the maximum nesting_depth of the field types, plus 1 for the StructType
+  // itself. If all fields are simple types, then this is 1. This field is not
+  // serialized. It is recalculated during deserialization.
+  const int nesting_depth_;
 
   friend class TypeFactory;
   friend class MeasureType;

@@ -353,8 +353,8 @@ public class AnnotationMap {
         return "SampleAnnotation";
       case IS_VERSIONED:
         return "IsVersioned";
-      case VECTOR_LENGTH:
-        return "VectorLength";
+      case VECTOR_DIMS:
+        return "VectorDims";
       case VECTOR_ENCODING:
         return "VectorEncoding";
       case MAX_BUILTIN_ANNOTATION_KIND:
@@ -377,8 +377,8 @@ public class AnnotationMap {
     /** Annotation ID for IsVersionedAnnotation (Version-Aware DML). */
     IS_VERSIONED(4),
 
-    /** Annotation ID for VectorLengthAnnotation. */
-    VECTOR_LENGTH(5),
+    /** Annotation ID for VectorDimsAnnotation. */
+    VECTOR_DIMS(5),
 
     /** Annotation ID for VectorEncodingAnnotation. */
     VECTOR_ENCODING(6),

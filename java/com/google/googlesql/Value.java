@@ -807,6 +807,9 @@ public class Value implements Serializable {
           return Objects.equals(other.backingValue, backingValue);
         }
         return false;
+      case TYPE_VARIANT:
+        throw new UnsupportedOperationException(
+            "Non-null VARIANT values are not yet supported in Java");
       default:
         throw new IllegalStateException("Shouldn't happen: compare with unsupported type " + type);
     }
@@ -958,6 +961,7 @@ public class Value implements Serializable {
       case TYPE_JSON:
       case TYPE_INTERVAL:
       case TYPE_UUID:
+      case TYPE_VARIANT:
         return GoogleSQLStrings.convertSimpleValueToString(this, verbose);
       case TYPE_ENUM:
         {
@@ -1694,6 +1698,11 @@ public class Value implements Serializable {
           return new Value(type.asSimpleType(), proto, elements);
         }
 
+      case TYPE_VARIANT:
+        // Non-null VARIANT values are not yet supported in Java.
+        throw new UnsupportedOperationException(
+            "Non-null VARIANT values are not yet supported in Java");
+
       default:
         throw new IllegalArgumentException("Should not happen: unsupported type " + type);
     }
@@ -1723,6 +1732,7 @@ public class Value implements Serializable {
       case TYPE_JSON:
       case TYPE_UUID:
       case TYPE_COLUMN_LIST_SPEC:
+      case TYPE_VARIANT:
         return true;
       case TYPE_ARRAY:
         return isSupportedTypeKind(type.asArray().getElementType());

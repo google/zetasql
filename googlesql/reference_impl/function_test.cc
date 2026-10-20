@@ -74,6 +74,7 @@
 
 namespace googlesql {
 
+using ::absl_testing::IsOkAndHolds;
 using ::testing::HasSubstr;
 using ::absl_testing::StatusIs;
 
@@ -1587,6 +1588,26 @@ TEST(JaroWinklerSimilarityFunctionTest, ReferenceImplEval) {
   }
 }
 
+// Evaluates the builtin scalar function `kind` with return type `output_type`
+// on `args` in `context`.
+absl::StatusOr<Value> EvalBuiltinScalarFunction(FunctionKind kind,
+                                                const Type* output_type,
+                                                EvaluationContext* context,
+                                                absl::Span<const Value> args) {
+  absl::StatusOr<BuiltinScalarFunction*> unowned_fn =
+      BuiltinFunctionRegistry::GetScalarFunction(kind, output_type, {});
+  if (!unowned_fn.ok()) {
+    return unowned_fn.status();
+  }
+  std::unique_ptr<BuiltinScalarFunction> fn = absl::WrapUnique(*unowned_fn);
+  Value result;
+  absl::Status status;
+  if (!fn->Eval(/*params=*/{}, args, context, &result, &status)) {
+    return status;
+  }
+  return result;
+}
+
 TEST(FunctionEvaluationTest, JsonExistsFunctionEval) {
   RegisterBuiltinJsonFunctions();
   EvaluationContext context{/*options=*/{}};
@@ -1603,18 +1624,7 @@ TEST(FunctionEvaluationTest, JsonExistsFunctionEval) {
 
   auto eval = [&](FunctionKind kind,
                   absl::Span<const Value> args) -> absl::StatusOr<Value> {
-    auto status_or_fn =
-        BuiltinFunctionRegistry::GetScalarFunction(kind, types::BoolType(), {});
-    if (!status_or_fn.ok()) {
-      return status_or_fn.status();
-    }
-    auto fn = absl::WrapUnique<BuiltinScalarFunction>(status_or_fn.value());
-    Value result;
-    absl::Status status;
-    if (!fn->Eval(/*params=*/{}, args, &context, &result, &status)) {
-      return status;
-    }
-    return result;
+    return EvalBuiltinScalarFunction(kind, types::BoolType(), &context, args);
   };
 
   // 1. Argument count check (GOOGLESQL_RET_CHECK_EQ(args.size(), 2)).
@@ -1689,6 +1699,198 @@ TEST(FunctionEvaluationTest, JsonExistsFunctionEval) {
   EXPECT_THAT(eval(FunctionKind::kJsonExistsAll,
                    {unvalidated_invalid_json, single_path_array}),
               StatusIs(absl::StatusCode::kOutOfRange));
+}
+
+TEST(FunctionEvaluationTest, JsonPathWildcardsAndDescendantFeatureGating) {
+  RegisterBuiltinJsonFunctions();
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue json_obj,
+      JSONValue::ParseJSONString(R"json({"a": 1, "b": 2, "c": [10, 20]})json"));
+  const Value json_val = Value::Json(std::move(json_obj));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      const Value wildcard_path_array,
+      Value::MakeArray(types::StringArrayType(), {Value::String("$.*")}));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      const Value descendant_path_array,
+      Value::MakeArray(types::StringArrayType(), {Value::String("$..a")}));
+
+  EvaluationContext disabled_context{/*options=*/{}};
+
+  EvaluationContext enabled_context{/*options=*/{}};
+  LanguageOptions enabled_options;
+  enabled_options.EnableLanguageFeature(
+      FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT);
+  enabled_context.SetLanguageOptions(enabled_options);
+
+  struct JsonPathFunction {
+    FunctionKind kind;
+    const Type* output_type;
+  };
+  // SQL standard JSONPath functions, which support wildcard and descendant
+  // operators only when FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is enabled.
+  const JsonPathFunction standard_functions[] = {
+      {FunctionKind::kJsonExists, types::BoolType()},
+      {FunctionKind::kJsonQuery, types::JsonType()},
+      {FunctionKind::kJsonValue, types::StringType()},
+      {FunctionKind::kJsonQueryArray, types::JsonArrayType()},
+      {FunctionKind::kJsonValueArray, types::StringArrayType()},
+  };
+  // Legacy JSONPath functions, which never support wildcard and descendant
+  // operators.
+  const JsonPathFunction legacy_functions[] = {
+      {FunctionKind::kJsonExtract, types::JsonType()},
+      {FunctionKind::kJsonExtractScalar, types::StringType()},
+      {FunctionKind::kJsonExtractArray, types::JsonArrayType()},
+      {FunctionKind::kJsonExtractStringArray, types::StringArrayType()},
+  };
+
+  for (absl::string_view path : {"$.*", "$[*]", "$..a", "$..*", "$..[*]"}) {
+    const Value args[] = {json_val, Value::String(path)};
+    for (const JsonPathFunction& fn : standard_functions) {
+      EXPECT_THAT(EvalBuiltinScalarFunction(fn.kind, fn.output_type,
+                                            &disabled_context, args),
+                  StatusIs(absl::StatusCode::kOutOfRange,
+                           HasSubstr("Unsupported operator in JSONPath")))
+          << BuiltinFunctionCatalog::GetDebugNameByKind(fn.kind) << ": "
+          << path;
+    }
+    for (const JsonPathFunction& fn : legacy_functions) {
+      EXPECT_THAT(EvalBuiltinScalarFunction(fn.kind, fn.output_type,
+                                            &enabled_context, args),
+                  StatusIs(absl::StatusCode::kOutOfRange,
+                           HasSubstr("Unsupported operator in JSONPath")))
+          << BuiltinFunctionCatalog::GetDebugNameByKind(fn.kind) << ": "
+          << path;
+    }
+  }
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExistsAny,
+                                        types::BoolType(), &disabled_context,
+                                        {json_val, wildcard_path_array}),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExistsAll,
+                                        types::BoolType(), &disabled_context,
+                                        {json_val, descendant_path_array}),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: ..")));
+
+  // When FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is enabled, the SQL standard
+  // JSONPath functions evaluate wildcard and descendant paths on JSON inputs,
+  // while STRING inputs still reject wildcard and descendant paths.
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExists,
+                                        types::BoolType(), &enabled_context,
+                                        {json_val, Value::String("$.*")}),
+              IsOkAndHolds(Value::Bool(true)));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExists,
+                                        types::BoolType(), &enabled_context,
+                                        {json_val, Value::String("$..a")}),
+              IsOkAndHolds(Value::Bool(true)));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExistsAny,
+                                        types::BoolType(), &enabled_context,
+                                        {json_val, wildcard_path_array}),
+              IsOkAndHolds(Value::Bool(true)));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonExistsAll,
+                                        types::BoolType(), &enabled_context,
+                                        {json_val, descendant_path_array}),
+              IsOkAndHolds(Value::Bool(true)));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonQuery,
+                                        types::JsonType(), &enabled_context,
+                                        {json_val, Value::String("$..a")}),
+              IsOkAndHolds(Value::Json(JSONValue(int64_t{1}))));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonValue,
+                                        types::StringType(), &enabled_context,
+                                        {json_val, Value::String("$..a")}),
+              IsOkAndHolds(Value::String("1")));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Value expected_json_array,
+                       Value::MakeArray(types::JsonArrayType(),
+                                        {Value::Json(JSONValue(int64_t{10})),
+                                         Value::Json(JSONValue(int64_t{20}))}));
+  EXPECT_THAT(EvalBuiltinScalarFunction(
+                  FunctionKind::kJsonQueryArray, types::JsonArrayType(),
+                  &enabled_context, {json_val, Value::String("$..c")}),
+              IsOkAndHolds(expected_json_array));
+  EXPECT_THAT(EvalBuiltinScalarFunction(
+                  FunctionKind::kJsonValueArray, types::StringArrayType(),
+                  &enabled_context, {json_val, Value::String("$..c")}),
+              IsOkAndHolds(values::StringArray({"10", "20"})));
+
+  // Strict bracket index validation (rejecting negative indices and
+  // underscores) applies when wildcards or descendants are present even with
+  // FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT enabled, whereas linear paths
+  // preserve legacy permissive bracket parsing.
+  for (absl::string_view invalid_bracket_path :
+       {"$.*[-1]", "$.*[-0]", "$.*[1_2]", "$..[-1]", "$..[-0]", "$..[1_2]"}) {
+    const Value args[] = {json_val, Value::String(invalid_bracket_path)};
+    for (const JsonPathFunction& fn : standard_functions) {
+      EXPECT_THAT(EvalBuiltinScalarFunction(fn.kind, fn.output_type,
+                                            &enabled_context, args),
+                  StatusIs(absl::StatusCode::kOutOfRange,
+                           HasSubstr("Invalid token in JSONPath at:")))
+          << BuiltinFunctionCatalog::GetDebugNameByKind(fn.kind) << ": "
+          << invalid_bracket_path;
+    }
+  }
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonValue,
+                                        types::StringType(), &enabled_context,
+                                        {json_val, Value::String("$.c[-0]")}),
+              IsOkAndHolds(Value::String("10")));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonValue,
+                                        types::StringType(), &enabled_context,
+                                        {json_val, Value::String("$.c[0_1]")}),
+              IsOkAndHolds(values::NullString()));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonValue,
+                                        types::StringType(), &enabled_context,
+                                        {json_val, Value::String("$.c[-1]")}),
+              IsOkAndHolds(values::NullString()));
+
+  // STRING overloads of standard functions (e.g. JSON_QUERY(STRING, STRING))
+  // do not support FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT.
+  const Value str_val =
+      Value::String(R"({"store": {"book": [{"price": 10}], "a": 1}})");
+  const JsonPathFunction string_standard_functions[] = {
+      {FunctionKind::kJsonQuery, types::StringType()},
+      {FunctionKind::kJsonValue, types::StringType()},
+      {FunctionKind::kJsonQueryArray, types::StringArrayType()},
+      {FunctionKind::kJsonValueArray, types::StringArrayType()},
+  };
+  for (absl::string_view path :
+       {"$.*", "$[*]", "$..a", "$.store.*", "$.store.book[*]"}) {
+    const Value args[] = {str_val, Value::String(path)};
+    for (const JsonPathFunction& fn : string_standard_functions) {
+      EXPECT_THAT(EvalBuiltinScalarFunction(fn.kind, fn.output_type,
+                                            &enabled_context, args),
+                  StatusIs(absl::StatusCode::kOutOfRange,
+                           HasSubstr("not supported for STRING input")))
+          << BuiltinFunctionCatalog::GetDebugNameByKind(fn.kind) << ": "
+          << path;
+    }
+  }
+
+  // When FEATURE_JSON_QUERY_LAX is also enabled, non-lax wildcard and
+  // descendant paths succeed in JSON_QUERY, while lax paths with wildcards or
+  // descendants are still rejected.
+  EvaluationContext lax_context{/*options=*/{}};
+  LanguageOptions lax_options = enabled_options;
+  lax_options.EnableLanguageFeature(FEATURE_JSON_QUERY_LAX);
+  lax_context.SetLanguageOptions(lax_options);
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonQuery,
+                                        types::JsonType(), &lax_context,
+                                        {json_val, Value::String("$..a")}),
+              IsOkAndHolds(Value::Json(JSONValue(int64_t{1}))));
+  EXPECT_THAT(EvalBuiltinScalarFunction(FunctionKind::kJsonQuery,
+                                        types::JsonType(), &lax_context,
+                                        {json_val, Value::String("$.c[*]")}),
+              IsOkAndHolds(values::NullJson()));
+  for (absl::string_view invalid_lax_path :
+       {"lax $.*", "lax $[*]", "lax $..a", "lax recursive $.*",
+        "lax recursive $..a"}) {
+    EXPECT_THAT(EvalBuiltinScalarFunction(
+                    FunctionKind::kJsonQuery, types::JsonType(), &lax_context,
+                    {json_val, Value::String(invalid_lax_path)}),
+                StatusIs(absl::StatusCode::kOutOfRange))
+        << invalid_lax_path;
+  }
 }
 
 }  // namespace

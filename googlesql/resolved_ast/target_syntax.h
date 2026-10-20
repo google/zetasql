@@ -47,6 +47,9 @@ enum class SQLBuildTargetSyntax {
                                    // in partial form 2 (linear ops case).
   kChainedFunctionCall,  // Represents a ResolvedFunctionCall that should use
                          // chained call syntax.
+  // Represents a ResolvedMakeStruct that should use untyped STRUCT(...)
+  // syntax.
+  kUntypedStruct,
 };
 
 using TargetSyntaxMap =

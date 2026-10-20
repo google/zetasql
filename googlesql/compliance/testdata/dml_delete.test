@@ -8,6 +8,97 @@ SELECT 2, 20
 ARRAY<STRUCT<primary_key INT64, value INT64>>[{1, 10}, {2, 20}]
 ==
 
+[prepare_database]
+CREATE TABLE Table2 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as val1,
+       cast(100 as int64) as val2
+UNION ALL
+SELECT 2, 20, 200
+UNION ALL
+SELECT 3, 30, 300
+--
+ARRAY<STRUCT<primary_key INT64, val1 INT64, val2 INT64>>[
+  {1, 10, 100},
+  {2, 20, 200},
+  {3, 30, 300}
+]
+==
+
+[prepare_database]
+CREATE TABLE Table3 AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as ref_key,
+       cast('a' as string) as name
+UNION ALL
+SELECT 2, 10, 'b'
+UNION ALL
+SELECT 3, 20, 'c'
+--
+ARRAY<STRUCT<primary_key INT64, ref_key INT64, name STRING>>[
+  {1, 10, "a"},
+  {2, 10, "b"},
+  {3, 20, "c"}
+]
+==
+
+[prepare_database]
+CREATE TABLE TableTarget AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as value1,
+       cast('foo' as string) as name
+UNION ALL
+SELECT 2, 20, 'bar'
+UNION ALL
+SELECT 3, 30, 'baz'
+UNION ALL
+SELECT 4, 40, 'qux'
+--
+ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[
+  {1, 10, "foo"},
+  {2, 20, "bar"},
+  {3, 30, "baz"},
+  {4, 40, "qux"}
+]
+==
+
+[prepare_database]
+CREATE TABLE TableJoin AS
+SELECT cast(1 as int64) as primary_key,
+       cast(10 as int64) as value1,
+       cast('match1' as string) as info
+UNION ALL
+SELECT 2, 20, 'match2'
+UNION ALL
+SELECT 5, 50, 'nomatch'
+--
+ARRAY<STRUCT<primary_key INT64, value1 INT64, info STRING>>[
+  {1, 10, "match1"},
+  {2, 20, "match2"},
+  {5, 50, "nomatch"}
+]
+==
+
+[prepare_database]
+CREATE TABLE TableDup AS
+SELECT cast(1 as int64) as id,
+       cast(1 as int64) as target_pk,
+       cast('dup1' as string) as descr
+UNION ALL
+SELECT 2, 1, 'dup2'
+UNION ALL
+SELECT 3, 1, 'dup3'
+UNION ALL
+SELECT 4, 2, 'single'
+--
+ARRAY<STRUCT<id INT64, target_pk INT64, descr STRING>>[
+  {1, 1, "dup1"},
+  {2, 1, "dup2"},
+  {3, 1, "dup3"},
+  {4, 2, "single"}
+]
+==
+
 [name=delete_nothing]
 DELETE Table1 WHERE False
 --
@@ -153,3 +244,283 @@ WHERE EXISTS(
 ERROR: generic::unimplemented: WITH clauses under subquery in DML statement is not supported yet.
 ==
 
+[name=delete_with_join_basic]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = TableJoin.primary_key
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_with_alias]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget AS t
+USING TableJoin AS j
+WHERE t.value1 = j.value1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_joins_in_using]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING Table2 JOIN Table3 ON Table2.val1 = Table3.ref_key
+WHERE TableTarget.primary_key = Table2.primary_key AND Table3.name = 'a'
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {2, 20, "bar"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_subquery_in_using]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING (SELECT primary_key, value1 FROM TableJoin WHERE value1 > 10) AS sub
+WHERE TableTarget.primary_key = sub.primary_key
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_duplicate_matches]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING TableDup
+WHERE TableTarget.primary_key = TableDup.target_pk
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_no_matches]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = 999 AND TableJoin.primary_key = 999
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {2, 20, "bar"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_empty_using_table]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING (SELECT * FROM TableJoin WHERE false) AS empty_table
+WHERE true
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{0,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {2, 20, "bar"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_then_return]
+[required_features=DML_DELETE_WITH_JOIN,DML_RETURNING]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = TableJoin.primary_key
+THEN RETURN TableTarget.primary_key, TableTarget.name
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ],
+  ARRAY<STRUCT<primary_key INT64, name STRING>>[unknown order:
+    {1, "foo"},
+    {2, "bar"}
+  ]}
+==
+
+[name=delete_with_join_then_return_star]
+[required_features=DML_DELETE_WITH_JOIN,DML_RETURNING]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = TableJoin.primary_key
+THEN RETURN *
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ],
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {2, 20, "bar"}
+  ]}
+==
+
+[name=delete_with_join_comma_tables_in_using]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING Table2, Table3
+WHERE TableTarget.primary_key = Table2.primary_key
+  AND Table2.val1 = Table3.ref_key
+  AND Table3.name = 'a'
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {2, 20, "bar"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_with_assertion]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = TableJoin.primary_key
+ASSERT_ROWS_MODIFIED 2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_correlated_subquery_in_where]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget
+USING TableJoin
+WHERE TableTarget.primary_key = TableJoin.primary_key
+  AND EXISTS (
+    SELECT 1
+    FROM Table2
+    WHERE Table2.primary_key = TableTarget.primary_key
+      AND Table2.val1 = TableJoin.value1
+  )
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==
+
+[name=delete_with_join_self_join]
+[required_features=DML_DELETE_WITH_JOIN]
+DELETE TableTarget AS t1
+USING TableTarget AS t2
+WHERE t1.primary_key = t2.primary_key AND t2.value1 > 20
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {2, 20, "bar"}
+  ]}
+==
+
+[name=delete_with_join_duplicate_matches_then_return]
+[required_features=DML_DELETE_WITH_JOIN,DML_RETURNING]
+DELETE TableTarget
+USING TableDup
+WHERE TableTarget.primary_key = TableDup.target_pk
+THEN RETURN *
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ],
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {1, 10, "foo"},
+    {2, 20, "bar"}
+  ]}
+==
+
+[name=delete_with_join_with_params]
+[required_features=DML_DELETE_WITH_JOIN]
+[parameters=10 param1, 1 param2]
+DELETE TableTarget
+USING TableJoin
+  JOIN (SELECT primary_key, (value1 + @param1) AS value1
+        FROM TableJoin) AS TableJoin2
+  ON TableJoin.primary_key = TableJoin2.primary_key
+WHERE TableTarget.primary_key = TableJoin.primary_key
+  AND TableJoin2.value1 = 20
+  AND TableTarget.primary_key = @param2
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>
+>{1,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, name STRING>>[unknown order:
+    {2, 20, "bar"},
+    {3, 30, "baz"},
+    {4, 40, "qux"}
+  ]}
+==

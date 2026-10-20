@@ -841,6 +841,10 @@ class Validator {
       const ResolvedUpdateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedDeleteScan(
+      const ResolvedDeleteScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedSubpipeline(
       const ResolvedSubpipeline* subpipeline,
       absl::Span<const ResolvedColumn> visible_columns, bool input_is_ordered,
@@ -1029,6 +1033,10 @@ class Validator {
       const ResolvedGraphUpdateScan* scan,
       const std::set<ResolvedColumn>& visible_parameters);
 
+  absl::Status ValidateResolvedGraphDeleteScan(
+      const ResolvedGraphDeleteScan* scan,
+      const std::set<ResolvedColumn>& visible_parameters);
+
   absl::Status ValidateResolvedGraphPathPatternQuantifier(
       const ResolvedGraphPathPatternQuantifier* quantifier,
       const std::set<ResolvedColumn>& visible_parameters);
@@ -1088,6 +1096,16 @@ class Validator {
       const std::set<ResolvedColumn>& visible_columns,
       const std::set<ResolvedColumn>& visible_parameters,
       const ResolvedUpdateConstructor* update_constructor);
+
+  // Validates that the type of `update_item_column` matches `leaf_field`, the
+  // final field of the item's `proto_field_path`: the element type when
+  // `operation` is UPDATE_MANY and `leaf_field` is repeated, and the field's
+  // type otherwise. Only the TypeKind, and for protos and enums the
+  // descriptor, is checked, since the validator has no TypeFactory.
+  absl::Status ValidateUpdateItemColumnType(
+      const ResolvedColumn& update_item_column,
+      const google::protobuf::FieldDescriptor* leaf_field,
+      ResolvedUpdateFieldItem::Operation operation);
 
   absl::Status ValidateResolvedMakeColumnListSpec(
       const std::set<ResolvedColumn>& visible_columns,

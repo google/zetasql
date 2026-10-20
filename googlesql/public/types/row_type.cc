@@ -192,7 +192,6 @@ TableRefType::TableRefType(const TypeFactoryBase& type_factory,
       multi_row_(multi_row),
       element_type_(element_type) {
   ABSL_DCHECK(bound_source_table_ != nullptr);
-  ABSL_DCHECK(!bound_columns_.empty());
   ABSL_DCHECK_EQ(bound_columns_.size(), bound_source_columns_.size());
   // The element type is the corresponding ROW<T> type.
   // It's created in TypeFactory::MakeRowType rather than here because the

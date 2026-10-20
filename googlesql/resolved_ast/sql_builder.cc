@@ -1994,6 +1994,12 @@ absl::Status SQLBuilder::VisitResolvedCast(const ResolvedCast* node) {
     // Cast to graph element or container types with graph elements
     // is not supported in SQL so drop the cast. This cast
     // will be automatically re-generated during SQL resolution.
+    //
+    // Since the cast is dropped, SAFE_CAST cannot be expressed either. Casts
+    // that are re-generated during resolution are coercions between graph
+    // element types, which do not fail, so `return_null_on_error` has no
+    // effect here. Mark it as accessed so CheckFieldsAccessed() does not fail.
+    node->return_null_on_error();
     PushQueryFragment(node, result->GetSQL());
     return absl::OkStatus();
   }
@@ -2730,16 +2736,29 @@ absl::Status SQLBuilder::VisitResolvedMakeMapEntry(
 
 absl::Status SQLBuilder::VisitResolvedMakeStruct(
     const ResolvedMakeStruct* node) {
-  const StructType* struct_type = node->type()->AsStruct();
   std::string text;
+  const StructType* struct_type = node->type()->AsStruct();
 
   // Fallback to constructor syntax like STRUCT(m AS field1) because
-  // MeasureTypes do not support explicit casts (e.g., STRUCT<MEASURE<T>>(...)
-  // syntax).
+  // MeasureTypes and GraphElementTypes do not support explicit casts (e.g.,
+  // STRUCT<MEASURE<T>>(...) syntax).
   //
   // TODO: b/515872379 - Remove this special handling once the parser supports
   // measure types.
-  bool fallback_to_constructor = IsOrContainsMeasure(struct_type);
+  //
+  // An unnamed field in an untyped STRUCT(expr) constructor can infer an
+  // alias from `expr` during re-resolution, which can alter the struct
+  // type or collide with another field name. Only honor kUntypedStruct
+  // when all fields have explicit names.
+  const bool can_use_untyped_struct = absl::c_none_of(
+      struct_type->fields(),
+      [](const StructType::StructField& field) { return field.name.empty(); });
+  const bool fallback_to_constructor =
+      IsOrContainsMeasure(struct_type) ||
+      TypeIsOrContainsGraphElement(struct_type) ||
+      (can_use_untyped_struct &&
+       googlesql_base::ContainsKeyValuePair(options_.target_syntax_map, node,
+                                 SQLBuildTargetSyntax::kUntypedStruct));
 
   if (fallback_to_constructor) {
     absl::StrAppend(&text, "STRUCT(");
@@ -2822,15 +2841,16 @@ absl::Status SQLBuilder::VisitResolvedGetStructField(
       // Instead we cast the original STRUCT to the STRUCT of same SCHEMA type,
       // giving the nameless referenced field a name. Then this name used right
       // here.
-      if (googlesql::IsOrContainsMeasure(struct_type)) {
-        // Parser currently does not support parsing measure types, e.g.,
-        // MEASURE<INT64>, so the casting approach above will fail.
+      if (googlesql::IsOrContainsMeasure(struct_type) ||
+          TypeIsOrContainsGraphElement(struct_type)) {
+        // Neither measure types nor graph element types support explicit casts
+        // (e.g., CAST(... AS STRUCT<...>) syntax).
         //
         // TODO: b/515872379 - Remove this special handling once the parser
         // supports measure types.
         return absl::InvalidArgumentError(
             "SqlBuilder cannot generate SQL for unnamed or ambiguous measure "
-            "fields in a struct");
+            "or graph element fields in a struct");
       }
       result_sql = absl::StrCat("CAST(", result_sql, " AS STRUCT<");
       for (int field_idx = 0; field_idx < struct_type->num_fields();
@@ -4102,30 +4122,46 @@ absl::StatusOr<std::string> SQLBuilder::ProcessResolvedTVFScan(
         }
       }
 
-      std::string arg_sql;
-      if ((argument->partition_by_list_size() > 0 ||
-           argument->order_by_list_size() > 0) &&
-          scan->Is<ResolvedTableScan>()) {
-        const auto* table_scan = scan->GetAs<ResolvedTableScan>();
-        arg_sql = ToIdentifierLiteral(table_scan->table()->Name());
-      } else {
-        GOOGLESQL_RETURN_IF_ERROR(
-            WrapQueryExpression(scan, result->query_expression.get()));
-        GOOGLESQL_RET_CHECK(result->query_expression->TrySetSelectClause(
-            arg_col_list_select_items, ""));
-        arg_sql = absl::StrCat("(", result->GetSQL(), ")");
-      }
+      GOOGLESQL_RETURN_IF_ERROR(
+          WrapQueryExpression(scan, result->query_expression.get()));
+      GOOGLESQL_RET_CHECK(result->query_expression->TrySetSelectClause(
+          arg_col_list_select_items, ""));
+      std::string arg_sql = absl::StrCat("(", result->GetSQL(), ")");
 
       if (argument->partition_by_list_size() > 0 ||
           argument->order_by_list_size() > 0) {
         absl::flat_hash_map<int, std::string> saved_pending_columns;
-        for (const ResolvedColumn& col : argument->argument_column_list()) {
+        absl::flat_hash_set<int> pending_column_ids;
+        for (int i = 0; i < argument->argument_column_list_size(); ++i) {
+          const ResolvedColumn& col = argument->argument_column_list(i);
           auto it = mutable_pending_columns().find(col.column_id());
           if (it != mutable_pending_columns().end()) {
             saved_pending_columns[col.column_id()] = it->second;
           }
+          pending_column_ids.insert(col.column_id());
           mutable_pending_columns()[col.column_id()] =
-              ToIdentifierLiteral(col.name());
+              arg_col_list_select_items[i].second;
+        }
+        // Synthetic computed columns for PARTITION BY / ORDER BY expressions
+        // (e.g. `$partitionbycol` / `$orderbycol`) are not in
+        // `argument_column_list` and are excluded from `arg_sql`'s outer SELECT
+        // list. Re-process their expressions here so they are inlined using
+        // `arg_sql`'s output column aliases in `pending_columns`.
+        if (scan->Is<ResolvedProjectScan>()) {
+          for (const auto& computed_col :
+               scan->GetAs<ResolvedProjectScan>()->expr_list()) {
+            const int col_id = computed_col->column().column_id();
+            if (!pending_column_ids.insert(col_id).second) {
+              continue;
+            }
+            auto it = mutable_pending_columns().find(col_id);
+            if (it != mutable_pending_columns().end()) {
+              saved_pending_columns[col_id] = it->second;
+            }
+            GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> expr_fragment,
+                             ProcessNode(computed_col->expr()));
+            mutable_pending_columns()[col_id] = expr_fragment->GetSQL();
+          }
         }
 
         std::string modifiers;
@@ -4149,12 +4185,12 @@ absl::StatusOr<std::string> SQLBuilder::ProcessResolvedTVFScan(
         }
         arg_sql = absl::StrCat("TABLE(", arg_sql, modifiers, ")");
 
-        for (const ResolvedColumn& col : argument->argument_column_list()) {
-          auto it = saved_pending_columns.find(col.column_id());
+        for (int col_id : pending_column_ids) {
+          auto it = saved_pending_columns.find(col_id);
           if (it != saved_pending_columns.end()) {
-            mutable_pending_columns()[col.column_id()] = it->second;
+            mutable_pending_columns()[col_id] = it->second;
           } else {
-            mutable_pending_columns().erase(col.column_id());
+            mutable_pending_columns().erase(col_id);
           }
         }
       }
@@ -4698,20 +4734,6 @@ absl::Status SQLBuilder::SetPathForColumnsInScan(const ResolvedScan* scan,
     SetPathForColumn(column, absl::StrCat(table_name, ".",
                                           ToIdentifierLiteral(column.name())));
   }
-  return absl::OkStatus();
-}
-
-absl::Status SQLBuilder::SetPathForColumnsInReturningExpr(
-    const ResolvedExpr* expr) {
-  std::vector<std::unique_ptr<const ResolvedColumnRef>> refs;
-  GOOGLESQL_RETURN_IF_ERROR(CollectColumnRefs(*expr, &refs));
-  for (std::unique_ptr<const ResolvedColumnRef>& ref : refs) {
-    // Setup table alias for DML target table columns in returning clause.
-    SetPathForColumn(ref->column(),
-                     absl::StrCat(returning_table_alias_, ".",
-                                  ToIdentifierLiteral(ref->column().name())));
-  }
-
   return absl::OkStatus();
 }
 
@@ -8390,7 +8412,6 @@ absl::Status SQLBuilder::VisitResolvedDeleteStmt(
       }
     }
     target_sql = absl::StrCat(TableToIdentifierLiteral(table), " AS ", alias);
-    returning_table_alias_ = alias;
   } else {
     GOOGLESQL_RET_CHECK(!nested_dml_targets().empty());
     target_sql = nested_dml_targets().back().first;
@@ -8540,21 +8561,17 @@ absl::Status SQLBuilder::VisitResolvedReturningClause(
                             expr->expr());
   }
 
-  ABSL_DCHECK_NE(returning_table_alias_, "");
   for (int i = 0; i < output_size; i++) {
     const ResolvedOutputColumn* col = node->output_column_list(i);
     if (col_to_expr_map.contains(col->column().column_id())) {
       const ResolvedExpr* expr =
           googlesql_base::FindOrDie(col_to_expr_map, col->column().column_id());
-      // Update the identifier for target table columns in expressions.
-      GOOGLESQL_RETURN_IF_ERROR(SetPathForColumnsInReturningExpr(expr));
       GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                        ProcessNode(expr));
       absl::StrAppend(&sql, " ", result->GetSQL(), " AS ",
                       ToIdentifierLiteral(col->name()));
     } else {
-      absl::StrAppend(&sql, " `", returning_table_alias_, "`.`",
-                      col->column().name(), "` AS ",
+      absl::StrAppend(&sql, " ", GetColumnPath(col->column()), " AS ",
                       ToIdentifierLiteral(col->name()));
     }
 
@@ -8947,7 +8964,6 @@ absl::Status SQLBuilder::VisitResolvedUpdateStmt(
     absl::StrAppend(&target_sql,
                     TableToIdentifierLiteral(node->table_scan()->table()),
                     " AS ", alias);
-    returning_table_alias_ = alias;
   } else {
     GOOGLESQL_RET_CHECK(!nested_dml_targets().empty());
     target_sql = nested_dml_targets().back().first;
@@ -9075,9 +9091,6 @@ absl::Status SQLBuilder::VisitResolvedInsertStmtImpl(
   std::string target_sql;
   if (node->table_scan() != nullptr) {
     target_sql = TableToIdentifierLiteral(node->table_scan()->table());
-    // INSERT doesn't support explicit aliasing, and this is the implicit alias
-    // of the table's full name.
-    returning_table_alias_ = node->table_scan()->table()->Name();
 
     // ON CONFLICT DO UPDATE SET...WHERE clause expressions can access the
     // table row values. This table scan's columns are used to reference the
@@ -9175,9 +9188,11 @@ absl::Status SQLBuilder::VisitResolvedInsertStmtImpl(
     absl::StrAppend(&sql, " ", assert_rows_modified->GetSQL());
   }
   if (node->returning() != nullptr) {
-    // Prepares the visible columns for the returning clause
+    // Prepares the visible columns for the returning clause. INSERT doesn't
+    // support explicit aliasing, so pass "" to use the implicit alias of the
+    // table's leaf name.
     GOOGLESQL_RET_CHECK_NE(node->table_scan(), nullptr);
-    GOOGLESQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), target_sql));
+    GOOGLESQL_RETURN_IF_ERROR(SetPathForColumnsInScan(node->table_scan(), ""));
 
     GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> returning,
                      ProcessNode(node->returning()));
@@ -9448,6 +9463,14 @@ absl::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
       }
       alter_action_sql = add_column_identifier_sql;
     } break;
+    case RESOLVED_ADD_STORED_COLUMN_ACTION: {
+      const auto* add_stored_column_action =
+          alter_action->GetAs<ResolvedAddStoredColumnAction>();
+      alter_action_sql = absl::StrCat(
+          "ADD STORED COLUMN ",
+          add_stored_column_action->is_if_not_exists() ? "IF NOT EXISTS " : "",
+          ToIdentifierLiteral(add_stored_column_action->name()));
+    } break;
     case RESOLVED_ADD_TO_RESTRICTEE_LIST_ACTION: {
       auto* add_to_restrictee_list_action =
           alter_action->GetAs<ResolvedAddToRestricteeListAction>();
@@ -9466,6 +9489,14 @@ absl::StatusOr<std::string> SQLBuilder::GetAlterActionSQL(
       alter_action_sql = absl::StrCat(
           "DROP COLUMN ", drop_action->is_if_exists() ? "IF EXISTS " : "",
           drop_action->name());
+    } break;
+    case RESOLVED_DROP_STORED_COLUMN_ACTION: {
+      const auto* drop_stored_column_action =
+          alter_action->GetAs<ResolvedDropStoredColumnAction>();
+      alter_action_sql = absl::StrCat(
+          "DROP STORED COLUMN ",
+          drop_stored_column_action->is_if_exists() ? "IF EXISTS " : "",
+          ToIdentifierLiteral(drop_stored_column_action->name()));
     } break;
     case RESOLVED_RENAME_COLUMN_ACTION: {
       auto* rename_action = alter_action->GetAs<ResolvedRenameColumnAction>();
@@ -11586,6 +11617,10 @@ absl::Status SQLBuilder::ProcessResolvedGqlLinearScanIgnoringLastReturn(
       GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
                        ProcessNode(scan));
       absl::StrAppend(&sql, result->GetSQL());
+    } else if (scan->Is<ResolvedGraphUpdateScan>()) {
+      GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> result,
+                       ProcessNode(scan));
+      absl::StrAppend(&sql, result->GetSQL());
     } else if (scan->Is<ResolvedTVFScan>()) {
       GOOGLESQL_RETURN_IF_ERROR(
           ProcessResolvedGqlNamedCallOp(scan->GetAs<ResolvedTVFScan>(), sql));
@@ -12515,6 +12550,130 @@ absl::Status SQLBuilder::VisitResolvedGraphInsertScan(
   return absl::OkStatus();
 }
 
+absl::Status SQLBuilder::VisitResolvedGraphUpdateScan(
+    const ResolvedGraphUpdateScan* node) {
+  GOOGLESQL_RET_CHECK(node->input_scan()->Is<ResolvedGraphRefScan>());
+  GOOGLESQL_RET_CHECK(!node->update_element_list().empty());
+
+  std::vector<std::string> item_sqls;
+  bool has_set = false;
+  bool has_remove = false;
+
+  for (const auto& elem : node->update_element_list()) {
+    GOOGLESQL_RET_CHECK(elem->target_element() != nullptr);
+    // Each update element must modify at least properties or labels.
+    GOOGLESQL_RET_CHECK(elem->property_update_mode() !=
+                  ResolvedGraphUpdateElement::PROPERTY_NO_UPDATE ||
+              elem->label_update_mode() !=
+                  ResolvedGraphUpdateElement::LABEL_NO_UPDATE);
+
+    // `elem->output_column()` represents the updated graph element in the
+    // outgoing working table, which continues to be referenced by the same
+    // GQL variable name as `target_element` in subsequent graph operators.
+    std::string target_var_sql =
+        GetColumnAlias(elem->target_element()->column());
+    googlesql_base::InsertIfNotPresent(&mutable_computed_column_alias(),
+                            elem->output_column().column_id(), target_var_sql);
+    SetPathForColumn(elem->output_column(), target_var_sql);
+
+    // Process property updates on `target_var_sql`:
+    //   - PROPERTY_REPLACE: `SET n = {k1: v1, ...}` (or `SET n = {}`)
+    //   - PROPERTY_SET:     `SET n.k1 = v1, n.k2 = v2, ...`
+    //   - PROPERTY_REMOVE:  `REMOVE n.k1, n.k2, ...`
+    switch (elem->property_update_mode()) {
+      case ResolvedGraphUpdateElement::PROPERTY_UPDATE_MODE_UNSPECIFIED:
+        GOOGLESQL_RET_CHECK_FAIL() << "Unexpected property_update_mode: "
+                         << elem->property_update_mode();
+      case ResolvedGraphUpdateElement::PROPERTY_NO_UPDATE:
+        GOOGLESQL_RET_CHECK(elem->property_list().empty());
+        break;
+      case ResolvedGraphUpdateElement::PROPERTY_REPLACE: {
+        has_set = true;
+        std::vector<std::string> prop_sqls;
+        prop_sqls.reserve(elem->property_list().size());
+        for (const auto& prop : elem->property_list()) {
+          // Dummy access: `property_name()` is used to build SQL.
+          prop->property();
+          GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> val_fragment,
+                           ProcessNode(prop->property_value()));
+          prop_sqls.push_back(
+              absl::StrCat(ToIdentifierLiteral(prop->property_name()), ": ",
+                           val_fragment->GetSQL()));
+        }
+        item_sqls.push_back(absl::StrCat(target_var_sql, " = {",
+                                         absl::StrJoin(prop_sqls, ", "), "}"));
+        break;
+      }
+      case ResolvedGraphUpdateElement::PROPERTY_SET:
+        has_set = true;
+        GOOGLESQL_RET_CHECK(!elem->property_list().empty());
+        for (const auto& prop : elem->property_list()) {
+          // Dummy access: `property_name()` is used to build SQL.
+          prop->property();
+          GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> val_fragment,
+                           ProcessNode(prop->property_value()));
+          item_sqls.push_back(absl::StrCat(
+              target_var_sql, ".", ToIdentifierLiteral(prop->property_name()),
+              " = ", val_fragment->GetSQL()));
+        }
+        break;
+      case ResolvedGraphUpdateElement::PROPERTY_REMOVE:
+        has_remove = true;
+        GOOGLESQL_RET_CHECK(!elem->property_list().empty());
+        for (const auto& prop : elem->property_list()) {
+          GOOGLESQL_RET_CHECK(prop->property() == nullptr);
+          GOOGLESQL_RET_CHECK(prop->property_value() == nullptr);
+          item_sqls.push_back(absl::StrCat(
+              target_var_sql, ".", ToIdentifierLiteral(prop->property_name())));
+        }
+        break;
+    }
+
+    // Process label updates on `target_var_sql`:
+    // Both LABEL_SET and LABEL_REMOVE format each item as `<var> IS <label>`;
+    // only the statement keyword (`SET` vs. `REMOVE`) differs.
+    switch (elem->label_update_mode()) {
+      case ResolvedGraphUpdateElement::LABEL_UPDATE_MODE_UNSPECIFIED:
+        GOOGLESQL_RET_CHECK_FAIL() << "Unexpected label_update_mode: "
+                         << elem->label_update_mode();
+      case ResolvedGraphUpdateElement::LABEL_NO_UPDATE:
+        GOOGLESQL_RET_CHECK(elem->label_list().empty());
+        break;
+      case ResolvedGraphUpdateElement::LABEL_SET:
+      case ResolvedGraphUpdateElement::LABEL_REMOVE:
+        if (elem->label_update_mode() ==
+            ResolvedGraphUpdateElement::LABEL_SET) {
+          has_set = true;
+        } else {
+          has_remove = true;
+        }
+        GOOGLESQL_RET_CHECK(!elem->label_list().empty());
+        for (const auto& label : elem->label_list()) {
+          GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<QueryFragment> label_fragment,
+                           ProcessNode(label.get()));
+          item_sqls.push_back(
+              absl::StrCat(target_var_sql, " IS ", label_fragment->GetSQL()));
+        }
+        break;
+    }
+  }
+
+  // A single ResolvedGraphUpdateScan represents either a GQL `SET` or `REMOVE`
+  // operator, never a mix of both.
+  GOOGLESQL_RET_CHECK(has_set != has_remove);
+  std::string keyword = has_remove ? " REMOVE " : " SET ";
+  std::string sql = absl::StrCat(keyword, absl::StrJoin(item_sqls, ", "));
+  PushQueryFragment(node, sql);
+  return absl::OkStatus();
+}
+
+absl::Status SQLBuilder::VisitResolvedGraphDeleteScan(
+    const ResolvedGraphDeleteScan* node) {
+  // TODO: Implement SQLBuilder in following CLs.
+  GOOGLESQL_RET_CHECK_FAIL()
+      << "SQLBuilder for ResolvedGraphDeleteScan not supported yet";
+}
+
 absl::Status SQLBuilder::ProcessGraphInsertElementLabelsAndProperties(
     const ResolvedGraphInsertElement* element, bool is_anonymous_var,
     std::string& element_filler_sql) {
@@ -13003,6 +13162,11 @@ absl::Status SQLBuilder::VisitResolvedInsertScan(
 absl::Status SQLBuilder::VisitResolvedUpdateScan(
     const ResolvedUpdateScan* node) {
   GOOGLESQL_RET_CHECK_FAIL() << "SQLBuilder for ResolvedUpdateScan not supported yet";
+}
+
+absl::Status SQLBuilder::VisitResolvedDeleteScan(
+    const ResolvedDeleteScan* node) {
+  GOOGLESQL_RET_CHECK_FAIL() << "SQLBuilder for ResolvedDeleteScan not supported yet";
 }
 
 absl::Status SQLBuilder::VisitResolvedSubpipeline(

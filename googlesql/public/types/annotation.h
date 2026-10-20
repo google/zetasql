@@ -76,8 +76,8 @@ enum class AnnotationKind {
   kTimestampPrecision = 3,
   // Annotation ID for googlesql::IsVersionedAnnotation.
   kIsVersioned = 4,
-  // Annotation ID for googlesql::VectorLengthAnnotation.
-  kVectorLength = 5,
+  // Annotation ID for googlesql::VectorDimsAnnotation.
+  kVectorDims = 5,
   // Annotation ID for googlesql::VectorEncodingAnnotation.
   kVectorEncoding = 6,
   // Annotation ID up to kMaxBuiltinAnnotationKind are reserved for googlesql
@@ -345,14 +345,14 @@ class StructAnnotationMap : public AnnotationMap {
   bool IsArrayMap() const override { return num_fields() == 1; }
 
   ABSL_DEPRECATED("Inline me!")
-  const AnnotationMap* element() const { return field(0); }
+  const AnnotationMap* element() const { return field(/*i=*/0); }
 
   ABSL_DEPRECATED("Inline me!")
-  AnnotationMap* mutable_element() { return mutable_field(0); }
+  AnnotationMap* mutable_element() { return mutable_field(/*i=*/0); }
 
   ABSL_DEPRECATED("Inline me!")
   absl::Status CloneIntoElement(const AnnotationMap* from) {
-    return CloneIntoField(0, from);
+    return CloneIntoField(/*i=*/0, from);
   }
 
   StructAnnotationMap* AsStructMap() override { return this; }
@@ -465,11 +465,6 @@ class AnnotationSpec {
   // something differently.
   virtual absl::Status CheckAndPropagateForFunctionCallBase(
       const ResolvedFunctionCallBase& function_call,
-      AnnotationMap* result_annotation_map) = 0;
-
-  // Propagates annotation from <column_ref>.column to <result_annotation_map>.
-  virtual absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
       AnnotationMap* result_annotation_map) = 0;
 
   // Propagates annotation from `parameter` to `result_annotation_map`.

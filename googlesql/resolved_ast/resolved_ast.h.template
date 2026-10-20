@@ -215,6 +215,9 @@ class {{node.name}} {{node.class_final}} : public {{node.parent}} {
     set_is_ordered({{field.member_name}}->is_ordered());
   # endif
  # endfor
+ # if node.name == "ResolvedColumnRef"
+    set_type_annotation_map(column.type_annotation_map());
+ # endif
   }
 
 # if node.fields
@@ -420,9 +423,7 @@ inline std::unique_ptr<ResolvedLiteral> MakeResolvedLiteral(
 // referenced column.
 inline std::unique_ptr<ResolvedColumnRef> MakeResolvedColumnRef(
     const ResolvedColumn& column, bool is_correlated) {
-  auto column_ref = MakeResolvedColumnRef(column.type(), column, is_correlated);
-  column_ref->set_type_annotation_map(column.type_annotation_map());
-  return column_ref;
+  return MakeResolvedColumnRef(column.type(), column, is_correlated);
 }
 
 // This should be the only way to create a ResolvedWithExpr, and all other

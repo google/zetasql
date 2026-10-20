@@ -12033,24 +12033,24 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#9{Collation:"binary"})
         | +-Rollup
         | | +-rollup_column_list=
         | |   +-GroupingSetMultiColumn
         | |     +-column_list=
-        | |       +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
         | +-Cube
         |   +-cube_column_list=
         |     +-GroupingSetMultiColumn
         |     | +-column_list=
-        |     |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        |     |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.$groupbycol4#10{Collation:"binary"})
         |     +-GroupingSetMultiColumn
         |       +-column_list=
-        |         +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        |         +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
         +-grouping_call_list=
           +-GroupingCall
             +-group_by_column=
@@ -12089,25 +12089,25 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.$groupbycol1#7{Collation:"und:ci"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#9{Collation:"binary"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
         | +-GroupingSet
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#8{Collation:"und:ci"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol4#10{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.$groupbycol4#10{Collation:"binary"})
         | +-GroupingSet
         +-grouping_call_list=
           +-GroupingCall
@@ -12148,21 +12148,21 @@ QueryStmt
         +-grouping_set_list=
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#7{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#7{Collation:"binary"})
         | +-GroupingSet
         | | +-group_by_column_list=
-        | |   +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
+        | |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#6{Collation:"und:ci"})
         | +-GroupingSet
         +-rollup_column_list=
-          +-ColumnRef(type=STRING, column=$groupby.string_ci#6{Collation:"und:ci"})
-          +-ColumnRef(type=STRING, column=$groupby.string_binary#7{Collation:"binary"})
-          +-ColumnRef(type=STRING, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
+          +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#6{Collation:"und:ci"})
+          +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#7{Collation:"binary"})
+          +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.$groupbycol3#8{Collation:"und:ci"})
 ==
 
 # grouping sets with collated struct and array type
@@ -12201,23 +12201,23 @@ QueryStmt
         +-grouping_set_list=
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
           +-Rollup
           | +-rollup_column_list=
           |   +-GroupingSetMultiColumn
           |   | +-column_list=
-          |   |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
           |   +-GroupingSetMultiColumn
           |     +-column_list=
-          |       +-ColumnRef(type=STRING, column=$groupby.string_ci#7{Collation:"und:ci"})
+          |       +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#7{Collation:"und:ci"})
           +-Cube
             +-cube_column_list=
               +-GroupingSetMultiColumn
               | +-column_list=
-              |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
+              |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
               +-GroupingSetMultiColumn
                 +-column_list=
-                  +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+                  +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#9{Collation:"binary"})
 
 [REWRITTEN AST]
 QueryStmt
@@ -12244,25 +12244,25 @@ QueryStmt
         +-grouping_set_list=
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
-          |   +-ColumnRef(type=STRING, column=$groupby.string_ci#7{Collation:"und:ci"})
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"und:ci"}, column=$groupby.string_ci#7{Collation:"und:ci"})
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRUCT<a INT32, b STRING>, type_annotation_map=<_,{Collation:"und:ci"}>, column=$groupby.struct_with_string_ci#6<_,{Collation:"und:ci"}>)
           +-GroupingSet
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
-          |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+          |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#9{Collation:"binary"})
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=STRING, column=$groupby.string_binary#9{Collation:"binary"})
+          |   +-ColumnRef(type=STRING, type_annotation_map={Collation:"binary"}, column=$groupby.string_binary#9{Collation:"binary"})
           +-GroupingSet
           | +-group_by_column_list=
-          |   +-ColumnRef(type=ARRAY<STRING>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
+          |   +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$groupby.array_with_string_ci#8<{Collation:"und:ci"}>)
           +-GroupingSet
 ==
 

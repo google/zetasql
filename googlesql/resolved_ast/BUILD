@@ -815,6 +815,7 @@ cc_test(
         ":resolved_ast_enums_cc_proto",
         ":test_utils",
         ":validator",
+        "//googlesql/base:check",
         "//googlesql/base:status",
         "//googlesql/base/testing:googlesql_gtest_main",
         "//googlesql/base/testing:status_matchers",
@@ -842,6 +843,7 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/time",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

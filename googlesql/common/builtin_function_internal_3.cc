@@ -1641,15 +1641,7 @@ void GetSubscriptFunctions(TypeFactory* type_factory,
                      .AddRequiredLanguageFeature(FEATURE_SAFE_FUNCTION_CALL));
 }
 
-namespace {
-
-// Traverses `type` and its component types, returning the first type that
-// is not supported in JSON conversion functions. If `type` is fully supported
-// then nullptr is returned.
-// TODO: b/483763571 - Expand this function to cover types more exhaustively.
-// Desired behavior for extended types and existing unsupported types will need
-// to be considered.
-static const Type* GetUnsupportedTypeForJsonConversion(
+const Type* /*absl_nullable*/ GetUnsupportedTypeForJsonConversion(
     const Type* /*absl_nonnull*/ type) {
   if (type->IsMap()) {
     return type;
@@ -1668,6 +1660,8 @@ static const Type* GetUnsupportedTypeForJsonConversion(
 
   return nullptr;
 }
+
+namespace {
 
 // A post-resolution argument constraint for JSON conversion functions. Returns
 // an error if any of the argument types are not supported in JSON conversion
@@ -2522,6 +2516,67 @@ absl::Status GetJSONFunctions(TypeFactory* type_factory,
   GetJsonValueFunctions(path_arguments, options, functions);
   GetJsonExistsFunctions(path_arguments, options, functions);
   GetJsonObjectManipulationFunctions(path_arguments, options, functions);
+
+  return absl::OkStatus();
+}
+
+absl::Status GetVariantFunctions(TypeFactory* type_factory,
+                                 const GoogleSQLBuiltinFunctionOptions& options,
+                                 NameToFunctionMap* functions,
+                                 NameToTypeMap* types) {
+  if (!options.language_options.LanguageFeatureEnabled(FEATURE_VARIANT_TYPE)) {
+    return absl::OkStatus();
+  }
+
+  const Type* const variant_type = types::VariantType();
+  const Type* const bool_type = types::BoolType();
+  const Type* const string_type = types::StringType();
+
+  FunctionArgumentTypeOptions variant_path_options;
+  // TODO: b/559023113 - Revisit this constraint, once the spec is finalized.
+  variant_path_options.set_must_be_query_constant();
+
+  FunctionArgumentTypeOptions optional_variant_path_options(
+      FunctionArgumentType::OPTIONAL);
+  optional_variant_path_options.set_default(Value::String("$"));
+  // TODO: b/559023113 - Revisit this constraint, once the spec is finalized.
+  optional_variant_path_options.set_must_be_query_constant();
+
+  InsertFunction(
+      functions, options, "variant_query", Function::SCALAR,
+      {{variant_type,
+        {variant_type, FunctionArgumentType(string_type, variant_path_options)},
+        FN_VARIANT_QUERY}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_VARIANT_TYPE));
+
+  InsertFunction(
+      functions, options, "is_variant_null", Function::SCALAR,
+      {{bool_type, {variant_type}, FN_IS_VARIANT_NULL}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_VARIANT_TYPE));
+
+  InsertFunction(
+      functions, options, "variant_type", Function::SCALAR,
+      {{string_type, {variant_type}, FN_VARIANT_TYPE}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_VARIANT_TYPE));
+
+  InsertFunction(
+      functions, options, "schema_of_variant", Function::SCALAR,
+      {{string_type, {variant_type}, FN_SCHEMA_OF_VARIANT}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_VARIANT_TYPE));
+
+  InsertFunction(functions, options, "schema_of_variant_agg",
+                 Function::AGGREGATE,
+                 {{string_type, {variant_type}, FN_SCHEMA_OF_VARIANT_AGG}},
+                 DefaultAggregateFunctionOptions().AddRequiredLanguageFeature(
+                     FEATURE_VARIANT_TYPE));
+
+  InsertFunction(
+      functions, options, "variant_value", Function::SCALAR,
+      {{string_type,
+        {variant_type,
+         FunctionArgumentType(string_type, optional_variant_path_options)},
+        FN_VARIANT_VALUE}},
+      FunctionOptions().AddRequiredLanguageFeature(FEATURE_VARIANT_TYPE));
 
   return absl::OkStatus();
 }

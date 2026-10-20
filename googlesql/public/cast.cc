@@ -279,6 +279,7 @@ const CastHashMap* InitializeGoogleSQLCasts() {
   ADD_TO_MAP(INTERVAL,   JSON,       EXPLICIT);
 
   ADD_TO_MAP(GEOGRAPHY,  GEOGRAPHY,  IMPLICIT);
+  ADD_TO_MAP(GEOGRAPHY,  JSON,       EXPLICIT);
 
   ADD_TO_MAP(JSON,       JSON,       IMPLICIT);
 
@@ -534,6 +535,7 @@ bool IsTypeCastableToJson(const Type* from_type,
     case TYPE_DATETIME:
     case TYPE_TIMESTAMP:
     case TYPE_UUID:
+    case TYPE_GEOGRAPHY:
     case TYPE_ARRAY:
     case TYPE_STRUCT:
     case TYPE_ENUM:
@@ -1821,6 +1823,7 @@ absl::StatusOr<Value> CastContext::CastValue(
     case FCT(TYPE_DATETIME, TYPE_JSON):
     case FCT(TYPE_TIME, TYPE_JSON):
     case FCT(TYPE_UUID, TYPE_JSON):
+    case FCT(TYPE_GEOGRAPHY, TYPE_JSON):
     case FCT(TYPE_ARRAY, TYPE_JSON):
     case FCT(TYPE_STRUCT, TYPE_JSON):
     case FCT(TYPE_BYTES, TYPE_JSON):

@@ -54,15 +54,14 @@ static absl::StatusOr<TypeParameters> ResolveVectorTypeParameters(
   }
   const TypeParameterValue& param = resolved_type_parameter_list[0];
   if (param.IsSpecialLiteral() || !param.GetValue().has_int64_value()) {
-    return MakeSqlError()
-           << "VECTOR length parameter must be an integer literal";
+    return MakeSqlError() << "VECTOR dims parameter must be an integer literal";
   }
-  int64_t length = param.GetValue().int64_value();
-  if (length <= 0) {
-    return MakeSqlError() << "VECTOR length must be greater than 0";
+  int64_t dims = param.GetValue().int64_value();
+  if (dims <= 0) {
+    return MakeSqlError() << "VECTOR dims must be greater than 0";
   }
   VectorTypeParametersProto proto;
-  proto.set_length(length);
+  proto.set_dims(dims);
 
   // Try parsing the encoding parameter.
   if (resolved_type_parameter_list.size() > 1) {

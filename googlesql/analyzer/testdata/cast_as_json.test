@@ -692,9 +692,27 @@ select cast(hll_count.init(1) as json) FROM UNNEST([1]);
 ==
 
 # Test cast from GEOGRAPHY to JSON.
-# TODO: Add GEOGRAPHY to JSON cast once TO_JSON supports it.
 [language_features=MAXIMUM,{{+CAST_TO_JSON_TYPE|-CAST_TO_JSON_TYPE}}]
 select cast(st_geogpoint(0, 0) as json);
+--
+ALTERNATION GROUP: +CAST_TO_JSON_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(GEOGRAPHY -> JSON)
+    |     +-FunctionCall(GoogleSQL:st_geogpoint(DOUBLE, DOUBLE) -> GEOGRAPHY)
+    |       +-Literal(type=DOUBLE, value=0)
+    |       +-Literal(type=DOUBLE, value=0)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: -CAST_TO_JSON_TYPE
 --
 ERROR: Invalid cast from GEOGRAPHY to JSON [at 1:13]
 select cast(st_geogpoint(0, 0) as json);
@@ -705,6 +723,28 @@ select cast(st_geogpoint(0, 0) as json);
 [language_features=MAXIMUM,{{+CAST_TO_JSON_TYPE|-CAST_TO_JSON_TYPE}}]
 select cast(struct(st_geogpoint(0, 0) as geo) as json);
 --
+ALTERNATION GROUP: +CAST_TO_JSON_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(STRUCT<geo GEOGRAPHY> -> JSON)
+    |     +-MakeStruct
+    |       +-type=STRUCT<geo GEOGRAPHY>
+    |       +-field_list=
+    |         +-FunctionCall(GoogleSQL:st_geogpoint(DOUBLE, DOUBLE) -> GEOGRAPHY)
+    |           +-Literal(type=DOUBLE, value=0)
+    |           +-Literal(type=DOUBLE, value=0)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: -CAST_TO_JSON_TYPE
+--
 ERROR: Invalid cast from STRUCT<geo GEOGRAPHY> to JSON [at 1:13]
 select cast(struct(st_geogpoint(0, 0) as geo) as json);
             ^
@@ -713,6 +753,26 @@ select cast(struct(st_geogpoint(0, 0) as geo) as json);
 # Test cast from ARRAY<GEOGRAPHY> to JSON.
 [language_features=MAXIMUM,{{+CAST_TO_JSON_TYPE|-CAST_TO_JSON_TYPE}}]
 select cast([st_geogpoint(0, 0)] as json);
+--
+ALTERNATION GROUP: +CAST_TO_JSON_TYPE
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-Cast(ARRAY<GEOGRAPHY> -> JSON)
+    |     +-FunctionCall(GoogleSQL:$make_array(repeated(1) GEOGRAPHY) -> ARRAY<GEOGRAPHY>)
+    |       +-FunctionCall(GoogleSQL:st_geogpoint(DOUBLE, DOUBLE) -> GEOGRAPHY)
+    |         +-Literal(type=DOUBLE, value=0)
+    |         +-Literal(type=DOUBLE, value=0)
+    +-input_scan=
+      +-SingleRowScan
+--
+ALTERNATION GROUP: -CAST_TO_JSON_TYPE
 --
 ERROR: Invalid cast from ARRAY<GEOGRAPHY> to JSON [at 1:13]
 select cast([st_geogpoint(0, 0)] as json);

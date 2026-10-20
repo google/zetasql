@@ -150,7 +150,7 @@ public class TypeTest {
 
   @Test
   public void classAndProtoSize() {
-    // TODO: b/350555383 - Add serialization/de-serialization code for
+    // TODO: Add serialization/de-serialization code for
     // MeasureType, once MeasureType class exists.
     assertWithMessage(
             "The number of fields of TypeProto has changed, "

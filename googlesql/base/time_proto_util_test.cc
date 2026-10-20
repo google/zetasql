@@ -19,7 +19,6 @@
 #include <limits>
 
 #include "google/protobuf/timestamp.pb.h"
-#include "google/protobuf/util/message_differencer.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/status/status.h"

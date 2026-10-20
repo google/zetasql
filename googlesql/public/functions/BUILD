@@ -1036,6 +1036,7 @@ cc_library(
     deps = [
         "//googlesql/base:case",
         "//googlesql/base:check",
+        "//googlesql/base:ret_check",
         "//googlesql/base:status",
         "//googlesql/base:strings",
         "//googlesql/common:json_parser",
@@ -1060,6 +1061,7 @@ cc_library(
         ":json_format",
         ":json_internal",
         ":to_json",
+        "//googlesql/base:check",
         "//googlesql/base:lossless_convert",
         "//googlesql/base:ret_check",
         "//googlesql/base:status",
@@ -1075,7 +1077,6 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/container:inlined_vector",
         "@com_google_absl//absl/functional:function_ref",
-        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

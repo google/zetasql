@@ -92,6 +92,9 @@ AnalyzerOptions::ASTRewriteSet GetRewrites(bool include_in_development,
       // This is the "INVALID" entry. Skip this case.
       continue;
     }
+    if (value_descriptor->options().deprecated()) {
+      continue;
+    }
     bool default_enabled = value_descriptor->options()
                                .GetExtension(rewrite_options)
                                .default_enabled();

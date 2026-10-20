@@ -254,12 +254,14 @@ class FixedUint final {
   }
 
   constexpr FixedUint()
-      : number_(multiprecision_int_impl::RightPad<Word, kNumWords>(0)) {}
+      : number_(
+            multiprecision_int_impl::RightPad<Word, kNumWords>(/*filler=*/0)) {}
   constexpr explicit FixedUint(uint32_t x)
       : number_(multiprecision_int_impl::RightPad<Word, kNumWords>(0, x)) {}
   constexpr explicit FixedUint(uint64_t x)
       : number_(multiprecision_int_impl::UintToArray<64, kNumBitsPerWord,
-                                                     kNumWords>(x, 0)) {
+                                                     kNumWords>(
+            x, /*extension=*/0)) {
     static_assert(kNumBits >= 64, "Size too small");
   }
   constexpr explicit FixedUint(unsigned __int128 x)
@@ -891,7 +893,8 @@ class FixedInt final {
 
   static constexpr FixedInt min() {
     return FixedInt(multiprecision_int_impl::LeftPad<UnsignedWord, kNumWords>(
-        0, static_cast<UnsignedWord>(std::numeric_limits<Word>::min())));
+        /*filler=*/0,
+        static_cast<UnsignedWord>(std::numeric_limits<Word>::min())));
   }
   static constexpr FixedInt max() {
     constexpr UnsignedWord kMaxUnsigned =
@@ -1572,7 +1575,7 @@ uint64_t VarUintRef<64>::DivMod(std::integral_constant<uint64_t, divisor> x) {
     multiprecision_int_impl::DivModWordNormalizedConstant<divisor>(
         remainder,
         multiprecision_int_impl::ShiftLeftAndGetHighWord(
-            0, this->number_.back(), kShiftAmount),
+            /*high=*/0, this->number_.back(), kShiftAmount),
         &throwaway, &remainder);
   }
   for (auto itr = this->number_.rbegin(); itr != (this->number_.rend() - 1);
@@ -1585,8 +1588,8 @@ uint64_t VarUintRef<64>::DivMod(std::integral_constant<uint64_t, divisor> x) {
   }
   multiprecision_int_impl::DivModWordNormalizedConstant<divisor>(
       remainder,
-      multiprecision_int_impl::ShiftLeftAndGetHighWord(this->number_.front(), 0,
-                                                       kShiftAmount),
+      multiprecision_int_impl::ShiftLeftAndGetHighWord(this->number_.front(),
+                                                       /*low=*/0, kShiftAmount),
       &this->number_.front(), &remainder);
   return remainder >> kShiftAmount;
 }

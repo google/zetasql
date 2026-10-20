@@ -41,7 +41,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/container/inlined_vector.h"
 #include "absl/functional/function_ref.h"
-#include "absl/memory/memory.h"
+#include "googlesql/base/check.h"
 #include "absl/status/status.h"
 #include "googlesql/base/status_macros.h"
 #include "absl/status/statusor.h"
@@ -57,110 +57,377 @@
 namespace googlesql {
 namespace functions {
 namespace {
+using json_internal::EvaluateJsonPath;
 using json_internal::JSONPathExtractor;
 using json_internal::JsonPathOptions;
+using json_internal::JsonPathStep;
+using json_internal::JsonPathStepKind;
+using json_internal::ParsedJsonPath;
 using json_internal::StrictJSONPathIterator;
 using json_internal::StrictJSONPathToken;
 using json_internal::ValidJSONPathIterator;
+
+// Frame on the explicit evaluation stack used by `EvaluateJsonPath`.
+struct JsonPathStackFrame {
+  // The 0-based index of the current step in `path.steps()` to evaluate at
+  // `node`. When `step_idx == path.steps().size()`, all steps have been
+  // satisfied and `node` is recorded as a match.
+  size_t step_idx;
+  // The JSON node in the input document currently being inspected at
+  // `step_idx`.
+  JSONValueConstRef node;
+};
+
+// Pushes the direct child matches of `path.steps()[step_idx]` at `node` onto
+// `stack` in reverse order, so that a LIFO pop processes them in depth-first
+// pre-order (with object members in sorted key order and array elements in
+// index order).
+//
+// Each step enforces strict container type matching (`.key` and `.*` require a
+// JSON object; `[i]` and `[*]` require a JSON array; arrays are not implicitly
+// unwrapped). If `node` does not match the container type or does not contain
+// the requested key/index, that branch simply yields 0 matches without aborting
+// sibling branches.
+void PushDirectStepMatches(const ParsedJsonPath& path, size_t step_idx,
+                           JSONValueConstRef node,
+                           std::vector<JsonPathStackFrame>& stack) {
+  const JsonPathStep& step = path.steps()[step_idx];
+  switch (step.kind()) {
+    case JsonPathStepKind::kRoot:
+      ABSL_DCHECK(false)
+          << "Root step is expected only at step_idx == 0, but was found at "
+             "step "
+          << step_idx;
+      break;
+    case JsonPathStepKind::kMember: {
+      if (node.IsObject()) {
+        std::optional<JSONValueConstRef> member =
+            node.GetMemberIfExists(step.member_name());
+        if (member.has_value()) {
+          stack.push_back({.step_idx = step_idx + 1, .node = *member});
+        }
+      }
+      break;
+    }
+    case JsonPathStepKind::kIndex: {
+      if (node.IsArray() && step.index() >= 0 &&
+          static_cast<size_t>(step.index()) < node.GetArraySize()) {
+        stack.push_back({.step_idx = step_idx + 1,
+                         .node = node.GetArrayElement(step.index())});
+      }
+      break;
+    }
+    case JsonPathStepKind::kObjectWildcard: {
+      if (node.IsObject()) {
+        const std::vector<std::pair<absl::string_view, JSONValueConstRef>>
+            members = node.GetMembers();
+        for (auto it = members.rbegin(); it != members.rend(); ++it) {
+          stack.push_back({.step_idx = step_idx + 1, .node = it->second});
+        }
+      }
+      break;
+    }
+    case JsonPathStepKind::kSubscriptWildcard: {
+      if (node.IsArray()) {
+        for (size_t i = node.GetArraySize(); i > 0; --i) {
+          stack.push_back(
+              {.step_idx = step_idx + 1, .node = node.GetArrayElement(i - 1)});
+        }
+      }
+      break;
+    }
+  }
+}
+
+// For descendant steps (`..key`, `..[i]`, `..*`, `..[*]`), pushes frames to
+// evaluate `step_idx` against all children of `node` onto `stack` in reverse
+// order, so that a LIFO pop visits children in sorted key order (for objects)
+// or index order (for arrays).
+void PushDescendantChildFrames(size_t step_idx, JSONValueConstRef node,
+                               std::vector<JsonPathStackFrame>& stack) {
+  if (node.IsArray()) {
+    for (size_t i = node.GetArraySize(); i > 0; --i) {
+      stack.push_back(
+          {.step_idx = step_idx, .node = node.GetArrayElement(i - 1)});
+    }
+  } else if (node.IsObject()) {
+    const std::vector<std::pair<absl::string_view, JSONValueConstRef>> members =
+        node.GetMembers();
+    for (auto it = members.rbegin(); it != members.rend(); ++it) {
+      stack.push_back({.step_idx = step_idx, .node = it->second});
+    }
+  }
+}
+
+absl::Status MakeMaxParsingDepthError() {
+  return MakeEvalError() << "JSON parsing failed due to deeply nested "
+                            "array/struct. Maximum nesting depth is "
+                         << JSONPathExtractor::kMaxParsingDepth;
+}
+
+absl::Status MakeUnsupportedStringInputError() {
+  return MakeEvalError() << "JSONPath wildcard and recursive descendant "
+                            "operators are not supported for STRING input";
+}
+
+// Evaluator for linear JSONPaths (without wildcards or recursive descendants).
+// Uses `ValidJSONPathIterator` for both `JSONValueConstRef` DOM traversal and
+// streaming `JSONPath*Extractor` evaluation on `STRING` (`absl::string_view`)
+// inputs.
+class LinearJsonPathEvaluator final : public JsonPathEvaluator {
+ public:
+  LinearJsonPathEvaluator(std::unique_ptr<ValidJSONPathIterator> itr,
+                          bool enable_special_character_escaping_in_values,
+                          bool enable_special_character_escaping_in_keys)
+      : path_iterator_(std::move(itr)),
+        enable_special_character_escaping_in_values_(
+            enable_special_character_escaping_in_values),
+        enable_special_character_escaping_in_keys_(
+            enable_special_character_escaping_in_keys) {}
+
+  absl::Status Extract(absl::string_view json, std::string* value,
+                       bool* is_null,
+                       std::optional<std::function<void(absl::Status)>>
+                           issue_warning) const override {
+    JSONPathExtractor parser(json, path_iterator_.get());
+    parser.set_special_character_escaping(
+        enable_special_character_escaping_in_values_);
+    parser.set_special_character_key_escaping(
+        enable_special_character_escaping_in_keys_);
+    parser.set_escaping_needed_callback(&escaping_needed_callback_);
+    value->clear();
+    parser.Extract(value, is_null, issue_warning);
+    if (parser.StoppedDueToStackSpace()) {
+      return MakeMaxParsingDepthError();
+    }
+    return absl::OkStatus();
+  }
+
+  std::optional<JSONValueConstRef> Extract(
+      JSONValueConstRef input) const override {
+    bool first_token = true;
+    for (path_iterator_->Rewind(); !path_iterator_->End();
+         ++(*path_iterator_)) {
+      const ValidJSONPathIterator::Token& token = *(*path_iterator_);
+
+      if (first_token) {
+        // The JSONPath "$.a[1].b" will result in the following list of tokens:
+        // "", "a", "1", "b". The first token is always the empty token
+        // corresponding to the whole JSON document, and we don't need to do
+        // anything in that iteration. There can be other empty tokens after
+        // the first one (empty keys are valid).
+        first_token = false;
+        continue;
+      }
+
+      if (input.IsObject()) {
+        std::optional<JSONValueConstRef> optional_member =
+            input.GetMemberIfExists(token);
+        if (!optional_member.has_value()) {
+          return std::nullopt;
+        }
+        input = optional_member.value();
+      } else if (input.IsArray()) {
+        int64_t index;
+        if (!absl::SimpleAtoi(token, &index) || index < 0 ||
+            index >= input.GetArraySize()) {
+          return std::nullopt;
+        }
+        input = input.GetArrayElement(index);
+      } else {
+        // The path is not present in the JSON object.
+        return std::nullopt;
+      }
+    }
+
+    return input;
+  }
+
+  bool ExtractExists(JSONValueConstRef input) const override {
+    return Extract(input).has_value();
+  }
+
+  absl::Status ExtractScalar(absl::string_view json, std::string* value,
+                             bool* is_null) const override {
+    json_internal::JSONPathExtractScalar scalar_parser(json,
+                                                       path_iterator_.get());
+    value->clear();
+    scalar_parser.Extract(value, is_null);
+    if (scalar_parser.StoppedDueToStackSpace()) {
+      return MakeMaxParsingDepthError();
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status ExtractArray(absl::string_view json,
+                            std::vector<std::string>* value, bool* is_null,
+                            std::optional<std::function<void(absl::Status)>>
+                                issue_warning) const override {
+    json_internal::JSONPathArrayExtractor array_parser(json,
+                                                       path_iterator_.get());
+    array_parser.set_special_character_escaping(
+        enable_special_character_escaping_in_values_);
+    array_parser.set_special_character_key_escaping(
+        enable_special_character_escaping_in_keys_);
+    value->clear();
+    array_parser.ExtractArray(value, is_null, issue_warning);
+    if (array_parser.StoppedDueToStackSpace()) {
+      return MakeMaxParsingDepthError();
+    }
+    return absl::OkStatus();
+  }
+
+  absl::Status ExtractStringArray(
+      absl::string_view json, std::vector<std::optional<std::string>>* value,
+      bool* is_null) const override {
+    json_internal::JSONPathStringArrayExtractor array_parser(
+        json, path_iterator_.get());
+    value->clear();
+    array_parser.ExtractStringArray(value, is_null);
+    if (array_parser.StoppedDueToStackSpace()) {
+      return MakeMaxParsingDepthError();
+    }
+    return absl::OkStatus();
+  }
+
+  void enable_special_character_escaping() override {
+    enable_special_character_escaping_in_values_ = true;
+  }
+
+  void set_escaping_needed_callback(
+      std::function<void(absl::string_view, bool)> callback) override {
+    escaping_needed_callback_ = std::move(callback);
+  }
+
+ private:
+  const std::unique_ptr<ValidJSONPathIterator> path_iterator_;
+  bool enable_special_character_escaping_in_values_ = false;
+  bool enable_special_character_escaping_in_keys_ = false;
+  std::function<void(absl::string_view, bool)> escaping_needed_callback_;
+};
+
+// Evaluator for JSONPaths containing wildcard (`.*`, `[*]`) or recursive
+// descendant (`..`) operators. Evaluates `JSONValueConstRef` inputs via
+// `EvaluateJsonPath()` and rejects `STRING` (`absl::string_view`) inputs with
+// `OUT_OF_RANGE`.
+class WildcardJsonPathEvaluator final : public JsonPathEvaluator {
+ public:
+  explicit WildcardJsonPathEvaluator(ParsedJsonPath parsed_path)
+      : parsed_path_(std::move(parsed_path)) {}
+
+  absl::Status Extract(absl::string_view json, std::string* value,
+                       bool* is_null,
+                       std::optional<std::function<void(absl::Status)>>
+                           issue_warning) const override {
+    return MakeUnsupportedStringInputError();
+  }
+
+  std::optional<JSONValueConstRef> Extract(
+      JSONValueConstRef input) const override {
+    std::vector<JSONValueConstRef> matches =
+        EvaluateJsonPath(parsed_path_, input, /*max_matches=*/2);
+    if (matches.size() != 1) {
+      // Return nullopt if the JSON path evaluation did not return exactly one
+      // match. This behavior is consistent with the SQL standard behavior for
+      // JSON_QUERY without array wrappers, and the default NULL ON EMPTY and
+      // NULL ON ERROR behavior.
+      return std::nullopt;
+    }
+    return matches[0];
+  }
+
+  bool ExtractExists(JSONValueConstRef input) const override {
+    return !EvaluateJsonPath(parsed_path_, input, /*max_matches=*/1).empty();
+  }
+
+  absl::Status ExtractScalar(absl::string_view json, std::string* value,
+                             bool* is_null) const override {
+    return MakeUnsupportedStringInputError();
+  }
+
+  absl::Status ExtractArray(absl::string_view json,
+                            std::vector<std::string>* value, bool* is_null,
+                            std::optional<std::function<void(absl::Status)>>
+                                issue_warning) const override {
+    return MakeUnsupportedStringInputError();
+  }
+
+  absl::Status ExtractStringArray(
+      absl::string_view json, std::vector<std::optional<std::string>>* value,
+      bool* is_null) const override {
+    return MakeUnsupportedStringInputError();
+  }
+
+ private:
+  const ParsedJsonPath parsed_path_;
+};
+
 }  // namespace
 
-JsonPathEvaluator::~JsonPathEvaluator() = default;
+namespace json_internal {
 
-JsonPathEvaluator::JsonPathEvaluator(
-    std::unique_ptr<ValidJSONPathIterator> itr,
-    bool enable_special_character_escaping_in_values,
-    bool enable_special_character_escaping_in_keys)
-    : path_iterator_(std::move(itr)),
-      enable_special_character_escaping_in_values_(
-          enable_special_character_escaping_in_values),
-      enable_special_character_escaping_in_keys_(
-          enable_special_character_escaping_in_keys) {}
+std::vector<JSONValueConstRef> EvaluateJsonPath(
+    const ParsedJsonPath& path, JSONValueConstRef input,
+    std::optional<size_t> max_matches) {
+  ABSL_DCHECK(!path.steps().empty() && path.steps()[0].is_root());
+  std::vector<JSONValueConstRef> matches;
+  if (max_matches.has_value() && *max_matches == 0) {
+    return matches;
+  }
+  std::vector<JsonPathStackFrame> stack;
+  stack.push_back({.step_idx = 1, .node = input});
+
+  while (!stack.empty()) {
+    JsonPathStackFrame frame = stack.back();
+    stack.pop_back();
+
+    if (frame.step_idx >= path.steps().size()) {
+      matches.push_back(frame.node);
+      if (max_matches.has_value() && matches.size() >= *max_matches) {
+        break;
+      }
+      continue;
+    }
+
+    // Push descendant recursion frames first so they are popped *after* any
+    // direct matches of `steps[frame.step_idx]` at `frame.node` (preserving
+    // depth-first pre-order traversal).
+    if (path.steps()[frame.step_idx].is_descendant()) {
+      PushDescendantChildFrames(frame.step_idx, frame.node, stack);
+    }
+    PushDirectStepMatches(path, frame.step_idx, frame.node, stack);
+  }
+  return matches;
+}
+
+}  // namespace json_internal
+
+JsonPathEvaluator::~JsonPathEvaluator() = default;
 
 // static
 absl::StatusOr<std::unique_ptr<JsonPathEvaluator>> JsonPathEvaluator::Create(
     absl::string_view json_path, bool sql_standard_mode,
     bool enable_special_character_escaping_in_values,
-    bool enable_special_character_escaping_in_keys) {
+    bool enable_special_character_escaping_in_keys,
+    bool enable_wildcard_and_descendant) {
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      ParsedJsonPath parsed_path,
+      json_internal::ParseJsonPath(json_path, sql_standard_mode,
+                                   enable_wildcard_and_descendant));
+  GOOGLESQL_RET_CHECK(!parsed_path.steps().empty() && parsed_path.steps()[0].is_root());
+  for (size_t i = 1; i < parsed_path.steps().size(); ++i) {
+    GOOGLESQL_RET_CHECK(!parsed_path.steps()[i].is_root());
+  }
+  if (parsed_path.has_wildcard_or_descendant()) {
+    return std::make_unique<WildcardJsonPathEvaluator>(std::move(parsed_path));
+  }
   GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<ValidJSONPathIterator> itr,
-                   ValidJSONPathIterator::Create(json_path, sql_standard_mode));
+                   ValidJSONPathIterator::Create(parsed_path));
   // Scan tokens as json_path may not persist beyond this call.
   itr->Scan();
-  return absl::WrapUnique(new JsonPathEvaluator(
+  return std::make_unique<LinearJsonPathEvaluator>(
       std::move(itr), enable_special_character_escaping_in_values,
-      enable_special_character_escaping_in_keys));
-}
-
-absl::Status JsonPathEvaluator::Extract(
-    absl::string_view json, std::string* value, bool* is_null,
-    std::optional<std::function<void(absl::Status)>> issue_warning) const {
-  JSONPathExtractor parser(json, path_iterator_.get());
-  parser.set_special_character_escaping(
-      enable_special_character_escaping_in_values_);
-  parser.set_special_character_key_escaping(
-      enable_special_character_escaping_in_keys_);
-  parser.set_escaping_needed_callback(&escaping_needed_callback_);
-  value->clear();
-  parser.Extract(value, is_null, issue_warning);
-  if (parser.StoppedDueToStackSpace()) {
-    return MakeEvalError() << "JSON parsing failed due to deeply nested "
-                              "array/struct. Maximum nesting depth is "
-                           << JSONPathExtractor::kMaxParsingDepth;
-  }
-  return absl::OkStatus();
-}
-
-std::optional<JSONValueConstRef> JsonPathEvaluator::Extract(
-    JSONValueConstRef input) const {
-  bool first_token = true;
-  for (path_iterator_->Rewind(); !path_iterator_->End(); ++(*path_iterator_)) {
-    const ValidJSONPathIterator::Token& token = *(*path_iterator_);
-
-    if (first_token) {
-      // The JSONPath "$.a[1].b" will result in the following list of tokens:
-      // "", "a", "1", "b". The first token is always the empty token
-      // corresponding to the whole JSON document, and we don't need to do
-      // anything in that iteration. There can be other empty tokens after
-      // the first one (empty keys are valid).
-      first_token = false;
-      continue;
-    }
-
-    if (input.IsObject()) {
-      std::optional<JSONValueConstRef> optional_member =
-          input.GetMemberIfExists(token);
-      if (!optional_member.has_value()) {
-        return std::nullopt;
-      }
-      input = optional_member.value();
-    } else if (input.IsArray()) {
-      int64_t index;
-      if (!absl::SimpleAtoi(token, &index) || index < 0 ||
-          index >= input.GetArraySize()) {
-        return std::nullopt;
-      }
-      input = input.GetArrayElement(index);
-    } else {
-      // The path is not present in the JSON object.
-      return std::nullopt;
-    }
-  }
-
-  return input;
-}
-
-absl::Status JsonPathEvaluator::ExtractScalar(absl::string_view json,
-                                              std::string* value,
-                                              bool* is_null) const {
-  json_internal::JSONPathExtractScalar scalar_parser(json,
-                                                     path_iterator_.get());
-  value->clear();
-  scalar_parser.Extract(value, is_null);
-  if (scalar_parser.StoppedDueToStackSpace()) {
-    return MakeEvalError() << "JSON parsing failed due to deeply nested "
-                              "array/struct. Maximum nesting depth is "
-                           << JSONPathExtractor::kMaxParsingDepth;
-  }
-  return absl::OkStatus();
+      enable_special_character_escaping_in_keys);
 }
 
 std::optional<std::string> JsonPathEvaluator::ExtractScalar(
@@ -180,25 +447,6 @@ std::optional<std::string> JsonPathEvaluator::ExtractScalar(
   return optional_json->ToString();
 }
 
-absl::Status JsonPathEvaluator::ExtractArray(
-    absl::string_view json, std::vector<std::string>* value, bool* is_null,
-    std::optional<std::function<void(absl::Status)>> issue_warning) const {
-  json_internal::JSONPathArrayExtractor array_parser(json,
-                                                     path_iterator_.get());
-  array_parser.set_special_character_escaping(
-      enable_special_character_escaping_in_values_);
-  array_parser.set_special_character_key_escaping(
-      enable_special_character_escaping_in_keys_);
-  value->clear();
-  array_parser.ExtractArray(value, is_null, issue_warning);
-  if (array_parser.StoppedDueToStackSpace()) {
-    return MakeEvalError() << "JSON parsing failed due to deeply nested "
-                              "array/struct. Maximum nesting depth is "
-                           << JSONPathExtractor::kMaxParsingDepth;
-  }
-  return absl::OkStatus();
-}
-
 std::optional<std::vector<JSONValueConstRef>> JsonPathEvaluator::ExtractArray(
     JSONValueConstRef input) const {
   std::optional<JSONValueConstRef> json = Extract(input);
@@ -207,21 +455,6 @@ std::optional<std::vector<JSONValueConstRef>> JsonPathEvaluator::ExtractArray(
   }
 
   return json->GetArrayElements();
-}
-
-absl::Status JsonPathEvaluator::ExtractStringArray(
-    absl::string_view json, std::vector<std::optional<std::string>>* value,
-    bool* is_null) const {
-  json_internal::JSONPathStringArrayExtractor array_parser(
-      json, path_iterator_.get());
-  value->clear();
-  array_parser.ExtractStringArray(value, is_null);
-  if (array_parser.StoppedDueToStackSpace()) {
-    return MakeEvalError() << "JSON parsing failed due to deeply nested "
-                              "array/struct. Maximum nesting depth is "
-                           << JSONPathExtractor::kMaxParsingDepth;
-  }
-  return absl::OkStatus();
 }
 
 std::optional<std::vector<std::optional<std::string>>>
@@ -1509,7 +1742,7 @@ absl::StatusOr<JSONValue> JsonQueryLax(JSONValueConstRef input,
 
 absl::StatusOr<bool> JsonExists(JSONValueConstRef input,
                                 const JsonPathEvaluator& evaluator) {
-  return evaluator.Extract(input).has_value();
+  return evaluator.ExtractExists(input);
 }
 
 absl::StatusOr<bool> JsonExistsAny(
@@ -1517,7 +1750,7 @@ absl::StatusOr<bool> JsonExistsAny(
     absl::Span<const JsonPathEvaluator* const> evaluators) {
   for (const JsonPathEvaluator* evaluator : evaluators) {
     GOOGLESQL_RET_CHECK(evaluator != nullptr);
-    if (evaluator->Extract(input).has_value()) {
+    if (evaluator->ExtractExists(input)) {
       return true;
     }
   }
@@ -1529,7 +1762,7 @@ absl::StatusOr<bool> JsonExistsAll(
     absl::Span<const JsonPathEvaluator* const> evaluators) {
   for (const JsonPathEvaluator* evaluator : evaluators) {
     GOOGLESQL_RET_CHECK(evaluator != nullptr);
-    if (!evaluator->Extract(input).has_value()) {
+    if (!evaluator->ExtractExists(input)) {
       return false;
     }
   }

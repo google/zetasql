@@ -1232,7 +1232,7 @@ STRUCT<
 }
 ==
 
-[name=update_with_join_returning_star]
+[name=update_with_join_returning_star_without_from_columns_feature]
 [required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING]
 UPDATE TableInt64Values
 SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
@@ -1257,13 +1257,96 @@ STRUCT<
 }
 ==
 
-[name=update_with_join_where_true_returning_star]
-[required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING]
+[name=update_with_join_returning_star]
+[required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING,DML_UPDATE_RETURNING_FROM_COLUMNS]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+THEN RETURN *
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
+    {1, 110, 100, 1000},
+    {2, 220, 200, 2000}
+  ],
+  ARRAY<STRUCT<primary_key INT64,
+               value1 INT64,
+               value2 INT64,
+               value3 INT64,
+               primary_key INT64,
+               value1 INT64,
+               value2 INT64,
+               value3 INT64>>
+  [unknown order:
+    {1, 110, 100, 1000, 1, 100, 1000, 1000},
+    {2, 220, 200, 2000, 2, 200, 2000, 1000}
+  ]
+}
+==
+
+[name=update_with_join_returning_columns]
+[required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING,DML_UPDATE_RETURNING_FROM_COLUMNS]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+THEN RETURN TableInt64Values.primary_key, TableInt64Values2.value1 AS from_value1, TableInt64Values.value1 AS updated_value1
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
+    {1, 110, 100, 1000},
+    {2, 220, 200, 2000}
+  ],
+  ARRAY<STRUCT<primary_key INT64, from_value1 INT64, updated_value1 INT64>>[unknown order:
+    {1, 100, 110},
+    {2, 200, 220}
+  ]
+}
+==
+
+[name=update_with_join_returning_expressions]
+[required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING,DML_UPDATE_RETURNING_FROM_COLUMNS]
+UPDATE TableInt64Values
+SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
+FROM TableInt64Values2
+WHERE TableInt64Values.primary_key = TableInt64Values2.primary_key
+THEN RETURN TableInt64Values.primary_key, TableInt64Values.value1 + TableInt64Values2.value2 AS expr_sum
+--
+STRUCT<
+  num_rows_modified INT64,
+  all_rows ARRAY<>,
+  returning_rows ARRAY<>
+>{
+  2,
+  ARRAY<STRUCT<primary_key INT64, value1 INT64, value2 INT64, value3 INT64>>[unknown order:
+    {1, 110, 100, 1000},
+    {2, 220, 200, 2000}
+  ],
+  ARRAY<STRUCT<primary_key INT64, expr_sum INT64>>[unknown order:
+    {1, 1110},
+    {2, 2220}
+  ]
+}
+==
+
+[name=update_with_join_where_true_returning_from_column]
+[required_features=DML_UPDATE_WITH_JOIN,DML_RETURNING,DML_UPDATE_RETURNING_FROM_COLUMNS]
 UPDATE TableInt64Values
 SET value1 = TableInt64Values.value1 + TableInt64Values2.value1
 FROM TableInt64Values2
 WHERE true
-THEN RETURN *
+THEN RETURN TableInt64Values2.value1
 --
 ERROR: generic::out_of_range: UPDATE with join requires that each row of the table being updated correspond with at most one joined row that matches the WHERE clause
 ==

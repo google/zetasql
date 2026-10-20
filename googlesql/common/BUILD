@@ -1235,9 +1235,11 @@ cc_test(
         "//googlesql/base/testing:googlesql_gtest_main",
         "//googlesql/base/testing:status_matchers",
         "//googlesql/public:json_value",
+        "//googlesql/public:value",
         "//googlesql/public/functions:json",
         "//googlesql/public/types",
         "//googlesql/resolved_ast",
+        "//googlesql/testing:test_value",
         "@com_google_absl//absl/types:span",
     ],
 )

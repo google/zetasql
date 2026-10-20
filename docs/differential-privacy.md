@@ -368,13 +368,13 @@ individual's ID, you could expose sensitive data.
 
 [dp-clamping]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#dp_clamping
 
-[dp-chart-a]: https://cloud.google.com/docs/images/googlesql-dp-chart-a.png
+[dp-chart-a]: https://docs.cloud.google.com/docs/images/googlesql-dp-chart-a.png
 
-[dp-chart-b]: https://cloud.google.com/docs/images/googlesql-dp-chart-b.png
+[dp-chart-b]: https://docs.cloud.google.com/docs/images/googlesql-dp-chart-b.png
 
-[dp-chart-c]: https://cloud.google.com/docs/images/googlesql-dp-chart-c.png
+[dp-chart-c]: https://docs.cloud.google.com/docs/images/googlesql-dp-chart-c.png
 
-[dp-chart-d]: https://cloud.google.com/docs/images/googlesql-dp-chart-d.gif
+[dp-chart-d]: https://docs.cloud.google.com/docs/images/googlesql-dp-chart-d.gif
 
 <!-- mdlint on -->
 

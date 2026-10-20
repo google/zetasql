@@ -74,7 +74,7 @@ class FloatMargin {
   // numbers. To be used only in cases where the nature of the computation is
   // known. Valid inputs are [0..kMaxUlpBits].
   static constexpr FloatMargin UlpMarginStrictZero(int bits) {
-    return FloatMargin(bits, 0 /* zero_ulp_bits */);
+    return FloatMargin(bits, /*zero_ulp_bits=*/0 /* zero_ulp_bits */);
   }
 
   // Creates a minimal error that is looser than both inputs.
@@ -194,7 +194,8 @@ class FloatMargin {
 // class itself.
 
 // Use this float margin to require exact comparison.
-static constexpr FloatMargin kExactFloatMargin = FloatMargin::UlpMargin(0);
+static constexpr FloatMargin kExactFloatMargin =
+    FloatMargin::UlpMargin(/*bits=*/0);
 
 // Use this for default comparison of floating point numbers. Unit in the
 // 4th-last place, similar to GTest's EXPECT_FLOAT_EQ.

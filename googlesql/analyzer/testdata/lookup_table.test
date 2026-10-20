@@ -1,0 +1,1070 @@
+# We haven't added the support for describing TVFs with table schema to Java.
+# TODO: b/462152462 - Add the Java support for serializing and deserializing
+# the `result_table_schema_` field.
+[default no_java]
+[default no_enable_literal_replacement]
+[default language_features=MAXIMUM,+LOOKUP_TABLE_TVF]
+[default enabled_ast_rewrites=DEFAULTS,+LOOKUP_TABLE_TVF]
+
+[language_features=MAXIMUM,-LOOKUP_TABLE_TVF]
+# Feature disabled by default in MAXIMUM.
+SELECT * FROM LookupTable("KeyValue")
+--
+ERROR: Table-valued function not found: LookupTable [at 2:15]
+SELECT * FROM LookupTable("KeyValue")
+              ^
+==
+
+SELECT * FROM LookupTable()
+--
+ERROR: No matching signature for LookupTable with no arguments
+  Signature: LOOKUPTABLE(STRING)
+    Signature requires at least 1 argument, found 0 arguments [at 1:15]
+SELECT * FROM LookupTable()
+              ^
+==
+
+SELECT * FROM LookupTable(123)
+--
+ERROR: No matching signature for LookupTable
+  Argument types: INT64
+  Signature: LOOKUPTABLE(STRING)
+    Argument 1: Unable to coerce type INT64 to expected type STRING [at 1:15]
+SELECT * FROM LookupTable(123)
+              ^
+==
+
+SELECT * FROM LookupTable("test", "test")
+--
+ERROR: No matching signature for LookupTable
+  Argument types: STRING, STRING
+  Signature: LOOKUPTABLE(STRING)
+    Signature accepts at most 1 argument, found 2 arguments [at 1:15]
+SELECT * FROM LookupTable("test", "test")
+              ^
+==
+
+SELECT * FROM LookupTable(NULL)
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be non-NULL [at 1:27]
+SELECT * FROM LookupTable(NULL)
+                          ^
+==
+
+SELECT * FROM LookupTable(CAST(NULL AS STRING))
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be non-NULL [at 1:27]
+SELECT * FROM LookupTable(CAST(NULL AS STRING))
+                          ^
+==
+
+SELECT * FROM LookupTable("test")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("test")
+              ^
+Table not found: test not found in catalog sample_catalog
+==
+
+# Invalid path expressions
+SELECT * FROM LookupTable("")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("")
+              ^
+Path strings cannot be empty
+==
+
+SELECT * FROM LookupTable("MyTa)ble")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("MyTa)ble")
+              ^
+Path contains an invalid character ')'
+==
+
+SELECT * FROM LookupTable("KeyValue ")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("KeyValue ")
+              ^
+Path contains an invalid character ' '
+==
+
+SELECT * FROM LookupTable(" KeyValue")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable(" KeyValue")
+              ^
+Path contains an invalid character ' '
+==
+
+SELECT * FROM LookupTable("My-Table.`20250102`")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("My-Table.`20250102`")
+              ^
+Path contains an invalid character '-'
+==
+
+# Valid table lookups
+SELECT * FROM LookupTable("KeyValue")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="KeyValue", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+SELECT * FROM LookupTable("keyvalue")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="keyvalue", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+SELECT * FROM LookupTable("`KeyValue`")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="`KeyValue`", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Table scan hints
+SELECT * FROM LookupTable("KeyValue")@{SCAN_METHOD=ROW};
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-hint_list=
+        | +-SCAN_METHOD := Literal(type=STRING, value="ROW")
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="KeyValue", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan
+        +-column_list=KeyValue.[Key#1, Value#2]
+        +-hint_list=
+        | +-SCAN_METHOD := Literal(type=STRING, value="ROW")
+        +-table=KeyValue
+        +-column_index_list=[0, 1]
+==
+
+# Explicit alias
+SELECT t.Key FROM LookupTable("KeyValue") AS t
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[LookupTable.Key#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[LookupTable.Key#1]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="KeyValue", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0]
+        +-alias="t"
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[KeyValue.Key#1]
+    +-input_scan=
+      +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="t")
+==
+
+# No default alias is present for LookupTable("KeyValue")
+SELECT KeyValue.Key FROM LookupTable("KeyValue")
+--
+ERROR: Unrecognized name: KeyValue; Did you mean Value? [at 1:8]
+SELECT KeyValue.Key FROM LookupTable("KeyValue")
+       ^
+==
+
+# Multiple LookupTable calls (e.g. JOIN)
+SELECT t1.Key, t2.Value
+FROM LookupTable("KeyValue") AS t1
+JOIN LookupTable("nested_catalog.KeyValue") AS t2
+ON t1.Key = t2.Key
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#4 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=LookupTable.[Key#1, Key#3, Value#4]
+        +-left_scan=
+        | +-TVFScan
+        |   +-column_list=[LookupTable.Key#1]
+        |   +-tvf=GoogleSQL:LookupTable
+        |   +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=STRING, value="KeyValue", preserve_in_literal_remover=TRUE)
+        |   +-column_index_list=[0]
+        |   +-alias="t1"
+        |   +-function_call_signature=(STRING) -> ANY TABLE
+        +-right_scan=
+        | +-TVFScan
+        |   +-column_list=LookupTable.[Key#3, Value#4]
+        |   +-tvf=GoogleSQL:LookupTable
+        |   +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=STRING, value="nested_catalog.KeyValue", preserve_in_literal_remover=TRUE)
+        |   +-column_index_list=[0, 1]
+        |   +-alias="t2"
+        |   +-function_call_signature=(STRING) -> ANY TABLE
+        +-join_expr=
+          +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=LookupTable.Key#1)
+            +-ColumnRef(type=INT64, column=LookupTable.Key#3)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#4 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#4]
+    +-input_scan=
+      +-JoinScan
+        +-column_list=KeyValue.[Key#1, Key#3, Value#4]
+        +-left_scan=
+        | +-TableScan(column_list=[KeyValue.Key#1], table=KeyValue, column_index_list=[0], alias="t1")
+        +-right_scan=
+        | +-TableScan(column_list=KeyValue.[Key#3, Value#4], table=KeyValue, column_index_list=[0, 1], alias="t2")
+        +-join_expr=
+          +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#1)
+            +-ColumnRef(type=INT64, column=KeyValue.Key#3)
+==
+
+# Nested catalog table path
+SELECT * FROM LookupTable("nested_catalog.KeyValue")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="nested_catalog.KeyValue", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+SELECT * FROM LookupTable("`nested_catalog`.`KeyValue`")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="`nested_catalog`.`KeyValue`", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Slashed, dashed, and special-character table names and paths
+[prepare_database=db1]
+CREATE TABLE `/span/test-universe/db-1:prod` (id INT64, val STRING);
+--
+CreateTableStmt
++-name_path=`/span/test-universe/db-1:prod`
++-column_definition_list=
+  +-ColumnDefinition(name="id", type=INT64, column=`/span/test-universe/db-1:prod`.id#1)
+  +-ColumnDefinition(name="val", type=STRING, column=`/span/test-universe/db-1:prod`.val#2)
+==
+
+[prepare_database=db1]
+CREATE TABLE `MyTa)ble` (id INT64);
+--
+CreateTableStmt
++-name_path=`MyTa)ble`
++-column_definition_list=
+  +-ColumnDefinition(name="id", type=INT64, column=`MyTa)ble`.id#1)
+==
+
+[prepare_database=db1]
+CREATE CONSTANT const_table_name = "KeyValue";
+--
+CreateConstantStmt
++-name_path=const_table_name
++-expr=
+  +-Literal(type=STRING, value="KeyValue")
+==
+
+[prepare_database=db1]
+CREATE CONSTANT const_null_string = CAST(NULL AS STRING);
+--
+CreateConstantStmt
++-name_path=const_null_string
++-expr=
+  +-Literal(type=STRING, value=NULL, has_explicit_type=TRUE)
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("/span/test-universe/db-1:prod")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.id#1 AS id [INT64]
+| +-LookupTable.val#2 AS val [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[id#1, val#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[id#1, val#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<id INT64, val STRING> (table: /span/test-universe/db-1:prod)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="/span/test-universe/db-1:prod", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-/span/test-universe/db-1:prod.id#1 AS id [INT64]
+| +-/span/test-universe/db-1:prod.val#2 AS val [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=/span/test-universe/db-1:prod.[id#1, val#2]
+    +-input_scan=
+      +-TableScan(column_list=/span/test-universe/db-1:prod.[id#1, val#2], table=/span/test-universe/db-1:prod, column_index_list=[0, 1])
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("`/span/test-universe/db-1:prod`")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.id#1 AS id [INT64]
+| +-LookupTable.val#2 AS val [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[id#1, val#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[id#1, val#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<id INT64, val STRING> (table: /span/test-universe/db-1:prod)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="`/span/test-universe/db-1:prod`", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-/span/test-universe/db-1:prod.id#1 AS id [INT64]
+| +-/span/test-universe/db-1:prod.val#2 AS val [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=/span/test-universe/db-1:prod.[id#1, val#2]
+    +-input_scan=
+      +-TableScan(column_list=/span/test-universe/db-1:prod.[id#1, val#2], table=/span/test-universe/db-1:prod, column_index_list=[0, 1])
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("`/span/test-universe/db-1:prod`.MyTable")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("`/span/test-universe/db-1:prod`.MyTable")
+              ^
+Table not found: catalog `/span/test-universe/db-1:prod` not found in catalog db1
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("/span/test-universe/db-1:prod.MyTable")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("/span/test-universe/db-1:prod.MyTable")
+              ^
+Table not found: catalog `/span/test-universe/db-1:prod` not found in catalog db1
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("`My-Table`.20250102")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("`My-Table`.20250102")
+              ^
+Table not found: catalog `My-Table` not found in catalog db1
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("`My-Table`.`20250102`")
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable("`My-Table`.`20250102`")
+              ^
+Table not found: catalog `My-Table` not found in catalog db1
+==
+
+[use_database=db1]
+SELECT * FROM LookupTable("`MyTa)ble`")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.id#1 AS id [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[LookupTable.id#1]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[LookupTable.id#1]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<id INT64> (table: MyTa)ble)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="`MyTa)ble`", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-MyTa)ble.id#1 AS id [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[MyTa)ble.id#1]
+    +-input_scan=
+      +-TableScan(column_list=[MyTa)ble.id#1], table=MyTa)ble, column_index_list=[0])
+==
+
+# Named constants
+[use_database=db1]
+[use_constant_evaluator]
+SELECT * FROM LookupTable(const_table_name)
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Constant(const_table_name, type=STRING, value="KeyValue")
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+[use_database=db1]
+[use_constant_evaluator]
+SELECT * FROM LookupTable(const_null_string)
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable(const_null_string)
+              ^
+The argument must be non-NULL
+==
+
+[use_constant_evaluator]
+# SimpleConstant with nonexistence table name
+SELECT * FROM LookupTable(TestConstantString)
+--
+ERROR: Invalid table-valued function LookupTable [at 2:15]
+SELECT * FROM LookupTable(TestConstantString)
+              ^
+Table not found: foo not found in catalog sample_catalog
+==
+
+[use_constant_evaluator]
+# SimpleConstant
+SELECT * FROM LookupTable(KeyValueConst)
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Constant(KeyValueConst, type=STRING, value="KeyValue")
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+
+==
+
+# Struct field access with constant_evaluator
+[use_constant_evaluator]
+SELECT * FROM LookupTable(STRUCT("KeyValue" AS col).col)
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-GetStructField
+        |       +-type=STRING
+        |       +-expr=
+        |       | +-Literal(type=STRUCT<col STRING>, value={col:"KeyValue"})
+        |       +-field_idx=0
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+[use_constant_evaluator]
+SELECT * FROM LookupTable(STRUCT(CAST(NULL AS STRING) AS col).col)
+--
+ERROR: Invalid table-valued function LookupTable [at 1:15]
+SELECT * FROM LookupTable(STRUCT(CAST(NULL AS STRING) AS col).col)
+              ^
+The argument must be non-NULL
+==
+
+[allow_internal_error_todo_bug=b/550691966 - LookupTable TVF missing constant evaluator]
+# Struct field access without constant_evaluator
+SELECT * FROM LookupTable(STRUCT("KeyValue" AS col).col)
+--
+ERROR: generic::internal: RET_CHECK failure (<location redacted>) analyzer_options.constant_evaluator() != nullptr LookupTable TVF requires a constant evaluator, but none was configured in AnalyzerOptions.
+==
+
+# Table with anonymization info
+[language_features=MAXIMUM,+LOOKUP_TABLE_TVF,+ANONYMIZATION]
+[enabled_ast_rewrites=DEFAULTS,+LOOKUP_TABLE_TVF,+ANONYMIZATION]
+SELECT WITH ANONYMIZATION ANON_COUNT(*)
+FROM LookupTable("T1StringAnonymizationUid")
+--
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-TVFScan
+        |   +-tvf=GoogleSQL:LookupTable
+        |   +-signature=(literal STRING) -> TABLE<uid STRING, c2 STRING> (table: T1StringAnonymizationUid)
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=STRING, value="T1StringAnonymizationUid", preserve_in_literal_remover=TRUE)
+        |   +-function_call_signature=(STRING) -> ANY TABLE
+        +-aggregate_list=
+          +-$agg1#3 := AggregateFunctionCall(GoogleSQL:$anon_count_star(optional(0) INT64, optional(0) INT64) -> INT64)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$aggregate.$agg1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$aggregate.$agg1#3]
+    +-input_scan=
+      +-AnonymizedAggregateScan
+        +-column_list=[$aggregate.$agg1#3]
+        +-input_scan=
+        | +-AggregateScan
+        |   +-column_list=[$aggregate.$agg1_partial#6, $group_by.$uid#7]
+        |   +-input_scan=
+        |   | +-TableScan(column_list=[T1StringAnonymizationUid.uid#4], table=T1StringAnonymizationUid, column_index_list=[0])
+        |   +-group_by_list=
+        |   | +-$uid#7 := ColumnRef(type=STRING, column=T1StringAnonymizationUid.uid#4)
+        |   +-aggregate_list=
+        |     +-$agg1_partial#6 := AggregateFunctionCall(GoogleSQL:$count_star() -> INT64)
+        +-aggregate_list=
+        | +-$agg1#3 :=
+        | | +-AggregateFunctionCall(GoogleSQL:anon_sum(INT64, optional(0) INT64, optional(0) INT64) -> INT64)
+        | |   +-ColumnRef(type=INT64, column=$aggregate.$agg1_partial#6)
+        | +-$k_threshold_col#10 :=
+        |   +-AggregateFunctionCall(GoogleSQL:anon_sum(INT64, optional(1) INT64, optional(1) INT64) -> INT64)
+        |     +-Literal(type=INT64, value=1)
+        |     +-Literal(type=INT64, value=0)
+        |     +-Literal(type=INT64, value=1)
+        +-k_threshold_expr=
+          +-ColumnRef(type=INT64, column=$anon.$k_threshold_col#10)
+==
+
+# Value table and pseudo-columns
+FROM LookupTable("table_for_tvf_key_value_vt")
+|> STATIC_DESCRIBE
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.$col0#1 AS `$col0` [STRUCT<Key INT64, Value STRING>]
++-is_value_table=TRUE
++-query=
+  +-StaticDescribeScan
+    +-column_list=[LookupTable.$col0#1]
+    +-describe_text=
+    |   """
+    |   NameList (is_value_table = true):
+    |     <unnamed> STRUCT<Key INT64, Value STRING> LookupTable.$col0#1 (value table)
+    |   NameScope:
+    |     Value table columns:
+    |       LookupTable.$col0#1
+    |   """
+    +-input_scan=
+      +-TVFScan
+        +-column_list=[LookupTable.$col0#1]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<STRUCT<Key INT64, Value STRING>> (table: table_for_tvf_key_value_vt)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="table_for_tvf_key_value_vt", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-table_for_tvf_key_value_vt.$col0#1 AS `$col0` [STRUCT<Key INT64, Value STRING>]
++-is_value_table=TRUE
++-query=
+  +-StaticDescribeScan
+    +-column_list=[table_for_tvf_key_value_vt.$col0#1]
+    +-describe_text=
+    |   """
+    |   NameList (is_value_table = true):
+    |     <unnamed> STRUCT<Key INT64, Value STRING> LookupTable.$col0#1 (value table)
+    |   NameScope:
+    |     Value table columns:
+    |       LookupTable.$col0#1
+    |   """
+    +-input_scan=
+      +-TableScan(column_list=[table_for_tvf_key_value_vt.$col0#1], table=table_for_tvf_key_value_vt, column_index_list=[0])
+==
+
+SELECT *, pseudo_col FROM LookupTable("table_for_tvf_key_value_vt_with_pseudo")
+--
+QueryStmt
++-output_column_list=
+| +-$query.Key#3 AS Key [INT64]
+| +-$query.Value#4 AS Value [STRING]
+| +-LookupTable.pseudo_col#2 AS pseudo_col [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.Key#3, $query.Value#4, LookupTable.pseudo_col#2]
+    +-expr_list=
+    | +-Key#3 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<Key INT64, Value STRING>, column=LookupTable.$col0#1)
+    | |   +-field_idx=0
+    | +-Value#4 :=
+    |   +-GetStructField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<Key INT64, Value STRING>, column=LookupTable.$col0#1)
+    |     +-field_idx=1
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[$col0#1, pseudo_col#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<STRUCT<Key INT64, Value STRING>, pseudo_col INT64> (table: table_for_tvf_key_value_vt_with_pseudo)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="table_for_tvf_key_value_vt_with_pseudo", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$query.Key#3 AS Key [INT64]
+| +-$query.Value#4 AS Value [STRING]
+| +-table_for_tvf_key_value_vt_with_pseudo.pseudo_col#2 AS pseudo_col [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.Key#3, $query.Value#4, table_for_tvf_key_value_vt_with_pseudo.pseudo_col#2]
+    +-expr_list=
+    | +-Key#3 :=
+    | | +-GetStructField
+    | |   +-type=INT64
+    | |   +-expr=
+    | |   | +-ColumnRef(type=STRUCT<Key INT64, Value STRING>, column=table_for_tvf_key_value_vt_with_pseudo.$col0#1)
+    | |   +-field_idx=0
+    | +-Value#4 :=
+    |   +-GetStructField
+    |     +-type=STRING
+    |     +-expr=
+    |     | +-ColumnRef(type=STRUCT<Key INT64, Value STRING>, column=table_for_tvf_key_value_vt_with_pseudo.$col0#1)
+    |     +-field_idx=1
+    +-input_scan=
+      +-TableScan(column_list=table_for_tvf_key_value_vt_with_pseudo.[$col0#1, pseudo_col#2], table=table_for_tvf_key_value_vt_with_pseudo, column_index_list=[0, 1])
+==
+
+# Collated table
+[language_features=MAXIMUM,+LOOKUP_TABLE_TVF,+COLLATION_SUPPORT]
+SELECT * FROM LookupTable("CollatedTable")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
+| +-LookupTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
+| +-LookupTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-LookupTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(literal STRING) -> TABLE<string_ci STRING{Collation:"und:ci"}, string_binary STRING{Collation:"binary"}, struct_with_string_ci STRUCT<a INT32, b STRING><_,{Collation:"und:ci"}>, array_with_string_ci ARRAY<STRING><{Collation:"und:ci"}>> (table: CollatedTable)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-Literal(type=STRING, value="CollatedTable", preserve_in_literal_remover=TRUE)
+        +-column_index_list=[0, 1, 2, 3]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-CollatedTable.string_ci#1{Collation:"und:ci"} AS string_ci [STRING]
+| +-CollatedTable.string_binary#2{Collation:"binary"} AS string_binary [STRING]
+| +-CollatedTable.struct_with_string_ci#3<_,{Collation:"und:ci"}> AS struct_with_string_ci [STRUCT<a INT32, b STRING>]
+| +-CollatedTable.array_with_string_ci#4<{Collation:"und:ci"}> AS array_with_string_ci [ARRAY<STRING>]
++-query=
+  +-ProjectScan
+    +-column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4]
+    +-input_scan=
+      +-TableScan(column_list=CollatedTable.[string_ci#1, string_binary#2, struct_with_string_ci#3, array_with_string_ci#4], table=CollatedTable, column_index_list=[0, 1, 2, 3])
+==
+
+# Table with measure columns
+SELECT key, AGG(measure_sum_quantity) FROM LookupTable("MeasureTable_SingleKey") GROUP BY key
+--
+QueryStmt
++-output_column_list=
+| +-$groupby.key#16 AS key [INT64]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TVFScan
+        |   +-column_list=LookupTable.[key#1, measure_sum_quantity#9]
+        |   +-tvf=GoogleSQL:LookupTable
+        |   +-signature=(literal STRING) -> TABLE<key INT64, country STRING, quantity INT64, price INT64, measure_count_star MEASURE<INT64>, measure_count_star_per_key MEASURE<INT64>, measure_count_distinct_key MEASURE<INT64>, measure_count_key_per_key MEASURE<INT64>, measure_sum_quantity MEASURE<INT64>, measure_sum_price MEASURE<INT64>, measure_sum_price_times_quantity MEASURE<INT64>, measure_ratio_price_to_quantity MEASURE<DOUBLE>, measure_ratio_price_to_quantity_per_key MEASURE<DOUBLE>, measure_complex_ratio_metric MEASURE<DOUBLE>> (table: MeasureTable_SingleKey)
+        |   +-argument_list=
+        |   | +-FunctionArgument
+        |   |   +-expr=
+        |   |     +-Literal(type=STRING, value="MeasureTable_SingleKey", preserve_in_literal_remover=TRUE)
+        |   +-column_index_list=[0, 8]
+        |   +-function_call_signature=(STRING) -> ANY TABLE
+        +-group_by_list=
+        | +-key#16 := ColumnRef(type=INT64, column=LookupTable.key#1)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(GoogleSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=LookupTable.measure_sum_quantity#9)
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-$groupby.key#16 AS key [INT64]
+| +-$aggregate.$agg1#15 AS `$col2` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+    +-input_scan=
+      +-AggregateScan
+        +-column_list=[$groupby.key#16, $aggregate.$agg1#15]
+        +-input_scan=
+        | +-TableScan(column_list=MeasureTable_SingleKey.[key#1, measure_sum_quantity#9], table=MeasureTable_SingleKey, column_index_list=[0, 8])
+        +-group_by_list=
+        | +-key#16 := ColumnRef(type=INT64, column=MeasureTable_SingleKey.key#1)
+        +-aggregate_list=
+          +-$agg1#15 :=
+            +-AggregateFunctionCall(GoogleSQL:AGG(MEASURE<INT64>) -> INT64)
+              +-ColumnRef(type=MEASURE<INT64>, column=MeasureTable_SingleKey.measure_sum_quantity#9)
+==
+
+[use_constant_evaluator]
+SELECT * FROM LookupTable("Key" || "Value")
+--
+QueryStmt
++-output_column_list=
+| +-LookupTable.Key#1 AS Key [INT64]
+| +-LookupTable.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=LookupTable.[Key#1, Value#2]
+    +-input_scan=
+      +-TVFScan
+        +-column_list=LookupTable.[Key#1, Value#2]
+        +-tvf=GoogleSQL:LookupTable
+        +-signature=(STRING) -> TABLE<Key INT64, Value STRING> (table: KeyValue)
+        +-argument_list=
+        | +-FunctionArgument
+        |   +-expr=
+        |     +-FunctionCall(GoogleSQL:concat(STRING, repeated(1) STRING) -> STRING)
+        |       +-Literal(type=STRING, value="Key")
+        |       +-Literal(type=STRING, value="Value")
+        +-column_index_list=[0, 1]
+        +-function_call_signature=(STRING) -> ANY TABLE
+
+[REWRITTEN AST]
+QueryStmt
++-output_column_list=
+| +-KeyValue.Key#1 AS Key [INT64]
+| +-KeyValue.Value#2 AS Value [STRING]
++-query=
+  +-ProjectScan
+    +-column_list=KeyValue.[Key#1, Value#2]
+    +-input_scan=
+      +-TableScan(column_list=KeyValue.[Key#1, Value#2], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Unsupported non-IMMUTABLE_CONST expressions
+SELECT * FROM LookupTable(@test_param_string)
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be an immutable constant [at 1:27]
+SELECT * FROM LookupTable(@test_param_string)
+                          ^
+==
+
+SELECT * FROM LookupTable(@@error.message)
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be an immutable constant [at 1:27]
+SELECT * FROM LookupTable(@@error.message)
+                          ^
+==
+
+SELECT (SELECT COUNT(*) FROM LookupTable(kv.Value)) FROM KeyValue kv
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be an immutable constant [at 1:42]
+SELECT (SELECT COUNT(*) FROM LookupTable(kv.Value)) FROM KeyValue kv
+                                         ^
+==
+
+SELECT * FROM LookupTable((SELECT Value FROM KeyValue LIMIT 1))
+--
+ERROR: The argument to table-valued function LOOKUPTABLE must be an immutable constant [at 1:27]
+SELECT * FROM LookupTable((SELECT Value FROM KeyValue LIMIT 1))
+                          ^

@@ -1571,6 +1571,17 @@ class Algebrizer {
   // Tracks the nesting depth of subqueries currently being algebrized.
   int subquery_depth_ = 0;
 
+  // Maps each column of the input of an algebrized AggregateScan to the
+  // algebrized RelationalOp. A GroupRowsScan in a WITH GROUP ROWS subquery
+  // looks up the columns it reads here to find the op producing the rows it
+  // reads; see AlgebrizeGroupRowsScan(). Not owned; the ops are owned by the
+  // AggregateOps they are inputs of.
+  //
+  // Entries are never removed: the Validator guarantees that a column is an
+  // input column of at most one AggregateScan, since an AggregateScan's output
+  // columns are all new (its input columns are not visible above it).
+  absl::flat_hash_map<ResolvedColumn, const RelationalOp*> aggregate_inputs_;
+
   // Maps system variables to variable ids.  Not owned.
   SystemVariablesAlgebrizerMap* system_variables_map_;
 

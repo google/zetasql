@@ -171,7 +171,10 @@ QueryStmt
 --
 ALTERNATION GROUP: MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, JSON, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type JSON to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 1:15]
 SELECT * FROM vector_search(
               ^
 ==
@@ -517,7 +520,10 @@ QueryStmt
 --
 ALTERNATION GROUP: MAXIMUM,JSON '{"top_k": 5, "distance_type": "COSINE"}'
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<query_embedding ARRAY<DOUBLE>>, STRING, JSON, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type JSON to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 1:15]
 SELECT * FROM vector_search(
               ^
 ==
@@ -572,7 +578,10 @@ QueryStmt
 # options argument is not a proto
 SELECT * FROM vector_search(TABLE base_table, 'embedding', TABLE query_table, options => CAST(1 AS STRING))
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, STRING, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type STRING to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 1:15]
 SELECT * FROM vector_search(TABLE base_table, 'embedding', TABLE query_table,...
               ^
 ==
@@ -779,7 +788,10 @@ QueryStmt
 --
 ALTERNATION GROUP: MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, JSON, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type JSON to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 1:15]
 SELECT * FROM vector_search(
               ^
 ==
@@ -898,7 +910,10 @@ QueryStmt
 --
 ALTERNATION GROUP: MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, JSON, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type JSON to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 1:15]
 SELECT * FROM vector_search(
               ^
 ==
@@ -923,11 +938,21 @@ ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supporte
 SELECT * FROM vector_search(
               ^
 --
-ALTERNATION GROUPS:
-    MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
-    MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
+ALTERNATION GROUP: MAXIMUM,new googlesql_test.TestApproxDistanceFunctionOptionsProto(1 as key, "value2" as value)
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 1:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, googlesql_test.TestApproxDistanceFunctionOptionsProto, DOUBLE, STRING
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Positional argument at 5 is invalid because argument `options` can only be referred to by name [at 1:15]
+SELECT * FROM vector_search(
+              ^
+--
+ALTERNATION GROUP: MAXIMUM,JSON '{"key1": 1, "key2": "value2"}'
+--
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, JSON, DOUBLE, STRING
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Positional argument at 5 is invalid because argument `options` can only be referred to by name [at 1:15]
 SELECT * FROM vector_search(
               ^
 ==
@@ -1113,7 +1138,10 @@ SELECT * FROM vector_search(
   options => JSON '{"key1": 1, "key2": "value2"}'
 )
 --
-ERROR: No matching signature for table valued function : VECTOR_SEARCH. Supported Signatures: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE]) [at 2:15]
+ERROR: No matching signature for vector_search
+  Argument types: TABLE<id INT64, embedding ARRAY<DOUBLE>, string_col STRING>, STRING, TABLE<id INT64, query_embedding ARRAY<DOUBLE>, embedding ARRAY<DOUBLE>, float_embedding ARRAY<FLOAT>, string_query_col STRING>, STRING, JSON, INT64, STRING, DOUBLE
+  Signature: VECTOR_SEARCH(TABLE, column_to_search => STRING, TABLE, [query_column_to_search => STRING], [options => googlesql_test.TestApproxDistanceFunctionOptionsProto], [top_k => INT64], [distance_type => STRING], [max_distance => DOUBLE])
+    Named argument `options`: Unable to coerce type JSON to expected type googlesql_test.TestApproxDistanceFunctionOptionsProto [at 2:15]
 SELECT * FROM vector_search(
               ^
 

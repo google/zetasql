@@ -29,7 +29,6 @@
 #include <utility>
 #include <vector>
 
-#include "googlesql/base/logging.h"
 #include "googlesql/base/varsetter.h"
 #include "googlesql/analyzer/column_cycle_detector.h"
 #include "googlesql/analyzer/expr_resolver_helper.h"
@@ -2967,6 +2966,14 @@ absl::Status Resolver::ValidateIndexKeyExpressionForCreateSearchOrVectorIndex(
   }
 
   if (resolved_expr.node_kind() != RESOLVED_COLUMN_REF) {
+    if (resolved_expr.node_kind() == RESOLVED_GET_STRUCT_FIELD ||
+        resolved_expr.node_kind() == RESOLVED_GET_PROTO_FIELD ||
+        resolved_expr.node_kind() == RESOLVED_GET_JSON_FIELD) {
+      return MakeSqlErrorAt(&ordering_expression)
+             << create_index_name
+             << " does not yet support nested fields, "
+                "only column name is supported";
+    }
     return MakeSqlErrorAt(&ordering_expression)
            << create_index_name
            << " does not yet support expressions to define index keys, "

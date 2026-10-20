@@ -150,8 +150,8 @@ class TimedValue {
  private:
   static void DurationToProto(absl::Duration d,
                               google::protobuf::Duration* out) {
-    out->set_seconds(absl::IDivDuration(d, absl::Seconds(1), &d));
-    out->set_nanos(absl::IDivDuration(d, absl::Nanoseconds(1), &d));
+    out->set_seconds(absl::IDivDuration(d, absl::Seconds(/*n=*/1), &d));
+    out->set_nanos(absl::IDivDuration(d, absl::Nanoseconds(/*n=*/1), &d));
   }
   absl::Duration wall_time_;
   absl::Duration cpu_time_;

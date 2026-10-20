@@ -1347,7 +1347,7 @@ CreateIndexStmt
 # The key expression can't refer to proto message field when creating search index.
 create search index i1 on TestTable (KitchenSink.int64_key_1);
 --
-ERROR: CREATE SEARCH INDEX does not yet support expressions to define index keys, only column name is supported [at 1:38]
+ERROR: CREATE SEARCH INDEX does not yet support nested fields, only column name is supported [at 1:38]
 create search index i1 on TestTable (KitchenSink.int64_key_1);
                                      ^
 ==
@@ -1372,10 +1372,33 @@ CreateIndexStmt
 # The key expression can't refer to struct field when creating search index.
 create search index i1 on ComplexTypes (TestStruct.c);
 --
-ERROR: CREATE SEARCH INDEX does not yet support expressions to define index keys, only column name is supported [at 1:41]
+ERROR: CREATE SEARCH INDEX does not yet support nested fields, only column name is supported [at 1:41]
 create search index i1 on ComplexTypes (TestStruct.c);
                                         ^
+==
 
+# The key expression can't refer to struct field when creating vector index.
+create vector index i1 on ComplexTypes (TestStruct.c);
+--
+ERROR: CREATE VECTOR INDEX does not yet support nested fields, only column name is supported [at 1:41]
+create vector index i1 on ComplexTypes (TestStruct.c);
+                                        ^
+==
+
+# The key expression can't refer to struct field when creating AI index.
+create ai index i1 on ComplexTypes (TestStruct.c);
+--
+ERROR: CREATE AI INDEX does not yet support nested fields, only column name is supported [at 1:37]
+create ai index i1 on ComplexTypes (TestStruct.c);
+                                    ^
+==
+
+# The key expression can't refer to json field when creating search index.
+create search index i1 on JSONTable (json_col.foo);
+--
+ERROR: CREATE SEARCH INDEX does not yet support nested fields, only column name is supported [at 1:38]
+create search index i1 on JSONTable (json_col.foo);
+                                     ^
 ==
 
 # Create search index with duplicate keys in list of OPTIONS.

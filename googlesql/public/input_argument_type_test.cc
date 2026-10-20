@@ -429,5 +429,25 @@ TEST(InputArgumentTypeTests, TVFConnectionArgumentSerializeDeserializeMulti) {
   EXPECT_EQ(original, restored);
 }
 
+// Tests that InputArgumentType correctly stores and exposes the Model pointer
+// when constructed via ModelInputArgumentType().
+TEST(InputArgumentTypeTest, Model) {
+  InputArgumentType empty_model_arg =
+      InputArgumentType::ModelInputArgumentType();
+  EXPECT_TRUE(empty_model_arg.is_model());
+  EXPECT_EQ(empty_model_arg.model(), nullptr);
+
+  const Model* fake_model = reinterpret_cast<const Model*>(0x1234);
+  InputArgumentType model_arg =
+      InputArgumentType::ModelInputArgumentType(fake_model);
+  EXPECT_TRUE(model_arg.is_model());
+  EXPECT_EQ(model_arg.model(), fake_model);
+
+  // Assert model() behaves correctly for non-model types.
+  InputArgumentType int_arg(types::Int64Type());
+  EXPECT_FALSE(int_arg.is_model());
+  EXPECT_EQ(int_arg.model(), nullptr);
+}
+
 }  // namespace
 }  // namespace googlesql

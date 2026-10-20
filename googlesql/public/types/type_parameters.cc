@@ -80,7 +80,7 @@ std::string VectorTypeParametersDebugString(
           ? absl::StrCat(", encoding=", googlesql::VectorEncodingId_Id_Name(
                                             parameters.encoding()))
           : "";
-  return absl::StrCat("(length=", parameters.length(), encoding_str, ")");
+  return absl::StrCat("(dims=", parameters.dims(), encoding_str, ")");
 }
 
 std::string ChildTypeParametersDebugString(
@@ -165,10 +165,10 @@ std::string TypeParameters::ToParenthesizedString() const {
         vector_params->encoding() !=
             googlesql::VectorEncodingId::UNKNOWN_VECTOR_ENCODING) {
       return absl::StrCat(
-          "(", vector_params->length(), ", '",
+          "(", vector_params->dims(), ", '",
           googlesql::VectorEncodingId_Id_Name(vector_params->encoding()), "')");
     }
-    return absl::StrCat("(", vector_params->length(), ")");
+    return absl::StrCat("(", vector_params->dims(), ")");
   }
   return "";
 }
@@ -276,8 +276,8 @@ absl::Status TypeParameters::ValidateNumericTypeParameters(
 
 absl::Status TypeParameters::ValidateVectorTypeParameters(
     const VectorTypeParametersProto& vector_type_parameters) {
-  if (vector_type_parameters.has_length()) {
-    GOOGLESQL_RET_CHECK_GT(vector_type_parameters.length(), 0);
+  if (vector_type_parameters.has_dims()) {
+    GOOGLESQL_RET_CHECK_GT(vector_type_parameters.dims(), 0);
   }
   if (vector_type_parameters.has_encoding()) {
     GOOGLESQL_RET_CHECK_NE(vector_type_parameters.encoding(),

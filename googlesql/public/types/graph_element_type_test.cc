@@ -17,6 +17,7 @@
 #include "googlesql/public/types/graph_element_type.h"
 
 #include <string>
+#include <vector>
 
 #include "googlesql/base/testing/status_matchers.h"
 #include "googlesql/public/language_options.h"
@@ -266,12 +267,16 @@ TEST(GraphElementTypeTest, BasicTest) {
   EXPECT_TRUE(graph_element_type->SupportsPartitioning(language_options));
   EXPECT_EQ(no_ordering_type, "GRAPH_ELEMENT");
 
+  // HashTypeParameter hashes sorted lowercase element table names (non-empty
+  // case-insensitive/order-insensitive hashing is tested in
+  // ElementTablesEqualityAndHashConsistency).
   EXPECT_EQ(
       absl::HashOf(*graph_element_type),
-      absl::HashOf(
-          graph_element_type->is_dynamic(),
-          graph_element_type->element_kind(),
-          graph_element_type->property_types(), graph_element_type->kind()));
+      absl::HashOf(graph_element_type->is_dynamic(),
+                   graph_element_type->element_kind(),
+                   graph_element_type->property_types(),
+                   /*lowercase_element_tables=*/std::vector<std::string>{},
+                   graph_element_type->kind()));
 }
 
 TEST(GraphElementTypeTest, MakeDynamicGraphElementType) {
@@ -710,6 +715,25 @@ TEST(TypeTest, TypeDeserializerGraphElementInvalidPropertyValueType) {
                HasSubstr("Property value type cannot be GraphElementType")));
 }
 
+TEST(TypeTest, TypeDeserializerGraphElementEmptyElementTableName) {
+  TypeFactory factory;
+  const TypeDeserializer type_deserializer(&factory);
+  TypeProto type_proto;
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_GRAPH_ELEMENT
+        graph_element_type {
+          graph_reference: "graph_name"
+          kind: KIND_NODE
+          element_tables: ""
+        }
+      )pb",
+      &type_proto));
+  EXPECT_THAT(type_deserializer.Deserialize(type_proto),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Element table name cannot be empty")));
+}
+
 TEST(TypeTest, TypeDeserializerStaticGraphElement) {
   TypeFactory factory;
   const TypeDeserializer type_deserializer(&factory);
@@ -734,6 +758,55 @@ TEST(TypeTest, TypeDeserializerStaticGraphElement) {
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,
                        type_deserializer.Deserialize(type_proto));
   EXPECT_TRUE(deserialized_type->Equals(graph_element_type));
+  EXPECT_THAT(deserialized_type->AsGraphElement()->element_tables(), IsEmpty());
+
+  TypeProto roundtrip_proto;
+  GOOGLESQL_ASSERT_OK(
+      deserialized_type->SerializeToProtoAndFileDescriptors(&roundtrip_proto));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* roundtrip_type,
+                       type_deserializer.Deserialize(roundtrip_proto));
+  EXPECT_TRUE(roundtrip_type->Equals(graph_element_type));
+  EXPECT_THAT(roundtrip_type->AsGraphElement()->element_tables(), IsEmpty());
+}
+
+TEST(TypeTest, TypeDeserializerStaticGraphElementWithElementTables) {
+  TypeFactory factory;
+  const TypeDeserializer type_deserializer(&factory);
+  TypeProto type_proto;
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_GRAPH_ELEMENT
+        graph_element_type {
+          graph_reference: "graph_name"
+          kind: KIND_NODE
+          property_type {
+            name: "a"
+            value_type { type_kind: TYPE_BOOL }
+          }
+          element_tables: "TableB"
+          element_tables: "TableA"
+          element_tables: "tableb"
+        }
+      )pb",
+      &type_proto));
+  const GraphElementType* graph_element_type;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::kNode, {{"a", factory.get_bool()}},
+      {"TableB", "TableA"}, &graph_element_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,
+                       type_deserializer.Deserialize(type_proto));
+  EXPECT_TRUE(deserialized_type->Equals(graph_element_type));
+  EXPECT_THAT(deserialized_type->AsGraphElement()->element_tables(),
+              ElementsAre("TableB", "TableA"));
+
+  TypeProto roundtrip_proto;
+  GOOGLESQL_ASSERT_OK(
+      deserialized_type->SerializeToProtoAndFileDescriptors(&roundtrip_proto));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* roundtrip_type,
+                       type_deserializer.Deserialize(roundtrip_proto));
+  EXPECT_TRUE(roundtrip_type->Equals(graph_element_type));
+  EXPECT_THAT(roundtrip_type->AsGraphElement()->element_tables(),
+              ElementsAre("TableB", "TableA"));
 }
 
 TEST(TypeTest, TypeDeserializerDynamicGraphElement) {
@@ -761,6 +834,54 @@ TEST(TypeTest, TypeDeserializerDynamicGraphElement) {
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,
                        type_deserializer.Deserialize(type_proto));
   EXPECT_TRUE(deserialized_type->Equals(graph_element_type));
+  EXPECT_THAT(deserialized_type->AsGraphElement()->element_tables(), IsEmpty());
+
+  TypeProto roundtrip_proto;
+  GOOGLESQL_ASSERT_OK(
+      deserialized_type->SerializeToProtoAndFileDescriptors(&roundtrip_proto));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* roundtrip_type,
+                       type_deserializer.Deserialize(roundtrip_proto));
+  EXPECT_TRUE(roundtrip_type->Equals(graph_element_type));
+  EXPECT_THAT(roundtrip_type->AsGraphElement()->element_tables(), IsEmpty());
+}
+
+TEST(TypeTest, TypeDeserializerDynamicGraphElementWithElementTables) {
+  TypeFactory factory;
+  const TypeDeserializer type_deserializer(&factory);
+  TypeProto type_proto;
+  ABSL_QCHECK(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        type_kind: TYPE_GRAPH_ELEMENT
+        graph_element_type {
+          graph_reference: "graph_name"
+          kind: KIND_NODE
+          property_type {
+            name: "a"
+            value_type { type_kind: TYPE_BOOL }
+          }
+          is_dynamic: true
+          element_tables: "TableA"
+        }
+      )pb",
+      &type_proto));
+  const GraphElementType* graph_element_type;
+  GOOGLESQL_ASSERT_OK(factory.MakeDynamicGraphElementType(
+      {"graph_name"}, GraphElementType::kNode, {{"a", factory.get_bool()}},
+      {"TableA"}, &graph_element_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* deserialized_type,
+                       type_deserializer.Deserialize(type_proto));
+  EXPECT_TRUE(deserialized_type->Equals(graph_element_type));
+  EXPECT_THAT(deserialized_type->AsGraphElement()->element_tables(),
+              ElementsAre("TableA"));
+
+  TypeProto roundtrip_proto;
+  GOOGLESQL_ASSERT_OK(
+      deserialized_type->SerializeToProtoAndFileDescriptors(&roundtrip_proto));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* roundtrip_type,
+                       type_deserializer.Deserialize(roundtrip_proto));
+  EXPECT_TRUE(roundtrip_type->Equals(graph_element_type));
+  EXPECT_THAT(roundtrip_type->AsGraphElement()->element_tables(),
+              ElementsAre("TableA"));
 }
 
 TEST(GraphElementTypeTest, ValidateResolvedTypeParameters) {
@@ -799,6 +920,133 @@ TEST(GraphElementTypeTest, ValidateResolvedTypeParameters) {
   EXPECT_THAT(graph_element_type->ValidateResolvedTypeParameters(
                   invalid_child_count_params, PRODUCT_INTERNAL),
               StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST(GraphElementTypeTest, ElementTablesEqualityAndHashConsistency) {
+  TypeFactory factory;
+  const Type* string_type = factory.get_string();
+
+  // Empty element table name is rejected.
+  const GraphElementType* invalid_type = nullptr;
+  EXPECT_THAT(
+      factory.MakeGraphElementType(
+          {"graph_name"}, GraphElementType::ElementKind::kNode,
+          {{"prop", string_type}}, /*element_tables=*/{""}, &invalid_type),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Element table name cannot be empty")));
+  EXPECT_THAT(
+      factory.MakeDynamicGraphElementType(
+          {"graph_name"}, GraphElementType::ElementKind::kNode,
+          {{"prop", string_type}}, /*element_tables=*/{""}, &invalid_type),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Element table name cannot be empty")));
+
+  // Type 0: element_tables = empty list (not associated with any element table)
+  const GraphElementType* type_empty = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"prop", string_type}}, /*element_tables=*/{}, &type_empty));
+  ASSERT_THAT(type_empty, NotNull());
+  EXPECT_THAT(type_empty->element_tables(), IsEmpty());
+
+  // Type 1: element_tables passed as ["TableA", "TableB"]
+  const GraphElementType* type_ab = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"prop", string_type}}, {"TableA", "TableB"}, &type_ab));
+  ASSERT_THAT(type_ab, NotNull());
+
+  // Type 2: element_tables passed in reverse order ["TableB", "TableA"] with
+  // case-insensitive duplicates
+  const GraphElementType* type_ba = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"prop", string_type}}, {"TableB", "TableA", "tableb", "TableA"},
+      &type_ba));
+  ASSERT_THAT(type_ba, NotNull());
+
+  // Type 2b: element_tables with different casing ["tableb", "tablea"]
+  const GraphElementType* type_ba_lower = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"prop", string_type}}, {"tableb", "tablea"}, &type_ba_lower));
+  ASSERT_THAT(type_ba_lower, NotNull());
+
+  // Type 3: element_tables = ["TableA", "TableC"]
+  const GraphElementType* type_ac = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"prop", string_type}}, {"TableA", "TableC"}, &type_ac));
+  ASSERT_THAT(type_ac, NotNull());
+
+  // element_tables() preserves order of first appearance after deduplication.
+  EXPECT_THAT(type_ab->element_tables(), ElementsAre("TableA", "TableB"));
+  EXPECT_THAT(type_ba->element_tables(), ElementsAre("TableB", "TableA"));
+  EXPECT_THAT(type_ba_lower->element_tables(), ElementsAre("tableb", "tablea"));
+
+  // Equals() compares element_tables as an order-insensitive, case-insensitive
+  // set; Equivalent() ignores element_tables.
+  EXPECT_TRUE(type_ab->Equals(type_ba));
+  EXPECT_TRUE(type_ba->Equals(type_ab));
+  EXPECT_TRUE(type_ab->Equals(type_ba_lower));
+  EXPECT_TRUE(type_ab->Equivalent(type_ba));
+  EXPECT_TRUE(type_ab->Equivalent(type_ba_lower));
+
+  EXPECT_FALSE(type_ab->Equals(type_ac));
+  EXPECT_TRUE(type_ab->Equivalent(type_ac));
+
+  EXPECT_FALSE(type_ab->Equals(type_empty));
+  EXPECT_TRUE(type_ab->Equivalent(type_empty));
+
+  // Hash consistency for Abseil hash and Swiss Table (TypeFlatHashSet).
+  EXPECT_EQ(absl::HashOf(*type_ab), absl::HashOf(*type_ba));
+  EXPECT_EQ(absl::HashOf(*type_ab), absl::HashOf(*type_ba_lower));
+  EXPECT_EQ(TypeHash{}(type_ab), TypeHash{}(type_ba));
+  EXPECT_EQ(TypeHash{}(type_ab), TypeHash{}(type_ba_lower));
+  TypeFlatHashSet<> type_set;
+  type_set.insert(type_ab);
+  EXPECT_NE(type_set.find(type_ba), type_set.end());
+  EXPECT_NE(type_set.find(type_ba_lower), type_set.end());
+  EXPECT_EQ(type_set.find(type_ac), type_set.end());
+  EXPECT_EQ(type_set.find(type_empty), type_set.end());
+}
+
+TEST(GraphElementTypeTest, ElementTablesCoercion) {
+  TypeFactory factory;
+  const Type* string_type = factory.get_string();
+  const Type* bool_type = factory.get_bool();
+
+  const GraphElementType* type_empty = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type}}, /*element_tables=*/{}, &type_empty));
+
+  const GraphElementType* type_a = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type}}, {"TableA"}, &type_a));
+
+  const GraphElementType* type_ab = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type}, {"b", bool_type}}, {"TableB", "tablea"}, &type_ab));
+
+  const GraphElementType* type_ac = nullptr;
+  GOOGLESQL_ASSERT_OK(factory.MakeGraphElementType(
+      {"graph_name"}, GraphElementType::ElementKind::kNode,
+      {{"a", string_type}, {"b", bool_type}}, {"TableA", "TableC"}, &type_ac));
+
+  // Empty element_tables is a subset of {"TableA"}.
+  EXPECT_TRUE(type_empty->CoercibleTo(type_a));
+  EXPECT_FALSE(type_a->CoercibleTo(type_empty));
+
+  // {"TableA"} is a subset of {"TableB", "tablea"} (case-insensitive).
+  EXPECT_TRUE(type_a->CoercibleTo(type_ab));
+  EXPECT_FALSE(type_ab->CoercibleTo(type_a));
+
+  // {"TableB", "tablea"} is not a subset of {"TableA", "TableC"}.
+  EXPECT_FALSE(type_ab->CoercibleTo(type_ac));
+  EXPECT_FALSE(type_ac->CoercibleTo(type_ab));
 }
 
 }  // namespace

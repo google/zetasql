@@ -263,6 +263,56 @@ SELECT AVG(inches HAVING MIN year) AS average FROM Precipitation;
  +---------*/
 ```
 
+## Handle `NULL` values before aggregation 
+<a id="remove_nulls"></a>
+
+Most aggregate functions, such as `AVG`, `SUM`, `MIN`, `MAX`, and
+`COUNT(expression)`, ignore `NULL` values by default. In contrast, `COUNT(*)`
+counts all input rows, including rows with `NULL` values.
+
+For example, the following query aggregates a set of values that includes
+`NULL`:
+
+```googlesql
+SELECT
+  COUNT(*) AS row_count,
+  COUNT(x) AS non_null_rows,
+  AVG(x) AS avg_x
+FROM UNNEST([1, 2, 3, 4, 5, NULL]) AS x;
+
+/*------------+---------------+-------+
+ | row_count | non_null_rows | avg_x |
+ +------------+---------------+-------+
+ | 6          | 5             | 3     |
+ +------------+---------------+-------*/
+```
+
+You can also exclude or replace `NULL` values in one of the following ways:
+
++ Add a `WHERE` clause inside the aggregate function call; for example, `COUNT(* WHERE x IS NOT NULL)`.
++ Use the `IGNORE NULLS` clause for aggregate functions that include `NULL`
+  values by default, such as `ARRAY_AGG(x IGNORE NULLS)`.
++ Use [`COALESCE`][coalesce-link] to replace `NULL` values with a default
+  value before aggregating, such as `AVG(COALESCE(x, 0))`.
+
+For example, to filter out `NULL` values for an individual aggregate function
+call without removing rows from the rest of the query, use a `WHERE` clause
+inside the function call:
+
+```googlesql
+SELECT
+  COUNT(*) AS total_rows,
+  COUNT(* WHERE x IS NOT NULL) AS filtered_rows,
+  AVG(x) AS avg_x
+FROM UNNEST([1, 2, 3, 4, 5, NULL]) AS x;
+
+/*------------+---------------+-------+
+ | total_rows | filtered_rows | avg_x |
+ +------------+---------------+-------+
+ | 6          | 5             | 3     |
+ +------------+---------------+-------*/
+```
+
 ## Aggregate function examples
 
 A simple aggregate function call for `COUNT`, `MIN`, and `MAX` looks like this:
@@ -357,6 +407,8 @@ FROM Precipitation;
 [dp-clause]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_clause
 
 [aggregation-threshold]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#agg_threshold_clause
+
+[coalesce-link]: https://github.com/google/googlesql/blob/master/docs/conditional_expressions.md#coalesce
 
 <!-- mdlint on -->
 

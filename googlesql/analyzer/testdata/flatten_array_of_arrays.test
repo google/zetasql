@@ -1159,7 +1159,7 @@ QueryStmt
     |         |       |       |   |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
     |         |       |       |   |     +-type_annotation_map=<{Collation:"und:ci"}>
     |         |       |       |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e1#10)
-    |         |       |       |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e2#12<{Collation:"und:ci"}>)
+    |         |       |       |   |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$array.e2#12<{Collation:"und:ci"}>)
     |         |       |       |   +-input_scan=
     |         |       |       |     +-ArrayScan
     |         |       |       |       +-column_list=[$array.e1#10, $array_offset.offset#11, $array.e2#12<{Collation:"und:ci"}>, $array_offset.offset#13]
@@ -1204,7 +1204,7 @@ QueryStmt
     |         |       |     |   |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
     |         |       |     |   |     +-type_annotation_map=<{Collation:"und:ci"}>
     |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e1#15)
-    |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e2#17<{Collation:"und:ci"}>)
+    |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$array.e2#17<{Collation:"und:ci"}>)
     |         |       |     |   +-input_scan=
     |         |       |     |     +-ArrayScan
     |         |       |     |       +-column_list=[$array.e1#15, $array_offset.offset#16, $array.e2#17<{Collation:"und:ci"}>, $array_offset.offset#18]
@@ -1249,7 +1249,7 @@ QueryStmt
     |         |       |     |   |   +-FunctionCall(GoogleSQL:array_concat(ARRAY<STRING>, repeated(1) ARRAY<STRING>) -> ARRAY<STRING>)
     |         |       |     |   |     +-type_annotation_map=<{Collation:"und:ci"}>
     |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e1#20)
-    |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, column=$array.e2#22<{Collation:"und:ci"}>)
+    |         |       |     |   |     +-ColumnRef(type=ARRAY<STRING>, type_annotation_map=<{Collation:"und:ci"}>, column=$array.e2#22<{Collation:"und:ci"}>)
     |         |       |     |   +-input_scan=
     |         |       |     |     +-ProjectScan
     |         |       |     |       +-column_list=[$array.e1#20, $array_offset.offset#21, $array.e2#22<{Collation:"und:ci"}>, $array_offset.offset#23, $full_join.offset#24]

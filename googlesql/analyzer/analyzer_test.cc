@@ -3022,4 +3022,136 @@ TEST(AnalyzerTest, FormatDeclarativeTypeWithCustomFormatting) {
       options, &catalog, &type_factory, &output));
 }
 
+// Verifies that when a scalar function with a MODEL argument is analyzed,
+// the catalog Model object is populated on the corresponding
+// InputArgumentType, allowing post-resolution argument constraints and
+// result-type callbacks to inspect the Model schema.
+TEST(AnalyzerTest,
+     ScalarFunctionWithModelArgumentPopulatesInputArgumentTypeModel) {
+  AnalyzerOptions options;
+  options.mutable_language()->EnableLanguageFeature(FEATURE_MODEL_ARG);
+  TypeFactory type_factory;
+
+  SimpleCatalog catalog("test_catalog", &type_factory);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions(options.language()));
+
+  SimpleModel model("my_model", {{"input_col", type_factory.get_int64()}},
+                    {{"output_col", type_factory.get_double()}});
+  catalog.AddModel("my_model", &model);
+
+  const Model* observed_constraint_model = nullptr;
+  const Model* observed_result_type_model = nullptr;
+  FunctionOptions fn_options;
+  fn_options.set_post_resolution_argument_constraint(
+      [&](const FunctionSignature&, const std::vector<InputArgumentType>& args,
+          const LanguageOptions&) -> absl::Status {
+        if (args.size() == 1 && args[0].is_model()) {
+          observed_constraint_model = args[0].model();
+        }
+        return absl::OkStatus();
+      });
+  fn_options.set_compute_result_type_callback(
+      [&](Catalog*, TypeFactory*, CycleDetector*, const FunctionSignature&,
+          const std::vector<InputArgumentType>& args,
+          const AnalyzerOptions&) -> absl::StatusOr<const Type*> {
+        if (args.empty() || !args[0].is_model() || args[0].model() == nullptr) {
+          return absl::InternalError("Expected catalog Model in args[0]");
+        }
+        observed_result_type_model = args[0].model();
+        return args[0].model()->GetOutput(0)->GetType();
+      });
+
+  catalog.AddOwnedFunction(
+      new Function("model_output_fn", "test_group", Function::SCALAR,
+                   {{FunctionArgumentType(ARG_KIND_EXPR_ARBITRARY),
+                     {FunctionArgumentType(ARG_KIND_MODEL)},
+                     /*context_id=*/1}},
+                   fn_options));
+
+  std::unique_ptr<const AnalyzerOutput> output;
+  GOOGLESQL_ASSERT_OK(AnalyzeExpression("model_output_fn(MODEL my_model)", options,
+                              &catalog, &type_factory, &output));
+  EXPECT_EQ(observed_constraint_model, &model);
+  EXPECT_EQ(observed_result_type_model, &model);
+  EXPECT_TRUE(output->resolved_expr()->type()->IsDouble());
+}
+
+TEST(AnalyzerTest, TableRefTypeWithEmptyJoinColumns) {
+  TypeFactory type_factory;
+  SimpleCatalog catalog("test_catalog", &type_factory);
+
+  auto t2 = std::make_unique<SimpleTable>(
+      "T2", std::vector<SimpleTable::NameAndType>{
+                {"c2", type_factory.get_int64()},
+                {"name", type_factory.get_string()}});
+
+  auto t1 = std::make_unique<SimpleTable>(
+      "T1",
+      std::vector<SimpleTable::NameAndType>{{"c1", type_factory.get_int64()}});
+
+  const TableRefType* single_row_table_ref = nullptr;
+  GOOGLESQL_ASSERT_OK(type_factory.MakeTableType(
+      t2.get(), t2->FullName(), /*multi_row=*/false, /*bound_columns=*/{},
+      t1.get(), /*bound_source_columns=*/{}, &single_row_table_ref));
+  const TableRefType* multi_row_table_ref = nullptr;
+  GOOGLESQL_ASSERT_OK(type_factory.MakeTableType(
+      t2.get(), t2->FullName(), /*multi_row=*/true, /*bound_columns=*/{},
+      t1.get(), /*bound_source_columns=*/{}, &multi_row_table_ref));
+
+  GOOGLESQL_ASSERT_OK(
+      t1->AddColumn(new SimpleColumn("T1", "single_ref", single_row_table_ref),
+                    /*is_owned=*/true));
+  GOOGLESQL_ASSERT_OK(
+      t1->AddColumn(new SimpleColumn("T1", "multi_ref", multi_row_table_ref),
+                    /*is_owned=*/true));
+
+  catalog.AddOwnedTable(std::move(t1));
+  catalog.AddOwnedTable(std::move(t2));
+
+  AnalyzerOptions options;
+  options.mutable_language()->EnableMaximumLanguageFeaturesForDevelopment();
+  options.mutable_language()->EnableLanguageFeature(FEATURE_ROW_TYPE);
+  options.mutable_language()->EnableLanguageFeature(FEATURE_TABLE_TYPE);
+  catalog.AddBuiltinFunctions(BuiltinFunctionOptions(options.language()));
+
+  // With REWRITE_ROW_TYPE disabled, analysis succeeds with empty join columns.
+  options.enable_rewrite(ResolvedASTRewrite::REWRITE_ROW_TYPE, false);
+  {
+    std::unique_ptr<const AnalyzerOutput> output;
+    GOOGLESQL_ASSERT_OK(AnalyzeStatement("SELECT t1.single_ref.name FROM T1 AS t1",
+                               options, &catalog, &type_factory, &output));
+  }
+  {
+    std::unique_ptr<const AnalyzerOutput> output;
+    GOOGLESQL_ASSERT_OK(AnalyzeStatement(
+        "SELECT r.name FROM T1 AS t1, UNNEST(t1.multi_ref) AS r", options,
+        &catalog, &type_factory, &output));
+  }
+
+  // With REWRITE_ROW_TYPE enabled, scanning T1 without referencing the
+  // TableRefType columns succeeds, whereas referencing the TableRefType columns
+  // fails in RowTypeRewriter when join columns are empty.
+  options.enable_rewrite(ResolvedASTRewrite::REWRITE_ROW_TYPE, true);
+  {
+    std::unique_ptr<const AnalyzerOutput> output;
+    GOOGLESQL_ASSERT_OK(AnalyzeStatement("SELECT t1.c1 FROM T1 AS t1", options, &catalog,
+                               &type_factory, &output));
+  }
+  {
+    std::unique_ptr<const AnalyzerOutput> output;
+    EXPECT_THAT(AnalyzeStatement("SELECT t1.single_ref.name FROM T1 AS t1",
+                                 options, &catalog, &type_factory, &output),
+                StatusIs(absl::StatusCode::kInternal,
+                         HasSubstr("!table_type->bound_columns().empty()")));
+  }
+  {
+    std::unique_ptr<const AnalyzerOutput> output;
+    EXPECT_THAT(AnalyzeStatement(
+                    "SELECT r.name FROM T1 AS t1, UNNEST(t1.multi_ref) AS r",
+                    options, &catalog, &type_factory, &output),
+                StatusIs(absl::StatusCode::kInternal,
+                         HasSubstr("!table_type->bound_columns().empty()")));
+  }
+}
+
 }  // namespace googlesql

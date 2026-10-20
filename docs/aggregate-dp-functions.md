@@ -179,7 +179,8 @@ determine the optimal privacy parameters for your dataset and organization.
 WITH DIFFERENTIAL_PRIVACY ...
   AVG(
     expression,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -198,10 +199,15 @@ and can support the following arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`DOUBLE`
++ Without a report format: `DOUBLE`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -295,6 +301,83 @@ GROUP BY item;
  +----------+------------------*/
 ```
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'JSON') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4.0,"num_inputs":1.0,         |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8.0}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":8.0,"num_inputs":2.0,         |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":18.5,                    |
+ |          |   "upper_bound":18.5},"value":18.5}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'PROTO') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { float_value: 8.0 noise_confidence_interval {             |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { float_value: 4.0 }               |
+ |          | upper_bound { float_value: 8.0 } num_inputs: 1 num_outside: 0 }  |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { float_value: 72.0 noise_confidence_interval {            |
+ |          | lower_bound: 72.0 upper_bound: 72.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 64.0 }              |
+ |          | upper_bound { float_value: 128.0 } num_inputs: 1 num_outside: 0 }|
+ +----------+------------------------------------------------------------------+
+ | pen      | value { float_value: 18.5 noise_confidence_interval {            |
+ |          | lower_bound: 18.5 upper_bound: 18.5 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 8.0 }               |
+ |          | upper_bound { float_value: 32.0 } num_inputs: 2 num_outside: 0 } |
+ +----------+------------------------------------------------------------------*/
+```
+
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
@@ -307,6 +390,10 @@ noise, see [Remove noise][dp-noise].
 [dp-syntax]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#json_report_format
+
+[proto-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#proto_report_format
 
 ## `COUNT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_count"></a>
@@ -323,7 +410,8 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     *,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -340,10 +428,15 @@ and can support the following arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping for each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`INT64`
++ Without a report format: `INT64`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -440,6 +533,71 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(*, contribution_bounds_per_group=>(0, 100), report_format=>'JSON') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":1.0,                     |
+ |          |   "upper_bound":1.0},"value":1}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":4.0,                     |
+ |          |   "upper_bound":4.0},"value":4}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":3.0,                     |
+ |          |   "upper_bound":3.0},"value":3}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(*, contribution_bounds_per_group=>(0, 100), report_format=>'PROTO') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 1 noise_confidence_interval {                 |
+ |          | lower_bound: 1.0 upper_bound: 1.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 4 noise_confidence_interval {                 |
+ |          | lower_bound: 4.0 upper_bound: 4.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 3 noise_confidence_interval {                 |
+ |          | lower_bound: 3.0 upper_bound: 3.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 #### Signature 2 
 <a id="dp_count_signature2"></a>
 
@@ -447,7 +605,8 @@ noise, see [Remove noise][dp-noise].
 WITH DIFFERENTIAL_PRIVACY ...
   COUNT(
     expression,
-    [contribution_bounds_per_group => (lower_bound, upper_bound)]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -465,10 +624,15 @@ and can support these arguments:
   [contribution bound][dp-clamped-named].
   Performs clamping per each group separately before performing intermediate
   grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-`INT64`
++ Without a report format: `INT64`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -564,6 +728,71 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Remove noise][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(item, contribution_bounds_per_group=>(0, 100), report_format=>'JSON') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":1.0,                     |
+ |          |   "upper_bound":1.0},"value":1}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":4.0,                     |
+ |          |   "upper_bound":4.0},"value":4}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":3.0,                     |
+ |          |   "upper_bound":3.0},"value":3}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    COUNT(item, contribution_bounds_per_group=>(0, 100), report_format=>'PROTO') times_requested
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | times_requested                                                  |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 1 noise_confidence_interval {                 |
+ |          | lower_bound: 1.0 upper_bound: 1.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 4 noise_confidence_interval {                 |
+ |          | lower_bound: 4.0 upper_bound: 4.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 3 noise_confidence_interval {                 |
+ |          | lower_bound: 3.0 upper_bound: 3.0 confidence_level: 0.95 } }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 [dp-clamp-implicit]: #dp_implicit_clamping
 
 [dp-from-clause]: https://github.com/google/googlesql/blob/master/docs/differential-privacy.md#dp_from_rules
@@ -577,6 +806,10 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#json_report_format
+
+[proto-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#proto_report_format
 
 ## `PERCENTILE_CONT` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_percentile_cont"></a>
@@ -682,7 +915,8 @@ GROUP BY item;
 WITH DIFFERENTIAL_PRIVACY ...
   SUM(
     expression,
-    [ contribution_bounds_per_group => (lower_bound, upper_bound) ]
+    [ contribution_bounds_per_group => (lower_bound, upper_bound) ],
+    [ report_format => { 'JSON' | 'PROTO' } ]
   )
 ```
 
@@ -699,14 +933,19 @@ and can support these arguments:
 + `contribution_bounds_per_group`: A named argument with a
   [contribution bound][dp-clamped-named]. Performs clamping for each group
   separately before performing intermediate grouping on the privacy unit column.
++ `report_format`: A named argument that produces a
+  [`JSON`-formatted report][json-report-format] or [`PROTO`-formatted report][proto-report-format]
+   with the results.
 
 **Return type**
 
-One of the following [supertypes][dp-supertype]:
++ Without a report format, one of the following [supertypes][dp-supertype]:
 
-+ `INT64`
-+ `UINT64`
-+ `DOUBLE`
+  + `INT64`
+  + `UINT64`
+  + `DOUBLE`
++ With a `JSON` report format: `JSON`
++ With a `PROTO` report format: `PROTO`
 
 **Examples**
 
@@ -803,6 +1042,83 @@ GROUP BY item;
 Note: For more information about when and when not to use
 noise, see [Use differential privacy][dp-noise].
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    SUM(quantity, report_format=>'JSON') quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | quantity                                                         |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4,"num_inputs":1.0,           |
+ |          |   "num_outside":0.0,"upper_bound":8},                            |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8}                                  |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64,"num_inputs":1.0,          |
+ |          |   "num_outside":0.0,"upper_bound":256},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":144.0,                   |
+ |          |   "upper_bound":144.0},"value":144}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":16,"num_inputs":2.0,          |
+ |          |   "num_outside":0.0,"upper_bound":64},                           |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":58.0,                    |
+ |          |   "upper_bound":58.0},"value":58}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+The following differentially private query produces a PROTO-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    SUM(quantity, report_format=>'PROTO') quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | quantity                                                         |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { int_value: 8 noise_confidence_interval {                 |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { int_value: 4 }                   |
+ |          | upper_bound { int_value: 8 } num_inputs: 1 num_outside: 0 }      |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { int_value: 144 noise_confidence_interval {               |
+ |          | lower_bound: 144.0 upper_bound: 144.0 confidence_level: 0.95 } } |
+ |          | bounding_report { lower_bound { int_value: 64 }                  |
+ |          | upper_bound { int_value: 256 } num_inputs: 1 num_outside: 0 }    |
+ +----------+------------------------------------------------------------------+
+ | pen      | value { int_value: 58 noise_confidence_interval {                |
+ |          | lower_bound: 58.0 upper_bound: 58.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { int_value: 16 }                  |
+ |          | upper_bound { int_value: 64 } num_inputs: 2 num_outside: 0 }     |
+ +----------+------------------------------------------------------------------*/
+```
+
 [dp-example-tables]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_tables
 
 [dp-noise]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#eliminate_noise
@@ -814,6 +1130,10 @@ noise, see [Use differential privacy][dp-noise].
 [dp-syntax]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_clause
 
 [dp-example-views]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#dp_example_views
+
+[json-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#json_report_format
+
+[proto-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#proto_report_format
 
 ## `VAR_POP` (`DIFFERENTIAL_PRIVACY`) 
 <a id="dp_var_pop"></a>
@@ -920,10 +1240,13 @@ Warning: This function has been deprecated. Use
 
 ```googlesql
 WITH ANONYMIZATION ...
-  ANON_AVG(expression [clamped_between_clause])
+  ANON_AVG(expression [clamped_between_clause] [with_report_clause])
 
 clamped_between_clause:
   CLAMPED BETWEEN lower_bound AND upper_bound
+
+with_report_clause:
+  WITH REPORT(FORMAT={JSON|PROTO})
 ```
 
 **Description**
@@ -939,10 +1262,14 @@ can support these arguments:
   such as `INT64`.
 + `clamped_between_clause`: Perform [clamping][dp-clamping] per
   privacy unit column averages.
++ `with_report_clause`: Produce a [`JSON`-formatted report][json-report-format]
+  or [`PROTO`-formatted report][proto-report-format] with the results.
 
 **Return type**
 
-`DOUBLE`
++ Without a report: `DOUBLE`
++ With a `JSON`-formatted report: `JSON`
++ With a `PROTO`-formatted report: `PROTO`
 
 **Examples**
 
@@ -991,6 +1318,47 @@ GROUP BY item;
  +----------+------------------*/
 ```
 
+The following differentially private query produces a JSON-formatted report.
+This query references a view called [`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH ANONYMIZATION
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    ANON_AVG(quantity WITH REPORT(FORMAT=JSON)) average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":4.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{"confidence_level":0.95,|
+ |          |   "lower_bound":8.0,"upper_bound":8.0},"value":8.0}}             |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":64.0,"num_inputs":1.0,       |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}}                             |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   {"bounding_report":{"lower_bound":8.0,"num_inputs":2.0,        |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{"confidence_level":0.95,|
+ |          |   "lower_bound":18.5,"upper_bound":18.5},"value":18.5}}.         |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
 Note: You can learn more about when and when not to use
 noise [here][dp-noise].
 
@@ -999,6 +1367,10 @@ noise [here][dp-noise].
 [dp-noise]: https://github.com/google/googlesql/blob/master/docs/query-syntax.md#eliminate_noise
 
 [dp-clamping]: #dp_clamping
+
+[json-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#json_report_format
+
+[proto-report-format]: https://github.com/google/googlesql/blob/master/docs/aggregate-dp-functions.md#proto_report_format
 
 ## `ANON_COUNT` (DEPRECATED) 
 <a id="anon_count"></a>
@@ -1804,6 +2176,199 @@ noise, see [Remove noise][dp-noise].
 [dp-clamped-named]: #dp_clamped_named
 
 [dp-clamped-named-imp]: #dp_clamped_named_implicit
+
+### `JSON` report format 
+<a id="json_report_format"></a>
+
+Some differentially private aggregate functions can return a
+`JSON`-formatted report that has the following values:
+
+```json
+{
+  "bounding_report": {
+    "lower_bound": number,
+    "num_inputs": number,
+    "num_outside": number,
+    "upper_bound": number
+  },
+  "result": {
+    "noise_confidence_interval": {
+      "confidence_level": number,
+      "lower_bound": number,
+      "upper_bound": number
+    },
+    "value": number
+  }
+}
+```
+
+Definitions:
+
++ `result`: The value produced by the function and its
+  noise confidence interval.
+
+  + `noise_confidence_interval`: The probability that the results will
+    fall between a set of values.
+
+    + `confidence_level`: The percentage of probability that the
+      confidence interval contains the true results.
+
+    + `lower_bound`: The lower bound of the confidence interval.
+
+    + `upper_bound`: The upper bound of the confidence interval.
+
+  + `value`: The value produced by the function.
++ `bounding_report`: Bounding report that's only generated when
+  [implicit clamping][dp-clamped-named-imp] is used.
+
+  + `lower_bound`: The inferred lower bound used for clamping.
+
+  + `upper_bound`: The inferred upper bound used for clamping.
+
+  + `num_inputs`: Total noisy count of inputs.
+
+  + `num_outside`: Noisy number of inputs lying outside of bounds.
+
+**Example**
+
+With the following query, you can include a `JSON`-formatted report with your
+results. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'JSON') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | {                                                                |
+ |          |   "bounding_report":{"lower_bound":4.0,"num_inputs":1.0,         |
+ |          |   "num_outside":0.0,"upper_bound":8.0},                          |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":8.0,                     |
+ |          |   "upper_bound":8.0},"value":8.0}                                |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pencil   | {                                                                |
+ |          |   "bounding_report":{"lower_bound":64.0,"num_inputs":1.0,        |
+ |          |   "num_outside":0.0,"upper_bound":128.0},                        |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":72.0,                    |
+ |          |   "upper_bound":72.0},"value":72.0}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------+
+ | pen      | {                                                                |
+ |          |   "bounding_report":{"lower_bound":8.0,"num_inputs":2.0,         |
+ |          |   "num_outside":0.0,"upper_bound":32.0},                         |
+ |          |   "result":{"noise_confidence_interval":{                        |
+ |          |   "confidence_level":0.95,"lower_bound":18.5,                    |
+ |          |   "upper_bound":18.5},"value":18.5}                              |
+ |          | }                                                                |
+ +----------+------------------------------------------------------------------*/
+```
+
+### `PROTO` report format 
+<a id="proto_report_format"></a>
+
+Some differentially private aggregate functions can return a
+`PROTO`-formatted report that has the following values:
+
+```proto
+{
+  {
+    value {
+      [float|int]_value: double or int64
+      noise_confidence_interval {
+        lower_bound: double
+        upper_bound: double
+        confidence_level: double
+      }
+    }
+    bounding_report {
+      lower_bound {
+        [float|int]_value: double or int64
+      }
+      upper_bound {
+        [float|int]_value: double or int64
+      }
+      num_inputs: double
+      num_outside: double
+    }
+  }
+}
+```
+
+Definitions:
+
++ `value`: The value produced by the function and its
+  noise confidence interval.
+
+  + `float_value` or `int_value`: The value produced by the function.
+
+  + `noise_confidence_interval`: The probability that the results will
+    fall between a set of values.
+
+    + `lower_bound`: The lower bound of the confidence interval.
+
+    + `upper_bound`: The upper bound of the confidence interval.
+
+    + `confidence_level`: The percentage of probability that the
+      confidence interval contains the true results.
++ `bounding_report`: Bounding report that's only generated when
+  [implicit clamping][dp-clamped-named-imp] is used.
+
+  + `lower_bound`: The inferred lower bound used for clamping.
+
+  + `upper_bound`: The inferred upper bound used for clamping.
+
+  + `num_inputs`: Total noisy count of inputs.
+
+  + `num_outside`: Noisy number of inputs lying outside of bounds.
+
+**Example**
+
+With the following query, you can include a `PROTO`-formatted report with your
+results. This query references a view called
+[`view_on_professors`][dp-example-views].
+
+```googlesql
+-- Without noise, using the epsilon parameter.
+-- This un-noised version is for demonstration only.
+SELECT
+  WITH DIFFERENTIAL_PRIVACY
+    OPTIONS(epsilon=1e20, delta=.01, max_groups_contributed=1)
+    item,
+    AVG(quantity, report_format=>'PROTO') average_quantity
+FROM {{USERNAME}}.view_on_professors
+GROUP BY item;
+
+/*----------+------------------------------------------------------------------+
+ | item     | average_quantity                                                 |
+ +----------+------------------------------------------------------------------+
+ | scissors | value { float_value: 8.0 noise_confidence_interval {             |
+ |          | lower_bound: 8.0 upper_bound: 8.0 confidence_level: 0.95 } }     |
+ |          | bounding_report { lower_bound { float_value: 4.0 }               |
+ |          | upper_bound { float_value: 8.0 } num_inputs: 1 num_outside: 0 }  |
+ +----------+------------------------------------------------------------------+
+ | pencil   | value { float_value: 72.0 noise_confidence_interval {            |
+ |          | lower_bound: 72.0 upper_bound: 72.0 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 64.0 }              |
+ |          | upper_bound { float_value: 128.0 } num_inputs: 1 num_outside: 0 }|
+ +----------+------------------------------------------------------------------+
+ | pen      | value { float_value: 18.5 noise_confidence_interval {            |
+ |          | lower_bound: 18.5 upper_bound: 18.5 confidence_level: 0.95 } }   |
+ |          | bounding_report { lower_bound { float_value: 8.0 }               |
+ |          | upper_bound { float_value: 32.0 } num_inputs: 2 num_outside: 0 } |
+ +----------+------------------------------------------------------------------*/
+```
 
 [dp-guide]: https://github.com/google/googlesql/blob/master/docs/differential-privacy.md
 

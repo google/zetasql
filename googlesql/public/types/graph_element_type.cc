@@ -48,6 +48,7 @@
 #include "absl/status/status.h"
 #include "googlesql/base/status_macros.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
@@ -55,6 +56,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
 #include "googlesql/base/ret_check.h"
+#include "googlesql/base/case.h"
 
 namespace googlesql {
 namespace {
@@ -106,6 +108,24 @@ std::vector<PropertyType> SortPropertyTypes(
   return result;
 }
 
+// Returns true if `superset` contains all element tables in `subset`
+// (case-insensitively). Both spans are assumed to contain unique table names.
+bool IsElementTableSetSubsetOf(absl::Span<const std::string> subset,
+                               absl::Span<const std::string> superset) {
+  if (subset.size() > superset.size()) {
+    return false;
+  }
+  if (subset.empty()) {
+    return true;
+  }
+  absl::flat_hash_set<absl::string_view, googlesql_base::StringViewCaseHash,
+                      googlesql_base::StringViewCaseEqual>
+      superset_tables(superset.begin(), superset.end());
+  return absl::c_all_of(subset, [&](absl::string_view table) {
+    return superset_tables.contains(table);
+  });
+}
+
 // Gets GraphElementContainer from ValueContent.
 const internal::GraphElementContainer* GetGraphElementContainer(
     const ValueContent& value_content) {
@@ -150,13 +170,14 @@ std::vector<const Type*> MakeComponentTypes(
 GraphElementType::GraphElementType(
     const internal::GraphReference* graph_reference, ElementKind element_kind,
     const TypeFactory& factory,
-    absl::flat_hash_set<PropertyType> property_types, int nesting_depth,
-    bool is_dynamic)
+    absl::flat_hash_set<PropertyType> property_types,
+    std::vector<std::string> element_tables, int nesting_depth, bool is_dynamic)
     : ListBackedType(factory, TYPE_GRAPH_ELEMENT),
-      graph_reference_(graph_reference),
       element_kind_(element_kind),
+      graph_reference_(graph_reference),
       property_types_(SortPropertyTypes(std::move(property_types))),
       component_types_(MakeComponentTypes(property_types_)),
+      element_tables_(std::move(element_tables)),
       nesting_depth_(nesting_depth),
       is_dynamic_(is_dynamic) {}
 
@@ -234,7 +255,8 @@ bool GraphElementType::CoercibleTo(const GraphElementType* to) const {
   return absl::c_equal(graph_reference(), to->graph_reference(),
                        googlesql_base::CaseEqual) &&
          element_kind() == to->element_kind() &&
-         contains_all_static_properties_in_from_type && !is_dynamic_to_static;
+         contains_all_static_properties_in_from_type && !is_dynamic_to_static &&
+         IsElementTableSetSubsetOf(element_tables(), to->element_tables());
 }
 
 bool GraphElementType::EqualsForSameKind(const Type* that,
@@ -324,6 +346,8 @@ absl::Status GraphElementType::SerializeToProtoAndDistinctFileDescriptorsImpl(
                             file_descriptor_set_map));
   }
   graph_element_type_proto->set_is_dynamic(is_dynamic_);
+  graph_element_type_proto->mutable_element_tables()->Add(
+      element_tables_.begin(), element_tables_.end());
   return absl::OkStatus();
 }
 
@@ -434,6 +458,10 @@ int64_t GraphElementType::GetEstimatedOwnedMemoryBytesSize() const {
     result += GetEstimatedPropertyTypeOwnedMemoryBytesSize(property_type);
   }
   result += internal::GetExternallyAllocatedMemoryEstimate(component_types_);
+  for (const std::string& element_table : element_tables_) {
+    result += sizeof(element_table) +
+              internal::GetExternallyAllocatedMemoryEstimate(element_table);
+  }
 
   // Map property_name_to_index_map_ is built lazily, we account its memory
   // in advance, which potentially can lead to overestimation.
@@ -457,19 +485,28 @@ bool GraphElementType::EqualsImpl(const GraphElementType* type1,
         return googlesql_base::CaseEqual(lhs.name, rhs.name) &&
                lhs.value_type->EqualsImpl(rhs.value_type, equivalent);
       });
+  bool equal_tables =
+      equivalent ||
+      (type1->element_tables().size() == type2->element_tables().size() &&
+       IsElementTableSetSubsetOf(type1->element_tables(),
+                                 type2->element_tables()));
   return absl::c_equal(type1->graph_reference(), type2->graph_reference(),
                        googlesql_base::CaseEqual) &&
          type1->is_dynamic() == type2->is_dynamic() &&
          type1->element_kind() == type2->element_kind() &&
-         has_equal_static_properties;
+         has_equal_static_properties && equal_tables;
 }
 
 absl::HashState GraphElementType::HashTypeParameter(
     absl::HashState state) const {
-  return absl::HashState::combine(
-      std::move(state),
-      is_dynamic_,
-      element_kind_, property_types_);
+  std::vector<std::string> lowercase_tables;
+  lowercase_tables.reserve(element_tables_.size());
+  for (absl::string_view table : element_tables_) {
+    lowercase_tables.push_back(absl::AsciiStrToLower(table));
+  }
+  absl::c_sort(lowercase_tables);
+  return absl::HashState::combine(std::move(state), is_dynamic_, element_kind_,
+                                  property_types_, lowercase_tables);
 }
 
 void GraphElementType::CopyValueContent(const ValueContent& from,

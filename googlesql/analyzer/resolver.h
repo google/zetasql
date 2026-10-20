@@ -971,6 +971,22 @@ class Resolver {
   absl::Status CheckAndPropagateAnnotations(const ASTNode* error_node,
                                             ResolvedNode* resolved_node);
 
+  // Calls CheckAndPropagateForParameter() via a dummy ResolvedParameter for
+  // ResolvedColumns newly introduced in the tree to reflect external annotated
+  // columns, like when setting up a ResolvedTableScan or
+  // ResolvedGraphElementScan. This gives each AnnotationSpec a chance to
+  // initialize values to default values, which is important for annotations
+  // with 2-tiered defaults where unannotated is not enough and an additional
+  // default value is needed.
+  //
+  // This method is called ONLY once, at the introduction of such
+  // ResolvedColumns, which then propagate along the tree with
+  // ResolvedColumnRef always having full fidelity.
+  //
+  // TODO: b/566856581 - Do the same for ResolvedArgumentRef.
+  absl::Status InitializeAnnotationsForInputColumn(
+      const ASTNode* error_node, AnnotatedType* annotated_type);
+
   ResolvedColumn MakeGroupingOutputColumn(
       const ExprResolutionInfo* expr_resolution_info, IdString grouping_id,
       AnnotatedType annotated_type);
@@ -1895,18 +1911,24 @@ class Resolver {
   absl::Status ResolveUpdateStatement(
       const ASTUpdateStatement* ast_statement,
       std::unique_ptr<ResolvedUpdateStmt>* output);
-  // Resolves the given UPDATE statement node. The function uses two name
-  // scopes: <target_scope> is used to resolve names that should appear as
-  // targets in the SET clause and should come from the target table;
-  // <update_scope> includes all names that can appear inside the UPDATE
-  // statement and it is used to resolve names anywhere outside the target
-  // expressions. <target_alias> is the alias of the target, which must be in
-  // the topmost scope of both <target_scope> and <update_scope>.
+  // Resolves the given UPDATE statement node.
+  // - `target_name_list` contains names from the target being updated (the
+  //   target table for top-level UPDATE, or the array element for nested
+  //   UPDATE) and is used to resolve target paths in the SET clause.
+  // - `update_name_list` contains all local names visible inside the UPDATE
+  //   statement (for top-level UPDATE, this includes both `target_name_list`
+  //   and any `FROM` clause names; for nested UPDATE, this is the same as
+  //   `target_name_list`) and is used to resolve expressions outside SET target
+  //   paths, such as in the WHERE clause, SET value expressions, and the
+  //   THEN RETURN clause.
+  // `target_alias` is the alias of the target, which must be present in both
+  // `target_name_list` and `update_name_list`.
   absl::Status ResolveUpdateStatementImpl(
       const ASTUpdateStatement* ast_statement, bool is_nested,
-      IdString target_alias, const NameScope* target_scope,
+      IdString target_alias,
       const std::shared_ptr<const NameList>& target_name_list,
-      const NameScope* update_scope, const NameScope* outer_scope,
+      const std::shared_ptr<const NameList>& update_name_list,
+      const NameScope* outer_scope,
       std::unique_ptr<const ResolvedTableScan> table_scan,
       std::unique_ptr<const ResolvedScan> from_scan,
       ResolvedColumnToCatalogColumnHashMap&
@@ -2009,7 +2031,21 @@ class Resolver {
   // Resolves `ADD COLUMN` actions for `ALTER INDEX` statements.
   absl::Status ResolveAddColumnToIndex(
       absl::string_view alter_statement_kind, const ASTAddColumnAction* action,
-      IdStringSetCase* new_columns,
+      IdStringSetCase* new_columns, IdStringSetCase* columns_to_drop,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  // Resolves `ADD STORED COLUMN` actions for `ALTER INDEX` statements.
+  absl::Status ResolveAddStoredColumnToIndex(
+      absl::string_view alter_statement_kind, const Table* table,
+      const ASTAddStoredColumnAction* action, IdStringSetCase* new_columns,
+      IdStringSetCase* columns_to_drop,
+      std::unique_ptr<const ResolvedAlterAction>* alter_action);
+
+  // Resolves `DROP STORED COLUMN` actions for `ALTER INDEX` statements.
+  absl::Status ResolveDropStoredColumnFromIndex(
+      absl::string_view alter_statement_kind, const Table* table,
+      const ASTDropStoredColumnAction* action, IdStringSetCase* new_columns,
+      IdStringSetCase* columns_to_drop,
       std::unique_ptr<const ResolvedAlterAction>* alter_action);
 
   // <table> can be NULL. If the table does not exist in the catalog, we try
@@ -4660,11 +4696,11 @@ class Resolver {
       bool is_default_connection_allowed = false);
 
   // Parses a connection string (e.g. "project.location.connection_id") into
-  // its path components using the SQL parser rules.
-  // Returns an InvalidArgument error if the string is empty or invalid.
-  static absl::Status ParseConnectionString(
-      absl::string_view connection_str, const LanguageOptions& language_options,
-      std::vector<std::string>* path);
+  // its dot-separated path components.
+  // Returns an InvalidArgument error if the string is empty, contains an
+  // empty path component, or contains an invalid character.
+  static absl::Status ParseConnectionString(absl::string_view connection_str,
+                                            std::vector<std::string>* path);
 
   absl::Status ResolveDefaultConnection(
       const ASTDefaultLiteral* default_literal,
@@ -6234,6 +6270,11 @@ class Resolver {
       const std::string& read_as_row_type_error_kind,
       std::unique_ptr<const ResolvedScan>* output_scan,
       std::shared_ptr<const NameList>* output_name_list);
+
+  // Resolves PARTITION BY and ORDER BY clauses on a parenthesized TABLE clause
+  // argument to a TVF.
+  absl::Status ResolveTableClausePartitionAndOrder(
+      const ASTTableClause* ast_table_clause, ResolvedTVFArg& resolved_tvf_arg);
 
   // Resolve <options_list> and add the options onto <resolved_options>.
   // Requires valid anonymization or differential_privacy option names and types

@@ -666,4 +666,28 @@ TEST(TableNameResolver, ExtractTableNamesFromDeleteStatementWithUsingTvf) {
   EXPECT_THAT(tvf_names, UnorderedElementsAre(ElementsAre("MyTvf")));
 }
 
+TEST(TableNameResolver, ExtractTableNamesFromParenthesizedTableClause) {
+  AnalyzerOptions analyzer_options;
+  std::set<std::vector<std::string>> table_names;
+  std::set<std::vector<std::string>> tvf_names;
+  std::string sql = R"sql(
+      SELECT *
+      FROM MyTvf1(
+          TABLE(TableA PARTITION BY k ORDER BY v),
+          TABLE((SELECT * FROM TableB) PARTITION BY (SELECT k FROM TableC)),
+          arg => TABLE((SELECT * FROM TableD)
+                       ORDER BY (SELECT v FROM TableE)),
+          TABLE(MyTvf2(TABLE(TableF)) PARTITION BY k))
+  )sql";
+
+  GOOGLESQL_ASSERT_OK(ExtractTableNamesFromStatement(sql, analyzer_options, &table_names,
+                                           &tvf_names));
+  EXPECT_THAT(table_names, UnorderedElementsAre(
+                               ElementsAre("TableA"), ElementsAre("TableB"),
+                               ElementsAre("TableC"), ElementsAre("TableD"),
+                               ElementsAre("TableE"), ElementsAre("TableF")));
+  EXPECT_THAT(tvf_names, UnorderedElementsAre(ElementsAre("MyTvf1"),
+                                              ElementsAre("MyTvf2")));
+}
+
 }  // namespace googlesql

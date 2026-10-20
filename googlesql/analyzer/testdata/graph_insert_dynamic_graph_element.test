@@ -24,6 +24,42 @@ INSERT (n:Entity {name: "Alice"})
                   ^
 ==
 
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_TERMINAL_INSERT,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+JSON_TYPE,+MAP_TYPE]
+# Dynamic graph: Insert dynamic property with value type that does not support
+# JSON conversion yields error
+GRAPH aml_dynamic
+INSERT (n:Entity {
+  id: 1,
+  dyn_prop:
+  {{MAP_FROM_ARRAY([('k', 1)])|STRUCT(1 AS a, MAP_FROM_ARRAY([('k', 1)]) AS m)}}
+})
+--
+ALTERNATION GROUP: MAP_FROM_ARRAY([('k', 1)])
+--
+ERROR: Cannot insert value of type MAP<STRING, INT64> into dynamic property 'dyn_prop': MAP<STRING, INT64> does not support conversion to JSON [at 7:3]
+  MAP_FROM_ARRAY([('k', 1)])
+  ^
+--
+ALTERNATION GROUP: STRUCT(1 AS a, MAP_FROM_ARRAY([('k', 1)]) AS m)
+--
+ERROR: Cannot insert value of type STRUCT<a INT64, m MAP<STRING, INT64>> into dynamic property 'dyn_prop': MAP<STRING, INT64> does not support conversion to JSON [at 7:3]
+  STRUCT(1 AS a, MAP_FROM_ARRAY([('k', 1)]) AS m)
+  ^
+==
+
+[language_features=NONE,+SQL_GRAPH,+SQL_GRAPH_ADVANCED_QUERY,+SQL_GRAPH_RETURN_EXTENSIONS,+SQL_GRAPH_TERMINAL_INSERT,+SQL_GRAPH_DYNAMIC_ELEMENT_TYPE,+SQL_GRAPH_DYNAMIC_LABEL_PROPERTIES_IN_DDL,+JSON_TYPE,+MAP_TYPE]
+# Dynamic graph: Insert edge dynamic property with value type that does not
+# support JSON conversion yields error
+GRAPH aml_dynamic
+INSERT (p:Entity {id: 1})
+       -[e:Connection {dyn_prop: MAP_FROM_ARRAY([('k', 1)])}]->
+       (q:Entity {id: 2})
+--
+ERROR: Cannot insert value of type MAP<STRING, INT64> into dynamic property 'dyn_prop': MAP<STRING, INT64> does not support conversion to JSON [at 5:34]
+       -[e:Connection {dyn_prop: MAP_FROM_ARRAY([('k', 1)])}]->
+                                 ^
+==
+
 # Dynamic graph: Explicitly specifying property mapped to node dynamic label backing column alongside a dynamic label yields error
 GRAPH aml_dynamic
 INSERT (n:DynamicGraphNode & Label1 {id: 1, nodeLabelCol: "CustomLabel"})

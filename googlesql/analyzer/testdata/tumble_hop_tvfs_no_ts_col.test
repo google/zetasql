@@ -171,7 +171,10 @@ SELECT * FROM hop(TABLE TableWithTimestampColumn, INTERVAL 1 DAY, INTERVAL 1 ...
 # TUMBLE_NO_TS_COL fails when TUMBLE_HOP_TVFS_NO_TIMESTAMP_COL is not enabled.
 SELECT * FROM tumble(TABLE TableWithTimestampColumn, INTERVAL 1 DAY);
 --
-ERROR: No matching signature for table valued function : TUMBLE. Supported Signatures: TUMBLE(table_expr => TABLE, timestamp_column => STRING, window_size => INTERVAL, [origin => TIMESTAMP]) [at 2:15]
+ERROR: No matching signature for tumble
+  Argument types: TABLE<ts_col TIMESTAMP>, INTERVAL
+  Signature: TUMBLE(table_expr => TABLE, timestamp_column => STRING, window_size => INTERVAL, [origin => TIMESTAMP])
+    Signature requires at least 3 arguments, found 2 arguments [at 2:15]
 SELECT * FROM tumble(TABLE TableWithTimestampColumn, INTERVAL 1 DAY);
               ^
 ==
@@ -180,6 +183,9 @@ SELECT * FROM tumble(TABLE TableWithTimestampColumn, INTERVAL 1 DAY);
 # HOP_NO_TS_COL fails when TUMBLE_HOP_TVFS_NO_TIMESTAMP_COL is not enabled.
 SELECT * FROM hop(TABLE TableWithTimestampColumn, INTERVAL 1 DAY, INTERVAL 1 HOUR);
 --
-ERROR: No matching signature for table valued function : HOP. Supported Signatures: HOP(table_expr => TABLE, timestamp_column => STRING, window_size => INTERVAL, step_size => INTERVAL, [origin => TIMESTAMP]) [at 2:15]
+ERROR: No matching signature for hop
+  Argument types: TABLE<ts_col TIMESTAMP>, INTERVAL, INTERVAL
+  Signature: HOP(table_expr => TABLE, timestamp_column => STRING, window_size => INTERVAL, step_size => INTERVAL, [origin => TIMESTAMP])
+    Signature requires at least 4 arguments, found 3 arguments [at 2:15]
 SELECT * FROM hop(TABLE TableWithTimestampColumn, INTERVAL 1 DAY, INTERVAL 1 ...
               ^

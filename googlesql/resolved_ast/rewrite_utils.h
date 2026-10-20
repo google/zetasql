@@ -716,6 +716,21 @@ class FunctionCallBuilder {
       std::unique_ptr<const ResolvedExpr> end_offset_expr);
 
   // Constructs a ResolvedFunctionCall for
+  // <search_expr> IN (<in_exprs[0]>, <in_exprs[1]>, ...)
+  //
+  // Requires:
+  // - `search_expr` is not nullptr and its type supports equality.
+  // - `in_exprs` is not empty.
+  // - All elements in `in_exprs` are not nullptr and have the same type and
+  //   annotations as `search_expr`.
+  //
+  // The signature for the built-in function "$in" must be available in
+  // <catalog> or an error status is returned.
+  absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>> In(
+      std::unique_ptr<const ResolvedExpr> search_expr,
+      std::vector<std::unique_ptr<const ResolvedExpr>> in_exprs);
+
+  // Constructs a ResolvedFunctionCall for
   // search_expr IN UNNEST(array_expr)
   //
   // Requires:

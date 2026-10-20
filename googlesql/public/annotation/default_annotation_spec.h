@@ -65,9 +65,6 @@ class DefaultAnnotationSpec : public AnnotationSpec {
   // doesn't match the implied structure of the ResolvedNode. For example, in
   // the case of CheckAndPropagateForMakeStruct, <result_annotation_map> must
   // be a StructAnnotationMap.
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override;
   absl::Status CheckAndPropagateForParameter(
       const ResolvedParameter& parameter,
       AnnotationMap* result_annotation_map) override;

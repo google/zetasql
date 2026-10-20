@@ -1634,6 +1634,16 @@ SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonExists, 1) {
   RunFunctionCalls(Shard(GetFunctionTestsJsonExists()));
 }
 
+SHARDED_TEST_F(ComplianceCodebasedTests, TestJsonPathWildcardsAndDescendant,
+               1) {
+  SetNamePrefix("JsonPathWildcardsAndDescendant");
+  RunFunctionCalls(Shard(GetFunctionTestsJsonPathWildcardsAndDescendant()));
+  SetNamePrefix("JsonQueryLaxWithWildcardsAndDescendant");
+  RunStatementTests(
+      Shard(GetStatementTestsJsonQueryLaxWithWildcardsAndDescendant()),
+      "JSON_QUERY(JSON_QUERY(@p0, @p1), @p2)");
+}
+
 SHARDED_TEST_F(ComplianceCodebasedTests, TestHash, 1) {
   SetNamePrefix("Hash");
   RunFunctionCalls(Shard(GetFunctionTestsHash()));

@@ -90,7 +90,11 @@ using GraphReference = CatalogName;
 //    values of this type.
 // 4. Whether this type is dynamic, i.e., whether dynamic properties are allowed
 //    on values of this type.
-// GraphElementTypes are equal if all the above are equal.
+// 5. A list of element tables (only case-insensitive names are stored) from
+//    which values of this type are created.
+// GraphElementTypes are equal (`Equals()`) if all the above are equal
+// (Except element tables are compared order-insensitively). `Equivalent()`
+// ignores element tables.
 class GraphElementType : public ListBackedType {
  public:
 #ifndef SWIG
@@ -115,6 +119,11 @@ class GraphElementType : public ListBackedType {
   // Returns a set of static property types.
   absl::Span<const PropertyType> property_types() const {
     return property_types_;
+  }
+
+  // Returns an ordered list of element tables of this type.
+  absl::Span<const std::string> element_tables() const {
+    return element_tables_;
   }
 
   // Looks up a property type by name.
@@ -184,7 +193,8 @@ class GraphElementType : public ListBackedType {
   GraphElementType(const internal::GraphReference* graph_reference,
                    ElementKind element_kind, const TypeFactory& factory,
                    absl::flat_hash_set<PropertyType> property_types,
-                   int nesting_depth, bool is_dynamic = false);
+                   std::vector<std::string> element_tables, int nesting_depth,
+                   bool is_dynamic = false);
 
   // Look up a property type by name.
   // Returns NULL if <name> is not found.
@@ -243,18 +253,24 @@ class GraphElementType : public ListBackedType {
                                        const FormatValueContentOptions& options,
                                        std::string* result) const;
 
+  // Decides whether this is a node type or edge type.
+  const ElementKind element_kind_;
+
   // A path that can be used for looking up the graph to which this
   // GraphElementType belongs to, inside the catalog for resolving the graph
   // query.
   const internal::GraphReference* const graph_reference_;
 
-  // Decides whether this is a node type or edge type.
-  const ElementKind element_kind_;
-
   // A set of static property types sorted by property type name.
   const std::vector<PropertyType> property_types_;
 
   const std::vector<const Type*> component_types_;
+
+  // A list of unique element table names (case-insensitive) in order of their
+  // first appearance. An empty list means that:
+  //  - the type is not associated with any element table; and
+  //  - the type is not updatable.
+  const std::vector<std::string> element_tables_;
 
   // The deepest nesting depth in the type tree rooted at this GraphElementType,
   // i.e., the maximum nesting_depth of the property value types, plus 1 for the

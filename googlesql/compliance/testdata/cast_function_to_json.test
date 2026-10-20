@@ -331,6 +331,42 @@ SELECT CAST(RANGE<DATE> '[2020-01-01, 2020-01-11)' AS JSON)
 ARRAY<STRUCT<JSON>>[{{"end":"2020-01-11","start":"2020-01-01"}}]
 ==
 
+# GEOGRAPHY to JSON
+[name=cast_geography_to_json]
+[required_features=JSON_TYPE,CAST_TO_JSON_TYPE,GEOGRAPHY]
+SELECT CAST(ST_GEOGPOINT(1, 2) AS JSON)
+--
+ARRAY<STRUCT<JSON>>[{"POINT(1 2)"}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# SAFE_CAST GEOGRAPHY to JSON
+[name=safe_cast_geography_to_json]
+[required_features=JSON_TYPE,CAST_TO_JSON_TYPE,GEOGRAPHY]
+SELECT SAFE_CAST(ST_GEOGPOINT(1, 2) AS JSON)
+--
+ARRAY<STRUCT<JSON>>[{"POINT(1 2)"}]
+
+NOTE: Reference implementation reports non-determinism.
+==
+
+# ARRAY with GEOGRAPHY to JSON
+[name=cast_array_with_geography_to_json]
+[required_features=JSON_TYPE,CAST_TO_JSON_TYPE,GEOGRAPHY]
+SELECT CAST([ST_GEOGPOINT(1, 2)] AS JSON)
+--
+ARRAY<STRUCT<JSON>>[{["POINT(1 2)"]}]
+==
+
+# STRUCT with GEOGRAPHY to JSON
+[name=cast_struct_with_geography_to_json]
+[required_features=JSON_TYPE,CAST_TO_JSON_TYPE,GEOGRAPHY]
+SELECT CAST(STRUCT(ST_GEOGPOINT(1, 2) AS geo) AS JSON)
+--
+ARRAY<STRUCT<JSON>>[{{"geo":"POINT(1 2)"}}]
+==
+
 # ARRAY to JSON
 [name=cast_array_to_json]
 SELECT CAST([1, 2, 3] AS JSON),

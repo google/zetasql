@@ -829,6 +829,9 @@ std::unique_ptr<MatcherCollection<absl::Status>> RuntimeExpectedErrorMatcher(
       "Collation is not allowed on input array to FLATTEN (.+)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
       absl::StatusCode::kInvalidArgument,
+      "Collation is not supported on MAP or its key and value types"));
+  error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(
+      absl::StatusCode::kInvalidArgument,
       "Collation conflict: \"(.+)\" vs. \"(.+)\". Collation for IN operator "
       "is different on input expr (.+) and subquery column (.+)"));
   error_matchers.emplace_back(std::make_unique<StatusRegexMatcher>(

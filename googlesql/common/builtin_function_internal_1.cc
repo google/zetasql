@@ -1604,14 +1604,82 @@ static FunctionSignature ToFunctionSignature(
 static bool FunctionSignatureIsDisabled(
     const GoogleSQLBuiltinFunctionOptions& options,
     const FunctionSignature& signature) {
+  // TODO: Stop allowlisting these signatures once downstream
+  // engines enable the required language features when building their catalogs.
+  static const absl::NoDestructor<absl::flat_hash_set<FunctionSignatureId>>
+      kAllowlistedSignatures({
+          // FEATURE_UNNEST_AND_FLATTEN_ARRAYS
+          FN_FLATTEN,
+          // FEATURE_JSON_TYPE_COMPARISON_COERCION / FEATURE_CAST_TO_JSON_TYPE
+          FN_EQUAL_JSON_NONJSON,
+          FN_EQUAL_NONJSON_JSON,
+          FN_NOT_EQUAL_JSON_NONJSON,
+          FN_NOT_EQUAL_NONJSON_JSON,
+          FN_DISTINCT_JSON_NONJSON,
+          FN_DISTINCT_NONJSON_JSON,
+          FN_NOT_DISTINCT_JSON_NONJSON,
+          FN_NOT_DISTINCT_NONJSON_JSON,
+          FN_LESS_JSON_NONJSON,
+          FN_LESS_NONJSON_JSON,
+          FN_LESS_OR_EQUAL_JSON_NONJSON,
+          FN_LESS_OR_EQUAL_NONJSON_JSON,
+          FN_GREATER_OR_EQUAL_JSON_NONJSON,
+          FN_GREATER_OR_EQUAL_NONJSON_JSON,
+          FN_GREATER_JSON_NONJSON,
+          FN_GREATER_NONJSON_JSON,
+          FN_BETWEEN_JSON_ANY_ANY,
+          FN_IN_JSON_NONJSON,
+          // FEATURE_SQL_GRAPH
+          FN_EQUAL_GRAPH_NODE,
+          FN_EQUAL_GRAPH_EDGE,
+          FN_NOT_EQUAL_GRAPH_NODE,
+          FN_NOT_EQUAL_GRAPH_EDGE,
+          // FEATURE_BITWISE_AGGREGATE_BYTES_SIGNATURES
+          FN_BIT_AND_BYTES,
+          FN_BIT_OR_BYTES,
+          FN_BIT_XOR_BYTES,
+          // FEATURE_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE
+          FN_PARSE_TIMESTAMP_WITH_PRECISION,
+          FN_PARSE_TIMESTAMP_WITH_PRECISION_AND_TIMEZONE,
+          // FEATURE_FPE_NEW_KEYSET
+          FN_KEYS_NEW_KEYSET_WITH_METADATA,
+          FN_KEYS_NEW_WRAPPED_KEYSET_WITH_METADATA,
+          FN_FPE_ENCRYPT_STRUCT,
+          FN_FPE_DECRYPT_STRUCT,
+          // FEATURE_DATE_TIME_CONSTRUCTORS
+          FN_DATE_FROM_DATE,
+          FN_DATE_FROM_STRING,
+          FN_TIMESTAMP_FROM_TIMESTAMP,
+          FN_TIME_FROM_TIME,
+          FN_DATETIME_FROM_DATETIME,
+          FN_DATETIME_FROM_STRING,
+          FN_STRING_FROM_DATE,
+          FN_STRING_FROM_TIME,
+          FN_STRING_FROM_DATETIME,
+          // FEATURE_EXTENDED_DATE_TIME_SIGNATURES
+          FN_DATETIME_ADD,
+          FN_TIMESTAMP_ADD,
+          FN_DATETIME_SUB,
+          FN_TIMESTAMP_SUB,
+          FN_DATETIME_DIFF,
+          FN_TIMESTAMP_DIFF,
+          FN_DATETIME_TRUNC,
+          FN_TIMESTAMP_TRUNC,
+          FN_DATE_BUCKET,
+          FN_DATETIME_BUCKET,
+          FN_TIMESTAMP_BUCKET,
+          FN_FORMAT_DATETIME,
+          FN_FORMAT_TIMESTAMP,
+      });
   const FunctionSignatureId id =
       static_cast<FunctionSignatureId>(signature.context_id());
   return (!options.include_function_ids.empty() &&
           !options.include_function_ids.contains(id)) ||
          options.exclude_function_ids.contains(id) ||
-         signature.HasUnsupportedType(options.language_options);
-  // TODO: b/333096857 - Also check that the signature has all required features
-  // enabled.
+         signature.HasUnsupportedType(options.language_options) ||
+         (!kAllowlistedSignatures->contains(id) &&
+          !signature.options().CheckAllRequiredFeaturesAreEnabled(
+              options.language_options.GetEnabledLanguageFeatures()));
 }
 
 static bool FunctionSignatureIsDisabled(

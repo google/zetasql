@@ -60,6 +60,7 @@ namespace functions {
 namespace {
 
 using json_internal::JsonPathOptions;
+using ::testing::ElementsAre;
 using ::testing::ElementsAreArray;
 using ::testing::HasSubstr;
 using ::testing::IsNan;
@@ -155,7 +156,7 @@ TEST(JsonTest, StringJsonExtractKeyEscapingDisabled) {
         [&](absl::Status status) { result_status = status; }));
     EXPECT_FALSE(is_null);
     EXPECT_TRUE(!result_status.ok());
-    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b"ar":"q\"w"})"));
+    EXPECT_THAT(result, ElementsAre(R"({"b"ar":"q\"w"})"));
   }
 }
 
@@ -207,7 +208,7 @@ TEST(JsonTest, StringJsonExtractKeyEscapingEnabledValueDisabled) {
         }));
     EXPECT_FALSE(is_null);
     EXPECT_FALSE(is_warning_called);
-    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b"ar":"q"w"})"));
+    EXPECT_THAT(result, ElementsAre(R"({"b"ar":"q"w"})"));
   }
 }
 
@@ -250,7 +251,7 @@ TEST(JsonTest, StringJsonExtractKeyAndValueEscapingEnabled) {
         }));
     EXPECT_FALSE(is_null);
     EXPECT_FALSE(is_warning_called);
-    EXPECT_THAT(result, ::testing::ElementsAre(R"({"b\"ar":"q\"w"})"));
+    EXPECT_THAT(result, ElementsAre(R"({"b\"ar":"q\"w"})"));
   }
 }
 
@@ -1281,6 +1282,17 @@ TEST(IsValidJSONPathTest, BasicTests) {
                               /*sql_standard_mode=*/false),
               StatusIs(absl::StatusCode::kOutOfRange,
                        HasSubstr("Invalid token in JSONPath at: .[acdm]")));
+
+  // Wildcard and descendant operators are rejected in legacy mode.
+  EXPECT_THAT(IsValidJSONPath("$.*", /*sql_standard_mode=*/false),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(IsValidJSONPath("$[*]", /*sql_standard_mode=*/false),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(IsValidJSONPath("$..a", /*sql_standard_mode=*/false),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: ..")));
 }
 
 TEST(IsValidJSONPathTest, StrictBasicTests) {
@@ -7276,6 +7288,1027 @@ TEST(JsonExistsAllTest, Basic) {
   std::vector<const JsonPathEvaluator*> evals_empty;
   EXPECT_THAT(JsonExistsAll(val.GetConstRef(), evals_empty),
               IsOkAndHolds(true));
+}
+
+absl::StatusOr<ParsedJsonPath> ParseStandardJsonPathWithWildcards(
+    absl::string_view path) {
+  return ParseJsonPath(path, /*sql_standard_mode=*/true,
+                       /*enable_wildcard_and_descendant=*/true);
+}
+
+absl::Status IsValidStandardJsonPathWithWildcards(absl::string_view path) {
+  return IsValidJSONPath(path, /*sql_standard_mode=*/true,
+                         /*enable_wildcard_and_descendant=*/true);
+}
+
+absl::Status IsValidLegacyJsonPath(
+    absl::string_view path, bool enable_wildcard_and_descendant = false) {
+  return IsValidJSONPath(path, /*sql_standard_mode=*/false,
+                         enable_wildcard_and_descendant);
+}
+
+absl::StatusOr<std::unique_ptr<JsonPathEvaluator>>
+CreateStandardEvaluatorWithWildcards(absl::string_view path) {
+  return JsonPathEvaluator::Create(
+      path, /*sql_standard_mode=*/true,
+      /*enable_special_character_escaping_in_values=*/false,
+      /*enable_special_character_escaping_in_keys=*/false,
+      /*enable_wildcard_and_descendant=*/true);
+}
+
+TEST(JsonWildcardsAndDescendantsTest, ArrayAndObjectWildcards) {
+  const std::string json_str =
+      R"({"store": {"book": [{"price": 8.95, "title": "A"}, )"
+      R"({"price": 12.99, "title": "B"}], "bicycle": {"price": 19.95}}})";
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto json, JSONValue::ParseJSONString(json_str));
+  JSONValueConstRef ref = json.GetConstRef();
+
+  // Multi-match traversal via EvaluateJsonPath (k=3
+  // matches: 19.95, 8.95, 12.99)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_price,
+                       ParseStandardJsonPathWithWildcards("$..price"));
+  std::vector<JSONValueConstRef> matches_price =
+      EvaluateJsonPath(path_price, ref);
+  ASSERT_EQ(matches_price.size(), 3);
+  EXPECT_EQ(matches_price[0].ToString(), "19.95");
+  EXPECT_EQ(matches_price[1].ToString(), "8.95");
+  EXPECT_EQ(matches_price[2].ToString(), "12.99");
+
+  // Predicate evaluation via ExtractExists and JsonExists (k=3 >= 1 -> true)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_price,
+                       CreateStandardEvaluatorWithWildcards("$..price"));
+  EXPECT_TRUE(eval_price->ExtractExists(ref));
+  EXPECT_THAT(JsonExists(ref, *eval_price), IsOkAndHolds(true));
+  std::vector<const JsonPathEvaluator*> evals = {eval_price.get()};
+  EXPECT_THAT(JsonExistsAny(ref, evals), IsOkAndHolds(true));
+  EXPECT_THAT(JsonExistsAll(ref, evals), IsOkAndHolds(true));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_missing,
+                       CreateStandardEvaluatorWithWildcards("$..isbn"));
+  EXPECT_FALSE(eval_missing->ExtractExists(ref));
+  EXPECT_THAT(JsonExists(ref, *eval_missing), IsOkAndHolds(false));
+
+  // Default behavior (NULL ON ERROR) when k > 1 matches for JSON_QUERY* styles:
+  // Extract(JSONValueConstRef) methods return std::nullopt.
+  EXPECT_FALSE(eval_price->Extract(ref).has_value());
+  EXPECT_FALSE(eval_price->ExtractScalar(ref).has_value());
+  EXPECT_FALSE(eval_price->ExtractArray(ref).has_value());
+  EXPECT_FALSE(eval_price->ExtractStringArray(ref).has_value());
+
+  // For k = 0, Extract(JSONValueConstRef) methods return std::nullopt.
+  EXPECT_FALSE(eval_missing->Extract(ref).has_value());
+  EXPECT_FALSE(eval_missing->ExtractScalar(ref).has_value());
+  EXPECT_FALSE(eval_missing->ExtractArray(ref).has_value());
+  EXPECT_FALSE(eval_missing->ExtractStringArray(ref).has_value());
+
+  // JSON_QUERY with $.store.bicycle (k=1 -> {"price": 19.95})
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_bicycle,
+                       CreateStandardEvaluatorWithWildcards("$.store.bicycle"));
+  auto res_bicycle = eval_bicycle->Extract(ref);
+  ASSERT_TRUE(res_bicycle.has_value());
+  EXPECT_EQ(res_bicycle->ToString(), "{\"price\":19.95}");
+
+  // Single-match across hierarchy: $..bicycle.price (k=1 -> 19.95)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_single, CreateStandardEvaluatorWithWildcards(
+                                             "$..bicycle.price"));
+  auto res_single = eval_single->Extract(ref);
+  ASSERT_TRUE(res_single.has_value());
+  EXPECT_EQ(res_single->ToString(), "19.95");
+
+  auto res_single_val = eval_single->ExtractScalar(ref);
+  ASSERT_TRUE(res_single_val.has_value());
+  EXPECT_EQ(*res_single_val, "19.95");
+
+  // Single JSON array extraction via descendant path: $..book (k=1 array -> 2
+  // elements).
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_books,
+                       CreateStandardEvaluatorWithWildcards("$..book"));
+  auto books_arr = eval_books->ExtractArray(ref);
+  ASSERT_TRUE(books_arr.has_value());
+  EXPECT_EQ(books_arr->size(), 2);
+  EXPECT_EQ((*books_arr)[0].ToString(), R"({"price":8.95,"title":"A"})");
+  EXPECT_EQ((*books_arr)[1].ToString(), R"({"price":12.99,"title":"B"})");
+
+  // Single array of scalars extraction via descendant path: $..tags (k=1 -> 2
+  // elements).
+  const std::string tags_json_str = R"({"tags": ["fiction", "bestseller"]})";
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto tags_json,
+                       JSONValue::ParseJSONString(tags_json_str));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_tags,
+                       CreateStandardEvaluatorWithWildcards("$..tags"));
+  auto tags_str_arr = eval_tags->ExtractStringArray(tags_json.GetConstRef());
+  ASSERT_TRUE(tags_str_arr.has_value());
+  EXPECT_THAT(*tags_str_arr,
+              ::testing::ElementsAre(std::optional("fiction"),
+                                     std::optional("bestseller")));
+}
+
+TEST(JsonWildcardsAndDescendantsTest, WildcardContainerSpecificity) {
+  // Object wildcard $.* on {"a": 1, "b": 2} (k=2 > 1 -> default NULL ON ERROR,
+  // exists true)
+  const std::string simple_obj_str = R"({"a": 1, "b": 2})";
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto simple_obj,
+                       JSONValue::ParseJSONString(simple_obj_str));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_obj_wild,
+                       CreateStandardEvaluatorWithWildcards("$.*"));
+  EXPECT_FALSE(eval_obj_wild->Extract(simple_obj.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_obj_wild->ExtractScalar(simple_obj.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_obj_wild->ExtractArray(simple_obj.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_obj_wild->ExtractStringArray(simple_obj.GetConstRef()).has_value());
+  EXPECT_TRUE(eval_obj_wild->ExtractExists(simple_obj.GetConstRef()));
+
+  // Array wildcard $[*] on [10, 20, 30] (k=3 > 1 -> default NULL ON ERROR,
+  // exists true)
+  const std::string simple_arr_str = R"([10, 20, 30])";
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto simple_arr,
+                       JSONValue::ParseJSONString(simple_arr_str));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_arr_wild,
+                       CreateStandardEvaluatorWithWildcards("$[*]"));
+  EXPECT_FALSE(eval_arr_wild->Extract(simple_arr.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_arr_wild->ExtractScalar(simple_arr.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_arr_wild->ExtractArray(simple_arr.GetConstRef()).has_value());
+  EXPECT_FALSE(
+      eval_arr_wild->ExtractStringArray(simple_arr.GetConstRef()).has_value());
+  EXPECT_TRUE(eval_arr_wild->ExtractExists(simple_arr.GetConstRef()));
+
+  // Container specificity: $[*] does NOT match object members, and $.* does NOT
+  // match array elements.
+  EXPECT_FALSE(eval_arr_wild->ExtractExists(simple_obj.GetConstRef()));
+  EXPECT_FALSE(eval_obj_wild->ExtractExists(simple_arr.GetConstRef()));
+}
+
+TEST(JsonWildcardsAndDescendantsTest, StringInputIsNotSupported) {
+  // Wildcard and recursive descendant operators are only supported for JSON
+  // inputs. For STRING inputs, all `Extract*` methods return OUT_OF_RANGE,
+  // whether the JSONPath has no match, a single match or multiple matches, and
+  // even if the input is malformed or nested too deeply.
+  const auto string_input_error =
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("JSONPath wildcard and recursive descendant operators "
+                         "are not supported for STRING input"));
+  const std::string deeply_nested(JSONPathExtractor::kMaxParsingDepth + 1, '[');
+  for (absl::string_view path : {"$.*", "$[*]", "$..a", "$.a[*]"}) {
+    SCOPED_TRACE(path);
+    GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval, CreateStandardEvaluatorWithWildcards(path));
+    for (absl::string_view json : std::vector<absl::string_view>{
+             R"({"a": [1]})", "[1, 2]", "{invalid_json", deeply_nested}) {
+      std::string value;
+      std::vector<std::string> array_value;
+      std::vector<std::optional<std::string>> string_array_value;
+      bool is_null;
+      EXPECT_THAT(eval->Extract(json, &value, &is_null), string_input_error);
+      EXPECT_THAT(eval->ExtractScalar(json, &value, &is_null),
+                  string_input_error);
+      EXPECT_THAT(eval->ExtractArray(json, &array_value, &is_null),
+                  string_input_error);
+      EXPECT_THAT(eval->ExtractStringArray(json, &string_array_value, &is_null),
+                  string_input_error);
+    }
+  }
+
+  // JSONPaths without these operators still support STRING inputs.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval, CreateStandardEvaluatorWithWildcards("$.a"));
+  std::string value;
+  bool is_null = true;
+  GOOGLESQL_ASSERT_OK(eval->Extract(R"({"a": 1.10})", &value, &is_null));
+  EXPECT_FALSE(is_null);
+  EXPECT_EQ(value, "1.10");
+}
+
+TEST(JsonWildcardsAndDescendantsTest, LaxModeInteractions) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto json,
+                       JSONValue::ParseJSONString(
+                           R"({"arr": [{"a": 1}, {"a": 2}], "scalar": 10})"));
+  JSONValueConstRef ref = json.GetConstRef();
+
+  // $.arr.* (default mode) -> 0 matches (arr is array, dot wildcard expects
+  // object)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_default_dot,
+                       ParseStandardJsonPathWithWildcards("$.arr.*"));
+  std::vector<JSONValueConstRef> res_default_dot =
+      EvaluateJsonPath(path_default_dot, ref);
+  EXPECT_TRUE(res_default_dot.empty());
+
+  // Negative tests: Lax mode does NOT support wildcard or descendant operators.
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $.arr.*", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $.scalar[*]", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $.*", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $[*]", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $..a", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax recursive $.*", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax recursive $[*]", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax recursive $..b", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+
+  // Negative tests via IsValidJSONPathStrict
+  EXPECT_THAT(IsValidJSONPathStrict("lax $.*", /*enable_lax_mode=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(IsValidJSONPathStrict("lax $..a", /*enable_lax_mode=*/true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+
+  // Negative tests via StrictJSONPathIterator
+  EXPECT_THAT(
+      StrictJSONPathIterator::Create("lax $.*", /*enable_lax_mode=*/true),
+      StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(
+      StrictJSONPathIterator::Create("lax $..a", /*enable_lax_mode=*/true),
+      StatusIs(absl::StatusCode::kOutOfRange));
+
+  // Explicit 'strict' keyword is not recognized and is rejected
+  EXPECT_THAT(IsValidAndLaxJSONPath("strict $.arr.*", true),
+              StatusIs(absl::StatusCode::kOutOfRange));
+
+  // Valid lax path without wildcards/descendants succeeds
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax $.arr", true), IsOkAndHolds(true));
+  EXPECT_THAT(IsValidAndLaxJSONPath("lax recursive $.arr", true),
+              IsOkAndHolds(true));
+  EXPECT_THAT(IsValidAndLaxJSONPath("$.arr.*", true), IsOkAndHolds(false));
+  EXPECT_THAT(IsValidAndLaxJSONPath("$..a", true), IsOkAndHolds(false));
+}
+
+TEST(JsonWildcardsAndDescendantsTest, RecursiveDescendantVariants) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto json, JSONValue::ParseJSONString(
+                     R"({"a": {"b": [10, 20]}, "c": [{"b": [30, 40]}]})"));
+  JSONValueConstRef ref = json.GetConstRef();
+
+  // $..b (k=2 matches: [10, 20] and [30, 40])
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_b, ParseStandardJsonPathWithWildcards("$..b"));
+  std::vector<JSONValueConstRef> matches_b = EvaluateJsonPath(path_b, ref);
+  ASSERT_EQ(matches_b.size(), 2);
+  EXPECT_EQ(matches_b[0].ToString(), "[10,20]");
+  EXPECT_EQ(matches_b[1].ToString(), "[30,40]");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_b,
+                       CreateStandardEvaluatorWithWildcards("$..b"));
+  EXPECT_FALSE(eval_b->Extract(ref).has_value());
+  EXPECT_FALSE(eval_b->ExtractArray(ref).has_value());
+  EXPECT_TRUE(eval_b->ExtractExists(ref));
+
+  // $..b[0] (k=2 matches: 10 and 30)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_b0,
+                       ParseStandardJsonPathWithWildcards("$..b[0]"));
+  std::vector<JSONValueConstRef> matches_b0 = EvaluateJsonPath(path_b0, ref);
+  ASSERT_EQ(matches_b0.size(), 2);
+  EXPECT_EQ(matches_b0[0].ToString(), "10");
+  EXPECT_EQ(matches_b0[1].ToString(), "30");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_b0,
+                       CreateStandardEvaluatorWithWildcards("$..b[0]"));
+  EXPECT_FALSE(eval_b0->Extract(ref).has_value());
+  EXPECT_FALSE(eval_b0->ExtractScalar(ref).has_value());
+  EXPECT_TRUE(eval_b0->ExtractExists(ref));
+
+  // $..[0] (k=3 matches: 10, {"b": [30, 40]}, 30)
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_0,
+                       ParseStandardJsonPathWithWildcards("$..[0]"));
+  std::vector<JSONValueConstRef> matches_0 = EvaluateJsonPath(path_0, ref);
+  ASSERT_EQ(matches_0.size(), 3);
+  EXPECT_EQ(matches_0[0].ToString(), "10");
+  EXPECT_EQ(matches_0[1].ToString(), R"({"b":[30,40]})");
+  EXPECT_EQ(matches_0[2].ToString(), "30");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_0,
+                       CreateStandardEvaluatorWithWildcards("$..[0]"));
+  EXPECT_FALSE(eval_0->Extract(ref).has_value());
+  EXPECT_FALSE(eval_0->ExtractArray(ref).has_value());
+  EXPECT_TRUE(eval_0->ExtractExists(ref));
+
+  // $..* (object wildcard descendant) matches 4 object member values:
+  // {"b":[10,20]}, [{"b":[30,40]}], [10,20], [30,40]
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_obj_wild,
+                       ParseStandardJsonPathWithWildcards("$..*"));
+  std::vector<JSONValueConstRef> matches_obj_wild =
+      EvaluateJsonPath(path_obj_wild, ref);
+  ASSERT_EQ(matches_obj_wild.size(), 4);
+  EXPECT_EQ(matches_obj_wild[0].ToString(), R"({"b":[10,20]})");
+  EXPECT_EQ(matches_obj_wild[1].ToString(), R"([{"b":[30,40]}])");
+  EXPECT_EQ(matches_obj_wild[2].ToString(), "[10,20]");
+  EXPECT_EQ(matches_obj_wild[3].ToString(), "[30,40]");
+
+  // $..[*] (array wildcard descendant) matches 5 array elements:
+  // 10, 20, {"b":[30,40]}, 30, 40
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto path_sub_wild,
+                       ParseStandardJsonPathWithWildcards("$..[*]"));
+  std::vector<JSONValueConstRef> matches_sub_wild =
+      EvaluateJsonPath(path_sub_wild, ref);
+  ASSERT_EQ(matches_sub_wild.size(), 5);
+  EXPECT_EQ(matches_sub_wild[0].ToString(), "10");
+  EXPECT_EQ(matches_sub_wild[1].ToString(), "20");
+  EXPECT_EQ(matches_sub_wild[2].ToString(), R"({"b":[30,40]})");
+  EXPECT_EQ(matches_sub_wild[3].ToString(), "30");
+  EXPECT_EQ(matches_sub_wild[4].ToString(), "40");
+
+  // Container specificity: $..[*] on {"user": {"tags": []}} matches 0 elements
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto empty_tags_json,
+                       JSONValue::ParseJSONString(R"({"user": {"tags": []}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_sub_wild,
+                       CreateStandardEvaluatorWithWildcards("$..[*]"));
+  EXPECT_FALSE(eval_sub_wild->ExtractExists(empty_tags_json.GetConstRef()));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_any_wild,
+                       CreateStandardEvaluatorWithWildcards("$..*"));
+  EXPECT_FALSE(eval_any_wild->Extract(ref).has_value());
+  EXPECT_FALSE(eval_any_wild->ExtractArray(ref).has_value());
+  EXPECT_TRUE(eval_any_wild->ExtractExists(ref));
+}
+
+TEST(JsonWildcardsAndDescendantsTest,
+     NestedNullSortedMemberOrderAndEmptyContainers) {
+  // 1. Nested match: `$..a` on `{"a": {"a": 1}}` visits outer match first,
+  // then inner match in depth-first pre-order.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue nested_a_json,
+                       JSONValue::ParseJSONString(R"({"a": {"a": 1}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path_desc_a,
+                       ParseStandardJsonPathWithWildcards("$..a"));
+  std::vector<JSONValueConstRef> nested_matches =
+      EvaluateJsonPath(path_desc_a, nested_a_json.GetConstRef());
+  ASSERT_EQ(nested_matches.size(), 2);
+  EXPECT_EQ(nested_matches[0].ToString(), R"({"a":1})");
+  EXPECT_EQ(nested_matches[1].ToString(), "1");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_desc_a,
+                       CreateStandardEvaluatorWithWildcards("$..a"));
+  EXPECT_TRUE(eval_desc_a->ExtractExists(nested_a_json.GetConstRef()));
+  EXPECT_FALSE(eval_desc_a->Extract(nested_a_json.GetConstRef()).has_value());
+
+  // 2. JSON null match: `$..a` on `{"a": null}` matches the JSON `null`
+  // literal (`ExtractExists` is true, `Extract` returns JSON null, and
+  // `ExtractScalar` returns `std::nullopt`).
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue null_a_json,
+                       JSONValue::ParseJSONString(R"({"a": null})"));
+  std::vector<JSONValueConstRef> null_matches =
+      EvaluateJsonPath(path_desc_a, null_a_json.GetConstRef());
+  ASSERT_EQ(null_matches.size(), 1);
+  EXPECT_TRUE(null_matches[0].IsNull());
+  EXPECT_EQ(null_matches[0].ToString(), "null");
+
+  EXPECT_TRUE(eval_desc_a->ExtractExists(null_a_json.GetConstRef()));
+  std::optional<JSONValueConstRef> extracted_null =
+      eval_desc_a->Extract(null_a_json.GetConstRef());
+  ASSERT_TRUE(extracted_null.has_value());
+  EXPECT_TRUE(extracted_null->IsNull());
+  EXPECT_FALSE(
+      eval_desc_a->ExtractScalar(null_a_json.GetConstRef()).has_value());
+
+  // 3. Member order: `$.*` on `{"b": 1, "a": 2}` visits object members in
+  // sorted key order (`"a"` -> 2, then `"b"` -> 1).
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue unsorted_obj_json,
+                       JSONValue::ParseJSONString(R"({"b": 1, "a": 2})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path_obj_wild,
+                       ParseStandardJsonPathWithWildcards("$.*"));
+  std::vector<JSONValueConstRef> sorted_member_matches =
+      EvaluateJsonPath(path_obj_wild, unsorted_obj_json.GetConstRef());
+  ASSERT_EQ(sorted_member_matches.size(), 2);
+  EXPECT_EQ(sorted_member_matches[0].ToString(), "2");
+  EXPECT_EQ(sorted_member_matches[1].ToString(), "1");
+
+  // 4. Empty containers: `$.a.*` on `{"a": {}}` and `$.a[*]` on `{"a": []}`
+  // yield 0 matches.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue empty_obj_json,
+                       JSONValue::ParseJSONString(R"({"a": {}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path_a_obj_wild,
+                       ParseStandardJsonPathWithWildcards("$.a.*"));
+  EXPECT_TRUE(
+      EvaluateJsonPath(path_a_obj_wild, empty_obj_json.GetConstRef()).empty());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_a_obj_wild,
+                       CreateStandardEvaluatorWithWildcards("$.a.*"));
+  EXPECT_FALSE(eval_a_obj_wild->ExtractExists(empty_obj_json.GetConstRef()));
+  EXPECT_FALSE(
+      eval_a_obj_wild->Extract(empty_obj_json.GetConstRef()).has_value());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue empty_arr_json,
+                       JSONValue::ParseJSONString(R"({"a": []})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path_a_arr_wild,
+                       ParseStandardJsonPathWithWildcards("$.a[*]"));
+  EXPECT_TRUE(
+      EvaluateJsonPath(path_a_arr_wild, empty_arr_json.GetConstRef()).empty());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_a_arr_wild,
+                       CreateStandardEvaluatorWithWildcards("$.a[*]"));
+  EXPECT_FALSE(eval_a_arr_wild->ExtractExists(empty_arr_json.GetConstRef()));
+  EXPECT_FALSE(
+      eval_a_arr_wild->Extract(empty_arr_json.GetConstRef()).has_value());
+}
+
+TEST(JsonWildcardsAndDescendantsTest, EvaluateJsonPathMaxMatches) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue doc,
+      JSONValue::ParseJSONString(R"({"a": [10, 20], "b": {"a": 30}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path,
+                       ParseStandardJsonPathWithWildcards("$..*"));
+  // Unbounded evaluation returns all 3 object member values in depth-first
+  // pre-order: [10, 20] (from "a"), {"a": 30} (from "b"), and 30 (from "b.a").
+  const std::vector<JSONValueConstRef> all_matches =
+      EvaluateJsonPath(path, doc.GetConstRef());
+  ASSERT_EQ(all_matches.size(), 3);
+  EXPECT_EQ(all_matches[0].ToString(), "[10,20]");
+  EXPECT_EQ(all_matches[1].ToString(), R"({"a":30})");
+  EXPECT_EQ(all_matches[2].ToString(), "30");
+
+  // max_matches = 0 returns empty immediately without traversing.
+  EXPECT_TRUE(
+      EvaluateJsonPath(path, doc.GetConstRef(), /*max_matches=*/0).empty());
+
+  // max_matches = 1 returns only the first match in depth-first pre-order.
+  const std::vector<JSONValueConstRef> one_match =
+      EvaluateJsonPath(path, doc.GetConstRef(), /*max_matches=*/1);
+  ASSERT_EQ(one_match.size(), 1);
+  EXPECT_EQ(one_match[0].ToString(), "[10,20]");
+
+  // max_matches = 2 returns the first two matches in depth-first pre-order.
+  const std::vector<JSONValueConstRef> two_matches =
+      EvaluateJsonPath(path, doc.GetConstRef(), /*max_matches=*/2);
+  ASSERT_EQ(two_matches.size(), 2);
+  EXPECT_EQ(two_matches[0].ToString(), "[10,20]");
+  EXPECT_EQ(two_matches[1].ToString(), R"({"a":30})");
+
+  // max_matches greater than total matches returns all matches.
+  const std::vector<JSONValueConstRef> capped_ten =
+      EvaluateJsonPath(path, doc.GetConstRef(), /*max_matches=*/10);
+  ASSERT_EQ(capped_ten.size(), 3);
+  EXPECT_EQ(capped_ten[0].ToString(), "[10,20]");
+  EXPECT_EQ(capped_ten[1].ToString(), R"({"a":30})");
+  EXPECT_EQ(capped_ten[2].ToString(), "30");
+}
+
+TEST(JsonWildcardsAndDescendantsTest, DeeplyNestedJsonSucceeds) {
+  // Construct a deeply nested JSON document exceeding `kMaxParsingDepth` levels
+  // and verify that explicit-stack evaluation in `EvaluateJsonPath` succeeds
+  // without stack overflow or disagreement between `Extract` and
+  // `ExtractExists` (matching `JsonTreeWalker` and linear `JSONValueConstRef`
+  // paths).
+  constexpr int kDeepDepth = JSONPathExtractor::kMaxParsingDepth + 5;
+  std::string nested = "1";
+  for (int i = 0; i < kDeepDepth; ++i) {
+    nested = absl::StrCat("{\"a\": ", nested, "}");
+  }
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue deep_json,
+      JSONValue::ParseJSONString(
+          nested, JSONParsingOptions{.max_nesting = kDeepDepth + 5}));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath path_desc_a,
+                       ParseStandardJsonPathWithWildcards("$..a"));
+  std::vector<JSONValueConstRef> matches =
+      EvaluateJsonPath(path_desc_a, deep_json.GetConstRef());
+  ASSERT_EQ(matches.size(), kDeepDepth);
+  EXPECT_EQ(matches.back().ToString(), "1");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_desc_a,
+                       CreateStandardEvaluatorWithWildcards("$..a"));
+  EXPECT_TRUE(eval_desc_a->ExtractExists(deep_json.GetConstRef()));
+  EXPECT_FALSE(eval_desc_a->Extract(deep_json.GetConstRef()).has_value());
+
+  // Also verify a single-match deeply nested array path (`$[*][0]...[0]`)
+  // succeeds for both `Extract` and `ExtractExists`.
+  std::string nested_arr = "42";
+  std::string arr_path = "$[*]";
+  for (int i = 0; i < kDeepDepth; ++i) {
+    nested_arr = absl::StrCat("[", nested_arr, "]");
+    if (i > 0) {
+      absl::StrAppend(&arr_path, "[0]");
+    }
+  }
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      JSONValue deep_arr_json,
+      JSONValue::ParseJSONString(
+          nested_arr, JSONParsingOptions{.max_nesting = kDeepDepth + 5}));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_arr,
+                       CreateStandardEvaluatorWithWildcards(arr_path));
+  EXPECT_TRUE(eval_arr->ExtractExists(deep_arr_json.GetConstRef()));
+  std::optional<JSONValueConstRef> deep_arr_res =
+      eval_arr->Extract(deep_arr_json.GetConstRef());
+  ASSERT_TRUE(deep_arr_res.has_value());
+  EXPECT_EQ(deep_arr_res->ToString(), "42");
+}
+
+TEST(JsonWildcardsAndDescendantsTest, ParseJsonPathAndTokens) {
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      ParsedJsonPath parsed,
+      ParseStandardJsonPathWithWildcards("$.store..book[*].author.*"));
+  EXPECT_TRUE(parsed.has_wildcard_or_descendant());
+  ASSERT_EQ(parsed.steps().size(), 6);
+  EXPECT_TRUE(parsed.steps()[0].is_root());
+  EXPECT_TRUE(parsed.steps()[1].is_member());
+  EXPECT_EQ(parsed.steps()[1].member_name(), "store");
+  EXPECT_FALSE(parsed.steps()[1].is_descendant());
+  EXPECT_TRUE(parsed.steps()[2].is_member());
+  EXPECT_EQ(parsed.steps()[2].member_name(), "book");
+  EXPECT_TRUE(parsed.steps()[2].is_descendant());
+  EXPECT_EQ(parsed.steps()[3].kind(), JsonPathStepKind::kSubscriptWildcard);
+  EXPECT_FALSE(parsed.steps()[3].is_descendant());
+  EXPECT_TRUE(parsed.steps()[4].is_member());
+  EXPECT_EQ(parsed.steps()[4].member_name(), "author");
+  EXPECT_FALSE(parsed.steps()[4].is_descendant());
+  EXPECT_EQ(parsed.steps()[5].kind(), JsonPathStepKind::kObjectWildcard);
+  EXPECT_FALSE(parsed.steps()[5].is_descendant());
+
+  // Descendant variants: ..*, ..[*], [ * ], ..[2], and .."a.b"
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      ParsedJsonPath desc_parsed,
+      ParseStandardJsonPathWithWildcards(R"($..*..[*][ * ]..[2].."a.b")"));
+  EXPECT_TRUE(desc_parsed.has_wildcard_or_descendant());
+  ASSERT_EQ(desc_parsed.steps().size(), 6);
+  EXPECT_TRUE(desc_parsed.steps()[0].is_root());
+  EXPECT_EQ(desc_parsed.steps()[1].kind(), JsonPathStepKind::kObjectWildcard);
+  EXPECT_TRUE(desc_parsed.steps()[1].is_descendant());
+  EXPECT_EQ(desc_parsed.steps()[2].kind(),
+            JsonPathStepKind::kSubscriptWildcard);
+  EXPECT_TRUE(desc_parsed.steps()[2].is_descendant());
+  EXPECT_EQ(desc_parsed.steps()[3].kind(),
+            JsonPathStepKind::kSubscriptWildcard);
+  EXPECT_FALSE(desc_parsed.steps()[3].is_descendant());
+  EXPECT_TRUE(desc_parsed.steps()[4].is_index());
+  EXPECT_EQ(desc_parsed.steps()[4].index(), 2);
+  EXPECT_TRUE(desc_parsed.steps()[4].is_descendant());
+  EXPECT_TRUE(desc_parsed.steps()[5].is_member());
+  EXPECT_EQ(desc_parsed.steps()[5].member_name(), "a.b");
+  EXPECT_TRUE(desc_parsed.steps()[5].is_descendant());
+
+  // Simple path produces legacy tokens and has_wildcard_or_descendant() ==
+  // false
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath simple,
+                       ParseStandardJsonPathWithWildcards("$.a[0].\"b.c\""));
+  EXPECT_FALSE(simple.has_wildcard_or_descendant());
+  EXPECT_THAT(simple.ToLegacyTokens(),
+              IsOkAndHolds(ElementsAre("", "a", "0", "b.c")));
+  GOOGLESQL_EXPECT_OK(ValidJSONPathIterator::Create(simple));
+  EXPECT_THAT(ParsedJsonPath().ToLegacyTokens().status(),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(ValidJSONPathIterator::Create(ParsedJsonPath()).status(),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(parsed.ToLegacyTokens().status(),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(desc_parsed.ToLegacyTokens().status(),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(ValidJSONPathIterator::Create(parsed).status(),
+              StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(ValidJSONPathIterator::Create(desc_parsed).status(),
+              StatusIs(absl::StatusCode::kInternal));
+
+  // Quoted asterisk `$."*"` parses as a literal `Member("*")` step with
+  // `has_wildcard_or_descendant() == false`.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath quoted_star,
+                       ParseStandardJsonPathWithWildcards(R"($."*")"));
+  EXPECT_FALSE(quoted_star.has_wildcard_or_descendant());
+  ASSERT_EQ(quoted_star.steps().size(), 2);
+  EXPECT_TRUE(quoted_star.steps()[0].is_root());
+  EXPECT_TRUE(quoted_star.steps()[1].is_member());
+  EXPECT_EQ(quoted_star.steps()[1].member_name(), "*");
+  EXPECT_FALSE(quoted_star.steps()[1].is_descendant());
+  EXPECT_THAT(quoted_star.ToLegacyTokens(), IsOkAndHolds(ElementsAre("", "*")));
+
+  // Verify that non-canonical bracket tokens preserve their exact raw string
+  // in ToLegacyTokens() while populating index() as parsed by SimpleAtoi.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(ParsedJsonPath non_canonical,
+                       ParseStandardJsonPathWithWildcards(
+                           "$[007][-0][1_2][99999999999999999999]"));
+  EXPECT_FALSE(non_canonical.has_wildcard_or_descendant());
+  ASSERT_EQ(non_canonical.steps().size(), 5);
+  EXPECT_EQ(non_canonical.steps()[1].index(), 7);
+  EXPECT_EQ(non_canonical.steps()[1].raw_token(), "007");
+  EXPECT_EQ(non_canonical.steps()[2].index(), 0);
+  EXPECT_EQ(non_canonical.steps()[2].raw_token(), "-0");
+  EXPECT_EQ(non_canonical.steps()[3].index(), -1);
+  EXPECT_EQ(non_canonical.steps()[3].raw_token(), "1_2");
+  EXPECT_EQ(non_canonical.steps()[4].index(), -1);
+  EXPECT_EQ(non_canonical.steps()[4].raw_token(), "99999999999999999999");
+  EXPECT_THAT(non_canonical.ToLegacyTokens(),
+              IsOkAndHolds(
+                  ElementsAre("", "007", "-0", "1_2", "99999999999999999999")));
+
+  // Verify end-to-end extraction on JSON and STRING inputs for non-canonical
+  // bracket tokens.
+  constexpr absl::string_view kNonCanonicalDoc =
+      R"({"007": 1, "0": 2, "-0": 3, "1_2": 4, "-1": "x"})";
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(JSONValue non_canonical_json,
+                       JSONValue::ParseJSONString(kNonCanonicalDoc));
+  auto verify_non_canonical_extract =
+      [&](absl::string_view path, std::optional<absl::string_view> expected) {
+        SCOPED_TRACE(path);
+        GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval, CreateJsonPathEvaluator(path));
+        std::optional<JSONValueConstRef> json_res =
+            eval->Extract(non_canonical_json.GetConstRef());
+        std::string str_res;
+        bool is_null = false;
+        GOOGLESQL_ASSERT_OK(eval->Extract(kNonCanonicalDoc, &str_res, &is_null));
+        if (expected.has_value()) {
+          ASSERT_TRUE(json_res.has_value());
+          EXPECT_EQ(json_res->ToString(), *expected);
+          EXPECT_FALSE(is_null);
+          EXPECT_EQ(str_res, *expected);
+        } else {
+          EXPECT_FALSE(json_res.has_value());
+          EXPECT_TRUE(is_null);
+        }
+      };
+  verify_non_canonical_extract("$[007]", "1");
+  verify_non_canonical_extract("$[-0]", "3");
+  verify_non_canonical_extract("$[1_2]", "4");
+  verify_non_canonical_extract("$[-1]", R"("x")");
+  verify_non_canonical_extract("$[99999999999999999999]", std::nullopt);
+}
+
+TEST(JsonWildcardsAndDescendantsTest, SyntaxAndMutatorGuards) {
+  // Trailing .. reports a syntax error (not "Unsupported operator")
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.."),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: ..")));
+
+  // Invalid 3-dot wildcard $...* is rejected
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$...*"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: ...*")));
+
+  // Empty brackets $[] and $..[] are rejected
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$[]"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: []")));
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$..[]"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: []")));
+
+  // Substring globbing $.foo* and $.*foo are rejected
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.foo*"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: *")));
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.*foo"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: *foo")));
+
+  // Unsupported '@' operator after '..' still reports "Unsupported operator"
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$..@"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: @")));
+
+  // Unquoted whitespace, colons, and hyphens in `.key` / `..key`, and
+  // backslashes in quoted `."key"` / `.."key"`:
+  //   1. Rejected when used with wildcard or descendant operators (`$.. a`,
+  //      `$.. `, `$.. [0]`, `$.. *`, `$..a-b`, `$..a:b`, `$.*.a-b`,
+  //      `$.a-b.*`, `$.a:b..c`, `$.a b[*]`, `$. .*`, `$.."a\b"`,
+  //      `$.."a\\b"`, `$.."a\"b"`, `$.*."a\b"`, `$."a\b".*`, `$."a\"b"..c`).
+  //   2. Quoted keys without backslashes are accepted (`$.."a b:c-d"`,
+  //      `$.." a"`, `$."a-b".*`).
+  //   3. Linear paths preserve legacy behavior for backward compatibility
+  //      (`$.a-b`, `$.a:b`, `$.a b`, `$."a\b"`, `$."a\\b"`, `$."a\"b"`).
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.. a"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: .. a")));
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.. "),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: .. ")));
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.. [0]"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: .. [0]")));
+  EXPECT_THAT(IsValidStandardJsonPathWithWildcards("$.. *"),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Invalid token in JSONPath at: .. *")));
+  for (absl::string_view bad_key_path :
+       {"$..a-b", "$..a:b", "$..a b", "$.*. a", "$.*.a-b", "$.*.a:b", "$.a-b.*",
+        "$.a:b..c", "$.a b[*]", "$. .*", R"($.."a\b")", R"($.."a\\b")",
+        R"($.."a\"b")", R"($.*."a\b")", R"($.*."a\"b")", R"($."a\b".*)",
+        R"($."a\"b"..c)", R"($."a\\b"[*])"}) {
+    EXPECT_THAT(IsValidStandardJsonPathWithWildcards(bad_key_path),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Invalid token in JSONPath at:")))
+        << bad_key_path;
+  }
+  for (absl::string_view valid_quoted_or_linear_path :
+       {R"($.."a b:c-d")", R"($.." a")", R"($."a-b".*)", "$.a-b", "$.a:b",
+        "$.a b", R"($."a\b")", R"($."a\\b")", R"($."a\"b")"}) {
+    GOOGLESQL_EXPECT_OK(IsValidStandardJsonPathWithWildcards(valid_quoted_or_linear_path))
+        << valid_quoted_or_linear_path;
+  }
+
+  // Comparison of permissive bracket tokens (`[-1]`, `[-0]`, `[1_2]`, `[0-]`,
+  // `[0_]`) and overflowing integer indices (`[99999999999999999999]`):
+  //   1. Non-wildcard linear paths accept them in `ParseJsonPath` for legacy
+  //      `ValidJSONPathIterator` backward compatibility (while
+  //      `StrictJSONPathIterator` rejects them).
+  //   2. Wildcard and descendant paths reject them with `OUT_OF_RANGE`,
+  //      matching `StrictJSONPathIterator`.
+  for (absl::string_view token : {"-1", "-0", "1_2", "0-", "0_"}) {
+    const std::string linear_path = absl::StrCat("$[", token, "]");
+    GOOGLESQL_EXPECT_OK(IsValidStandardJsonPathWithWildcards(linear_path)) << linear_path;
+    EXPECT_THAT(IsValidJSONPathStrict(linear_path),
+                StatusIs(absl::StatusCode::kOutOfRange))
+        << linear_path;
+
+    for (const std::string& wildcard_or_descendant_path :
+         {absl::StrCat("$.*[", token, "]"), absl::StrCat("$[*][", token, "]"),
+          absl::StrCat("$[", token, "].*"), absl::StrCat("$[", token, "]..a"),
+          absl::StrCat("$..[", token, "]")}) {
+      EXPECT_THAT(
+          IsValidStandardJsonPathWithWildcards(wildcard_or_descendant_path),
+          StatusIs(absl::StatusCode::kOutOfRange,
+                   HasSubstr(absl::StrCat("Invalid token in JSONPath at: [",
+                                          token, "]"))))
+          << wildcard_or_descendant_path;
+    }
+  }
+
+  constexpr absl::string_view kOverflowIndex = "99999999999999999999";
+  const std::string linear_overflow_path =
+      absl::StrCat("$[", kOverflowIndex, "]");
+  GOOGLESQL_EXPECT_OK(IsValidStandardJsonPathWithWildcards(linear_overflow_path));
+  EXPECT_THAT(IsValidJSONPathStrict(linear_overflow_path),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  for (const std::string& wildcard_overflow_path :
+       {absl::StrCat("$.*[", kOverflowIndex, "]"),
+        absl::StrCat("$[", kOverflowIndex, "].*"),
+        absl::StrCat("$..[", kOverflowIndex, "]")}) {
+    EXPECT_THAT(IsValidStandardJsonPathWithWildcards(wildcard_overflow_path),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr(absl::StrCat(
+                             "JSONPath contains invalid array index: ",
+                             kOverflowIndex))))
+        << wildcard_overflow_path;
+  }
+
+  // Mutator StrictJSONPathIterator and lax mode reject wildcards and
+  // descendant operators even when enable_wildcard_and_descendant is true
+  EXPECT_THAT(StrictJSONPathIterator::Create("$.*").status(),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(StrictJSONPathIterator::Create("$..a").status(),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  EXPECT_THAT(StrictJSONPathIterator::Create("$[*]").status(),
+              StatusIs(absl::StatusCode::kOutOfRange));
+  for (absl::string_view lax_wildcard_or_descendant_path :
+       {"lax $.*", "lax $[*]", "lax $..a", "lax recursive $.*",
+        "lax recursive $..a"}) {
+    EXPECT_THAT(IsValidAndLaxJSONPath(lax_wildcard_or_descendant_path,
+                                      /*enable_wildcard_and_descendant=*/true)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange))
+        << lax_wildcard_or_descendant_path;
+    EXPECT_THAT(IsValidJSONPathStrict(lax_wildcard_or_descendant_path,
+                                      /*enable_lax_mode=*/true),
+                StatusIs(absl::StatusCode::kOutOfRange))
+        << lax_wildcard_or_descendant_path;
+    EXPECT_THAT(StrictJSONPathIterator::Create(lax_wildcard_or_descendant_path,
+                                               /*enable_lax_mode=*/true)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange))
+        << lax_wildcard_or_descendant_path;
+  }
+
+  // Legacy JSONPath (sql_standard_mode=false) rejects wildcards and descendant
+  // operators even when enable_wildcard_and_descendant is true
+  EXPECT_THAT(
+      IsValidLegacyJsonPath("$.*", /*enable_wildcard_and_descendant=*/true),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(
+      IsValidLegacyJsonPath("$[*]", /*enable_wildcard_and_descendant=*/true),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(
+      IsValidLegacyJsonPath("$..a", /*enable_wildcard_and_descendant=*/true),
+      StatusIs(absl::StatusCode::kOutOfRange,
+               HasSubstr("Unsupported operator in JSONPath: ..")));
+  EXPECT_THAT(JsonPathEvaluator::Create("$.*", /*sql_standard_mode=*/false,
+                                        false, false,
+                                        /*enable_wildcard_and_descendant=*/true)
+                  .status(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(JsonPathEvaluator::Create("$[*]", /*sql_standard_mode=*/false,
+                                        false, false,
+                                        /*enable_wildcard_and_descendant=*/true)
+                  .status(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: *")));
+  EXPECT_THAT(JsonPathEvaluator::Create("$..a", /*sql_standard_mode=*/false,
+                                        false, false,
+                                        /*enable_wildcard_and_descendant=*/true)
+                  .status(),
+              StatusIs(absl::StatusCode::kOutOfRange,
+                       HasSubstr("Unsupported operator in JSONPath: ..")));
+}
+
+TEST(JsonWildcardsAndDescendantsTest,
+     DisabledFeatureFlagRejectsWildcardsAndDescendants) {
+  // When enable_wildcard_and_descendant is false (the default when
+  // FEATURE_JSONPATH_WILDCARDS_AND_DESCENDANT is not enabled), all wildcard
+  // and descendant operators must be rejected with OUT_OF_RANGE and
+  // "Unsupported operator in JSONPath: *" / "..".
+  for (absl::string_view wildcard_path : {"$.*", "$[*]", "$.a.*", "$.a[*]"}) {
+    EXPECT_THAT(IsValidJSONPath(wildcard_path, /*sql_standard_mode=*/true,
+                                /*enable_wildcard_and_descendant=*/false),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: *")));
+    EXPECT_THAT(ParseJsonPath(wildcard_path, /*sql_standard_mode=*/true,
+                              /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: *")));
+    EXPECT_THAT(
+        ValidJSONPathIterator::Create(wildcard_path, /*sql_standard_mode=*/true)
+            .status(),
+        StatusIs(absl::StatusCode::kOutOfRange,
+                 HasSubstr("Unsupported operator in JSONPath: *")));
+    EXPECT_THAT(IsValidAndLaxJSONPath(wildcard_path,
+                                      /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: *")));
+    EXPECT_THAT(JsonPathEvaluator::Create(
+                    wildcard_path, /*sql_standard_mode=*/true, false, false,
+                    /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: *")));
+  }
+
+  for (absl::string_view descendant_path :
+       {"$..a", "$..1", "$..*", "$..[*]", "$..[0]", R"($.."a")", "$.a.b..c"}) {
+    EXPECT_THAT(IsValidJSONPath(descendant_path, /*sql_standard_mode=*/true,
+                                /*enable_wildcard_and_descendant=*/false),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: ..")));
+    EXPECT_THAT(ParseJsonPath(descendant_path, /*sql_standard_mode=*/true,
+                              /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: ..")));
+    EXPECT_THAT(ValidJSONPathIterator::Create(descendant_path,
+                                              /*sql_standard_mode=*/true)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: ..")));
+    EXPECT_THAT(IsValidAndLaxJSONPath(descendant_path,
+                                      /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: ..")));
+    EXPECT_THAT(JsonPathEvaluator::Create(
+                    descendant_path, /*sql_standard_mode=*/true, false, false,
+                    /*enable_wildcard_and_descendant=*/false)
+                    .status(),
+                StatusIs(absl::StatusCode::kOutOfRange,
+                         HasSubstr("Unsupported operator in JSONPath: ..")));
+  }
+}
+
+TEST(JsonWildcardsAndDescendantsTest, DefaultStructuralFilterSemantics) {
+  // 1. Subscript wildcard ([*]) with heterogeneous objects (Proposal Section
+  // 2.5 `$.store.books[*].author` example):
+  // In [{"a":1}, {"b":2}], element 0 matches `1` and element 1 lacks "a"
+  // (yielding 0 matches for that branch without poisoning element 0).
+  // Since total matches == 1, JSON_EXISTS is true and JSON_QUERY returns `1`.
+  // In [{"a":1}, {"a":2}], both elements match (k = 2), so JSON_EXISTS is true
+  // and JSON_QUERY returns nullopt due to multi-match cardinality (k > 1).
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto het_arr,
+                       JSONValue::ParseJSONString(R"([{"a": 1}, {"b": 2}])"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto hom_arr,
+                       JSONValue::ParseJSONString(R"([{"a": 1}, {"a": 2}])"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_arr_a,
+                       CreateStandardEvaluatorWithWildcards("$[*].a"));
+  EXPECT_TRUE(eval_arr_a->ExtractExists(het_arr.GetConstRef()));
+  auto het_arr_res = eval_arr_a->Extract(het_arr.GetConstRef());
+  ASSERT_TRUE(het_arr_res.has_value());
+  EXPECT_EQ(het_arr_res->ToString(), "1");
+  EXPECT_TRUE(eval_arr_a->ExtractExists(hom_arr.GetConstRef()));
+  EXPECT_FALSE(eval_arr_a->Extract(hom_arr.GetConstRef()).has_value());
+
+  // 2. Object wildcard (.*) with heterogeneous member objects
+  // (e.g. TOKENIZE_DOCUMENT / JSON_QUERY on `$.*.a`):
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto het_obj, JSONValue::ParseJSONString(
+                                         R"({"x": {"a": 1}, "y": {"b": 2}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto hom_obj, JSONValue::ParseJSONString(
+                                         R"({"x": {"a": 1}, "y": {"a": 2}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_obj_a,
+                       CreateStandardEvaluatorWithWildcards("$.*.a"));
+  EXPECT_TRUE(eval_obj_a->ExtractExists(het_obj.GetConstRef()));
+  auto het_obj_res = eval_obj_a->Extract(het_obj.GetConstRef());
+  ASSERT_TRUE(het_obj_res.has_value());
+  EXPECT_EQ(het_obj_res->ToString(), "1");
+  EXPECT_TRUE(eval_obj_a->ExtractExists(hom_obj.GetConstRef()));
+  EXPECT_FALSE(eval_obj_a->Extract(hom_obj.GetConstRef()).has_value());
+
+  // 3. Structural container matching is still strictly enforced (no implicit
+  // array unwrapping or non-array wrapping like `lax` mode):
+  // On {"a": [{"b": 1}]}, `$.*.b` selects the array `[{"b": 1}]`, and `.b`
+  // does not unwrap the array without `[*]`.
+  // On {"a": {"b": 1}}, `$.*[0].b` and `$.*[*].b` do not wrap the object
+  // `{"b": 1}` into a single-element array.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto nested_arr_doc,
+                       JSONValue::ParseJSONString(R"({"a": [{"b": 1}]})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_no_unwrap,
+                       CreateStandardEvaluatorWithWildcards("$.*.b"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_explicit_unwrap,
+                       CreateStandardEvaluatorWithWildcards("$.*[*].b"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_no_wrap_idx,
+                       CreateStandardEvaluatorWithWildcards("$.*[0].b"));
+  EXPECT_FALSE(eval_no_unwrap->ExtractExists(nested_arr_doc.GetConstRef()));
+  EXPECT_FALSE(
+      eval_no_unwrap->Extract(nested_arr_doc.GetConstRef()).has_value());
+  EXPECT_TRUE(
+      eval_explicit_unwrap->ExtractExists(nested_arr_doc.GetConstRef()));
+  EXPECT_FALSE(eval_no_wrap_idx->ExtractExists(het_obj.GetConstRef()));
+  EXPECT_FALSE(eval_explicit_unwrap->ExtractExists(het_obj.GetConstRef()));
+
+  // 4. Mixed-type containers and ragged array bounds do not poison valid
+  // sibling branches in ExtractExists or Extract:
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto mixed_arr_doc,
+      JSONValue::ParseJSONString(
+          R"([1, "str", null, [10], {"other": 2}, {"a": 99}])"));
+  EXPECT_TRUE(eval_arr_a->ExtractExists(mixed_arr_doc.GetConstRef()));
+  auto mixed_arr_res = eval_arr_a->Extract(mixed_arr_doc.GetConstRef());
+  ASSERT_TRUE(mixed_arr_res.has_value());
+  EXPECT_EQ(mixed_arr_res->ToString(), "99");
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto ragged_2d_doc,
+      JSONValue::ParseJSONString(R"([[10], "not_array", [20, 30]])"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_ragged_idx,
+                       CreateStandardEvaluatorWithWildcards("$[*][1]"));
+  EXPECT_TRUE(eval_ragged_idx->ExtractExists(ragged_2d_doc.GetConstRef()));
+  auto ragged_res = eval_ragged_idx->Extract(ragged_2d_doc.GetConstRef());
+  ASSERT_TRUE(ragged_res.has_value());
+  EXPECT_EQ(ragged_res->ToString(), "30");
+
+  // 5. Both `$..b.c` and `$.*.b.c` filter out non-matching branch "x" (`1` is a
+  // scalar) and match branch "y" (`"y".b.c = 2`):
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto mixed_doc,
+      JSONValue::ParseJSONString(R"({"x": {"b": 1}, "y": {"b": {"c": 2}}})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_desc_bc,
+                       CreateStandardEvaluatorWithWildcards("$..b.c"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_wild_bc,
+                       CreateStandardEvaluatorWithWildcards("$.*.b.c"));
+  EXPECT_TRUE(eval_desc_bc->ExtractExists(mixed_doc.GetConstRef()));
+  auto desc_bc_res = eval_desc_bc->Extract(mixed_doc.GetConstRef());
+  ASSERT_TRUE(desc_bc_res.has_value());
+  EXPECT_EQ(desc_bc_res->ToString(), "2");
+
+  EXPECT_TRUE(eval_wild_bc->ExtractExists(mixed_doc.GetConstRef()));
+  auto wild_bc_res = eval_wild_bc->Extract(mixed_doc.GetConstRef());
+  ASSERT_TRUE(wild_bc_res.has_value());
+  EXPECT_EQ(wild_bc_res->ToString(), "2");
+
+  // 6. Linear paths (`!has_wildcard_or_descendant()`) preserve legacy
+  // `ValidJSONPathIterator` behavior (e.g., `$[0]` on `{"0": 1}` and `$.0` on
+  // `[1]`), whereas wildcard/descendant paths enforce strict container matching
+  // (`.key` is object-only; `[i]` is array-only):
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto obj_with_num_key,
+                       JSONValue::ParseJSONString(R"({"0": 1})"));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_idx_0,
+                       CreateStandardEvaluatorWithWildcards("$[0]"));
+  EXPECT_TRUE(eval_idx_0->ExtractExists(obj_with_num_key.GetConstRef()));
+  auto idx_0_res = eval_idx_0->Extract(obj_with_num_key.GetConstRef());
+  ASSERT_TRUE(idx_0_res.has_value());
+  EXPECT_EQ(idx_0_res->ToString(), "1");
+  std::string str_idx_0_res;
+  bool is_null = false;
+  GOOGLESQL_ASSERT_OK(eval_idx_0->Extract(R"({"0": 1})", &str_idx_0_res, &is_null));
+  EXPECT_FALSE(is_null);
+  EXPECT_EQ(str_idx_0_res, "1");
+
+  // In a wildcard/descendant path (`$.*[0].b`), `[0]` strictly requires a JSON
+  // array and does NOT match object member `"0"`, whereas `$.*."0".b` (and
+  // `$.*.0.b`) matches object member `"0"` and does NOT index into a JSON
+  // array:
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      auto nested_obj_with_num_key,
+      JSONValue::ParseJSONString(R"({"a": {"0": {"b": 42}}, "x": {"b": 1}})"));
+  EXPECT_FALSE(
+      eval_no_wrap_idx->ExtractExists(nested_obj_with_num_key.GetConstRef()));
+  EXPECT_FALSE(eval_no_wrap_idx->Extract(nested_obj_with_num_key.GetConstRef())
+                   .has_value());
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(auto eval_wild_dot_num,
+                       CreateStandardEvaluatorWithWildcards(R"($.*."0".b)"));
+  EXPECT_TRUE(
+      eval_wild_dot_num->ExtractExists(nested_obj_with_num_key.GetConstRef()));
+  auto nested_num_key_res =
+      eval_wild_dot_num->Extract(nested_obj_with_num_key.GetConstRef());
+  ASSERT_TRUE(nested_num_key_res.has_value());
+  EXPECT_EQ(nested_num_key_res->ToString(), "42");
+
+  // Conversely, on `{"a": [{"b": 1}]}`, `$.*."0".b` does not index into the
+  // array, whereas `$.*[0].b` does:
+  EXPECT_FALSE(eval_wild_dot_num->ExtractExists(nested_arr_doc.GetConstRef()));
+  EXPECT_FALSE(
+      eval_wild_dot_num->Extract(nested_arr_doc.GetConstRef()).has_value());
+  EXPECT_TRUE(eval_no_wrap_idx->ExtractExists(nested_arr_doc.GetConstRef()));
+  auto nested_arr_idx_res =
+      eval_no_wrap_idx->Extract(nested_arr_doc.GetConstRef());
+  ASSERT_TRUE(nested_arr_idx_res.has_value());
+  EXPECT_EQ(nested_arr_idx_res->ToString(), "1");
 }
 
 }  // namespace

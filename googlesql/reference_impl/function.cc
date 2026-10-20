@@ -1209,8 +1209,8 @@ FunctionMap::FunctionMap() {
                      "EncodeVector");
     RegisterFunction(FunctionKind::kDecodeVector, "decode_vector",
                      "DecodeVector");
-    RegisterFunction(FunctionKind::kVectorFloat32Length, "vector_length",
-                     "VectorFloat32Length");
+    RegisterFunction(FunctionKind::kVectorFloat32DimensionCount,
+                     "vector_dimension_count", "VectorFloat32DimensionCount");
     RegisterFunction(FunctionKind::kEditDistance, "edit_distance",
                      "EditDistance");
     RegisterFunction(FunctionKind::kJaroWinklerSimilarity,
@@ -2890,8 +2890,8 @@ BuiltinScalarFunction::CreateValidatedRaw(
       return new EncodeVectorFunction(kind, output_type);
     case FunctionKind::kDecodeVector:
       return new DecodeVectorFunction(kind, output_type);
-    case FunctionKind::kVectorFloat32Length:
-      return new VectorFloat32LengthFunction(kind, output_type);
+    case FunctionKind::kVectorFloat32DimensionCount:
+      return new VectorFloat32DimensionCountFunction(kind, output_type);
     case FunctionKind::kJaroWinklerSimilarity:
       return new JaroWinklerSimilarityFunction(kind, output_type);
     case FunctionKind::kArrayZip: {
@@ -10648,8 +10648,11 @@ absl::StatusOr<Value> FilterFieldsFunction::Eval(
   if (reset_cleared_required_fields_) {
     InitializeRequiredFields(mutable_root_message.get());
   }
+  // The input can already be missing required fields, for example after a CAST
+  // from BYTES, which doesn't validate. A required field that the paths keep
+  // stays missing, so serialize without requiring IsInitialized().
   return Value::Proto(args[0].type()->AsProto(),
-                      mutable_root_message->SerializeAsCord());
+                      mutable_root_message->SerializePartialAsCord());
 }
 
 // Sets the proto field denoted by <path> to <new_field_value>. The first proto
@@ -13706,12 +13709,12 @@ absl::StatusOr<Value> EncodeVectorFunction::Eval(
   // Handle optional arguments.
   if (args.size() > 1 && !args[1].is_null()) {
     GOOGLESQL_RET_CHECK(args[1].type()->IsInt64());
-    int64_t expected_length = args[1].int64_value();
-    if (args[0].num_elements() != expected_length) {
+    int64_t expected_dims = args[1].int64_value();
+    if (args[0].num_elements() != expected_dims) {
       return ::googlesql_base::OutOfRangeErrorBuilder()
              << "Input ARRAY does not have a matching array_length ("
-             << args[0].num_elements() << ") with the length ("
-             << expected_length << ")";
+             << args[0].num_elements() << ") with the dims (" << expected_dims
+             << ")";
     }
   }
 
@@ -13748,7 +13751,7 @@ absl::StatusOr<Value> DecodeVectorFunction::Eval(
   return DecodeFloat32Vector(args[0]);
 }
 
-absl::StatusOr<Value> VectorFloat32LengthFunction::Eval(
+absl::StatusOr<Value> VectorFloat32DimensionCountFunction::Eval(
     absl::Span<const TupleData* const> params, absl::Span<const Value> args,
     EvaluationContext* context) const {
   GOOGLESQL_RET_CHECK_EQ(args.size(), 1);

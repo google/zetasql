@@ -1181,8 +1181,7 @@ FROM graph_table(aml
 RIGHT JOIN (SELECT 1)
 ON FALSE
 --
-
-ERROR: generic::out_of_range: Input to the operator SOURCE must not be null
+ARRAY<STRUCT<BOOL>>[{NULL}]
 ==
 [required_features=SQL_GRAPH,SQL_GRAPH_EXPOSE_GRAPH_ELEMENT]
 [name=graph_expression_functions_is_destination_of_with_null_input]
@@ -1194,8 +1193,29 @@ FROM graph_table(aml
 RIGHT JOIN (SELECT 1)
 ON FALSE
 --
-
-ERROR: generic::out_of_range: Input to the operator DEST must not be null
+ARRAY<STRUCT<BOOL>>[{NULL}]
+==
+# `n` is non-NULL; the OPTIONAL MATCH never matches, so `e` is NULL.
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[name=graph_expression_functions_is_source_of_with_nonnull_node_null_edge]
+GRAPH aml
+MATCH (n IS Human WHERE n.name = "name1")
+OPTIONAL MATCH (n) -[e IS Knows]-> (m IS Human) WHERE FALSE
+RETURN n.name AS name, n IS SOURCE OF e AS is_source
+--
+ARRAY<STRUCT<name STRING, is_source BOOL>>[{"name1", NULL}]
+==
+# `e` is non-NULL; the OPTIONAL MATCH never matches, so `n` is NULL.
+[required_features=SQL_GRAPH,SQL_GRAPH_ADVANCED_QUERY]
+[name=graph_expression_functions_is_source_of_with_null_node_nonnull_edge]
+GRAPH aml
+MATCH (a IS Human) -[e IS Knows]-> (b IS Human WHERE b.name = "name2")
+OPTIONAL MATCH (b) -[IS Knows]-> (n IS Human) WHERE FALSE
+RETURN a.name AS src, b.name AS dst, n IS SOURCE OF e AS is_source
+--
+ARRAY<STRUCT<src STRING, dst STRING, is_source BOOL>>[
+  {"name1", "name2", NULL}
+]
 ==
 [name=graph_expression_functions_all_different_node]
 select gt.*

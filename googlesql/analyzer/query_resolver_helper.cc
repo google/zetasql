@@ -44,6 +44,7 @@
 #include "googlesql/public/options.pb.h"
 #include "googlesql/public/strings.h"
 #include "googlesql/public/type.h"
+#include "googlesql/public/types/annotation.h"
 #include "googlesql/public/value.h"
 #include "googlesql/public/with_modifier_mode.h"
 #include "googlesql/resolved_ast/resolved_ast.h"
@@ -720,8 +721,8 @@ absl::Status QueryResolutionInfo::AddDotStarColumnToRemap(
   GOOGLESQL_RET_CHECK_NE(old_column.column_id(), new_column.column_id());
   GOOGLESQL_RET_CHECK(old_column.type()->Equals(new_column.type()))
       << old_column.DebugString() << " vs. " << new_column.DebugString();
-  GOOGLESQL_RET_CHECK(old_column.type_annotation_map() ==
-            new_column.type_annotation_map());
+  GOOGLESQL_RET_CHECK(AnnotationMap::Equals(old_column.type_annotation_map(),
+                                  new_column.type_annotation_map()));
   GOOGLESQL_RET_CHECK(old_column.IsInitialized());
   GOOGLESQL_RET_CHECK(new_column.IsInitialized());
   auto [it, inserted] =

@@ -1086,8 +1086,6 @@ GraphDdlResolver::ResolveGraphPropertiesAllColumns(
   property_defs.reserve(col_refs.size());
   for (int i = 0; i < col_refs.size(); ++i) {
     auto col_ref = std::move(col_refs[i]);
-    GOOGLESQL_RETURN_IF_ERROR(resolver_.CheckAndPropagateAnnotations(
-        ast_location, const_cast<ResolvedExpr*>(col_ref.get())));
 
     std::string col_name = catalog_columns[i]->Name();
     GOOGLESQL_ASSIGN_OR_RETURN(

@@ -506,6 +506,27 @@ class ResolvedTVFArg {
     passthrough_columns_ = std::move(columns);
   }
 
+  void set_table_clause(const ASTTableClause* table_clause) {
+    table_clause_ = table_clause;
+  }
+  const ASTTableClause* table_clause() const { return table_clause_; }
+
+  void SetPartitionByList(
+      std::vector<std::unique_ptr<const ResolvedColumnRef>> partition_by_list) {
+    partition_by_list_ = std::move(partition_by_list);
+  }
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> MovePartitionByList() {
+    return std::move(partition_by_list_);
+  }
+
+  void SetOrderByList(
+      std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_list) {
+    order_by_list_ = std::move(order_by_list);
+  }
+  std::vector<std::unique_ptr<const ResolvedOrderByItem>> MoveOrderByList() {
+    return std::move(order_by_list_);
+  }
+
  private:
   enum {
     UNDEFINED,
@@ -533,6 +554,13 @@ class ResolvedTVFArg {
 
   // Cached passthrough columns for the scan.
   std::vector<ResolvedColumn> passthrough_columns_;
+
+  // If this argument was resolved from an ASTTableClause, points to that clause
+  // so PARTITION BY and ORDER BY can be resolved after signature matching.
+  const ASTTableClause* table_clause_ = nullptr;
+
+  std::vector<std::unique_ptr<const ResolvedColumnRef>> partition_by_list_;
+  std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_list_;
 };
 
 // Computes the default alias to use for an expression.

@@ -255,6 +255,17 @@ class TableNameResolver {
       absl::Span<const ASTPipeOperator* const> pipe_operator_list,
       const AliasSet& visible_aliases, AliasSet* new_aliases);
 
+  // Collects table names from the subpipelines of a pipe operator like FORK,
+  // TEE or ABSL_LOG.
+  //
+  // `visible_aliases` are the outer (correlated) aliases visible to
+  // expressions in the subpipelines. `input_aliases` are the range variables
+  // visible on the input to each subpipeline. Aliases introduced inside a
+  // subpipeline do not escape it.
+  absl::Status FindInSubpipelines(
+      absl::Span<const ASTSubpipeline* const> subpipelines,
+      const AliasSet& visible_aliases, const AliasSet& input_aliases);
+
   // Root level SQL statement we are extracting table names or temporal
   // references from.
   const absl::string_view sql_;
@@ -1558,13 +1569,58 @@ absl::Status TableNameResolver::FindInPipeOperatorList(
             pipe_operator->GetAsOrDie<ASTPipeWith>()->with_clause(),
             visible_aliases));
         break;
+      case AST_PIPE_AS:
+        // `|> AS alias` introduces a range variable visible to later pipe
+        // operators.
+        new_aliases->insert(
+            absl::AsciiStrToLower(pipe_operator->GetAsOrDie<ASTPipeAs>()
+                                      ->alias()
+                                      ->GetAsStringView()));
+        break;
+      case AST_PIPE_FORK:
+        GOOGLESQL_RETURN_IF_ERROR(FindInSubpipelines(
+            pipe_operator->GetAsOrDie<ASTPipeFork>()->subpipeline_list(),
+            visible_aliases, *new_aliases));
+        break;
+      case AST_PIPE_TEE:
+        GOOGLESQL_RETURN_IF_ERROR(FindInSubpipelines(
+            pipe_operator->GetAsOrDie<ASTPipeTee>()->subpipeline_list(),
+            visible_aliases, *new_aliases));
+        break;
+      case AST_PIPE_LOG: {
+        const ASTSubpipeline* subpipeline =
+            pipe_operator->GetAsOrDie<ASTPipeLog>()->subpipeline();
+        if (subpipeline != nullptr) {
+          GOOGLESQL_RETURN_IF_ERROR(
+              FindInSubpipelines({subpipeline}, visible_aliases, *new_aliases));
+        }
+        break;
+      }
       default:
-        GOOGLESQL_RETURN_IF_ERROR(FindInExpressionsUnder(pipe_operator, visible_aliases));
+        // Range variables from the pipe input are visible to expression
+        // subqueries in the pipe operator, so use `new_aliases`.
+        GOOGLESQL_RETURN_IF_ERROR(FindInExpressionsUnder(pipe_operator, *new_aliases));
         break;
     }
   }
 
   local_table_aliases_ = old_local_table_aliases;
+  return absl::OkStatus();
+}
+
+absl::Status TableNameResolver::FindInSubpipelines(
+    absl::Span<const ASTSubpipeline* const> subpipelines,
+    const AliasSet& visible_aliases, const AliasSet& input_aliases) {
+  RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+  for (const ASTSubpipeline* subpipeline : subpipelines) {
+    GOOGLESQL_RET_CHECK(subpipeline != nullptr);
+    // Each subpipeline starts from the aliases visible on its input, and any
+    // aliases it introduces are local to that subpipeline.
+    AliasSet subpipeline_aliases = input_aliases;
+    GOOGLESQL_RETURN_IF_ERROR(FindInPipeOperatorList(subpipeline->pipe_operator_list(),
+                                           visible_aliases,
+                                           &subpipeline_aliases));
+  }
   return absl::OkStatus();
 }
 
@@ -2026,6 +2082,14 @@ absl::Status TableNameResolver::FindInTableClause(
     GOOGLESQL_RETURN_IF_ERROR(FindInTVF(table_clause->tvf(), external_visible_aliases,
                               local_visible_aliases));
   }
+  if (table_clause->table_subquery() != nullptr) {
+    GOOGLESQL_RETURN_IF_ERROR(
+        FindInQuery(table_clause->table_subquery(), external_visible_aliases));
+  }
+  GOOGLESQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_clause->partition_by(),
+                                         external_visible_aliases));
+  GOOGLESQL_RETURN_IF_ERROR(FindInExpressionsUnder(table_clause->order_by(),
+                                         external_visible_aliases));
   return absl::OkStatus();
 }
 

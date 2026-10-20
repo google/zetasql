@@ -3438,3 +3438,79 @@ select (select column_bool from
 ERROR: Argument 'arg_3' to table-valued function TVF_NAMED_SCALAR_ARGS_WITH_CONSTRAINTS must be at most 100 [at 5:5]
     arg_3 => 500, -- max_value = 100
     ^
+==
+
+# Named SEQUENCE argument and scalar argument passed out of order.
+[no_java]
+[language_features=NONE,+SEQUENCE_ARG,+NAMED_ARGUMENTS]
+SELECT fn_with_named_sequence_and_scalar(sequence => SEQUENCE sequence1, x => 10);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_with_named_sequence_and_scalar(INT64 x, ANY SEQUENCE sequence) -> INT64)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=10)
+    |     +-FunctionArgument
+    |       +-sequence=
+    |         +-Sequence(sequence=sequence1)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named MODEL argument and scalar argument passed out of order.
+[no_java]
+[language_features=NONE,+MODEL_ARG,+NAMED_ARGUMENTS]
+SELECT fn_with_named_model_and_scalar(model => MODEL OneDoubleModel, x => 10);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(sample_functions:fn_with_named_model_and_scalar(INT64 x, ANY MODEL model) -> INT64)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=INT64, value=10)
+    |     +-FunctionArgument
+    |       +-model=
+    |         +-Model(model=OneDoubleModel)
+    +-input_scan=
+      +-SingleRowScan
+==
+
+# Named MODEL argument in AI.IF passed out of order after scalar argument.
+[no_java]
+[language_features=NONE,+MODEL_ARG,+NAMED_ARGUMENTS,+JSON_TYPE]
+SELECT AI.IF('prompt', options => JSON '{}', model => MODEL OneDoubleModel);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#1 AS `$col1` [BOOL]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#1]
+    +-expr_list=
+    | +-$col1#1 :=
+    |   +-FunctionCall(GoogleSQL:ai.if(STRING prompt, ANY MODEL model, JSON options) -> BOOL)
+    |     +-FunctionArgument
+    |     | +-expr=
+    |     |   +-Literal(type=STRING, value="prompt")
+    |     +-FunctionArgument
+    |     | +-model=
+    |     |   +-Model(model=OneDoubleModel)
+    |     +-FunctionArgument
+    |       +-expr=
+    |         +-Literal(type=JSON, value={}, has_explicit_type=TRUE)
+    +-input_scan=
+      +-SingleRowScan
+

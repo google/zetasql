@@ -77,7 +77,8 @@ column_declaration:
     as `js` for JavaScript. `string_literal` represents the code that defines
     the function body.
 
-## Specify TVF arguments {#tvf_arguments}
+## Specify TVF arguments 
+<a id="tvf_arguments"></a>
 
 When a TVF with function parameters is called, arguments must be passed in for
 all function parameters that don't have default values. An argument can be of
@@ -98,6 +99,24 @@ Specify a table argument the same way you specify the fields of a
 parameter_name TABLE<column_name data_type [, ...]>
 ```
 
+When you pass an input table for a `TABLE<column_name data_type [, ...]>`
+parameter, GoogleSQL resolves the input table columns as follows:
+
+*   **Matched by name, not position:** GoogleSQL matches columns from
+    the input table to the columns in the parameter definition
+    case-insensitively by name, in any order. The input table must include all
+    required columns specified in the parameter definition and can't contain
+    duplicate column names that match a required column.
+*   **Type matching and coercion:** Each matched column in the input table must
+    have the same data type as, or a type implicitly coercible to, the
+    corresponding column in the parameter definition.
+*   **Extra columns:** For TVFs created with `CREATE TABLE FUNCTION`, the input
+    table can include additional columns not listed in the parameter definition,
+    and GoogleSQL ignores those extra columns inside the function body.
+    Built-in or catalog-provided TVFs can disallow extra input columns in their
+    signature. When extra input columns are disallowed, passing an extra column
+    returns an error.
+
 The table argument can specify a [value table][datamodel-value-tables],
 in which each row
 is a single column of a specific type. To specify a value table as an argument,
@@ -106,6 +125,11 @@ include only the `data_type`, leaving out the `column_name`:
 ```googlesql
 parameter_name TABLE<data_type>
 ```
+
+When a parameter specifies a value table (`TABLE<data_type>`), the input table
+must have a single column of `data_type` (or a type coercible to `data_type`),
+and extra columns aren't allowed. You can pass either a value table or a
+single-column regular table (whose column name is ignored).
 
 In many cases, the `data_type` of the single column in the value table is a
 protocol buffer; for example:
@@ -119,7 +143,8 @@ The function body can refer directly to fields within the proto.
 
 You have the option to specify the input table using the templated type `ANY
 TABLE` in place of `TABLE<column_name data_type [, ...]>`. This option enables
-you to create a polymorphic TVF that accepts any table as input.
+you to create a polymorphic TVF that accepts any table with any column names and
+types as input.
 
 **Example**
 

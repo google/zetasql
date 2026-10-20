@@ -426,12 +426,12 @@ TEST(TypeParameters, DeserializeNumericTypeParametersFailed) {
 TEST(TypeParameters, DeserializeVectorTypeParametersFailed) {
   DeserializeWithExpectedError(
       R"pb(
-        vector_type_parameters { length: -10 })pb",
-      "vector_type_parameters.length() > 0");
+        vector_type_parameters { dims: -10 })pb",
+      "vector_type_parameters.dims() > 0");
 
   DeserializeWithExpectedError(
       R"pb(
-        vector_type_parameters { length: 10 encoding: UNKNOWN_VECTOR_ENCODING })pb",
+        vector_type_parameters { dims: 10 encoding: UNKNOWN_VECTOR_ENCODING })pb",
       "Unrecognized VECTOR encoding: \"UNKNOWN_VECTOR_ENCODING\"");
 }
 
@@ -658,21 +658,21 @@ TEST(TypeParametersTest, EqualsWithDefaultTimestampPrecision) {
 
 TEST(TypeParametersTest, VectorTypeParametersResolution) {
   VectorTypeParametersProto proto;
-  proto.set_length(128);
+  proto.set_dims(128);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
   EXPECT_TRUE(type_params.IsVectorTypeParameters());
   const VectorTypeParametersProto* vector_params =
       type_params.vector_type_parameters();
   ASSERT_NE(vector_params, nullptr);
-  EXPECT_EQ(vector_params->length(), 128);
-  EXPECT_EQ(type_params.DebugString(), "(length=128)");
+  EXPECT_EQ(vector_params->dims(), 128);
+  EXPECT_EQ(type_params.DebugString(), "(dims=128)");
   EXPECT_EQ(type_params.ToParenthesizedString(), "(128)");
 }
 
 TEST(TypeParametersTest, VectorTypeParametersWithEncodingResolution) {
   VectorTypeParametersProto proto;
-  proto.set_length(128);
+  proto.set_dims(128);
   proto.set_encoding(googlesql::VectorEncodingId::FLOAT32);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters type_params,
                        TypeParameters::MakeVectorTypeParameters(proto));
@@ -680,9 +680,9 @@ TEST(TypeParametersTest, VectorTypeParametersWithEncodingResolution) {
   const VectorTypeParametersProto* vector_params =
       type_params.vector_type_parameters();
   ASSERT_NE(vector_params, nullptr);
-  EXPECT_EQ(vector_params->length(), 128);
+  EXPECT_EQ(vector_params->dims(), 128);
   EXPECT_EQ(vector_params->encoding(), googlesql::VectorEncodingId::FLOAT32);
-  EXPECT_EQ(type_params.DebugString(), "(length=128, encoding=FLOAT32)");
+  EXPECT_EQ(type_params.DebugString(), "(dims=128, encoding=FLOAT32)");
   EXPECT_EQ(type_params.ToParenthesizedString(), "(128, 'FLOAT32')");
 }
 
@@ -705,7 +705,7 @@ TEST(TypeParametersTest, CompositeTypeParametersResolution) {
   // 4. Construct the type parameters.
   // VECTOR(128)
   VectorTypeParametersProto vector_proto;
-  vector_proto.set_length(128);
+  vector_proto.set_dims(128);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(TypeParameters vector_params,
                        TypeParameters::MakeVectorTypeParameters(vector_proto));
 
@@ -729,7 +729,7 @@ TEST(TypeParametersTest, CompositeTypeParametersResolution) {
   GOOGLESQL_ASSERT_OK(struct_params.Serialize(&proto));
   ASSERT_THAT(
       proto, testing::EqualsProto(R"pb(
-        child_list { child_list { vector_type_parameters { length: 128 } } }
+        child_list { child_list { vector_type_parameters { dims: 128 } } }
         child_list { string_type_parameters { is_max_length: true } }
       )pb"));
 
@@ -744,7 +744,7 @@ TEST(TypeParametersTest, CompositeTypeParametersResolution) {
   ASSERT_FALSE(struct_params.MatchType(mismatch_struct_type));
 
   // DebugString formatting verification.
-  ASSERT_EQ(struct_params.DebugString(), "[[(length=128)],(max_length=MAX)]");
+  ASSERT_EQ(struct_params.DebugString(), "[[(dims=128)],(max_length=MAX)]");
   ASSERT_EQ(struct_params.ToParenthesizedString(), "");
 
   // Serialization / Deserialization.
@@ -760,7 +760,7 @@ TEST(TypeParametersTest, CompositeTypeParametersResolution) {
   ASSERT_THAT(
       modifiers_proto, testing::EqualsProto(R"pb(
         type_parameters {
-          child_list { child_list { vector_type_parameters { length: 128 } } }
+          child_list { child_list { vector_type_parameters { dims: 128 } } }
           child_list { string_type_parameters { is_max_length: true } }
         }
         collation {}

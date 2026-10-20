@@ -4059,3 +4059,256 @@ return 1 as v
 ERROR: First argument of ELEMENT_DEFINITION_NAME_IS must be of graph element type [at 2:63]
 match (n IS Person | Account Where ELEMENT_DEFINITION_NAME_IS(1, Person))
                                                               ^
+==
+
+[default no_show_sqlbuilder_output]
+[language_features=MAXIMUM,+SQL_GRAPH,+JSON_TYPE,+CAST_TO_JSON_TYPE]
+select 1 from graph_table(
+  aml
+  match (n)
+  where cast(n as json) is not null
+  columns (1 as a)
+);
+--
+QueryStmt
++-output_column_list=
+| +-$query.$col1#3 AS `$col1` [INT64]
++-query=
+  +-ProjectScan
+    +-column_list=[$query.$col1#3]
+    +-expr_list=
+    | +-$col1#3 := Literal(type=INT64, value=1)
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.a#2]
+        +-property_graph=aml
+        +-input_scan=
+        | +-GraphScan
+        |   +-column_list=[$element_table.n#1]
+        |   +-input_scan_list=
+        |   | +-GraphPathScan
+        |   |   +-column_list=[$element_table.n#1]
+        |   |   +-input_scan_list=
+        |   |   | +-GraphNodeScan
+        |   |   |   +-column_list=[$element_table.n#1]
+        |   |   |   +-label_expr=
+        |   |   |   | +-GraphLabelNaryExpr
+        |   |   |   |   +-op=OR
+        |   |   |   |   +-operand_list=
+        |   |   |   |     +-GraphWildCardLabel
+        |   |   |   |     +-GraphLabelNaryExpr
+        |   |   |   |       +-op=NOT
+        |   |   |   |       +-operand_list=
+        |   |   |   |         +-GraphWildCardLabel
+        |   |   |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+        |   |   +-head=$element_table.n#1
+        |   |   +-tail=$element_table.n#1
+        |   +-filter_expr=
+        |     +-FunctionCall(GoogleSQL:$not(BOOL) -> BOOL)
+        |       +-FunctionCall(GoogleSQL:$is_null(JSON) -> BOOL)
+        |         +-Cast(GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> -> JSON)
+        |           +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+        +-shape_expr_list=
+          +-a#2 := Literal(type=INT64, value=1)
+==
+
+[language_features=MAXIMUM,+SQL_GRAPH,+JSON_TYPE,+CAST_TO_JSON_TYPE]
+select * from graph_table(
+  aml
+  match (n) -[e]-> (m)
+  columns (cast(n as json) as js_n, cast(e as json) as js_e, cast(m as json) as js_m)
+);
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.js_n#4 AS js_n [JSON]
+| +-$graph_table.js_e#5 AS js_e [JSON]
+| +-$graph_table.js_m#6 AS js_m [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=$graph_table.[js_n#4, js_e#5, js_m#6]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=$graph_table.[js_n#4, js_e#5, js_m#6]
+        +-property_graph=aml
+        +-input_scan=
+        | +-GraphScan
+        |   +-column_list=$element_table.[n#1, e#2, m#3]
+        |   +-input_scan_list=
+        |     +-GraphPathScan
+        |       +-column_list=$element_table.[n#1, e#2, m#3]
+        |       +-input_scan_list=
+        |       | +-GraphNodeScan
+        |       | | +-column_list=[$element_table.n#1]
+        |       | | +-label_expr=
+        |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-op=OR
+        |       | | |   +-operand_list=
+        |       | | |     +-GraphWildCardLabel
+        |       | | |     +-GraphLabelNaryExpr
+        |       | | |       +-op=NOT
+        |       | | |       +-operand_list=
+        |       | | |         +-GraphWildCardLabel
+        |       | | +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+        |       | +-GraphEdgeScan
+        |       | | +-column_list=[$element_table.e#2]
+        |       | | +-label_expr=
+        |       | | | +-GraphLabelNaryExpr
+        |       | | |   +-op=OR
+        |       | | |   +-operand_list=
+        |       | | |     +-GraphWildCardLabel
+        |       | | |     +-GraphLabelNaryExpr
+        |       | | |       +-op=NOT
+        |       | | |       +-operand_list=
+        |       | | |         +-GraphWildCardLabel
+        |       | | +-target_element_table_list=[aml.PersonOwnAccount,aml.Transfer]
+        |       | | +-orientation=RIGHT
+        |       | +-GraphNodeScan
+        |       |   +-column_list=[$element_table.m#3]
+        |       |   +-label_expr=
+        |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-op=OR
+        |       |   |   +-operand_list=
+        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphLabelNaryExpr
+        |       |   |       +-op=NOT
+        |       |   |       +-operand_list=
+        |       |   |         +-GraphWildCardLabel
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+        |       +-head=$element_table.n#1
+        |       +-tail=$element_table.m#3
+        +-shape_expr_list=
+          +-js_n#4 :=
+          | +-Cast(GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> -> JSON)
+          |   +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+          +-js_e#5 :=
+          | +-Cast(GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64> -> JSON)
+          |   +-ColumnRef(type=GRAPH_EDGE(aml)<accountId INT64, amount UINT64, personId INT64, targetAccountId INT64>, column=$element_table.e#2)
+          +-js_m#6 :=
+            +-Cast(GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> -> JSON)
+              +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.m#3)
+==
+
+[language_features=MAXIMUM,+SQL_GRAPH,+JSON_TYPE,+CAST_TO_JSON_TYPE]
+select * from graph_table(
+  aml
+  match (n)
+  columns (safe_cast(n as json) as js_n)
+);
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.js_n#2 AS js_n [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.js_n#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.js_n#2]
+        +-property_graph=aml
+        +-input_scan=
+        | +-GraphScan
+        |   +-column_list=[$element_table.n#1]
+        |   +-input_scan_list=
+        |     +-GraphPathScan
+        |       +-column_list=[$element_table.n#1]
+        |       +-input_scan_list=
+        |       | +-GraphNodeScan
+        |       |   +-column_list=[$element_table.n#1]
+        |       |   +-label_expr=
+        |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-op=OR
+        |       |   |   +-operand_list=
+        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphLabelNaryExpr
+        |       |   |       +-op=NOT
+        |       |   |       +-operand_list=
+        |       |   |         +-GraphWildCardLabel
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+        |       +-head=$element_table.n#1
+        |       +-tail=$element_table.n#1
+        +-shape_expr_list=
+          +-js_n#2 :=
+            +-Cast(GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> -> JSON)
+              +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+              +-return_null_on_error=TRUE
+==
+
+[language_features=MAXIMUM,+SQL_GRAPH,+JSON_TYPE,+CAST_TO_JSON_TYPE,+CAST_OPERATORS]
+select * from graph_table(
+  aml
+  match (n)
+  columns (n::json as js_n)
+);
+--
+QueryStmt
++-output_column_list=
+| +-$graph_table.js_n#2 AS js_n [JSON]
++-query=
+  +-ProjectScan
+    +-column_list=[$graph_table.js_n#2]
+    +-input_scan=
+      +-GraphTableScan
+        +-column_list=[$graph_table.js_n#2]
+        +-property_graph=aml
+        +-input_scan=
+        | +-GraphScan
+        |   +-column_list=[$element_table.n#1]
+        |   +-input_scan_list=
+        |     +-GraphPathScan
+        |       +-column_list=[$element_table.n#1]
+        |       +-input_scan_list=
+        |       | +-GraphNodeScan
+        |       |   +-column_list=[$element_table.n#1]
+        |       |   +-label_expr=
+        |       |   | +-GraphLabelNaryExpr
+        |       |   |   +-op=OR
+        |       |   |   +-operand_list=
+        |       |   |     +-GraphWildCardLabel
+        |       |   |     +-GraphLabelNaryExpr
+        |       |   |       +-op=NOT
+        |       |   |       +-operand_list=
+        |       |   |         +-GraphWildCardLabel
+        |       |   +-target_element_table_list=[aml.Account,aml.Person,aml.Syndicate]
+        |       +-head=$element_table.n#1
+        |       +-tail=$element_table.n#1
+        +-shape_expr_list=
+          +-js_n#2 :=
+            +-Cast(GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING> -> JSON)
+              +-ColumnRef(type=GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, data BYTES, id INT64, name STRING, syndicateData ARRAY<INT64>, syndicateId INT64, syndicateName STRING>, column=$element_table.n#1)
+==
+
+[language_features=MAXIMUM,+SQL_GRAPH,+JSON_TYPE,+CAST_TO_JSON_TYPE]
+select 1 from graph_table(
+  aml
+  match (n)
+  columns (cast(n as int64) as int_n)
+);
+--
+ERROR: Invalid cast from GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...> to INT64 [at 4:17]
+  columns (cast(n as int64) as int_n)
+                ^
+==
+
+[language_features=MAXIMUM,-CAST_TO_JSON_TYPE]
+select 1 from graph_table(
+  aml
+  match (n)
+  columns (cast(n as json) as js_n)
+);
+--
+ERROR: Invalid cast from GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...> to JSON [at 4:17]
+  columns (cast(n as json) as js_n)
+                ^
+==
+
+[language_features=MAXIMUM,+SQL_GRAPH]
+select 1 from graph_table(
+  aml
+  match (n)
+  columns (cast(n as string) as str_n)
+);
+--
+ERROR: Invalid cast from GRAPH_NODE(aml)<age UINT32, balance UINT64, birthday DATE, ...> to STRING [at 4:17]
+  columns (cast(n as string) as str_n)
+                ^

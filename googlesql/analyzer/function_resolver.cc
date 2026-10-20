@@ -2187,6 +2187,16 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
 
   GOOGLESQL_RET_CHECK(result_signature->HasConcreteArguments());
 
+  // Reorder argument expressions and locations to match the signature parameter
+  // order and inject default values immediately after finding a match.
+  GOOGLESQL_RETURN_IF_ERROR(ReorderArgumentExpressionsPerIndexMapping(
+      function->SQLName(), *result_signature, arg_reorder_index_mapping,
+      ast_location, input_argument_types, &arg_locations, &arguments,
+      /*resolved_tvf_args=*/nullptr));
+
+  GOOGLESQL_RET_CHECK_EQ(input_argument_types.size(), arg_locations.size());
+  GOOGLESQL_RET_CHECK_EQ(input_argument_types.size(), arguments.size());
+
   SignatureArgumentKind original_result_kind =
       result_signature->result_type().original_kind();
   GOOGLESQL_RET_CHECK_NE(original_result_kind,
@@ -2203,19 +2213,26 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
     }
   }
 
-  // If we found a matching signature, go back and resolve any null typed,
-  // non-lambda arguments as additional argument overrides.
+  // If we found a matching signature, resolve any null-typed, non-lambda
+  // arguments (such as SEQUENCE or MODEL) as additional argument overrides.
+  // Overrides for inline lambdas and function references are already populated
+  // during signature matching in FindMatchingSignature.
   for (int i = 0; i < input_argument_types.size(); ++i) {
     const InputArgumentType& input_arg_type = input_argument_types[i];
     if (input_arg_type.type() == nullptr && !input_arg_type.is_lambda()) {
       if (input_arg_type.is_sequence()) {
         const ASTNode* sequence_arg_node = arg_locations[i];
+        GOOGLESQL_RET_CHECK_NE(sequence_arg_node, nullptr);
         if (sequence_arg_node->Is<ASTNamedArgument>()) {
           sequence_arg_node =
-              sequence_arg_node->GetAsOrDie<ASTNamedArgument>()->expr();
+              sequence_arg_node->GetAs<ASTNamedArgument>()->expr();
+          GOOGLESQL_RET_CHECK_NE(sequence_arg_node, nullptr);
         }
         const ASTSequenceArg* sequence_arg =
-            sequence_arg_node->GetAsOrDie<ASTSequenceArg>();
+            sequence_arg_node->GetAs<ASTSequenceArg>();
+        GOOGLESQL_RET_CHECK_NE(sequence_arg, nullptr)
+            << "Expected ASTSequenceArg at location: "
+            << sequence_arg_node->DebugString();
         std::unique_ptr<const ResolvedSequence> resolved_sequence;
         GOOGLESQL_RETURN_IF_ERROR(resolver_->ResolveSequence(
             sequence_arg->sequence_path(), &resolved_sequence));
@@ -2225,59 +2242,26 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
         arg_overrides.push_back(FunctionArgumentOverride{i, std::move(arg)});
       } else if (input_arg_type.is_model()) {
         const ASTNode* model_arg_node = arg_locations[i];
+        GOOGLESQL_RET_CHECK_NE(model_arg_node, nullptr);
         if (model_arg_node->Is<ASTNamedArgument>()) {
-          model_arg_node =
-              model_arg_node->GetAsOrDie<ASTNamedArgument>()->expr();
+          model_arg_node = model_arg_node->GetAs<ASTNamedArgument>()->expr();
+          GOOGLESQL_RET_CHECK_NE(model_arg_node, nullptr);
         }
-        const ASTModelArg* model_arg =
-            model_arg_node->GetAsOrDie<ASTModelArg>();
+        const ASTModelArg* model_arg = model_arg_node->GetAs<ASTModelArg>();
+        GOOGLESQL_RET_CHECK_NE(model_arg, nullptr) << "Expected ASTModelArg at location: "
+                                         << model_arg_node->DebugString();
         std::unique_ptr<const ResolvedModel> resolved_model;
         GOOGLESQL_RETURN_IF_ERROR(
             resolver_->ResolveModel(model_arg->model_path(), &resolved_model));
+        input_argument_types[i] =
+            InputArgumentType::ModelInputArgumentType(resolved_model->model());
         std::unique_ptr<ResolvedFunctionArgument> arg =
             MakeResolvedFunctionArgument();
         arg->set_model(std::move(resolved_model));
         arg_overrides.push_back(FunctionArgumentOverride{i, std::move(arg)});
       }
-    } else if (input_arg_type.is_lambda() &&
-               resolver_->language().LanguageFeatureEnabled(
-                   FEATURE_UDF_LAMBDA_ARGUMENTS)) {
-      const ASTNode* arg_ast = arg_locations[i];
-      const ASTFunctionRefArg* func_ref = GetFunctionRefArgument(arg_ast);
-      if (func_ref != nullptr) {
-        // If the argument is a function reference, we look up the proxy
-        // function generated for it and create a ResolvedFunctionRef to pass as
-        // the argument override.
-        const ASTPathExpression* path_expr = func_ref->function_path();
-        GOOGLESQL_RET_CHECK_EQ(path_expr->num_names(), 1);
-        IdString first_name = path_expr->first_name()->GetAsIdString();
-
-        // Lookup the proxy function generated for the function-typed parameter.
-        const Function* proxy_function = LookupGeneratedFunction(first_name);
-        GOOGLESQL_RET_CHECK(proxy_function != nullptr)
-            << "No proxy function found for lambda argument: " << first_name;
-
-        // Create a ResolvedFunctionRef to represent the lambda argument
-        // reference.
-        GOOGLESQL_RET_CHECK_GT(proxy_function->NumSignatures(), 0);
-        std::unique_ptr<ResolvedFunctionRef> function_ref =
-            googlesql::MakeResolvedFunctionRef(
-                proxy_function, *proxy_function->GetSignature(0));
-
-        // Wrap the function reference in a ResolvedFunctionArgument.
-        std::unique_ptr<ResolvedFunctionArgument> arg =
-            googlesql::MakeResolvedFunctionArgument();
-        arg->set_function_ref(std::move(function_ref));
-
-        arg_overrides.push_back(FunctionArgumentOverride{i, std::move(arg)});
-      }
     }
   }
-
-  GOOGLESQL_RETURN_IF_ERROR(ReorderArgumentExpressionsPerIndexMapping(
-      function->SQLName(), *result_signature, arg_reorder_index_mapping,
-      ast_location, input_argument_types, &arg_locations, &arguments,
-      /*resolved_tvf_args=*/nullptr));
 
   const auto BadArgErrorPrefix = [&result_signature, &named_arguments,
                                   function](int idx) {
@@ -2322,7 +2306,8 @@ absl::Status FunctionResolver::ResolveGeneralFunctionCall(
           [&](const FunctionArgumentOverride& o) { return o.index == idx; });
       GOOGLESQL_RET_CHECK(arg_override != arg_overrides.end())
           << "No arg override found for lambda argument: "
-          << arguments[idx]->DebugString();
+          << (arg_locations[idx] != nullptr ? arg_locations[idx]->DebugString()
+                                            : "<null>");
 
       const FunctionArgumentType::ArgumentTypeLambda& concrete_lambda =
           concrete_argument.lambda();

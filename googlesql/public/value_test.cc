@@ -1235,6 +1235,22 @@ TEST_F(ValueTest, VariantWithTypedNull) {
   EXPECT_TRUE(variant_view.is_null());
 }
 
+TEST_F(ValueTest, VariantNull) {
+  Value v = Value::VariantNull();
+  EXPECT_TRUE(v.is_valid());
+  EXPECT_TRUE(v.type()->IsVariant());
+  EXPECT_FALSE(v.is_null());
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(VariantValueView view, v.variant_value());
+  EXPECT_TRUE(view.IsVariantNull());
+  EXPECT_FALSE(view.is_null());
+  EXPECT_TRUE(view.IsPrimitive());
+
+  // Also test top-level values:: free function
+  Value v2 = values::VariantNull();
+  EXPECT_TRUE(v2.Equals(v));
+  EXPECT_FALSE(v.Equals(Value::NullVariant()));
+}
+
 TEST_F(ValueTest, VariantEquality) {
   Value inner_int = Value::Int64(123);
   GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value variant_int, Value::Variant(inner_int));
@@ -5174,7 +5190,7 @@ TEST_F(ValueTest, ClassAndProtoSize) {
       << "The size of Value class has changed, please also update the proto "
       << "and serialization code if you added/removed fields in it.";
   // TODO: Add Java serialization test for TIMESTAMP_PICO type.
-  EXPECT_EQ(30, ValueProto::descriptor()->field_count())
+  EXPECT_EQ(31, ValueProto::descriptor()->field_count())
       << "The number of fields in ValueProto has changed, please also update "
       << "the serialization code accordingly.";
   EXPECT_EQ(1, ValueProto::Array::descriptor()->field_count())

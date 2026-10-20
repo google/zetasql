@@ -23,14 +23,12 @@ namespace googlesql::ast_node_internal {
 
 // Concrete types (the 'leaves' of the hierarchy) must be constructible.
 template <typename T>
-using EnableIfConcrete =
-    typename std::enable_if<std::is_constructible<T>::value, int>::type;
+using EnableIfConcrete = std::enable_if_t<std::is_constructible_v<T>, int>;
 
 // Non Concrete types (internal nodes) of the hierarchy must _not_ be
 // constructible.
 template <typename T>
-using EnableIfNotConcrete =
-    typename std::enable_if<!std::is_constructible<T>::value, int>::type;
+using EnableIfNotConcrete = std::enable_if_t<!std::is_constructible_v<T>, int>;
 
 // GetAsOrNull implementation optimized for concrete types.  We assume that all
 // concrete types define:

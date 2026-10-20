@@ -27,6 +27,7 @@
 #include "googlesql/analyzer/graph_query_resolver_helper.h"
 #include "googlesql/analyzer/name_scope.h"
 #include "googlesql/analyzer/resolver.h"
+#include "googlesql/common/builtin_function_internal.h"
 #include "googlesql/parser/ast_node.h"
 #include "googlesql/parser/parse_tree.h"
 #include "googlesql/parser/parse_tree_errors.h"
@@ -34,6 +35,7 @@
 #include "googlesql/public/id_string.h"
 #include "googlesql/public/property_graph.h"
 #include "googlesql/public/types/graph_element_type.h"
+#include "googlesql/public/types/type.h"
 #include "googlesql/public/types/type_factory.h"
 #include "googlesql/public/types/type_modifiers.h"
 #include "googlesql/public/value.h"
@@ -761,6 +763,18 @@ GraphDmlResolver::ResolveInsertProperties(
           absl::StrCat("Cannot insert value of type $1 into property '",
                        prop_id.ToStringView(), "' of type $0"),
           &resolved_value_expr));
+    } else {
+      const Type* unsupported_type =
+          GetUnsupportedTypeForJsonConversion(resolved_value_expr->type());
+      if (unsupported_type != nullptr) {
+        return MakeSqlErrorAt(prop->value())
+               << "Cannot insert value of type "
+               << resolved_value_expr->type()->ShortTypeName(
+                      resolver_->product_mode())
+               << " into dynamic property '" << prop_id << "': "
+               << unsupported_type->ShortTypeName(resolver_->product_mode())
+               << " does not support conversion to JSON";
+      }
     }
 
     const GraphPropertyDeclaration* static_property_decl =
@@ -1127,6 +1141,16 @@ GraphDmlResolver::ResolveSetPropertyItemValue(
     }
     GOOGLESQL_RET_CHECK(resolver_->language().LanguageFeatureEnabled(
         FEATURE_SQL_GRAPH_DYNAMIC_ELEMENT_TYPE));
+    const Type* unsupported_type =
+        GetUnsupportedTypeForJsonConversion(resolved_val->type());
+    if (unsupported_type != nullptr) {
+      return MakeSqlErrorAt(ast_prop_val_expr)
+             << "Cannot assign value of type "
+             << resolved_val->type()->ShortTypeName(resolver_->product_mode())
+             << " into dynamic property '" << prop_id << "': "
+             << unsupported_type->ShortTypeName(resolver_->product_mode())
+             << " does not support conversion to JSON";
+    }
   }
 
   return MakeResolvedGraphDMLPropertyItem(prop_id.ToString(), static_decl,

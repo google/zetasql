@@ -45,10 +45,6 @@ class SampleAnnotation : public AnnotationSpec {
     return absl::OkStatus();
   };
 
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override;
-
   absl::Status CheckAndPropagateForParameter(
       const ResolvedParameter& parameter,
       AnnotationMap* result_annotation_map) override;

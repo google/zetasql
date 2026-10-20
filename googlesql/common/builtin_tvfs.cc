@@ -23,6 +23,7 @@
 
 #include "googlesql/common/builtin_function_internal.h"
 #include "googlesql/common/builtins_output_properties.h"
+#include "googlesql/common/errors.h"
 #include "googlesql/proto/kmeans_options.pb.h"
 #include "googlesql/public/analyzer_options.h"
 #include "googlesql/public/builtin_function.pb.h"
@@ -30,6 +31,7 @@
 #include "googlesql/public/catalog.h"
 #include "googlesql/public/constant_evaluator.h"
 #include "googlesql/public/function_signature.h"
+#include "googlesql/public/input_argument_type.h"
 #include "googlesql/public/kmeans_options.h"
 #include "googlesql/public/language_options.h"
 #include "googlesql/public/options.pb.h"
@@ -723,6 +725,60 @@ absl::Status InsertKMeansTVFSignature(
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::shared_ptr<TVFSignature>> ComputeLookupTableResultType(
+    Catalog* catalog, TypeFactory* type_factory,
+    const FunctionSignature& signature,
+    const std::vector<TVFInputArgumentType>& actual_arguments,
+    const AnalyzerOptions& analyzer_options) {
+  GOOGLESQL_RET_CHECK_EQ(actual_arguments.size(), 1);
+  const ResolvedExpr* scalar_expr = actual_arguments[0].scalar_expr();
+  GOOGLESQL_RET_CHECK_NE(scalar_expr, nullptr);
+
+  Value table_name_value;
+  if (scalar_expr->Is<ResolvedLiteral>()) {
+    table_name_value = scalar_expr->GetAs<ResolvedLiteral>()->value();
+  } else {
+    GOOGLESQL_RET_CHECK(analyzer_options.constant_evaluator() != nullptr)
+        << "LookupTable TVF requires a constant evaluator, but none was "
+           "configured in AnalyzerOptions.";
+    GOOGLESQL_ASSIGN_OR_RETURN(
+        table_name_value,
+        analyzer_options.constant_evaluator()->Evaluate(*scalar_expr));
+  }
+  if (table_name_value.is_null()) {
+    return MakeSqlError() << "The argument must be non-NULL";
+  }
+  GOOGLESQL_RET_CHECK(table_name_value.type()->IsString());
+  absl::string_view tbl_name = table_name_value.string_value();
+
+  std::vector<std::string> path;
+  GOOGLESQL_RETURN_IF_ERROR(
+      ParseIdentifierPath(tbl_name, analyzer_options.language(), &path));
+
+  const Table* table = nullptr;
+  GOOGLESQL_RETURN_IF_ERROR(
+      catalog->FindTable(path, &table, analyzer_options.find_options()));
+  GOOGLESQL_RET_CHECK_NE(table, nullptr);
+
+  TVFSignatureOptions tvf_signature_options;
+  tvf_signature_options.additional_deprecation_warnings =
+      signature.AdditionalDeprecationWarnings();
+  tvf_signature_options.row_type_rewrite_callback =
+      TVFSignature::BaseRowTypeRewriteCallback;
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      std::shared_ptr<TVFSignature> tvf_signature,
+      TVFSignature::Create(actual_arguments, table, tvf_signature_options));
+  // Propagate AnonymizationInfo from the resolved catalog Table to the
+  // TVFSignature so that anonymization / differential privacy queries and
+  // rewrites can identify that the TVF scan reads private user data and access
+  // its userid column metadata.
+  if (table->GetAnonymizationInfo().has_value()) {
+    tvf_signature->SetAnonymizationInfo(
+        std::make_unique<AnonymizationInfo>(*table->GetAnonymizationInfo()));
+  }
+  return tvf_signature;
+}
+
 }  // namespace
 
 absl::Status GetVectorSearchTableValuedFunctions(
@@ -741,6 +797,26 @@ absl::Status GetKMeansTableValuedFunction(
     NameToTableValuedFunctionMap* table_valued_functions) {
   GOOGLESQL_RETURN_IF_ERROR(
       InsertKMeansTVFSignature(type_factory, options, table_valued_functions));
+  return absl::OkStatus();
+}
+
+absl::Status GetLookupTableTableValuedFunction(
+    TypeFactory* type_factory, const GoogleSQLBuiltinFunctionOptions& options,
+    NameToTableValuedFunctionMap* table_valued_functions) {
+  GOOGLESQL_RETURN_IF_ERROR(InsertSimpleTableValuedFunction(
+      table_valued_functions, options, "LookupTable",
+      {{FunctionSignatureOnHeap(
+          /*result_type=*/FunctionArgumentType::AnyRelation(),
+          /*arguments=*/
+          FunctionArgumentTypeList{
+              FunctionArgumentType(type_factory->get_string(),
+                                   FunctionArgumentTypeOptions()
+                                       .set_must_be_non_null()
+                                       .set_must_be_immutable_constant())},
+          /*context_id=*/FN_TVF_LOOKUP_TABLE)}},
+      TableValuedFunctionOptions()
+          .AddRequiredLanguageFeature(FEATURE_LOOKUP_TABLE_TVF)
+          .set_compute_result_type_callback(&ComputeLookupTableResultType)));
   return absl::OkStatus();
 }
 

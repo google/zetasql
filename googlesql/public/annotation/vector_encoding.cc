@@ -18,7 +18,6 @@
 
 #include <optional>
 #include <string>
-#include <vector>
 
 #include "googlesql/common/errors.h"
 #include "googlesql/public/annotation/default_annotation_spec.h"
@@ -146,18 +145,6 @@ VectorEncodingAnnotation::GetEffectiveEncoding(
   return encoding;
 }
 
-absl::Status VectorEncodingAnnotation::CheckAndPropagateForColumnRef(
-    const ResolvedColumnRef& column_ref, AnnotationMap* result_annotation_map) {
-  if (result_annotation_map == nullptr) {
-    return absl::OkStatus();
-  }
-
-  GOOGLESQL_RETURN_IF_ERROR(MergeAnnotations(column_ref.column().type_annotation_map(),
-                                   *result_annotation_map));
-  return ApplyUnconstrainedVectorEncoding(column_ref.column().type(),
-                                          result_annotation_map);
-}
-
 absl::Status VectorEncodingAnnotation::CheckAndPropagateForParameter(
     const ResolvedParameter& parameter, AnnotationMap* result_annotation_map) {
   GOOGLESQL_RET_CHECK(result_annotation_map != nullptr);
@@ -262,7 +249,7 @@ absl::Status VectorEncodingAnnotation::CheckAndPropagateForFunctionCallBase(
     // In GoogleSQL ResolvedFunctionCall, arguments are positionally guaranteed
     // to match the function signature, regardless of whether the user used
     // named arguments in the query. Index 0 is always the input array. Index 1
-    // (if present) is the target length. Index 2 (if present) is the target
+    // (if present) is the target dims. Index 2 (if present) is the target
     // encoding.
     constexpr int kEncodingArgIdx = 2;
     const FunctionSignature& signature = function_call.signature();

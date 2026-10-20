@@ -1314,9 +1314,12 @@ GraphTableQueryResolver::ResolveElementPattern(
                        table_kind, static_properties, resolver_->type_factory_,
                        /*is_dynamic=*/!dynamic_properties.empty()));
 
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      AnnotatedType annotated_element_type,
+      GetAnnotatedGraphType(&ast_element_pattern, graph_element_type));
   ResolvedColumn element_column(resolver_->AllocateColumnId(),
                                 /*table_name=*/kElementTableName, element_alias,
-                                graph_element_type);
+                                annotated_element_type);
   // Mark element_column as accessed so analyzer does not consider it unused and
   // prune it from the scan. In some cases, element_column may not be used
   // in the resolved graph_table query e.g.:
@@ -1955,8 +1958,10 @@ absl::StatusOr<ResolvedColumn> GraphTableQueryResolver::GeneratePathColumn(
   if (ast_path_name != nullptr) {
     path_name = ast_path_name->GetAsIdString();
   }
+  GOOGLESQL_ASSIGN_OR_RETURN(AnnotatedType annotated_path_type,
+                   GetAnnotatedGraphType(ast_path_name, path_super_type));
   ResolvedColumn result(resolver_->AllocateColumnId(), kGraphTableName,
-                        path_name, path_super_type);
+                        path_name, annotated_path_type);
   if (ast_path_name != nullptr) {
     GOOGLESQL_RETURN_IF_ERROR(multiply_decl_namelists.singleton_name_list->AddColumn(
         result.name_id(), result,
@@ -2144,26 +2149,27 @@ GraphTableQueryResolver::ResolvePathPattern(
     // If this is a quantified path, output a synthetic 'head' and 'tail'
     // column along with the group variables accessible along the path.
     // For more context: (broken link):bounded-quantified-path-pattern
-    const Type* head_type = input_scans.front()->column_list().front().type();
-    const Type* tail_type = nullptr;
+    const AnnotatedType head_type =
+        input_scans.front()->column_list().front().annotated_type();
+    std::optional<AnnotatedType> tail_type;
     for (auto it = input_scans.back()->column_list().rbegin();
          it != input_scans.back()->column_list().rend(); ++it) {
       if (!it->type()->IsGraphPath()) {
-        tail_type = it->type();
+        tail_type = it->annotated_type();
         break;
       }
     }
-    GOOGLESQL_RET_CHECK(head_type->IsGraphElement());
-    GOOGLESQL_RET_CHECK(head_type->AsGraphElement()->IsNode());
-    GOOGLESQL_RET_CHECK(tail_type != nullptr);
-    GOOGLESQL_RET_CHECK(tail_type->IsGraphElement());
-    GOOGLESQL_RET_CHECK(tail_type->AsGraphElement()->IsNode());
+    GOOGLESQL_RET_CHECK(head_type.type->IsGraphElement());
+    GOOGLESQL_RET_CHECK(head_type.type->AsGraphElement()->IsNode());
+    GOOGLESQL_RET_CHECK(tail_type.has_value());
+    GOOGLESQL_RET_CHECK(tail_type->type->IsGraphElement());
+    GOOGLESQL_RET_CHECK(tail_type->type->AsGraphElement()->IsNode());
     ResolvedColumn head_column(resolver_->AllocateColumnId(),
                                /*table_name=*/kPathScanName, kHeadColumnName,
                                head_type);
     ResolvedColumn tail_column(resolver_->AllocateColumnId(),
                                /*table_name=*/kPathScanName, kTailColumnName,
-                               tail_type);
+                               *tail_type);
     // Clear the original column list for this path.
     path_scan_column_list.clear();
     path_scan_column_list.push_back(head_column);
@@ -2673,7 +2679,8 @@ absl::Status GraphTableQueryResolver::ResolveSelectColumn(
                   /*allow_horizontal_aggregate=*/true, kGraphTableShape));
   GOOGLESQL_ASSIGN_OR_RETURN(const auto column_name, GetColumnName(ast_select_column));
   ResolvedColumn output_column(resolver_->AllocateColumnId(), kGraphTableName,
-                               column_name, resolved_column_expr->type());
+                               column_name,
+                               resolved_column_expr->annotated_type());
   GOOGLESQL_RETURN_IF_ERROR(output_name_list->AddColumn(column_name, output_column,
                                               /*is_explicit=*/true));
   GOOGLESQL_ASSIGN_OR_RETURN(
@@ -2881,10 +2888,6 @@ absl::Status GraphTableQueryResolver::ValidateGqlDmlOperator(
               FEATURE_SQL_GRAPH_TERMINAL_INSERT)) {
         return MakeSqlErrorAt(gql_op) << "Graph INSERT is not supported";
       }
-      // `is_nested` is true if any of the conditions are met:
-      // - The query is nested inside a GRAPH_TABLE subquery.
-      // - The query is nested inside a GQL subquery, for example, CALL {...}
-      //   or EXISTS {...}.
       if (context.is_nested) {
         return MakeSqlErrorAt(gql_op)
                << "INSERT is not allowed in non-top-level graph statement";
@@ -4019,7 +4022,8 @@ GraphTableQueryResolver::ResolveGqlLet(
                                  /*allow_horizontal_aggregate=*/true, "LET"));
 
     ResolvedColumn new_column(resolver_->AllocateColumnId(), kGraphTableName,
-                              column_name, resolved_column_expr->type());
+                              column_name,
+                              resolved_column_expr->annotated_type());
     let_definition_column_list.push_back(new_column);
 
     GOOGLESQL_ASSIGN_OR_RETURN(
@@ -4952,9 +4956,20 @@ absl::StatusOr<NameListPtr> GraphTableQueryResolver::GetOutputGroupNameList(
       GOOGLESQL_ASSIGN_OR_RETURN(const ArrayType* array_type,
                        resolver_->type_factory_->MakeArrayType(
                            singleton.column().type(), resolver_->language()));
-      ResolvedColumn output_column(resolver_->AllocateColumnId(),
-                                   singleton.column().table_name_id(),
-                                   singleton.column().name_id(), array_type);
+      const AnnotationMap* array_annotation_map = nullptr;
+      if (singleton.column().type_annotation_map() != nullptr) {
+        std::unique_ptr<AnnotationMap> annotation_map =
+            AnnotationMap::Create(array_type);
+        GOOGLESQL_RETURN_IF_ERROR(annotation_map->AsStructMap()->CloneIntoField(
+            0, singleton.column().type_annotation_map()));
+        GOOGLESQL_ASSIGN_OR_RETURN(
+            array_annotation_map,
+            resolver_->type_factory_->TakeOwnership(std::move(annotation_map)));
+      }
+      ResolvedColumn output_column(
+          resolver_->AllocateColumnId(), singleton.column().table_name_id(),
+          singleton.column().name_id(),
+          AnnotatedType(array_type, array_annotation_map));
       new_group_variables.push_back(MakeResolvedGraphMakeArrayVariable(
           singleton.column(), output_column));
       GOOGLESQL_RETURN_IF_ERROR(output_name_list->AddColumn(output_column.name_id(),
@@ -5068,6 +5083,55 @@ absl::Status GraphTableQueryResolver::ValidateGraphNameLists(
     }
   }
   return absl::OkStatus();
+}
+
+absl::Status GraphTableQueryResolver::PopulateGraphTypeAnnotationMap(
+    const Type* type, AnnotationMap* annotation_map) const {
+  if (type->IsGraphElement()) {
+    const GraphElementType* element_type = type->AsGraphElement();
+    absl::Span<const PropertyType> property_types =
+        element_type->property_types();
+    if (property_types.empty()) {
+      return absl::OkStatus();
+    }
+    GOOGLESQL_RET_CHECK(annotation_map->IsStructMap());
+    StructAnnotationMap* struct_map = annotation_map->AsStructMap();
+    GOOGLESQL_RET_CHECK_EQ(struct_map->num_fields(), property_types.size());
+    for (int i = 0; i < property_types.size(); ++i) {
+      const GraphPropertyDeclaration* prop_dcl = nullptr;
+      GOOGLESQL_RETURN_IF_ERROR(graph_->FindPropertyDeclarationByName(
+          property_types[i].name, prop_dcl));
+      GOOGLESQL_RET_CHECK_NE(prop_dcl, nullptr);
+      if (prop_dcl->TypeAnnotationMap() != nullptr) {
+        GOOGLESQL_RETURN_IF_ERROR(
+            struct_map->CloneIntoField(i, prop_dcl->TypeAnnotationMap()));
+      }
+    }
+    return absl::OkStatus();
+  }
+  if (type->IsGraphPath()) {
+    const GraphPathType* path_type = type->AsGraphPath();
+    GOOGLESQL_RET_CHECK(annotation_map->IsStructMap());
+    StructAnnotationMap* struct_map = annotation_map->AsStructMap();
+    GOOGLESQL_RET_CHECK_EQ(struct_map->num_fields(), 2);
+    GOOGLESQL_RETURN_IF_ERROR(PopulateGraphTypeAnnotationMap(
+        path_type->node_type(), struct_map->mutable_field(0)));
+    GOOGLESQL_RETURN_IF_ERROR(PopulateGraphTypeAnnotationMap(
+        path_type->edge_type(), struct_map->mutable_field(1)));
+    return absl::OkStatus();
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<AnnotatedType> GraphTableQueryResolver::GetAnnotatedGraphType(
+    const ASTNode* error_location, const Type* type) const {
+  std::unique_ptr<AnnotationMap> annotation_map = AnnotationMap::Create(type);
+  GOOGLESQL_RETURN_IF_ERROR(PopulateGraphTypeAnnotationMap(type, annotation_map.get()));
+  AnnotatedType annotated_type(
+      type, annotation_map->Empty() ? nullptr : annotation_map.get());
+  GOOGLESQL_RETURN_IF_ERROR(resolver_->InitializeAnnotationsForInputColumn(
+      error_location, &annotated_type));
+  return annotated_type;
 }
 
 }  // namespace googlesql

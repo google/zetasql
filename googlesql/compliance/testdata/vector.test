@@ -1,7 +1,7 @@
 [prepare_database]
 [default required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK]
 [prepare_database_additional_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK]
-CREATE TEMP CONSTANT CVectorLength = 2;
+CREATE TEMP CONSTANT CVectorDims = 2;
 ==
 
 #######
@@ -75,79 +75,79 @@ ARRAY<STRUCT<id INT64, v VECTOR>>[{1, VECTOR([1, 2])}]
 #################
 
 [name=vector_encode_empty]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[]));
 --
 ERROR: generic::out_of_range: The input ARRAY to ENCODE_VECTOR must not be empty
 ==
 
 [name=vector_encode_parameter_and_constant]
 [parameters=ARRAY<FLOAT>[1.0, 2.0] as param_arr]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(@param_arr, CVectorLength));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(@param_arr, CVectorDims));
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
 [name=vector_encode_null_error]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, NULL]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, NULL]));
 --
 ERROR: generic::out_of_range: NULL values are not permitted in ENCODE_VECTOR
 ==
 
 [name=vector_encode_null_error_safe]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,SAFE_FUNCTION_CALL]
-SELECT VECTOR_LENGTH(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, NULL]));
+SELECT VECTOR_DIMENSION_COUNT(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, NULL]));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=vector_encode_nan_error]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('NaN' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('NaN' AS FLOAT)]));
 --
 ERROR: generic::out_of_range: NaN, +inf, or -inf values are not permitted in ENCODE_VECTOR
 ==
 
 [name=vector_encode_nan_error_safe]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,SAFE_FUNCTION_CALL]
-SELECT VECTOR_LENGTH(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('NaN' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('NaN' AS FLOAT)]));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=vector_encode_inf_error]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('+inf' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('+inf' AS FLOAT)]));
 --
 ERROR: generic::out_of_range: NaN, +inf, or -inf values are not permitted in ENCODE_VECTOR
 ==
 
 [name=vector_encode_inf_error_safe]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,SAFE_FUNCTION_CALL]
-SELECT VECTOR_LENGTH(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('+inf' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('+inf' AS FLOAT)]));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
 [name=vector_encode_neg_inf_error]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('-inf' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('-inf' AS FLOAT)]));
 --
 ERROR: generic::out_of_range: NaN, +inf, or -inf values are not permitted in ENCODE_VECTOR
 ==
 
 [name=vector_encode_neg_inf_error_safe]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,SAFE_FUNCTION_CALL]
-SELECT VECTOR_LENGTH(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('-inf' AS FLOAT)]));
+SELECT VECTOR_DIMENSION_COUNT(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, CAST('-inf' AS FLOAT)]));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
-[name=vector_encode_mismatched_length]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], 2));
+[name=vector_encode_mismatched_dims]
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], 2));
 --
-ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the length (2)
+ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the dims (2)
 ==
 
-[name=vector_encode_mismatched_length_safe]
+[name=vector_encode_mismatched_dims_safe]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,SAFE_FUNCTION_CALL]
-SELECT VECTOR_LENGTH(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], 2));
+SELECT VECTOR_DIMENSION_COUNT(SAFE.ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], 2));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
@@ -168,24 +168,24 @@ SELECT DECODE_VECTOR(CAST(NULL AS VECTOR));
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<FLOAT>(NULL)}]
 ==
 
-#################
-# VECTOR_LENGTH #
-#################
+##########################
+# VECTOR_DIMENSION_COUNT #
+##########################
 
-[name=vector_length_null]
-SELECT VECTOR_LENGTH(CAST(NULL AS VECTOR));
+[name=vector_dimension_count_null]
+SELECT VECTOR_DIMENSION_COUNT(CAST(NULL AS VECTOR));
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
-[name=vector_length_basic]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0]));
+[name=vector_dimension_count_basic]
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0]));
 --
 ARRAY<STRUCT<INT64>>[{3}]
 ==
 
-[name=vector_length_cast_to_unannotated_vector]
-SELECT VECTOR_LENGTH(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0]) AS VECTOR));
+[name=vector_dimension_count_cast_to_unannotated_vector]
+SELECT VECTOR_DIMENSION_COUNT(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0]) AS VECTOR));
 --
 ARRAY<STRUCT<INT64>>[{3}]
 ==
@@ -365,7 +365,7 @@ SELECT TYPEOF(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]));
 ARRAY<STRUCT<STRING>>[{"VECTOR"}]
 ==
 
-[name=typeof_vector_from_array_with_length]
+[name=typeof_vector_from_array_with_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,TYPEOF_FUNCTION]
 SELECT TYPEOF(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0], 2));
 --
@@ -430,20 +430,20 @@ SELECT ARRAY<VECTOR>[ENCODE_VECTOR(ARRAY<FLOAT>[1.0, NULL])];
 ERROR: generic::out_of_range: NULL values are not permitted in ENCODE_VECTOR
 ==
 
-[name=vector_encode_null_length]
-SELECT VECTOR_LENGTH(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], NULL));
+[name=vector_encode_null_dims]
+SELECT VECTOR_DIMENSION_COUNT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], NULL));
 --
 ARRAY<STRUCT<INT64>>[{3}]
 ==
 
-[name=vector_array_element_length_null]
-SELECT VECTOR_LENGTH(ARRAY<VECTOR>[CAST(NULL AS VECTOR), ENCODE_VECTOR(ARRAY<FLOAT>[1.0])][OFFSET(0)]);
+[name=vector_array_element_dimension_count_null]
+SELECT VECTOR_DIMENSION_COUNT(ARRAY<VECTOR>[CAST(NULL AS VECTOR), ENCODE_VECTOR(ARRAY<FLOAT>[1.0])][OFFSET(0)]);
 --
 ARRAY<STRUCT<INT64>>[{NULL}]
 ==
 
-[name=vector_array_element_length_valid]
-SELECT VECTOR_LENGTH(ARRAY<VECTOR>[CAST(NULL AS VECTOR), ENCODE_VECTOR(ARRAY<FLOAT>[1.0])][OFFSET(1)]);
+[name=vector_array_element_dimension_count_valid]
+SELECT VECTOR_DIMENSION_COUNT(ARRAY<VECTOR>[CAST(NULL AS VECTOR), ENCODE_VECTOR(ARRAY<FLOAT>[1.0])][OFFSET(1)]);
 --
 ARRAY<STRUCT<INT64>>[{1}]
 ==
@@ -452,77 +452,77 @@ ARRAY<STRUCT<INT64>>[{1}]
 # CAST & PARAMS #
 #################
 
-[name=cast_vector_with_matching_length]
+[name=cast_vector_with_matching_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
-SELECT VECTOR_LENGTH(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(2)));
+SELECT VECTOR_DIMENSION_COUNT(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(2)));
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[name=cast_vector_with_mismatched_length_error]
+[name=cast_vector_with_mismatched_dims_error]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(3));
 --
-ERROR: generic::out_of_range: VECTOR(3) has length 3 but got a vector with length 2
+ERROR: generic::out_of_range: VECTOR(3) has dims 3 but got a vector with dims 2
 ==
 
-[name=safe_cast_vector_with_mismatched_length]
+[name=safe_cast_vector_with_mismatched_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT SAFE_CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(3));
 --
 ARRAY<STRUCT<VECTOR>>[{NULL}]
 ==
 
-[name=cast_null_vector_with_length]
+[name=cast_null_vector_with_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(CAST(NULL AS VECTOR) AS VECTOR(2));
 --
 ARRAY<STRUCT<VECTOR>>[{NULL}]
 ==
 
-[name=cast_array_of_vector_with_matching_length]
+[name=cast_array_of_vector_with_matching_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(ARRAY<VECTOR>[ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0])] AS ARRAY<VECTOR(2)>);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<VECTOR>[VECTOR([1, 2])]}]
 ==
 
-[name=cast_array_of_mixed_vectors_to_array_of_vector_with_length]
+[name=cast_array_of_mixed_vectors_to_array_of_vector_with_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(ARRAY<VECTOR>[ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0]), ENCODE_VECTOR(ARRAY<FLOAT>[3.0, 4.0])] AS ARRAY<VECTOR(2)>);
 --
-ERROR: generic::out_of_range: VECTOR(2) has length 2 but got a vector with length 3
+ERROR: generic::out_of_range: VECTOR(2) has dims 2 but got a vector with dims 3
 ==
 
-[name=cast_array_of_vector_with_mismatched_length_error]
+[name=cast_array_of_vector_with_mismatched_dims_error]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(ARRAY<VECTOR>[ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0])] AS ARRAY<VECTOR(3)>);
 --
-ERROR: generic::out_of_range: VECTOR(3) has length 3 but got a vector with length 2
+ERROR: generic::out_of_range: VECTOR(3) has dims 3 but got a vector with dims 2
 ==
 
-[name=safe_cast_array_of_vector_with_mismatched_length]
+[name=safe_cast_array_of_vector_with_mismatched_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT SAFE_CAST(ARRAY<VECTOR>[ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0])] AS ARRAY<VECTOR(3)>);
 --
 ARRAY<STRUCT<ARRAY<>>>[{ARRAY<VECTOR>(NULL)}]
 ==
 
-[name=cast_struct_of_vector_with_matching_length]
+[name=cast_struct_of_vector_with_matching_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
-SELECT VECTOR_LENGTH(CAST(STRUCT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS v) AS STRUCT<v VECTOR(2)>).v);
+SELECT VECTOR_DIMENSION_COUNT(CAST(STRUCT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS v) AS STRUCT<v VECTOR(2)>).v);
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
 
-[name=cast_struct_of_vector_with_mismatched_length_error]
+[name=cast_struct_of_vector_with_mismatched_dims_error]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(STRUCT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS v) AS STRUCT<v VECTOR(3)>);
 --
-ERROR: generic::out_of_range: VECTOR(3) has length 3 but got a vector with length 2
+ERROR: generic::out_of_range: VECTOR(3) has dims 3 but got a vector with dims 2
 ==
 
-[name=safe_cast_struct_of_vector_with_mismatched_length]
+[name=safe_cast_struct_of_vector_with_mismatched_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT SAFE_CAST(STRUCT(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS v) AS STRUCT<v VECTOR(3)>);
 --
@@ -531,7 +531,7 @@ ARRAY<STRUCT<STRUCT<v VECTOR>>>[{{NULL}}]
 
 [name=cast_vector_with_float32_encoding]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
-SELECT VECTOR_LENGTH(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(2, 'FLOAT32')));
+SELECT VECTOR_DIMENSION_COUNT(CAST(ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0]) AS VECTOR(2, 'FLOAT32')));
 --
 ARRAY<STRUCT<INT64>>[{2}]
 ==
@@ -541,7 +541,7 @@ ARRAY<STRUCT<INT64>>[{2}]
 ##############################
 
 [name=query_vector_table_unannotated_column]
-SELECT id, VECTOR_LENGTH(v_unannotated), DECODE_VECTOR(v_unannotated)
+SELECT id, VECTOR_DIMENSION_COUNT(v_unannotated), DECODE_VECTOR(v_unannotated)
 FROM VectorTable
 ORDER BY id;
 --
@@ -560,7 +560,7 @@ ARRAY<STRUCT<id INT64, INT64, ARRAY<>>>[known order:
 ==
 
 [name=query_vector_table_param_column]
-SELECT id, VECTOR_LENGTH(v_len2), DECODE_VECTOR(v_len2)
+SELECT id, VECTOR_DIMENSION_COUNT(v_len2), DECODE_VECTOR(v_len2)
 FROM VectorTable
 ORDER BY id;
 --
@@ -579,7 +579,7 @@ ARRAY<STRUCT<id INT64, INT64, ARRAY<>>>[known order:
 ==
 
 [name=query_vector_table_array_column]
-SELECT id, ARRAY_LENGTH(v_arr), VECTOR_LENGTH(v_arr[OFFSET(0)])
+SELECT id, ARRAY_LENGTH(v_arr), VECTOR_DIMENSION_COUNT(v_arr[OFFSET(0)])
 FROM VectorTable
 ORDER BY id;
 --
@@ -587,7 +587,7 @@ ARRAY<STRUCT<id INT64, INT64, INT64>>[known order:{1, 2, 2}, {2, 1, 2}]
 ==
 
 [name=query_vector_table_unannotated_array_column]
-SELECT id, ARRAY_LENGTH(v_arr_unannotated), VECTOR_LENGTH(v_arr_unannotated[OFFSET(0)]), VECTOR_LENGTH(v_arr_unannotated[OFFSET(1)])
+SELECT id, ARRAY_LENGTH(v_arr_unannotated), VECTOR_DIMENSION_COUNT(v_arr_unannotated[OFFSET(0)]), VECTOR_DIMENSION_COUNT(v_arr_unannotated[OFFSET(1)])
 FROM VectorTable
 WHERE id = 1;
 --
@@ -595,7 +595,7 @@ ARRAY<STRUCT<id INT64, INT64, INT64, INT64>>[{1, 2, 2, 3}]
 ==
 
 [name=query_vector_table_struct_column]
-SELECT id, VECTOR_LENGTH(v_struct.a), DECODE_VECTOR(v_struct.a)
+SELECT id, VECTOR_DIMENSION_COUNT(v_struct.a), DECODE_VECTOR(v_struct.a)
 FROM VectorTable
 ORDER BY id;
 --
@@ -624,16 +624,16 @@ ARRAY<STRUCT<id INT64, dist DOUBLE>>[known order:
 ]
 ==
 
-[name=cast_unannotated_column_with_mismatched_length_error]
+[name=cast_unannotated_column_with_mismatched_dims_error]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(v_unannotated AS VECTOR(2))
 FROM VectorTable
 WHERE id = 1;
 --
-ERROR: generic::out_of_range: VECTOR(2) has length 2 but got a vector with length 3
+ERROR: generic::out_of_range: VECTOR(2) has dims 2 but got a vector with dims 3
 ==
 
-[name=safe_cast_unannotated_column_with_mismatched_length]
+[name=safe_cast_unannotated_column_with_mismatched_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT SAFE_CAST(v_unannotated AS VECTOR(2))
 FROM VectorTable
@@ -642,7 +642,7 @@ WHERE id = 1;
 ARRAY<STRUCT<VECTOR>>[{NULL}]
 ==
 
-[name=cast_unannotated_column_with_matching_length]
+[name=cast_unannotated_column_with_matching_dims]
 [required_features=VECTOR_TYPE,DECLARATIVE_TYPE_FRAMEWORK,PARAMETERIZED_TYPES]
 SELECT CAST(v_unannotated AS VECTOR(2))
 FROM VectorTable
@@ -682,10 +682,10 @@ STRUCT<
   ]}
 ==
 
-[name=insert_into_vector_dml_table_mismatched_length_error]
+[name=insert_into_vector_dml_table_mismatched_dims_error]
 INSERT VectorDmlTable (id, v) VALUES (2, ENCODE_VECTOR(ARRAY<FLOAT>[1.0, 2.0, 3.0], 2));
 --
-ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the length (2)
+ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the dims (2)
 ==
 
 [name=insert_into_vector_dml_table_select_query]
@@ -734,7 +734,7 @@ STRUCT<
 [parameters=CAST(ENCODE_VECTOR(ARRAY<FLOAT>[3.0, 4.0, 5.0]) AS VECTOR(3)) as vec_param]
 INSERT VectorDmlTable (id, v) VALUES (2, CAST(@vec_param AS VECTOR(2)));
 --
-ERROR: generic::out_of_range: VECTOR(2) has length 2 but got a vector with length 3
+ERROR: generic::out_of_range: VECTOR(2) has dims 2 but got a vector with dims 3
 ==
 
 [name=insert_into_vector_dml_table_with_array_param]
@@ -763,10 +763,10 @@ STRUCT<
 }
 ==
 
-[name=update_vector_dml_table_mismatched_length_error]
+[name=update_vector_dml_table_mismatched_dims_error]
 UPDATE VectorDmlTable SET v = ENCODE_VECTOR(ARRAY<FLOAT>[5.0, 6.0, 7.0], 2) WHERE id = 1;
 --
-ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the length (2)
+ERROR: generic::out_of_range: Input ARRAY does not have a matching array_length (3) with the dims (2)
 ==
 
 [name=delete_from_vector_dml_table]

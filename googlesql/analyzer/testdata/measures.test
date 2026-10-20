@@ -7,7 +7,7 @@
 # ExpressionAttributesProto on columns. The Java serialization/deserialization
 # code needs to be updated to be aware of this field.
 [default no_java]
-[default language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT,+AGGREGATE_FILTERING,+CREATE_TABLE_FUNCTION,+PIPES,+HAVING_IN_AGGREGATE]
+[default language_features=NONE,+ENABLE_MEASURES,+MULTILEVEL_AGGREGATION,+GROUP_BY_STRUCT,+AGGREGATE_FILTERING,+CREATE_TABLE_FUNCTION,+PIPES,+HAVING_IN_AGGREGATE,+FIRST_AND_LAST_N]
 [default enabled_ast_rewrites=DEFAULTS,+MEASURE_TYPE]
 [default sql_builder_target_syntax_mode=standard]
 [default show_sqlbuilder_output]

@@ -1529,6 +1529,39 @@ FROM
 
 ==
 
+# Valid "TABLE(path PARTITION BY ... ORDER BY ...)" syntax for table-valued function arguments.
+select * from tvf_one_relation_arg_with_fixed_output(table(keyvalue partition by key order by value desc))
+--
+QueryStatement [0-106] [select * from...value desc))]
+  Query [0-106] [select * from...value desc))]
+    Select [0-106] [select * from...value desc))]
+      SelectList [7-8] [*]
+        SelectColumn [7-8] [*]
+          Star(*) [7-8] [*]
+      FromClause [9-106] [from tvf_one_rela...lue desc))]
+        TVF [14-106] [tvf_one_relation_...lue desc))]
+          PathExpression [14-52] [tvf_one_relation_...xed_output]
+            Identifier(tvf_one_relation_arg_with_fixed_output) [14-52] [tvf_one_relation_...xed_output]
+          TVFArgument [53-105] [table(keyvalue...value desc)]
+            TableClause [53-105] [table(keyvalue...value desc)]
+              PathExpression [59-67] [keyvalue]
+                Identifier(keyvalue) [59-67] [keyvalue]
+              PartitionBy [68-84] [partition by key]
+                PathExpression [81-84] [key]
+                  Identifier(key) [81-84] [key]
+              OrderBy [85-104] [order by value desc]
+                OrderingExpression(DESC) [94-104] [value desc]
+                  PathExpression [94-99] [value]
+                    Identifier(value) [94-99] [value]
+--
+SELECT
+  *
+FROM
+  tvf_one_relation_arg_with_fixed_output(TABLE(keyvalue PARTITION BY key
+  ORDER BY value DESC))
+
+==
+
 # Valid "MODEL path" syntax for table-valued function arguments.
 select * from tvf_one_relation_arg_with_fixed_output(model keyvalue)
 --

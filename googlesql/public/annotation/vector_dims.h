@@ -14,8 +14,8 @@
 // limitations under the License.
 //
 
-#ifndef GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_LENGTH_H_
-#define GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_LENGTH_H_
+#ifndef GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_DIMS_H_
+#define GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_DIMS_H_
 
 #include <cstdint>
 #include <optional>
@@ -30,51 +30,44 @@
 
 namespace googlesql {
 
-// VectorLength propagates the vector length parameter across operations
-// and casts. The VECTOR type requires a strictly positive integer length.
-// This class defines the propagation behavior of this length annotation for
-// ResolvedAst nodes.
-class VectorLengthAnnotation : public DefaultAnnotationSpec {
+// VectorDims propagates the vector dims parameter across operations and casts.
+// The VECTOR type requires dims to be a strictly positive integer. This class
+// defines the propagation behavior of this dims annotation for ResolvedAst
+// nodes.
+class VectorDimsAnnotation : public DefaultAnnotationSpec {
  public:
   static constexpr int64_t kUnconstrained = -1;
 
-  VectorLengthAnnotation() = default;
-  ~VectorLengthAnnotation() override = default;
+  VectorDimsAnnotation() = default;
+  ~VectorDimsAnnotation() override = default;
 
-  static int GetId() { return static_cast<int>(AnnotationKind::kVectorLength); }
+  static int GetId() { return static_cast<int>(AnnotationKind::kVectorDims); }
 
   int Id() const override { return GetId(); }
 
-  // Extracts the effective vector length from <annotation_map>.
+  // Extracts the effective vector dims from <annotation_map>.
   // Returns std::nullopt if:
   // - <annotation_map> is nullptr,
-  // - VectorLengthAnnotation is not present in <annotation_map>, or
-  // - VectorLengthAnnotation has value <= 0 (e.g. kUnconstrained = -1).
-  // Returns the vector length if it is a valid, fixed length (> 0).
-  static absl::StatusOr<std::optional<int64_t>> GetEffectiveLength(
+  // - VectorDimsAnnotation is not present in <annotation_map>, or
+  // - VectorDimsAnnotation has value <= 0 (e.g. kUnconstrained = -1).
+  // Returns the vector dims if it is a valid, fixed value (> 0).
+  static absl::StatusOr<std::optional<int64_t>> GetEffectiveDims(
       const AnnotationMap* annotation_map);
 
-  // Returns false when <map> is nullptr or VectorLengthAnnotation is not
+  // Returns false when <map> is nullptr or VectorDimsAnnotation is not
   // present in <map> or any of its nested AnnotationMaps.
   static bool ExistsIn(const AnnotationMap* map) {
-    return map != nullptr && map->Has<VectorLengthAnnotation>();
+    return map != nullptr && map->Has<VectorDimsAnnotation>();
   }
 
-  // Propagates vector length annotations from the referenced column.
-  // Unannotated vector columns (or nested vector slots) are assigned
-  // kUnconstrained (-1).
-  absl::Status CheckAndPropagateForColumnRef(
-      const ResolvedColumnRef& column_ref,
-      AnnotationMap* result_annotation_map) override;
-
-  // Propagates vector length annotations from the query parameter. Vector
+  // Propagates vector dims annotations from the query parameter. Vector
   // parameters (or nested vector slots) are assigned kUnconstrained (-1), since
-  // the length of a bound parameter value is not known at analysis time.
+  // the dims of a bound parameter value are not known at analysis time.
   absl::Status CheckAndPropagateForParameter(
       const ResolvedParameter& parameter,
       AnnotationMap* result_annotation_map) override;
 
-  // Determines whether the vector length should be propagated to the function's
+  // Determines whether the vector dims should be propagated to the function's
   // result. Handles specific vector functions such as ENCODE_VECTOR as well
   // as general function signatures (e.g. ARRAY_CONCAT, IF, CASE).
   absl::Status CheckAndPropagateForFunctionCallBase(
@@ -82,11 +75,11 @@ class VectorLengthAnnotation : public DefaultAnnotationSpec {
       AnnotationMap* result_annotation_map) override;
 
   // Assigns an annotation to the output of a cast if the target type is a
-  // VECTOR and specifies a length parameter, e.g. CAST(.. AS VECTOR(3)).
+  // VECTOR and specifies a dims parameter, e.g. CAST(.. AS VECTOR(3)).
   absl::Status CheckAndPropagateForCast(
       const ResolvedCast& cast, AnnotationMap* result_annotation_map) override;
 
-  // This is called to assign the annotation vector length of the output type
+  // This is called to assign the annotation vector dims of the output type
   // from TypeParameters. This function operates recursively within composite
   // types.
   static absl::Status PropagateFromTypeParameters(
@@ -94,11 +87,11 @@ class VectorLengthAnnotation : public DefaultAnnotationSpec {
       const AnnotationMap* input_map, AnnotationMap& result_annotation_map,
       bool return_null_on_error, const ParseLocationRange* error_location);
 
-  // Merges scalar vector length annotations from `in` into `out`.
+  // Merges scalar vector dims annotations from `in` into `out`.
   //
   // - If `in` or `out` is unannotated (nullptr, e.g. untyped NULL or empty
   //   container literal), the other's annotation is retained (identity).
-  // - If matching (`in == out`), `out` retains the length.
+  // - If matching (`in == out`), `out` retains the dims.
   // - If conflicting (`in != out`), `out` transitions to `kUnconstrained`
   //   (-1).
   // - If either is `kUnconstrained` (-1), the result transitions to
@@ -109,4 +102,4 @@ class VectorLengthAnnotation : public DefaultAnnotationSpec {
 
 }  // namespace googlesql
 
-#endif  // GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_LENGTH_H_
+#endif  // GOOGLESQL_PUBLIC_ANNOTATION_VECTOR_DIMS_H_

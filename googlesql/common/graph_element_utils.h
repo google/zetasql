@@ -17,6 +17,7 @@
 #ifndef GOOGLESQL_COMMON_GRAPH_ELEMENT_UTILS_H_
 #define GOOGLESQL_COMMON_GRAPH_ELEMENT_UTILS_H_
 
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -67,10 +68,11 @@ bool IsRestrictivePathMode(ResolvedGraphPathModeEnums::PathMode path_mode);
 bool HasSearchPrefix(
     ResolvedGraphPathSearchPrefixEnums::PathSearchPrefixType prefix_type);
 
-// Returns the intersection of the two periods.
+// Returns the intersection of the two periods, or std::nullopt if it is empty.
+// A NULL start or end means unbounded.
 // REQUIRES: `period1` and `period2` are valid non-null RANGE<TIMESTAMP> values.
-absl::StatusOr<Value> IntersectPeriods(const Value& period1,
-                                       const Value& period2);
+absl::StatusOr<std::optional<Value>> IntersectPeriods(const Value& period1,
+                                                      const Value& period2);
 
 // Returns true if the period contains the timestamp.
 // REQUIRES: `period` is a valid non-null RANGE<TIMESTAMP> value

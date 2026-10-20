@@ -278,7 +278,7 @@ public final class TypeParameters implements Serializable {
                 && parameters.getEncoding() != VectorEncodingId.Id.UNKNOWN_VECTOR_ENCODING
             ? ", encoding=" + parameters.getEncoding().name()
             : "";
-    return "(length=" + parameters.getLength() + encodingStr + ")";
+    return "(dims=" + parameters.getDims() + encodingStr + ")";
   }
 
   private static String extendedTypeParametersDebugString() {
@@ -329,10 +329,10 @@ public final class TypeParameters implements Serializable {
   }
 
   private static void validateTypeParameters(VectorTypeParametersProto proto) {
-    if (proto.hasLength()) {
-      long length = proto.getLength();
+    if (proto.hasDims()) {
+      long dims = proto.getDims();
       Preconditions.checkArgument(
-          length > 0, "length must be larger than 0, actual length: %s", String.valueOf(length));
+          dims > 0, "dims must be larger than 0, actual dims: %s", String.valueOf(dims));
     }
     if (proto.hasEncoding()) {
       Preconditions.checkArgument(

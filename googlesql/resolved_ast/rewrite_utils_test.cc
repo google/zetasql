@@ -524,6 +524,10 @@ static AnalyzerOptions MakeAnalyzerOptions() {
       LanguageFeature::FEATURE_TIME_BUCKET_FUNCTIONS);
   options.mutable_language()->EnableLanguageFeature(
       LanguageFeature::FEATURE_INTERVAL_TYPE);
+  options.mutable_language()->EnableLanguageFeature(
+      LanguageFeature::FEATURE_DATE_ARITHMETICS);
+  options.mutable_language()->EnableLanguageFeature(
+      LanguageFeature::FEATURE_SQL_GRAPH);
   return options;
 }
 
@@ -633,20 +637,9 @@ TEST_F(FunctionCallBuilderTest, MakeArrayWithMixedAnnotation) {
                            analyzer_options_, catalog_, type_factory_));
 
   const Type* type = args[0]->type();
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> make_arr_fn,
-                       fn_builder_.MakeArray(type, std::move(args)));
-
-  EXPECT_EQ(make_arr_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
-FunctionCall(GoogleSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-| +-type_annotation_map={Collation:"und:ci"}
-| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
-| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-  +-type_annotation_map={Collation:"binary"}
-  +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
-  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
-)"));
+  EXPECT_THAT(fn_builder_.MakeArray(type, std::move(args)),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Collation conflict")));
 }
 
 TEST_F(FunctionCallBuilderTest, ArrayConcat) {
@@ -1315,20 +1308,9 @@ TEST_F(FunctionCallBuilderTest, CoalesceWithMixedCollationTest) {
                        testing::BuildResolvedLiteralsWithCollationForTest(
                            {{"foo", "und:ci"}, {"FOO", "binary"}},
                            analyzer_options_, catalog_, type_factory_));
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> resolved_fn,
-                       fn_builder_.Coalesce(std::move(args)));
-
-  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
-FunctionCall(GoogleSQL:coalesce(repeated(2) STRING) -> STRING)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-| +-type_annotation_map={Collation:"und:ci"}
-| +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
-| +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-+-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-  +-type_annotation_map={Collation:"binary"}
-  +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
-  +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
-)"));
+  EXPECT_THAT(fn_builder_.Coalesce(std::move(args)),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Collation conflict")));
 }
 
 TEST_F(FunctionCallBuilderTest, LessWithSameCollationTest) {
@@ -1484,39 +1466,6 @@ FunctionCall(GoogleSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_off
 |   +-type_annotation_map={Collation:"und:ci"}
 |   +-Literal(type=STRING, value="bar", has_explicit_type=TRUE)
 |   +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-+-Literal(type=INT64, value=0)
-+-Literal(type=INT64, value=1)
-)"));
-}
-
-TEST_F(FunctionCallBuilderTest, ArraySliceWithMixedCollationTest) {
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::vector<std::unique_ptr<const ResolvedExpr>> args,
-                       testing::BuildResolvedLiteralsWithCollationForTest(
-                           {{"foo", "und:ci"}, {"FOO", "binary"}},
-                           analyzer_options_, catalog_, type_factory_));
-  const Type* type = args[0]->type();
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> array_expr,
-                       fn_builder_.MakeArray(type, std::move(args)));
-  std::unique_ptr<const ResolvedExpr> start_offset_expr =
-      MakeResolvedLiteral(Value::Int64(0));
-  std::unique_ptr<const ResolvedExpr> end_offset_expr =
-      MakeResolvedLiteral(Value::Int64(1));
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedFunctionCall> resolved_fn,
-                       fn_builder_.ArraySlice(std::move(array_expr),
-                                              std::move(start_offset_expr),
-                                              std::move(end_offset_expr)));
-
-  EXPECT_EQ(resolved_fn->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
-FunctionCall(GoogleSQL:array_slice(ARRAY<STRING> array_to_slice, INT64 start_offset, INT64 end_offset) -> ARRAY<STRING>)
-+-FunctionCall(GoogleSQL:$make_array(repeated(2) STRING) -> ARRAY<STRING>)
-| +-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-| | +-type_annotation_map={Collation:"und:ci"}
-| | +-Literal(type=STRING, value="foo", has_explicit_type=TRUE)
-| | +-Literal(type=STRING, value="und:ci", preserve_in_literal_remover=TRUE)
-| +-FunctionCall(GoogleSQL:collate(STRING, STRING) -> STRING)
-|   +-type_annotation_map={Collation:"binary"}
-|   +-Literal(type=STRING, value="FOO", has_explicit_type=TRUE)
-|   +-Literal(type=STRING, value="binary", preserve_in_literal_remover=TRUE)
 +-Literal(type=INT64, value=0)
 +-Literal(type=INT64, value=1)
 )"));
@@ -1964,6 +1913,65 @@ FunctionCall(GoogleSQL:$not(BOOL) -> BOOL)
 +-FunctionCall(GoogleSQL:$is_null(INT64) -> BOOL)
   +-ColumnRef(type=INT64, column=.#-1)
 )"));
+}
+
+TEST_F(FunctionCallBuilderTest, In) {
+  auto annotation_map = AnnotationMap::Create(types::StringType());
+  annotation_map->SetAnnotation<CollationAnnotation>(
+      googlesql::SimpleValue::String("und_ci"));
+
+  std::unique_ptr<ResolvedExpr> search =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("search"),
+                          /*has_explicit_type=*/true);
+  search->set_type_annotation_map(annotation_map.get());
+
+  std::unique_ptr<ResolvedExpr> opt1 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("opt1"),
+                          /*has_explicit_type=*/true);
+  opt1->set_type_annotation_map(annotation_map.get());
+
+  std::unique_ptr<ResolvedExpr> opt2 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("opt2"),
+                          /*has_explicit_type=*/true);
+  opt2->set_type_annotation_map(annotation_map.get());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> in_exprs;
+  in_exprs.push_back(std::move(opt1));
+  in_exprs.push_back(std::move(opt2));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(std::unique_ptr<const ResolvedExpr> function,
+                       fn_builder_.In(std::move(search), std::move(in_exprs)));
+  EXPECT_EQ(function->DebugString(), absl::StripLeadingAsciiWhitespace(R"(
+FunctionCall(GoogleSQL:$in(STRING, repeated(2) STRING) -> BOOL)
++-Literal(type=STRING, type_annotation_map={Collation:"und_ci"}, value="search", has_explicit_type=TRUE)
++-Literal(type=STRING, type_annotation_map={Collation:"und_ci"}, value="opt1", has_explicit_type=TRUE)
++-Literal(type=STRING, type_annotation_map={Collation:"und_ci"}, value="opt2", has_explicit_type=TRUE)
++-collation_list=[und_ci]
+)"));
+}
+
+TEST_F(FunctionCallBuilderTest, InTestConflictingCollations) {
+  std::unique_ptr<ResolvedExpr> search =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("search"),
+                          /*has_explicit_type=*/true);
+  auto annotation_map = AnnotationMap::Create(types::StringType());
+  annotation_map->SetAnnotation<CollationAnnotation>(
+      googlesql::SimpleValue::String("und_ci"));
+  search->set_type_annotation_map(annotation_map.get());
+
+  std::unique_ptr<ResolvedExpr> opt1 =
+      MakeResolvedLiteral(types::StringType(), Value::StringValue("opt1"),
+                          /*has_explicit_type=*/true);
+  auto annotation_map_opt1 = AnnotationMap::Create(types::StringType());
+  annotation_map_opt1->SetAnnotation<CollationAnnotation>(
+      googlesql::SimpleValue::String("binary"));
+  opt1->set_type_annotation_map(annotation_map_opt1.get());
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> in_exprs;
+  in_exprs.push_back(std::move(opt1));
+
+  EXPECT_THAT(fn_builder_.In(std::move(search), std::move(in_exprs)),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(FunctionCallBuilderTest, InArray) {

@@ -142,6 +142,7 @@
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
@@ -726,6 +727,7 @@ STATIC_IDSTRING(kGroupById, "$groupby");
 STATIC_IDSTRING(kMakeProtoId, "$make_proto");
 STATIC_IDSTRING(kMakeStructId, "$make_struct");
 STATIC_IDSTRING(kOrderById, "$orderby");
+STATIC_IDSTRING(kPartitionById, "$partitionby");
 STATIC_IDSTRING(kPreGroupById, "$pre_groupby");
 STATIC_IDSTRING(kPreProjectId, "$preproject");
 STATIC_IDSTRING(kProtoId, "$proto");
@@ -4706,11 +4708,27 @@ absl::Status Resolver::ResolveQueryExpression(
                           /*parent_expr_resolution_info=*/nullptr,
                           {.inferred_type_for_query = inferred_type_for_query});
 
-    case AST_TABLE_CLAUSE:
+    case AST_TABLE_CLAUSE: {
+      // `ResolveQueryExpression` is only reached when `TABLE ...` is used as a
+      // standalone query expression (not as a TVF argument, which resolves via
+      // `ResolveTVFArg`).
+      const ASTTableClause* table_clause = query_expr->GetAs<ASTTableClause>();
+      if (table_clause->table_subquery() != nullptr ||
+          table_clause->partition_by() != nullptr ||
+          table_clause->order_by() != nullptr) {
+        if (!language().LanguageFeatureEnabled(
+                FEATURE_TABLE_ARGUMENT_PARTITION_AND_ORDER)) {
+          return MakeSqlErrorAt(query_expr)
+                 << "Parenthesized TABLE clause is not supported";
+        }
+        return MakeSqlErrorAt(query_expr)
+               << "Parenthesized TABLE clauses are only supported as TVF "
+                  "arguments";
+      }
       if (language().LanguageFeatureEnabled(
               FEATURE_TOP_LEVEL_TABLE_STATEMENTS)) {
         return ResolveTableClause(
-            query_expr->GetAsOrDie<ASTTableClause>(), scope,
+            table_clause, scope,
             /*resolve_argument_first=*/true,
             /*read_as_row_type_error_kind=*/"top-level TABLE statements",
             output, output_name_list);
@@ -4718,6 +4736,7 @@ absl::Status Resolver::ResolveQueryExpression(
         return MakeSqlErrorAt(query_expr)
                << "TABLE statements are not supported";
       }
+    }
 
     case AST_ALIASED_QUERY_EXPRESSION:
       return ResolveAliasedQueryExpression(
@@ -16468,12 +16487,13 @@ absl::Status Resolver::ResolveTVF(
                                     passthrough_columns.begin(),
                                     passthrough_columns.end());
       }
-      final_resolved_tvf_args.push_back(
-          MakeResolvedTVFArgument(/*expr=*/nullptr, std::move(scan),
-                                  /*model=*/nullptr, /*connection=*/nullptr,
-                                  /*descriptor_arg=*/nullptr,
-                                  argument_column_list)
-              .release());
+      auto tvf_arg = MakeResolvedTVFArgument(
+          /*expr=*/nullptr, std::move(scan),
+          /*model=*/nullptr, /*connection=*/nullptr,
+          /*descriptor_arg=*/nullptr, argument_column_list);
+      tvf_arg->set_partition_by_list(arg.MovePartitionByList());
+      tvf_arg->set_order_by_list(arg.MoveOrderByList());
+      final_resolved_tvf_args.push_back(tvf_arg.release());
 
     } else if (arg.IsConnection()) {
       GOOGLESQL_ASSIGN_OR_RETURN(auto tvf_arg,
@@ -17103,24 +17123,26 @@ absl::Status Resolver::MatchTVFSignature(
         ast_tvf, arg_locations, signature_match_result, *tvf_catalog_entry,
         tvf_name_string, input_arg_types, signature_idx);
   }
+  std::vector<const ASTNode*> reordered_arg_locations = arg_locations;
   GOOGLESQL_RETURN_IF_ERROR(
       FunctionResolver::
           ReorderInputArgumentTypesPerIndexMappingAndInjectDefaultValues(
-              function_signature, arg_index_mapping, &input_arg_types));
+              function_signature, arg_index_mapping, &input_arg_types,
+              &reordered_arg_locations));
 
   // Check if the TVF arguments match its signature. If not, return an error.
   GOOGLESQL_ASSIGN_OR_RETURN(
       const bool matches,
       function_resolver.SignatureMatches(
-          arg_locations, input_arg_types, function_signature,
+          reordered_arg_locations, input_arg_types, function_signature,
           /*allow_argument_coercion=*/true, /*name_scope=*/nullptr,
           &result_signature, &signature_match_result, &arg_index_mapping,
           /*arg_overrides=*/nullptr, /*lambda_ast_nodes=*/nullptr));
 
   if (!matches) {
     return GenerateTVFNotMatchError(
-        ast_tvf, arg_locations, signature_match_result, *tvf_catalog_entry,
-        tvf_name_string, input_arg_types, signature_idx);
+        ast_tvf, reordered_arg_locations, signature_match_result,
+        *tvf_catalog_entry, tvf_name_string, input_arg_types, signature_idx);
   }
 
   GOOGLESQL_RETURN_IF_ERROR(FunctionResolver::ReorderArgumentExpressionsPerIndexMapping(
@@ -17267,6 +17289,16 @@ absl::Status Resolver::PrepareTVFInputArguments(
     }
   };
 
+  // PARTITION BY on a table argument is only supported when the resolved TVF
+  // call has a single relation argument (counting concrete relation arguments
+  // present in the call, excluding omitted optional relation arguments).
+  int num_relation_args = 0;
+  for (int i = 0; i < result_signature->NumConcreteArguments(); ++i) {
+    if (result_signature->ConcreteArgument(i).IsRelation()) {
+      ++num_relation_args;
+    }
+  }
+
   for (int arg_idx = 0; arg_idx < resolved_tvf_args.size(); ++arg_idx) {
     ResolvedTVFArg& resolved_tvf_arg = resolved_tvf_args[arg_idx];
     if (resolved_tvf_arg.IsExpr()) {
@@ -17340,6 +17372,26 @@ absl::Status Resolver::PrepareTVFInputArguments(
             signature_match_result, ast_tvf, resolved_tvf_arg));
       }
       // We've now ensured the input scan has just the required columns.
+      const ASTTableClause* ast_table_clause = resolved_tvf_arg.table_clause();
+      if (ast_table_clause != nullptr) {
+        if (ast_table_clause->partition_by() != nullptr &&
+            num_relation_args > 1) {
+          return MakeSqlErrorAt(ast_table_clause->partition_by())
+                 << "PARTITION BY is not supported for TVFs with multiple "
+                    "table arguments";
+        }
+        if (ast_table_clause->order_by() != nullptr &&
+            !function_signature->argument(arg_idx)
+                 .options()
+                 .supports_order_by()) {
+          return MakeSqlErrorAt(ast_table_clause->order_by())
+                 << "Table-valued function " << tvf_catalog_entry->SQLName()
+                 << " does not support ORDER BY on table argument "
+                 << (arg_idx + 1);
+        }
+        GOOGLESQL_RETURN_IF_ERROR(ResolveTableClausePartitionAndOrder(ast_table_clause,
+                                                            resolved_tvf_arg));
+      }
     }
   }
 
@@ -17522,6 +17574,38 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
       ast_tvf_arg->connection_clause();
   const ASTDescriptor* ast_descriptor = ast_tvf_arg->descriptor();
   const ASTGraphClause* ast_graph_clause = ast_tvf_arg->graph_clause();
+  if (ast_expr != nullptr && ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
+    if (IsNamedLambda(ast_expr)) {
+      return MakeSqlErrorAt(ast_expr)
+             << "Lambda arguments are not implemented for TVF";
+    }
+    // Set 'ast_expr' to the named argument value for further resolving.
+    ast_expr = ast_expr->GetAs<ASTNamedArgument>()->expr();
+    // Named TABLE clause arguments (`arg => TABLE ...`) are wrapped by the
+    // parser in ASTExpressionSubquery(ASTQuery(ASTTableClause)) with the same
+    // parse location range because ASTNamedArgument requires an ASTExpression
+    // child. Unwrap parenthesized TABLE clauses so they are resolved as TVF
+    // TABLE clause arguments.
+    if (ast_expr->node_kind() == AST_EXPRESSION_SUBQUERY) {
+      const auto* expr_subquery = ast_expr->GetAs<ASTExpressionSubquery>();
+      if (expr_subquery->modifier() == ASTExpressionSubquery::NONE &&
+          expr_subquery->query()->query_expr()->node_kind() ==
+              AST_TABLE_CLAUSE &&
+          expr_subquery->location() ==
+              expr_subquery->query()->query_expr()->location()) {
+        const auto* candidate_table_clause =
+            expr_subquery->query()->query_expr()->GetAs<ASTTableClause>();
+        if (candidate_table_clause->table_subquery() != nullptr ||
+            candidate_table_clause->partition_by() != nullptr ||
+            candidate_table_clause->order_by() != nullptr ||
+            language().LanguageFeatureEnabled(
+                FEATURE_TABLE_ARGUMENT_PARTITION_AND_ORDER)) {
+          ast_table_clause = candidate_table_clause;
+          ast_expr = nullptr;
+        }
+      }
+    }
+  }
   ResolvedTVFArg resolved_tvf_arg;
   if (ast_table_clause != nullptr) {
     GOOGLESQL_RET_CHECK(ast_expr == nullptr);
@@ -17532,19 +17616,16 @@ absl::StatusOr<ResolvedTVFArg> Resolver::ResolveTVFArg(
         /*resolve_argument_first=*/
         (tvf_catalog_entry->statement_context() == CONTEXT_MODULE),
         /*read_as_row_type_error_kind=*/"TVF argument", &scan, &name_list));
+    if (sig_idx_to_name_scope_map != nullptr) {
+      sig_idx_to_name_scope_map->emplace(
+          sig_idx, std::make_unique<NameScope>(external_scope, name_list));
+    }
     resolved_tvf_arg.SetScan(std::move(scan), name_list,
                              /*is_pipe_input_table=*/false);
+    resolved_tvf_arg.set_table_clause(ast_table_clause);
     GOOGLESQL_ASSIGN_OR_RETURN(name_list, resolved_tvf_arg.GetNameList());
     RecordColumnAccess(name_list->GetResolvedColumns());
   } else if (ast_expr != nullptr) {
-    if (ast_expr->node_kind() == AST_NAMED_ARGUMENT) {
-      if (IsNamedLambda(ast_expr)) {
-        return MakeSqlErrorAt(ast_expr)
-               << "Lambda arguments are not implemented for TVF";
-      }
-      // Set 'ast_expr' to the named argument value for further resolving.
-      ast_expr = ast_expr->GetAs<ASTNamedArgument>()->expr();
-    }
     if (function_argument &&
         (function_argument->IsRelation() || function_argument->IsModel() ||
          function_argument->IsConnection() ||
@@ -18293,8 +18374,21 @@ absl::Status Resolver::ResolveTableClause(
     bool resolve_argument_first, const std::string& read_as_row_type_error_kind,
     std::unique_ptr<const ResolvedScan>* output_scan,
     std::shared_ptr<const NameList>* output_name_list) {
+  if ((ast_table_clause->table_subquery() != nullptr ||
+       ast_table_clause->partition_by() != nullptr ||
+       ast_table_clause->order_by() != nullptr) &&
+      !language().LanguageFeatureEnabled(
+          FEATURE_TABLE_ARGUMENT_PARTITION_AND_ORDER)) {
+    return MakeSqlErrorAt(ast_table_clause)
+           << "Parenthesized TABLE clause is not supported";
+  }
   const Table* table = nullptr;
-  if (ast_table_clause->tvf() != nullptr) {
+  if (ast_table_clause->table_subquery() != nullptr) {
+    return ResolveQuery(ast_table_clause->table_subquery(), external_scope,
+                        AllocateSubqueryName(), output_scan, output_name_list,
+                        /*parent_expr_resolution_info=*/nullptr,
+                        {.is_expr_subquery = true});
+  } else if (ast_table_clause->tvf() != nullptr) {
     // The TABLE clause represents a TVF call with arguments. Resolve the
     // TVF inside. Then add an identity projection to match the plan shape
     // expected by engines.
@@ -18368,6 +18462,141 @@ absl::Status Resolver::ResolveTableClause(
   // render this scan as a TABLE clause.
   const_cast<ResolvedScan*>(output_scan->get())
       ->set_node_source(kNodeSourceTableClause);
+  return absl::OkStatus();
+}
+
+absl::Status Resolver::ResolveTableClausePartitionAndOrder(
+    const ASTTableClause* ast_table_clause, ResolvedTVFArg& resolved_tvf_arg) {
+  if (ast_table_clause->partition_by() == nullptr &&
+      ast_table_clause->order_by() == nullptr) {
+    return absl::OkStatus();
+  }
+  GOOGLESQL_RET_CHECK(resolved_tvf_arg.IsScan());
+  GOOGLESQL_ASSIGN_OR_RETURN(std::shared_ptr<const NameList> name_list,
+                   resolved_tvf_arg.GetNameList());
+  std::shared_ptr<const NameList> scope_name_list = name_list;
+  if (ast_table_clause->table_path() != nullptr &&
+      !name_list->is_value_table() && !name_list->HasRangeVariables()) {
+    IdString alias = GetAliasForExpression(ast_table_clause->table_path());
+    if (!alias.empty()) {
+      GOOGLESQL_ASSIGN_OR_RETURN(scope_name_list,
+                       NameList::AddRangeVariableInWrappingNameList(
+                           alias, ast_table_clause, name_list));
+    }
+  }
+  const NameScope table_arg_scope(*scope_name_list);
+  std::vector<std::unique_ptr<const ResolvedComputedColumn>> computed_columns;
+
+  if (ast_table_clause->partition_by() != nullptr) {
+    const ASTPartitionBy* partition_by = ast_table_clause->partition_by();
+    if (partition_by->hint() != nullptr) {
+      return MakeSqlErrorAt(partition_by->hint())
+             << "Hints are not supported on PARTITION BY in TABLE clause";
+    }
+    std::vector<std::unique_ptr<const ResolvedColumnRef>> partition_by_columns;
+    int num_partition_by_exprs = 0;
+    for (const ASTExpression* partition_expr :
+         partition_by->partitioning_expressions()) {
+      std::unique_ptr<const ResolvedExpr> resolved_expr;
+      GOOGLESQL_RETURN_IF_ERROR(ResolveScalarExpr(partition_expr, &table_arg_scope,
+                                        "PARTITION BY", &resolved_expr));
+      std::string no_partitioning_type;
+      if (!resolved_expr->type()->SupportsPartitioning(language(),
+                                                       &no_partitioning_type)) {
+        return MakeSqlErrorAt(partition_expr)
+               << "Partitioning by expressions of type " << no_partitioning_type
+               << " is not allowed";
+      }
+      std::unique_ptr<const ResolvedColumnRef> resolved_column_ref;
+      if (resolved_expr->node_kind() == RESOLVED_COLUMN_REF &&
+          !resolved_expr->GetAs<ResolvedColumnRef>()->is_correlated()) {
+        const auto* col_ref = resolved_expr->GetAs<ResolvedColumnRef>();
+        RecordColumnAccess(col_ref->column());
+        resolved_column_ref = CopyColumnRef(col_ref);
+      } else {
+        ResolvedColumn resolved_column(
+            AllocateColumnId(), kPartitionById,
+            MakeIdString(
+                absl::StrCat("$partitionbycol", ++num_partition_by_exprs)),
+            resolved_expr->annotated_type());
+        computed_columns.push_back(MakeResolvedComputedColumn(
+            resolved_column, std::move(resolved_expr)));
+        RecordColumnAccess(resolved_column);
+        resolved_column_ref = MakeColumnRef(resolved_column);
+      }
+      partition_by_columns.push_back(std::move(resolved_column_ref));
+    }
+    resolved_tvf_arg.SetPartitionByList(std::move(partition_by_columns));
+  }
+
+  if (ast_table_clause->order_by() != nullptr) {
+    const ASTOrderBy* order_by = ast_table_clause->order_by();
+    if (order_by->hint() != nullptr) {
+      return MakeSqlErrorAt(order_by->hint())
+             << "Hints are not supported on ORDER BY in TABLE clause";
+    }
+    std::vector<std::unique_ptr<const ResolvedOrderByItem>> order_by_items;
+    int num_order_by_exprs = 0;
+    for (const ASTOrderingExpression* ordering_expr :
+         order_by->ordering_expressions()) {
+      std::unique_ptr<const ResolvedExpr> resolved_expr;
+      GOOGLESQL_RETURN_IF_ERROR(ResolveScalarExpr(ordering_expr->expression(),
+                                        &table_arg_scope, "ORDER BY",
+                                        &resolved_expr));
+      std::unique_ptr<const ResolvedColumnRef> resolved_column_ref;
+      if (resolved_expr->node_kind() == RESOLVED_COLUMN_REF &&
+          !resolved_expr->GetAs<ResolvedColumnRef>()->is_correlated()) {
+        const auto* col_ref = resolved_expr->GetAs<ResolvedColumnRef>();
+        RecordColumnAccess(col_ref->column());
+        resolved_column_ref = CopyColumnRef(col_ref);
+      } else {
+        ResolvedColumn resolved_column(
+            AllocateColumnId(), kOrderById,
+            MakeIdString(absl::StrCat("$orderbycol", ++num_order_by_exprs)),
+            resolved_expr->annotated_type());
+        computed_columns.push_back(MakeResolvedComputedColumn(
+            resolved_column, std::move(resolved_expr)));
+        RecordColumnAccess(resolved_column);
+        resolved_column_ref = MakeColumnRef(resolved_column);
+      }
+
+      GOOGLESQL_ASSIGN_OR_RETURN(ResolvedOrderByItemEnums::NullOrderMode null_order,
+                       ResolveNullOrderMode(ordering_expr->null_order()));
+      std::unique_ptr<const ResolvedExpr> resolved_collation_name;
+      if (ordering_expr->collate() != nullptr) {
+        GOOGLESQL_RETURN_IF_ERROR(ValidateAndResolveOrderByCollate(
+            ordering_expr->collate(), ordering_expr,
+            resolved_column_ref->column().type(), &resolved_collation_name));
+      }
+      auto resolved_order_by_item = MakeResolvedOrderByItem(
+          std::move(resolved_column_ref), std::move(resolved_collation_name),
+          ordering_expr->descending(), null_order);
+      MaybeRecordParseLocation(ordering_expr, resolved_order_by_item.get());
+      if (language().LanguageFeatureEnabled(FEATURE_COLLATION_SUPPORT)) {
+        GOOGLESQL_RETURN_IF_ERROR(
+            CollationAnnotation::ResolveCollationForResolvedOrderByItem(
+                resolved_order_by_item.get()));
+      }
+      std::string type_description;
+      if (!resolved_order_by_item->column_ref()->type()->SupportsOrdering(
+              language(), &type_description)) {
+        return MakeSqlErrorAt(ordering_expr)
+               << "Ordering by expressions of type " << type_description
+               << " is not allowed";
+      }
+      order_by_items.push_back(std::move(resolved_order_by_item));
+    }
+    resolved_tvf_arg.SetOrderByList(std::move(order_by_items));
+  }
+
+  if (!computed_columns.empty()) {
+    GOOGLESQL_ASSIGN_OR_RETURN(std::unique_ptr<const ResolvedScan> scan,
+                     resolved_tvf_arg.MoveScan());
+    GOOGLESQL_RETURN_IF_ERROR(
+        MaybeAddProjectForComputedColumns(std::move(computed_columns), &scan));
+    resolved_tvf_arg.SetScan(std::move(scan), name_list,
+                             resolved_tvf_arg.IsPipeInputTable());
+  }
   return absl::OkStatus();
 }
 
@@ -19038,10 +19267,24 @@ absl::Status Resolver::ResolveConnectionPath(
   return absl::OkStatus();
 }
 
-absl::Status Resolver::ParseConnectionString(
-    absl::string_view connection_str, const LanguageOptions& language_options,
-    std::vector<std::string>* path) {
-  return ParseIdentifierPath(connection_str, language_options, path);
+absl::Status Resolver::ParseConnectionString(absl::string_view connection_str,
+                                             std::vector<std::string>* path) {
+  if (connection_str.empty()) {
+    return MakeSqlError() << "Path strings cannot be empty";
+  }
+  *path = absl::StrSplit(connection_str, '.');
+  for (const std::string& segment : *path) {
+    if (segment.empty()) {
+      return MakeSqlError() << "Path string contains an empty path component";
+    }
+    for (const char c : segment) {
+      if (!absl::ascii_isalnum(c) && c != '_' && c != '-' && c != ':') {
+        return MakeSqlError()
+               << "Path contains an invalid character '" << c << "'";
+      }
+    }
+  }
+  return absl::OkStatus();
 }
 
 absl::Status Resolver::ResolveConnectionString(
@@ -19049,7 +19292,7 @@ absl::Status Resolver::ResolveConnectionString(
     std::unique_ptr<const ResolvedConnection>* resolved_connection) {
   std::vector<std::string> path;
   absl::Status parse_status =
-      ParseConnectionString(string_literal->string_value(), language(), &path);
+      ParseConnectionString(string_literal->string_value(), &path);
   if (!parse_status.ok()) {
     return MakeSqlErrorAt(string_literal) << parse_status.message();
   }
@@ -19299,9 +19542,12 @@ absl::Status Resolver::MakeScanForTable(
                          type_factory_->MakeMeasureType(
                              resolved_column_type->AsMeasure()->result_type()));
       }
-      column_list.emplace_back(ResolvedColumn(
-          AllocateColumnId(), table_name, column_name,
-          AnnotatedType(resolved_column_type, column->GetTypeAnnotationMap())));
+      AnnotatedType annotated_type(resolved_column_type,
+                                   column->GetTypeAnnotationMap());
+      GOOGLESQL_RETURN_IF_ERROR(
+          InitializeAnnotationsForInputColumn(ast_location, &annotated_type));
+      column_list.emplace_back(ResolvedColumn(AllocateColumnId(), table_name,
+                                              column_name, annotated_type));
       // Save the Catalog column for this ResolvedColumn so it can later be used
       // for checking column properties like Column::IsWritableColumn().
       out_resolved_columns_to_catalog_columns_for_scan[column_list.back()] =

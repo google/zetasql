@@ -463,11 +463,11 @@ QueryStmt
   +-ProjectScan
     +-column_list=$query.[untyped_empty_array#4, explicit_type_lit#5, explicit_type_col#6]
     +-expr_list=
-    | +-untyped_empty_array#4 := Literal(type=ARRAY<VARIANT>, value=[<Variant formatting not supported>, <Variant formatting not supported>], has_explicit_type=TRUE)
-    | +-explicit_type_lit#5 := Literal(type=ARRAY<VARIANT>, value=[<Variant formatting not supported>, <Variant formatting not supported>], has_explicit_type=TRUE)
+    | +-untyped_empty_array#4 := Literal(type=ARRAY<VARIANT>, value=[1, []], has_explicit_type=TRUE)
+    | +-explicit_type_lit#5 := Literal(type=ARRAY<VARIANT>, value=[[1, 2], []], has_explicit_type=TRUE)
     | +-explicit_type_col#6 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(2) VARIANT) -> ARRAY<VARIANT>)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    |     +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
     |     +-Cast(ARRAY<INT64> -> VARIANT)
     |       +-GetProtoField
     |         +-type=ARRAY<INT64>
@@ -546,7 +546,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=VARIANT, value=[[]], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 --
@@ -559,7 +559,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=ARRAY<VARIANT>, value=[<Variant formatting not supported>], has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=ARRAY<VARIANT>, value=[[]], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==

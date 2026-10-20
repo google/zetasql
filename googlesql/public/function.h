@@ -563,13 +563,14 @@ struct FunctionOptions {
   // Must only be true for differential privacy functions.
   bool supports_clamped_between_modifier = false;
 
-  // Only GoogleSQL built-in functions support WITHIN clause.
-  // Whether a Function supports WITHIN clause depends on its MODE in general.
+  // While the language specification allows the WITHIN clause on
+  // any aggregate functions including UDAs, the current implementation only
+  // supports GoogleSQL built-in aggregate functions. Whether a Function
+  // supports WITHIN clause depends on its MODE in general.
   // FunctionEnums::AGGREGATE supports WITHIN, whereas FunctionEnums::SCALAR
   // doesn't. FunctionEnums::ANALYTIC are special they supports WITHIN clause if
-  // supports_within_clause is enabled in options.
-  // Indicates whether this function supports WITHIN clause (affects analytic
-  // functions only).
+  // supports_within_clause is enabled in options. Indicates whether this
+  // function supports WITHIN clause (affects analytic functions only).
   bool supports_within_clause = false;
 
   // A set of LanguageFeatures that need to be enabled for the function to be

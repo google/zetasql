@@ -130,7 +130,10 @@ Format strings generally support the following elements:
 
 <span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
 </td>
-      <td>The date in the format %Y-%m-%d.</td>
+      <td>
+        The date in the format %Y-%m-%d. When formatting, this element removes
+        leading zeros from the year.
+      </td>
       <td><code>2021-01-20</code></td>
     </tr>
     <tr>
@@ -433,7 +436,11 @@ Format strings generally support the following elements:
 
 <span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
 </td>
-      <td>The year with century as a decimal number.</td>
+      <td>
+        The year with century as a decimal number. When formatting, this
+        element removes leading zeros. To retain leading zeros for
+        four-character years (0001 ... 9999), use <code>%E4Y</code>.
+      </td>
       <td><code>2021</code></td>
     </tr>
     <tr>
@@ -511,8 +518,9 @@ Format strings generally support the following elements:
 <span><code>DATE</code></span><br /><span><code>DATETIME</code></span><br /><span><code>TIMESTAMP</code></span><br />
 </td>
       <td>
-        Four-character years (0001 ... 9999). Note that %Y produces as many
-        characters as it takes to fully render the year.
+        Four-character years (0001 ... 9999) that include leading zeros, unlike
+        <code>%Y</code> that only uses as many characters as needed to render
+        the year without leading zeros.
       </td>
       <td><code>2021</code></td>
     </tr>
@@ -2563,8 +2571,8 @@ specified by a format element.
         <code>n</code>.
       </td>
       <td>
-        Input for YYYY-MM-DD HH:MI:SSTZH: '2008-12-25 05:30:00+05.30'<br />
-        Output as TIMESTAMP: 2008-12-25 05:30:00+05.30
+        Input for YYYY-MM-DD HH:MI:SSTZHTZM: '2008-12-25 05:30:00+0530'<br />
+        Output as TIMESTAMP: 2008-12-25 05:30:00+0530
       </td>
     </tr>
   </tbody>

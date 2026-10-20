@@ -1477,6 +1477,7 @@ inline Value NullJson() { return Value::NullJson(); }
 inline Value NullTokenList() { return Value::NullTokenList(); }
 inline Value NullUuid() { return Value::NullUuid(); }
 inline Value NullVariant() { return Value::NullVariant(); }
+inline Value VariantNull() { return Value::VariantNull(); }
 
 inline Value Null(const Type* type) { return Value::Null(type); }
 

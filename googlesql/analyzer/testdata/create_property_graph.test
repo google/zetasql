@@ -6536,6 +6536,115 @@ ERROR: Measure expression must not contain an aggregate function with a WHERE fi
       ^
 ==
 
+# Test MEASURE property expression validation: GROUPING is not allowed. A
+# measure definition has no GROUP BY, so GROUPING(x) can never match a grouping
+# key.
+[language_features=MAXIMUM]
+CREATE PROPERTY GRAPH catalog.aml
+NODE TABLES (
+  person
+    DEFAULT LABEL PROPERTIES (id)
+    LABEL no_properties NO PROPERTIES,
+  account PROPERTIES (id)
+)
+EDGE TABLES (
+  PersonOwnAccount KEY(personId, accountId)
+    SOURCE KEY(personId) REFERENCES person(id)
+    DESTINATION KEY(accountId) REFERENCES account(id)
+    DEFAULT LABEL PROPERTIES (personId, accountId)
+    LABEL test
+    PROPERTIES (
+      MEASURE(GROUPING(accountId)) as m1
+    )
+)
+--
+
+ERROR: GROUPING function is not supported in a MEASURE expression [at 15:15]
+      MEASURE(GROUPING(accountId)) as m1
+              ^
+==
+
+# Test MEASURE property expression validation: GROUPING is not allowed as an
+# argument to another aggregate function.
+[language_features=MAXIMUM]
+CREATE PROPERTY GRAPH catalog.aml
+NODE TABLES (
+  person
+    DEFAULT LABEL PROPERTIES (id)
+    LABEL no_properties NO PROPERTIES,
+  account PROPERTIES (id)
+)
+EDGE TABLES (
+  PersonOwnAccount KEY(personId, accountId)
+    SOURCE KEY(personId) REFERENCES person(id)
+    DESTINATION KEY(accountId) REFERENCES account(id)
+    DEFAULT LABEL PROPERTIES (personId, accountId)
+    LABEL test
+    PROPERTIES (
+      MEASURE(SUM(GROUPING(accountId))) as m1
+    )
+)
+--
+
+ERROR: GROUPING function is not supported in a MEASURE expression [at 15:19]
+      MEASURE(SUM(GROUPING(accountId))) as m1
+                  ^
+==
+
+# Test MEASURE property expression validation: GROUPING is not allowed even
+# under a multi-level aggregate's own GROUP BY.
+[language_features=MAXIMUM]
+CREATE PROPERTY GRAPH catalog.aml
+NODE TABLES (
+  person
+    DEFAULT LABEL PROPERTIES (id)
+    LABEL no_properties NO PROPERTIES,
+  account PROPERTIES (id)
+)
+EDGE TABLES (
+  PersonOwnAccount KEY(personId, accountId)
+    SOURCE KEY(personId) REFERENCES person(id)
+    DESTINATION KEY(accountId) REFERENCES account(id)
+    DEFAULT LABEL PROPERTIES (personId, accountId)
+    LABEL test
+    PROPERTIES (
+      MEASURE(SUM(GROUPING(accountId) GROUP BY accountId)) as m1
+    )
+)
+--
+
+ERROR: GROUPING function is not supported in a MEASURE expression [at 15:19]
+      MEASURE(SUM(GROUPING(accountId) GROUP BY accountId)) as m1
+                  ^
+==
+
+# Test MEASURE property expression validation: GROUPING is not allowed inside a
+# larger scalar expression either.
+[language_features=MAXIMUM]
+CREATE PROPERTY GRAPH catalog.aml
+NODE TABLES (
+  person
+    DEFAULT LABEL PROPERTIES (id)
+    LABEL no_properties NO PROPERTIES,
+  account PROPERTIES (id)
+)
+EDGE TABLES (
+  PersonOwnAccount KEY(personId, accountId)
+    SOURCE KEY(personId) REFERENCES person(id)
+    DESTINATION KEY(accountId) REFERENCES account(id)
+    DEFAULT LABEL PROPERTIES (personId, accountId)
+    LABEL test
+    PROPERTIES (
+      MEASURE(SUM(personId) + GROUPING(accountId)) as m1
+    )
+)
+--
+
+ERROR: GROUPING function is not supported in a MEASURE expression [at 15:31]
+      MEASURE(SUM(personId) + GROUPING(accountId)) as m1
+                              ^
+==
+
 # Test that alias is required for MEASURE.
 [language_features=NONE,+SQL_GRAPH_DEFAULT_LABEL_AND_PROPERTY_DEFINITION_OPTIONS,+SQL_GRAPH_MEASURE_DDL,+MULTILEVEL_AGGREGATION,+AGGREGATE_FILTERING]
 CREATE PROPERTY GRAPH catalog.aml
@@ -8585,4 +8694,3 @@ CreatePropertyGraphStmt
   +-GraphPropertyDeclaration(parse_location=124-124, name="age", type=UINT32)
   +-GraphPropertyDeclaration(parse_location=124-124, name="data", type=BYTES)
   +-GraphPropertyDeclaration(parse_location=246-246, name="balance", type=UINT64)
-==

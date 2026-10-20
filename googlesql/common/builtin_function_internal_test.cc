@@ -23,6 +23,7 @@
 #include "googlesql/base/testing/status_matchers.h"
 #include "googlesql/public/builtin_function.pb.h"
 #include "googlesql/public/builtin_function_options.h"
+#include "googlesql/public/function.h"
 #include "googlesql/public/function_signature.h"
 #include "googlesql/public/options.pb.h"
 #include "googlesql/public/table_valued_function.h"
@@ -216,6 +217,141 @@ TEST(BuiltinFunctionInternalTest,
   GOOGLESQL_EXPECT_OK(InsertSimpleTableValuedFunction(
       &tvfs, full_options_enabled, "test_tvf", signatures, tvf_options));
   EXPECT_TRUE(tvfs.contains("test_tvf"));
+}
+
+TEST(BuiltinFunctionInternalTest,
+     InsertSimpleTableValuedFunctionSignatureRequiredFeatures) {
+  TypeFactory type_factory;
+  absl::flat_hash_map<std::string, std::unique_ptr<TableValuedFunction>> tvfs;
+
+  LanguageOptions language_options;
+  GoogleSQLBuiltinFunctionOptions no_options_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  GoogleSQLBuiltinFunctionOptions one_option_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_TABLESAMPLE);
+  GoogleSQLBuiltinFunctionOptions both_options_enabled(language_options);
+
+  std::vector<FunctionSignatureOnHeap> signatures;
+  signatures.push_back({ARG_KIND_RELATION,
+                        {type_factory.get_string()},
+                        -2,
+                        FunctionSignatureOptions().AddRequiredLanguageFeature(
+                            FEATURE_ANALYTIC_FUNCTIONS)});
+  signatures.push_back({ARG_KIND_RELATION,
+                        {type_factory.get_bool()},
+                        -1,
+                        FunctionSignatureOptions().AddRequiredLanguageFeature(
+                            FEATURE_TABLESAMPLE)});
+
+  GOOGLESQL_ASSERT_OK(InsertSimpleTableValuedFunction(&tvfs, no_options_enabled,
+                                            "test_tvf", signatures, {}));
+  EXPECT_FALSE(tvfs.contains("test_tvf"));
+
+  GOOGLESQL_ASSERT_OK(InsertSimpleTableValuedFunction(&tvfs, one_option_enabled,
+                                            "test_tvf", signatures, {}));
+  ASSERT_TRUE(tvfs.contains("test_tvf"));
+  EXPECT_THAT(tvfs["test_tvf"]->signatures(), SizeIs(1));
+  EXPECT_THAT(
+      tvfs["test_tvf"]->GetSignature(0)->DebugString("test_tvf"),
+      Eq(FunctionSignature(signatures.at(0).Get()).DebugString("test_tvf")));
+
+  tvfs.clear();
+  GOOGLESQL_ASSERT_OK(InsertSimpleTableValuedFunction(&tvfs, both_options_enabled,
+                                            "test_tvf", signatures, {}));
+  ASSERT_TRUE(tvfs.contains("test_tvf"));
+  EXPECT_THAT(tvfs["test_tvf"]->signatures(), SizeIs(2));
+}
+
+TEST(BuiltinFunctionInternalTest, InsertFunctionSignatureRequiredFeatures) {
+  TypeFactory type_factory;
+  NameToFunctionMap functions;
+
+  LanguageOptions language_options;
+  GoogleSQLBuiltinFunctionOptions no_options_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_ANALYTIC_FUNCTIONS);
+  GoogleSQLBuiltinFunctionOptions one_option_enabled(language_options);
+
+  language_options.EnableLanguageFeature(FEATURE_TABLESAMPLE);
+  GoogleSQLBuiltinFunctionOptions both_options_enabled(language_options);
+
+  std::vector<FunctionSignatureOnHeap> signatures;
+  signatures.push_back({type_factory.get_string(),
+                        {type_factory.get_string()},
+                        -2,
+                        FunctionSignatureOptions().AddRequiredLanguageFeature(
+                            FEATURE_ANALYTIC_FUNCTIONS)});
+  signatures.push_back({type_factory.get_bool(),
+                        {type_factory.get_bool()},
+                        -1,
+                        FunctionSignatureOptions().AddRequiredLanguageFeature(
+                            FEATURE_TABLESAMPLE)});
+
+  InsertFunction(&functions, no_options_enabled, "test_fn", Function::SCALAR,
+                 signatures);
+  EXPECT_FALSE(functions.contains("test_fn"));
+
+  InsertFunction(&functions, one_option_enabled, "test_fn", Function::SCALAR,
+                 signatures);
+  ASSERT_TRUE(functions.contains("test_fn"));
+  EXPECT_THAT(functions["test_fn"]->signatures(), SizeIs(1));
+  EXPECT_THAT(
+      functions["test_fn"]->GetSignature(0)->DebugString("test_fn"),
+      Eq(FunctionSignature(signatures.at(0).Get()).DebugString("test_fn")));
+
+  functions.clear();
+  InsertFunction(&functions, both_options_enabled, "test_fn", Function::SCALAR,
+                 signatures);
+  ASSERT_TRUE(functions.contains("test_fn"));
+  EXPECT_THAT(functions["test_fn"]->signatures(), SizeIs(2));
+
+  // Allowlisted signatures (b/333096857) remain present even when their
+  // required language feature is disabled.
+  functions.clear();
+  std::vector<FunctionSignatureOnHeap> allowlisted_signatures;
+  allowlisted_signatures.push_back(
+      {type_factory.get_string(),
+       {type_factory.get_string()},
+       FN_FLATTEN,
+       FunctionSignatureOptions().AddRequiredLanguageFeature(
+           FEATURE_UNNEST_AND_FLATTEN_ARRAYS)});
+  InsertFunction(&functions, no_options_enabled, "allowlisted_fn",
+                 Function::SCALAR, allowlisted_signatures);
+  ASSERT_TRUE(functions.contains("allowlisted_fn"));
+  EXPECT_THAT(functions["allowlisted_fn"]->signatures(), SizeIs(1));
+}
+
+TEST(BuiltinFunctionInternalTest, GetUnsupportedTypeForJsonConversion) {
+  TypeFactory type_factory;
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(type_factory.get_int64()),
+            nullptr);
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(type_factory.get_string()),
+            nullptr);
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(type_factory.get_json()),
+            nullptr);
+
+  const Type* int_array_type = nullptr;
+  GOOGLESQL_ASSERT_OK(
+      type_factory.MakeArrayType(type_factory.get_int64(), &int_array_type));
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(int_array_type), nullptr);
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const Type* map_type,
+                       type_factory.MakeMapType(type_factory.get_string(),
+                                                type_factory.get_int64()));
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(map_type), map_type);
+
+  const Type* tokenlist_type = types::TokenListType();
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(tokenlist_type),
+            tokenlist_type);
+
+  const Type* struct_with_map_type = nullptr;
+  GOOGLESQL_ASSERT_OK(type_factory.MakeStructType(
+      {{"a", type_factory.get_int64()}, {"m", map_type}},
+      &struct_with_map_type));
+  EXPECT_EQ(GetUnsupportedTypeForJsonConversion(struct_with_map_type),
+            map_type);
 }
 
 }  // namespace

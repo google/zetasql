@@ -318,6 +318,9 @@ std::vector<FunctionTestCall> GetFunctionTestsNativeJsonQueryArray();
 std::vector<FunctionTestCall> GetFunctionTestsNativeJsonValueArray();
 std::vector<FunctionTestCall> GetFunctionTestsJsonQueryLax();
 std::vector<FunctionTestCall> GetFunctionTestsJsonExists();
+std::vector<FunctionTestCall> GetFunctionTestsJsonPathWildcardsAndDescendant();
+std::vector<QueryParamsWithResult>
+GetStatementTestsJsonQueryLaxWithWildcardsAndDescendant();
 std::vector<FunctionTestCall> GetFunctionTestsToJsonString();
 std::vector<FunctionTestCall> GetFunctionTestsToJson();
 std::vector<FunctionTestCall> GetFunctionTestsSafeToJson();

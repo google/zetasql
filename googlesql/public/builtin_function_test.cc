@@ -335,7 +335,7 @@ TEST(SimpleBuiltinFunctionTests, BasicTests) {
 
   function = googlesql_base::FindOrNull(functions, "$add");
   ASSERT_THAT(function, NotNull());
-  EXPECT_EQ(5, (*function)->NumSignatures());
+  EXPECT_EQ(3, (*function)->NumSignatures());
   EXPECT_FALSE((*function)->SupportsSafeErrorMode());
 
   function = googlesql_base::FindOrNull(functions, "mod");

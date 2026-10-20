@@ -128,37 +128,9 @@ TEST_F(GetVectorSearchTVFsWithoutHybridVectorSearchTest, VectorSearchFunction) {
       "STRING query_column_to_search, optional INT64 top_k, optional STRING "
       "distance_type, optional DOUBLE max_distance) "
       "-> "
-      "ANY TABLE\n  (ANY TABLE, STRING column_to_search, ANY TABLE, optional "
-      "STRING query_column_to_search, optional JSON options, optional INT64 "
-      "top_k, optional STRING distance_type, optional DOUBLE max_distance) -> "
-      "ANY TABLE\n  (ANY TABLE, STRING column_to_search, ARRAY<FLOAT> "
-      "query_value, optional INT64 top_k, optional STRING distance_type, "
-      "optional DOUBLE max_distance) -> ANY TABLE\n  (ANY TABLE, STRING "
-      "column_to_search, ARRAY<FLOAT> query_value, optional JSON options, "
-      "optional INT64 top_k, optional STRING distance_type, optional DOUBLE "
-      "max_distance) -> ANY TABLE\n  (ANY TABLE, STRING "
-      "column_to_search, ARRAY<DOUBLE> query_value, optional INT64 top_k, "
-      "optional STRING distance_type, optional DOUBLE max_distance) -> ANY "
-      "TABLE\n  (ANY TABLE, STRING column_to_search, ARRAY<DOUBLE> "
-      "query_value, optional JSON options, optional INT64 top_k, optional "
-      "STRING distance_type, optional DOUBLE max_distance) -> ANY TABLE\n  "
-      "(ANY TABLE, STRING column_to_search, STRING query_value, "
-      "optional INT64 top_k, optional STRING distance_type, optional DOUBLE "
-      "max_distance) -> ANY TABLE\n  (ANY TABLE, STRING column_to_search, "
-      "STRING query_value, optional JSON options, optional INT64 top_k, "
-      "optional STRING distance_type, optional DOUBLE max_distance) -> ANY "
-      "TABLE");
+      "ANY TABLE");
   EXPECT_EQ(output_properties_.SupportsSuppliedArgumentType(
                 FN_BATCH_VECTOR_SEARCH_TVF_WITH_PROTO_OPTIONS, 4),
-            true);
-  EXPECT_EQ(output_properties_.SupportsSuppliedArgumentType(
-                FN_SINGLE_VECTOR_SEARCH_TVF_FLOAT_ARRAY_WITH_PROTO_OPTIONS, 3),
-            true);
-  EXPECT_EQ(output_properties_.SupportsSuppliedArgumentType(
-                FN_SINGLE_VECTOR_SEARCH_TVF_DOUBLE_ARRAY_WITH_PROTO_OPTIONS, 3),
-            true);
-  EXPECT_EQ(output_properties_.SupportsSuppliedArgumentType(
-                FN_SINGLE_VECTOR_SEARCH_TVF_STRING_WITH_PROTO_OPTIONS, 3),
             true);
 }
 
@@ -235,6 +207,43 @@ TEST_F(GetVectorSearchTableValuedFunctionsTest,
       output_properties_.SupportsSuppliedArgumentType(
           FN_HYBRID_SINGLE_VECTOR_SEARCH_TVF_STRING_WITH_PROTO_OPTIONS, 5),
       true);
+}
+
+TEST(GetLookupTableTableValuedFunctionTest, LookupTableFunction) {
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_LOOKUP_TABLE_TVF);
+  GoogleSQLBuiltinFunctionOptions options(language_options);
+  NameToTableValuedFunctionMap functions;
+  GOOGLESQL_ASSERT_OK(
+      GetLookupTableTableValuedFunction(&type_factory, options, &functions));
+  constexpr absl::string_view kLookupTable = "LookupTable";
+  ASSERT_TRUE(functions.contains(kLookupTable));
+  EXPECT_EQ(functions[kLookupTable]->DebugString(),
+            "GoogleSQL:LookupTable\n  (STRING) -> ANY TABLE");
+}
+
+TEST(GetLookupTableTableValuedFunctionTest,
+     LookupTableFunctionFeatureDisabled) {
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  GoogleSQLBuiltinFunctionOptions options(language_options);
+  NameToTableValuedFunctionMap functions;
+  GOOGLESQL_ASSERT_OK(
+      GetLookupTableTableValuedFunction(&type_factory, options, &functions));
+  EXPECT_FALSE(functions.contains("LookupTable"));
+}
+
+TEST(GetLookupTableTableValuedFunctionTest, LookupTableFunctionExcluded) {
+  TypeFactory type_factory;
+  LanguageOptions language_options;
+  language_options.EnableLanguageFeature(FEATURE_LOOKUP_TABLE_TVF);
+  GoogleSQLBuiltinFunctionOptions options(language_options);
+  options.exclude_function_ids.insert(FN_TVF_LOOKUP_TABLE);
+  NameToTableValuedFunctionMap functions;
+  GOOGLESQL_ASSERT_OK(
+      GetLookupTableTableValuedFunction(&type_factory, options, &functions));
+  EXPECT_FALSE(functions.contains("LookupTable"));
 }
 
 }  // namespace

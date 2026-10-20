@@ -921,3 +921,422 @@ AS (
 Table resolution time:
 
 Extracted table names:
+==
+
+# Pipe FORK: tables referenced only inside subpipelines are extracted.
+# TODO SQLBuilder doesn't work for pipe FORK/TEE yet, so the
+# tests below use no_run_sqlbuilder.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> FORK (
+     |> JOIN KeyValue2 USING (key)
+   ), (
+     |> WHERE key IN (SELECT int64 FROM SimpleTypes)
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+SimpleTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+SimpleTypes
+==
+
+# Pipe TEE: tables referenced inside subpipelines and in the main pipeline
+# after the TEE are all extracted.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue AS kv
+|> TEE (
+     |> JOIN KeyValue2 USING (key)
+   )
+|> JOIN SimpleTypes ON kv.key = SimpleTypes.int64
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+SimpleTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+SimpleTypes
+==
+
+# Pipe FORK/TEE: the target of a pipe INSERT inside a subpipeline is extracted.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> {{FORK|TEE}} (
+     |> INSERT INTO KeyValue2
+   ), (
+     |> CREATE TABLE NewTable
+   ), (
+     |> EXPORT DATA
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+==
+
+# Nested FORK and TEE: tables referenced in nested subpipelines are extracted.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> FORK (
+     |> TEE (
+          |> JOIN KeyValue2 USING (key)
+        )
+     |> FORK (
+          |> CROSS JOIN TestTable
+        )
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+TestTable => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+TestTable
+==
+
+# Range variables visible on the input of a FORK subpipeline are not treated
+# as table names inside the subpipeline.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes AS a
+|> {{FORK|TEE}} (
+     |> CROSS JOIN a.Int32Array AS elem
+     |> SELECT elem
+   )
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+==
+
+# A CTE defined inside one FORK subpipeline does not hide a catalog table
+# with the same name in a sibling subpipeline.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> FORK (
+     |> WITH KeyValue2 AS (SELECT 1 AS x)
+     |> CROSS JOIN KeyValue2
+   ), (
+     |> JOIN KeyValue2 USING (key)
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+==
+
+# A CTE defined inside a FORK subpipeline hides the catalog table with the same
+# name within that subpipeline only.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> FORK (
+     |> WITH KeyValue2 AS (SELECT 1 AS x)
+     |> CROSS JOIN KeyValue2
+   ), (
+     |> WHERE true
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+==
+
+# A CTE defined inside a TEE subpipeline does not leak into the main pipeline
+# after the TEE.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> TEE (
+     |> WITH KeyValue2 AS (SELECT 1 AS x)
+     |> CROSS JOIN KeyValue2
+   )
+|> JOIN KeyValue2 USING (key)
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+==
+
+# Pipe FORK/TEE: a CTE defined outside the FORK/TEE is visible inside the
+# subpipelines, so it is not extracted as a table name.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+WITH t AS (SELECT 1 AS key)
+FROM KeyValue
+|> {{FORK|TEE}} (
+     |> JOIN t USING (key)
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+==
+
+# Pipe FORK/TEE: a CTE defined by pipe WITH before the FORK/TEE is visible
+# inside the subpipelines, so it is not extracted as a table name.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> WITH t AS (SELECT 1 AS key)
+|> {{FORK|TEE}} (
+     |> JOIN t USING (key)
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+==
+
+# A range variable from the pipe input is visible to subqueries in later pipe
+# operators, so a correlated path through it is not extracted as a table name.
+[language_features=MAXIMUM,+PIPES]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes AS a
+|> WHERE EXISTS (SELECT 1 FROM a.Int32Array)
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+==
+
+# Range variables visible on the input of a FORK/TEE subpipeline are visible to
+# subqueries inside the subpipeline, so a correlated path through them is not
+# extracted as a table name.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes AS a
+|> {{FORK|TEE}} (
+     |> WHERE EXISTS (SELECT 1 FROM a.Int32Array)
+   )
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+==
+
+# Pipe LOG: tables referenced in the LOG subpipeline are extracted.
+[language_features=MAXIMUM,+PIPES,+PIPE_LOG]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> LOG (
+     |> JOIN KeyValue2 USING (key)
+   )
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+==
+
+# Pipe LOG: range variables visible on the input of the LOG subpipeline are not
+# treated as table names inside the subpipeline.
+[language_features=MAXIMUM,+PIPES,+PIPE_LOG]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes AS a
+|> LOG (
+     |> CROSS JOIN a.Int32Array AS elem
+     |> WHERE EXISTS (SELECT 1 FROM a.Int32Array)
+   )
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+==
+
+# Pipe LOG: aliases introduced inside the LOG subpipeline do not leak into the
+# main pipeline after the LOG.
+[language_features=MAXIMUM,+PIPES,+PIPE_LOG]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> LOG (
+     |> WITH KeyValue2 AS (SELECT 1 AS key)
+     |> JOIN KeyValue2 USING (key)
+   )
+|> JOIN KeyValue2 USING (key)
+--
+Table resolution time:
+KeyValue => {
+DEFAULT;
+}
+KeyValue2 => {
+DEFAULT;
+}
+
+Extracted table names:
+KeyValue
+KeyValue2
+==
+
+# Range variables from the pipe input, including those added by a pipe JOIN,
+# are visible to subqueries in later pipe operators of any kind. Real tables
+# referenced in those subqueries are still extracted.
+[language_features=MAXIMUM,+PIPES]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes AS a
+|> CROSS JOIN ArrayTypes AS b
+|> EXTEND (SELECT COUNT(*) FROM a.Int32Array) AS cnt
+|> WHERE EXISTS (SELECT 1 FROM b.Int64Array)
+|> SELECT cnt, (SELECT MAX(key) FROM KeyValue) AS max_key
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+KeyValue => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+KeyValue
+==
+
+# Range variables added by a pipe JOIN inside a FORK/TEE subpipeline are visible
+# to subqueries in later pipe operators of that subpipeline.
+[language_features=MAXIMUM,+PIPES,+PIPE_FORK,+PIPE_TEE,+PIPE_INSERT,+PIPE_CREATE_TABLE,+PIPE_EXPORT_DATA,+OMIT_INSERT_COLUMN_LIST]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM KeyValue
+|> {{FORK|TEE}} (
+     |> CROSS JOIN ArrayTypes AS a
+     |> WHERE EXISTS (SELECT 1 FROM a.Int32Array)
+   )
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+KeyValue => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes
+KeyValue
+==
+
+# A range variable introduced by pipe AS is visible to subqueries in later pipe
+# operators.
+[language_features=MAXIMUM,+PIPES]
+[supported_statement_kinds=QUERY,GENERALIZED_QUERY]
+[no_run_sqlbuilder]
+FROM ArrayTypes
+|> AS a
+|> WHERE EXISTS (SELECT 1 FROM a.Int32Array)
+--
+Table resolution time:
+ArrayTypes => {
+DEFAULT;
+}
+
+Extracted table names:
+ArrayTypes

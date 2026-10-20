@@ -91,6 +91,9 @@ STATIC_IDSTRING(kTimestampPseudoTableId, "$timestamp");
 
 namespace {
 
+constexpr absl::string_view kUnsupportedJsonFieldModifyError =
+    "UPDATE ... SET does not support modifying a JSON field";
+
 // Returns true if the given annotation map has the IsVersionedAnnotation.
 // If `allow_subfields` is true, it checks if any subfield is versioned.
 // Otherwise, it only checks the top-level.
@@ -1738,6 +1741,10 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
         }
         GOOGLESQL_RETURN_IF_ERROR(
             VerifyUpdateTargetIsWritable(path, info.target.get(), value));
+      } else if (info.target->node_kind() == RESOLVED_GET_JSON_FIELD &&
+                 !language().LanguageFeatureEnabled(
+                     FEATURE_JSON_SUBFIELDS_WITH_SET)) {
+        return MakeSqlErrorAt(path) << kUnsupportedJsonFieldModifyError;
       }
       update_target_infos->emplace_back(std::move(info));
       return absl::OkStatus();
@@ -1777,10 +1784,16 @@ absl::Status Resolver::PopulateUpdateTargetInfos(
           expr_resolution_info, update_target_infos));
       GOOGLESQL_RET_CHECK(!update_target_infos->empty());
       UpdateTargetInfo& info = update_target_infos->back();
-      return ResolveFieldAccess(
+      GOOGLESQL_RETURN_IF_ERROR(ResolveFieldAccess(
           std::move(info.target), dot_identifier->location(),
           dot_identifier->name(), &expr_resolution_info->flatten_state,
-          &info.target);
+          &info.target));
+      if (info.target->node_kind() == RESOLVED_GET_JSON_FIELD &&
+          !language().LanguageFeatureEnabled(FEATURE_JSON_SUBFIELDS_WITH_SET)) {
+        return MakeSqlErrorAt(dot_identifier)
+               << kUnsupportedJsonFieldModifyError;
+      }
+      return absl::OkStatus();
     }
     // Note: The naming of AST_ARRAY_ELEMENT is overly specific. This node
     // may also represent any subscript[] access.
@@ -2013,8 +2026,7 @@ absl::Status Resolver::VerifyUpdateTargetIsWritable(
       if (language().LanguageFeatureEnabled(FEATURE_JSON_SUBFIELDS_WITH_SET)) {
         return absl::OkStatus();
       } else {
-        return MakeSqlErrorAt(ast_location)
-               << "UPDATE ... SET does not support modifying a JSON field";
+        return MakeSqlErrorAt(ast_location) << kUnsupportedJsonFieldModifyError;
       }
     case RESOLVED_MAKE_STRUCT:
       return MakeSqlErrorAt(ast_location)
@@ -2609,16 +2621,15 @@ absl::Status Resolver::MergeWithUpdateItem(
         // Use an empty scope for nested INSERT statements.
         nested_dml_scope = empty_name_scope_.get();
       }
-    } else {
-      GOOGLESQL_RET_CHECK(is_nested_delete || is_nested_update);
+    } else if (is_nested_delete) {
       if (language().LanguageFeatureEnabled(
               FEATURE_CORRELATED_REFS_IN_NESTED_DML)) {
-        // Construct the scope for nested DELETE and UPDATE statements by
+        // Construct the scope for nested DELETE statements by
         // stacking the target alias on top of 'update_scope'.
         new_nested_dml_scope_owner =
             std::make_unique<NameScope>(update_scope, nested_target_name_list);
       } else {
-        // The scope for nested DELETE and UPDATE statements contains only the
+        // The scope for nested DELETE statements contains only the
         // target alias.
         new_nested_dml_scope_owner =
             std::make_unique<NameScope>(*nested_target_name_list);
@@ -2653,9 +2664,6 @@ absl::Status Resolver::MergeWithUpdateItem(
       // Nested DML ordering is checked by ShouldMergeWithUpdateItem().
       GOOGLESQL_RET_CHECK_EQ(0, resolved_update_item.insert_list_size());
 
-      // The target scope contains only the array element being updated.
-      const NameScope nested_target_scope(*nested_target_name_list);
-
       if (ast_input_update_item->update_statement()->hint() != nullptr) {
         return MakeSqlErrorAt(ast_input_update_item->update_statement()->hint())
                << "Nested UPDATE statement does not support hints";
@@ -2664,10 +2672,11 @@ absl::Status Resolver::MergeWithUpdateItem(
       std::unique_ptr<ResolvedUpdateStmt> resolved_stmt;
       GOOGLESQL_RETURN_IF_ERROR(ResolveUpdateStatementImpl(
           ast_input_update_item->update_statement(), /*is_nested=*/true,
-          target_alias, &nested_target_scope, nested_target_name_list,
-          nested_dml_scope, /*outer_scope=*/update_scope,
-          /*table_scan=*/nullptr, /*from_scan=*/nullptr,
-          resolved_columns_from_table_scans_, &resolved_stmt));
+          target_alias, /*target_name_list=*/nested_target_name_list,
+          /*update_name_list=*/nested_target_name_list,
+          /*outer_scope=*/update_scope, /*table_scan=*/nullptr,
+          /*from_scan=*/nullptr, resolved_columns_from_table_scans_,
+          &resolved_stmt));
       resolved_update_item.add_update_list(std::move(resolved_stmt));
     } else {
       GOOGLESQL_RET_CHECK(is_nested_insert);
@@ -2739,7 +2748,8 @@ absl::Status Resolver::ResolveUpdateStatement(
   // With the exception of the target expression in the SET clause, the rest of
   // the update statement should see names from the target table and from the
   // FROM clause, so prepare a combined name list.
-  std::unique_ptr<NameList> update_name_list = std::make_unique<NameList>();
+  std::shared_ptr<NameList> update_name_list = std::make_shared<NameList>();
+  GOOGLESQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*target_name_list, target_path));
   if (ast_statement->from_clause() != nullptr) {
     GOOGLESQL_ASSIGN_OR_RETURN(bool has_range_variable,
                      from_name_list->HasRangeVariable(target_alias));
@@ -2751,34 +2761,43 @@ absl::Status Resolver::ResolveUpdateStatement(
     GOOGLESQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*from_name_list,
                                                 ast_statement->from_clause()));
   }
-  GOOGLESQL_RETURN_IF_ERROR(update_name_list->MergeFrom(*target_name_list, target_path));
 
-  std::shared_ptr<const NameList> shared_update_name_list(
-      update_name_list.release());
-
-  const std::unique_ptr<const NameScope> target_scope(
-      new NameScope(*target_name_list));
-  const std::unique_ptr<const NameScope> update_scope(
-      new NameScope(*shared_update_name_list));
   return ResolveUpdateStatementImpl(
-      ast_statement, /*is_nested=*/false, target_alias, target_scope.get(),
-      target_name_list, update_scope.get(),
-      /*outer_scope=*/empty_name_scope_.get(), std::move(resolved_table_scan),
-      std::move(resolved_from_scan),
+      ast_statement, /*is_nested=*/false, target_alias, target_name_list,
+      update_name_list, /*outer_scope=*/empty_name_scope_.get(),
+      std::move(resolved_table_scan), std::move(resolved_from_scan),
       out_resolved_columns_to_catalog_columns_for_target_scan, output);
 }
 
 absl::Status Resolver::ResolveUpdateStatementImpl(
     const ASTUpdateStatement* ast_statement, bool is_nested,
-    IdString target_alias, const NameScope* target_scope,
+    IdString target_alias,
     const std::shared_ptr<const NameList>& target_name_list,
-    const NameScope* update_scope, const NameScope* outer_scope,
+    const std::shared_ptr<const NameList>& update_name_list,
+    const NameScope* outer_scope,
     std::unique_ptr<const ResolvedTableScan> resolved_table_scan,
     std::unique_ptr<const ResolvedScan> resolved_from_scan,
     ResolvedColumnToCatalogColumnHashMap&
         resolved_columns_to_catalog_columns_for_target_scan,
     std::unique_ptr<ResolvedUpdateStmt>* output) {
   RETURN_ERROR_IF_OUT_OF_STACK_SPACE();
+
+  const NameScope base_target_scope(*target_name_list);
+  const NameScope* target_scope = &base_target_scope;
+
+  std::unique_ptr<NameScope> base_update_scope_owner;
+  if (is_nested && language().LanguageFeatureEnabled(
+                       FEATURE_CORRELATED_REFS_IN_NESTED_DML)) {
+    // For nested UPDATE statements with correlated references enabled, stack
+    // the target element alias (`update_name_list`) on top of `outer_scope`.
+    base_update_scope_owner =
+        std::make_unique<NameScope>(outer_scope, update_name_list);
+  } else {
+    // For top-level UPDATE statements (or nested UPDATE statements without
+    // correlated references), the scope contains only `update_name_list`.
+    base_update_scope_owner = std::make_unique<NameScope>(*update_name_list);
+  }
+  const NameScope* update_scope = base_update_scope_owner.get();
 
   const bool is_version_aware = IsVersionAwareDmlStatement(ast_statement);
   const ASTNode* prev_version_aware_node = active_version_aware_node_;
@@ -2918,9 +2937,13 @@ absl::Status Resolver::ResolveUpdateStatementImpl(
       return MakeSqlErrorAt(ast_statement->returning())
              << "THEN RETURN is not allowed in nested UPDATE statements";
     }
-    std::shared_ptr<const NameList> returning_name_list = target_name_list;
+    std::shared_ptr<const NameList> returning_name_list =
+        language().LanguageFeatureEnabled(
+            FEATURE_DML_UPDATE_RETURNING_FROM_COLUMNS)
+            ? update_name_list
+            : target_name_list;
     if (version_aware_name_list != nullptr) {
-      std::shared_ptr<NameList> merged_name_list = target_name_list->Copy();
+      std::shared_ptr<NameList> merged_name_list = returning_name_list->Copy();
       GOOGLESQL_RETURN_IF_ERROR(
           merged_name_list->MergeFrom(*version_aware_name_list, ast_statement));
       returning_name_list = std::move(merged_name_list);

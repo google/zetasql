@@ -121,6 +121,6 @@ message ExtendedTypeParametersProto {
 
 // Type parameters for VECTOR type.
 message VectorTypeParametersProto {
-  optional int64 length = 1;
+  optional int64 dims = 1;
   optional googlesql.VectorEncodingId.Id encoding = 2;
 }

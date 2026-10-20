@@ -435,6 +435,11 @@ absl::Status CheckGraphElementExpr(const LanguageOptions& language_options,
       // does the validation.
       return absl::OkStatus();
 
+    case AST_CAST_EXPRESSION:
+      // All casts are allowed. Cast validation already checks whether the cast
+      // is allowed.
+      return absl::OkStatus();
+
     case AST_BINARY_EXPRESSION: {
       switch (parent->GetAsOrDie<ASTBinaryExpression>()->op()) {
         case ASTBinaryExpression::IS_SOURCE_NODE:
@@ -9587,7 +9592,8 @@ Resolver::ResolveBracedConstructorInUpdateContext(
         kImplicitAssignment,
         "Cannot update field of type $0 with value of type $1", &arg.expr));
     resolved_update_field_items.push_back(MakeResolvedUpdateFieldItem(
-        std::move(arg.expr), arg.field_descriptor_path, operation));
+        std::move(arg.expr), arg.field_descriptor_path, operation,
+        /*update_item_column=*/nullptr));
   }
 
   return MakeResolvedUpdateConstructor(
@@ -11244,6 +11250,12 @@ absl::Status Resolver::FinishResolvingAggregateFunction(
     if (expr_resolution_info->query_resolution_info->IsGqlReturn()) {
       return MakeSqlErrorAt(ast_function_call)
              << "GROUPING function is not allowed in RETURN";
+    }
+    // A measure definition has no GROUP BY, so GROUPING(x) can never match a
+    // grouping key.
+    if (expr_resolution_info->is_graph_measure_expression) {
+      return MakeSqlErrorAt(ast_function_call)
+             << "GROUPING function is not supported in a MEASURE expression";
     }
     if (analyzing_expression_) {
       return MakeSqlErrorAt(ast_function_call)

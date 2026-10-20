@@ -5969,7 +5969,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=VARIANT, value=[], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -5997,7 +5997,7 @@ QueryStmt
   +-ProjectScan
     +-column_list=[$query.$col1#1]
     +-expr_list=
-    | +-$col1#1 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | +-$col1#1 := Literal(type=VARIANT, value=[], has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -6115,9 +6115,9 @@ QueryStmt
   +-ProjectScan
     +-column_list=$query.[c_time#1, c_datetime#2, c_interval#3]
     +-expr_list=
-    | +-c_time#1 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
-    | +-c_datetime#2 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
-    | +-c_interval#3 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | +-c_time#1 := Literal(type=VARIANT, value=12:34:56, has_explicit_type=TRUE)
+    | +-c_datetime#2 := Literal(type=VARIANT, value=2025-01-01 12:34:56, has_explicit_type=TRUE)
+    | +-c_interval#3 := Literal(type=VARIANT, value=0-0 1 0:0:0, has_explicit_type=TRUE)
     +-input_scan=
       +-SingleRowScan
 ==
@@ -6144,8 +6144,8 @@ QueryStmt
   +-ProjectScan
     +-column_list=$query.[c_array#1, c_struct#2, c_map#3, c_map_int_key#4]
     +-expr_list=
-    | +-c_array#1 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
-    | +-c_struct#2 := Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | +-c_array#1 := Literal(type=VARIANT, value=[1, 2], has_explicit_type=TRUE)
+    | +-c_struct#2 := Literal(type=VARIANT, value={"a": 1}, has_explicit_type=TRUE)
     | +-c_map#3 :=
     | | +-Cast(MAP<STRING, INT64> -> VARIANT)
     | |   +-FunctionCall(GoogleSQL:map_from_array(ARRAY<STRUCT<STRING, INT64>>) -> MAP<STRING, INT64>)
@@ -6220,35 +6220,35 @@ QueryStmt
     | +-c_if_lit#20 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VARIANT, VARIANT) -> VARIANT)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
-    | |   +-Literal(type=VARIANT, value=<Variant formatting not supported>)
+    | |   +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
+    | |   +-Literal(type=VARIANT, value=2)
     | +-c_if_untyped_null#21 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VARIANT, VARIANT) -> VARIANT)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | |   +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
     | |   +-Literal(type=VARIANT, value=NULL)
     | +-c_if_param#22 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VARIANT, VARIANT) -> VARIANT)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | |   +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
     | |   +-Cast(INT64 -> VARIANT)
     | |     +-Parameter(type=INT64, name="test_param_int64")
     | +-c_if_explicit_cast#23 :=
     | | +-FunctionCall(GoogleSQL:if(BOOL, VARIANT, VARIANT) -> VARIANT)
     | |   +-Literal(type=BOOL, value=true)
-    | |   +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    | |   +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
     | |   +-Cast(INT64 -> VARIANT)
     | |     +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    | +-c_array_lit#24 := Literal(type=ARRAY<VARIANT>, value=[<Variant formatting not supported>, <Variant formatting not supported>, <Variant formatting not supported>], has_explicit_type=TRUE)
+    | +-c_array_lit#24 := Literal(type=ARRAY<VARIANT>, value=[1, "abc", []], has_explicit_type=TRUE)
     | +-c_array_explicit_type#25 :=
     |   +-FunctionCall(GoogleSQL:$make_array(repeated(6) VARIANT) -> ARRAY<VARIANT>)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
+    |     +-Literal(type=VARIANT, value=1, has_explicit_type=TRUE)
     |     +-Cast(INT64 -> VARIANT)
     |     | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>, has_explicit_type=TRUE)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>)
-    |     +-Literal(type=VARIANT, value=<Variant formatting not supported>)
+    |     +-Literal(type=VARIANT, value=NULL, has_explicit_type=TRUE)
+    |     +-Literal(type=VARIANT, value="abc")
+    |     +-Literal(type=VARIANT, value=[])
+    |     +-Literal(type=VARIANT, value={"a": 1})
     +-input_scan=
       +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
 ==

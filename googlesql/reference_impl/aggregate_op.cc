@@ -2502,19 +2502,27 @@ absl::Span<const int64_t> AggregateOp::grouping_sets() const {
 //  static
 absl::StatusOr<std::unique_ptr<GroupRowsOp>> GroupRowsOp::Create(
     std::vector<std::unique_ptr<ExprArg>> columns,
-    VariableId input_rows_lookup_key) {
-  return absl::WrapUnique(
-      new GroupRowsOp(std::move(columns), std::move(input_rows_lookup_key)));
+    const RelationalOp* aggregate_input, VariableId input_rows_lookup_key) {
+  GOOGLESQL_RET_CHECK(aggregate_input != nullptr);
+  GOOGLESQL_RET_CHECK(input_rows_lookup_key.is_valid());
+  return absl::WrapUnique(new GroupRowsOp(std::move(columns), aggregate_input,
+                                          std::move(input_rows_lookup_key)));
 }
 
 GroupRowsOp::GroupRowsOp(std::vector<std::unique_ptr<ExprArg>> columns,
+                         const RelationalOp* aggregate_input,
                          VariableId input_rows_lookup_key)
-    : input_rows_lookup_key_(std::move(input_rows_lookup_key)) {
+    : aggregate_input_(aggregate_input),
+      input_rows_lookup_key_(std::move(input_rows_lookup_key)) {
   SetArgs<ExprArg>(kColumn, std::move(columns));
 }
 
 absl::Span<const ExprArg* const> GroupRowsOp::columns() const {
   return GetArgs<ExprArg>(kColumn);
+}
+
+absl::Span<ExprArg* const> GroupRowsOp::mutable_columns() {
+  return GetMutableArgs<ExprArg>(kColumn);
 }
 
 std::unique_ptr<TupleSchema> GroupRowsOp::CreateOutputSchema() const {
@@ -2528,6 +2536,14 @@ std::unique_ptr<TupleSchema> GroupRowsOp::CreateOutputSchema() const {
 
 absl::Status GroupRowsOp::SetSchemasForEvaluation(
     absl::Span<const TupleSchema* const> params_schemas) {
+  // The columns are evaluated against the params followed by an accumulated
+  // row, whose schema is the output schema of `aggregate_input_`.
+  const std::unique_ptr<TupleSchema> input_schema =
+      aggregate_input_->CreateOutputSchema();
+  for (ExprArg* column : mutable_columns()) {
+    GOOGLESQL_RETURN_IF_ERROR(column->mutable_value_expr()->SetSchemasForEvaluation(
+        ConcatSpans(params_schemas, {input_schema.get()})));
+  }
   return absl::OkStatus();
 }
 
@@ -2599,6 +2615,68 @@ class TupleDataDequeIterator : public TupleIterator {
   absl::Status status_;
 };
 
+// Produces one output tuple per accumulated row of a group by evaluating
+// `columns` against the params followed by the accumulated row. This projects
+// the rows, which have the layout of the aggregation input, onto the output
+// columns of GroupRowsOp.
+class GroupRowsTupleIterator : public TupleIterator {
+ public:
+  GroupRowsTupleIterator(const TupleDataDeque& tuples,
+                         absl::Span<const TupleData* const> params,
+                         absl::Span<const ExprArg* const> columns,
+                         int num_extra_slots,
+                         std::unique_ptr<TupleSchema> output_schema,
+                         EvaluationContext* context)
+      : tuples_(tuples.GetTuplePtrs()),
+        params_(params.begin(), params.end()),
+        columns_(columns.begin(), columns.end()),
+        output_schema_(std::move(output_schema)),
+        num_extra_slots_(num_extra_slots),
+        context_(context) {}
+
+  GroupRowsTupleIterator(const GroupRowsTupleIterator&) = delete;
+  GroupRowsTupleIterator& operator=(const GroupRowsTupleIterator&) = delete;
+
+  const TupleSchema& Schema() const override { return *output_schema_; }
+
+  TupleData* Next() override {
+    if (current_input_tuple_ >= tuples_.size()) return nullptr;
+    status_ = PeriodicallyVerifyNotAborted(context_, current_input_tuple_);
+    if (!status_.ok()) return nullptr;
+    const TupleData* input_tuple = tuples_[current_input_tuple_];
+    current_ = std::make_unique<TupleData>(static_cast<int>(columns_.size()) +
+                                           num_extra_slots_);
+    const std::vector<const TupleData*> params_and_input_tuple =
+        ConcatSpans(absl::Span<const TupleData* const>(params_), {input_tuple});
+    for (int i = 0; i < columns_.size(); ++i) {
+      absl::Status status;
+      if (!columns_[i]->value_expr()->EvalSimple(
+              params_and_input_tuple, context_, current_->mutable_slot(i),
+              &status)) {
+        status_ = status;
+        return nullptr;
+      }
+    }
+    current_input_tuple_++;
+    return current_.get();
+  }
+
+  absl::Status Status() const override { return status_; }
+
+  std::string DebugString() const override { return "GroupRowsIterator()"; }
+
+ private:
+  const std::vector<const TupleData*> tuples_;
+  const std::vector<const TupleData*> params_;
+  const std::vector<const ExprArg*> columns_;
+  int64_t current_input_tuple_ = 0;
+  const std::unique_ptr<TupleSchema> output_schema_;
+  int num_extra_slots_;
+  std::unique_ptr<TupleData> current_;
+  EvaluationContext* context_;
+  absl::Status status_;
+};
+
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
@@ -2612,8 +2690,9 @@ absl::StatusOr<std::unique_ptr<TupleIterator>> GroupRowsOp::CreateIterator(
       << "variable " << input_rows_lookup_key_.ToString();
 
   std::unique_ptr<TupleIterator> iter =
-      std::make_unique<TupleDataDequeIterator>(
-          *active_group_rows, num_extra_slots, CreateOutputSchema(), context);
+      std::make_unique<GroupRowsTupleIterator>(*active_group_rows, params,
+                                               columns(), num_extra_slots,
+                                               CreateOutputSchema(), context);
   return MaybeReorder(std::move(iter), context);
 }
 

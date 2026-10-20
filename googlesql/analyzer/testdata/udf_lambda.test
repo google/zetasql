@@ -1091,5 +1091,52 @@ ERROR: Parameterized types are not supported in function arguments [at 1:71]
                                                      ^
 ==
 
+# Multiple named FUNCTION reference arguments passed in reverse order.
+[use_database=udf_db]
+[language_features=NONE,+INLINE_LAMBDA_ARGUMENT,+UDF_LAMBDA_ARGUMENTS,+WITH_EXPRESSION,+NAMED_ARGUMENTS]
+CREATE FUNCTION caller_two_func_args(f FUNCTION<INT64 -> INT64>, g FUNCTION<INT64 -> INT64>) AS (
+  f_multi_lambda_arg(p2 => FUNCTION g, p1 => FUNCTION f, x => 10)
+);
+--
+CreateFunctionStmt
++-name_path=caller_two_func_args
++-return_type=INT64
++-argument_name_list=[f, g]
++-signature=(FUNCTION<INT64->INT64> f, FUNCTION<INT64->INT64> g) -> INT64
++-language="SQL"
++-code="f_multi_lambda_arg(p2 => FUNCTION g, p1 => FUNCTION f, x => 10)"
++-function_expression=
+  +-FunctionCall(Lazy_resolution_function:f_multi_lambda_arg(FUNCTION<INT64->INT64> p1, FUNCTION<INT64->INT64> p2, INT64 x) -> INT64)
+    +-FunctionArgument
+    | +-function_ref=
+    |   +-FunctionRef(function=FUNCTION_TYPED_PARAMETER:f, signature=(INT64) -> INT64)
+    +-FunctionArgument
+    | +-function_ref=
+    |   +-FunctionRef(function=FUNCTION_TYPED_PARAMETER:g, signature=(INT64) -> INT64)
+    +-FunctionArgument
+      +-expr=
+        +-Literal(type=INT64, value=10)
+==
 
-
+# Named scalar argument and FUNCTION reference argument passed out of order.
+[use_database=udf_db]
+[language_features=NONE,+INLINE_LAMBDA_ARGUMENT,+UDF_LAMBDA_ARGUMENTS,+WITH_EXPRESSION,+NAMED_ARGUMENTS]
+CREATE FUNCTION caller_scalar_and_func_arg(f FUNCTION<INT64 -> INT64>) AS (
+  call_twice(x => 10, f => FUNCTION f)
+);
+--
+CreateFunctionStmt
++-name_path=caller_scalar_and_func_arg
++-return_type=INT64
++-argument_name_list=[f]
++-signature=(FUNCTION<INT64->INT64> f) -> INT64
++-language="SQL"
++-code="call_twice(x => 10, f => FUNCTION f)"
++-function_expression=
+  +-FunctionCall(Lazy_resolution_function:call_twice(FUNCTION<INT64->INT64> f, INT64 x) -> INT64)
+    +-FunctionArgument
+    | +-function_ref=
+    |   +-FunctionRef(function=FUNCTION_TYPED_PARAMETER:f, signature=(INT64) -> INT64)
+    +-FunctionArgument
+      +-expr=
+        +-Literal(type=INT64, value=10)

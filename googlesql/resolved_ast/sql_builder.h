@@ -733,6 +733,7 @@ class SQLBuilder : public ResolvedASTVisitor {
       const ResolvedPipeCreateTableScan* node) override;
   absl::Status VisitResolvedInsertScan(const ResolvedInsertScan* node) override;
   absl::Status VisitResolvedUpdateScan(const ResolvedUpdateScan* node) override;
+  absl::Status VisitResolvedDeleteScan(const ResolvedDeleteScan* node) override;
   absl::Status VisitResolvedBarrierScan(
       const ResolvedBarrierScan* node) override;
   absl::Status VisitResolvedSubpipeline(
@@ -793,6 +794,10 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status VisitResolvedGraphScan(const ResolvedGraphScan* node) override;
   absl::Status VisitResolvedGraphInsertScan(
       const ResolvedGraphInsertScan* node) override;
+  absl::Status VisitResolvedGraphUpdateScan(
+      const ResolvedGraphUpdateScan* node) override;
+  absl::Status VisitResolvedGraphDeleteScan(
+      const ResolvedGraphDeleteScan* node) override;
   absl::Status VisitResolvedGraphCallScan(
       const ResolvedGraphCallScan* node) override;
   absl::Status VisitResolvedGraphGetElementProperty(
@@ -1256,9 +1261,6 @@ class SQLBuilder : public ResolvedASTVisitor {
   absl::Status SetPathForColumnsInScan(const ResolvedScan* scan,
                                        const std::string& alias);
 
-  // Helper functions to set up ResolvedColumn path in returning clause.
-  absl::Status SetPathForColumnsInReturningExpr(const ResolvedExpr* expr);
-
   // Helper function to ensure:
   // - Columns in <output_column_list> matches 1:1 in order with
   //   <query_expression> select-list.
@@ -1404,9 +1406,6 @@ class SQLBuilder : public ResolvedASTVisitor {
   // `max_seen_alias_id_root_ptr_` is nullptr only if it's the root SQLBuilder.
   // Otherwise, it should never be nullptr.
   int* max_seen_alias_id_root_ptr_ = nullptr;
-
-  // Stores the target table alias for DML Returning statements.
-  std::string returning_table_alias_;
 
   // Used to generate a unique alias id.
   googlesql_base::SequenceNumber alias_id_sequence_;

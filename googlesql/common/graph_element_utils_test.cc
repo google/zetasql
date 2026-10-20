@@ -16,6 +16,8 @@
 
 #include "googlesql/common/graph_element_utils.h"
 
+#include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "googlesql/base/testing/status_matchers.h"
@@ -23,7 +25,9 @@
 #include "googlesql/public/json_value.h"
 #include "googlesql/public/types/type.h"
 #include "googlesql/public/types/type_factory.h"
+#include "googlesql/public/value.h"
 #include "googlesql/resolved_ast/resolved_ast.h"
+#include "googlesql/testing/test_value.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "absl/types/span.h"
@@ -32,6 +36,8 @@ namespace googlesql {
 namespace {
 
 using ::testing::NotNull;
+using ::testing::Optional;
+using ::absl_testing::IsOkAndHolds;
 
 TEST(GraphElementUtilsTest, IsOrContainsGraphElementTest) {
   TypeFactory factory;
@@ -120,44 +126,55 @@ TEST(GraphElementUtilsTest, HasSearchPrefixTest) {
 }
 
 TEST(GraphElementUtilsTest, IntersectPeriodsTest) {
-  Value start1 = Value::TimestampFromUnixMicros(1000);
-  Value end1 = Value::TimestampFromUnixMicros(2000);
-  Value period1 = Value::MakeRange(start1, end1).value();
+  auto period = [](std::optional<int64_t> start, std::optional<int64_t> end) {
+    return test_values::Range(
+        start ? Value::TimestampFromUnixMicros(*start) : Value::NullTimestamp(),
+        end ? Value::TimestampFromUnixMicros(*end) : Value::NullTimestamp());
+  };
 
-  Value start2 = Value::TimestampFromUnixMicros(1500);
-  Value end2 = Value::TimestampFromUnixMicros(2500);
-  Value period2 = Value::MakeRange(start2, end2).value();
-
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value intersection, IntersectPeriods(period1, period2));
-  EXPECT_TRUE(intersection.start().Equals(start2));
-  EXPECT_TRUE(intersection.end().Equals(end1));
-
-  // Test unbounded start/end
-  Value unbounded_start = Value::NullTimestamp();
-  Value unbounded_end = Value::NullTimestamp();
-  Value period3 = Value::MakeRange(unbounded_start, end2).value();
-  Value period4 = Value::MakeRange(start1, unbounded_end).value();
-
-  GOOGLESQL_ASSERT_OK_AND_ASSIGN(Value intersection2, IntersectPeriods(period3, period4));
-  EXPECT_TRUE(intersection2.start().Equals(start1));
-  EXPECT_TRUE(intersection2.end().Equals(end2));
+  EXPECT_THAT(IntersectPeriods(period(1000, 2000), period(1500, 2500)),
+              IsOkAndHolds(Optional(period(1500, 2000))));
+  // NULL bounds are unbounded.
+  EXPECT_THAT(
+      IntersectPeriods(period(std::nullopt, 2500), period(1000, std::nullopt)),
+      IsOkAndHolds(Optional(period(1000, 2500))));
+  EXPECT_THAT(
+      IntersectPeriods(period(1000, std::nullopt), period(std::nullopt, 2500)),
+      IsOkAndHolds(Optional(period(1000, 2500))));
+  EXPECT_THAT(IntersectPeriods(period(std::nullopt, std::nullopt),
+                               period(std::nullopt, std::nullopt)),
+              IsOkAndHolds(Optional(period(std::nullopt, std::nullopt))));
+  EXPECT_THAT(
+      IntersectPeriods(period(std::nullopt, std::nullopt), period(1000, 2000)),
+      IsOkAndHolds(Optional(period(1000, 2000))));
+  // Disjoint, adjacent (the end is exclusive) and half-unbounded disjoint
+  // periods have an empty intersection.
+  EXPECT_THAT(IntersectPeriods(period(1000, 2000), period(3000, 4000)),
+              IsOkAndHolds(std::nullopt));
+  EXPECT_THAT(IntersectPeriods(period(1000, 2000), period(2000, 3000)),
+              IsOkAndHolds(std::nullopt));
+  EXPECT_THAT(
+      IntersectPeriods(period(std::nullopt, 1000), period(1000, std::nullopt)),
+      IsOkAndHolds(std::nullopt));
 }
 
 TEST(GraphElementUtilsTest, PeriodContainsPointTest) {
   Value start1 = Value::TimestampFromUnixMicros(1000);
   Value end1 = Value::TimestampFromUnixMicros(2000);
-  Value period1 = Value::MakeRange(start1, end1).value();
+  Value period1 = test_values::Range(start1, end1);
 
   Value point_inside = Value::TimestampFromUnixMicros(1500);
   Value point_outside_before = Value::TimestampFromUnixMicros(500);
   Value point_outside_after = Value::TimestampFromUnixMicros(2500);
 
-  EXPECT_TRUE(PeriodContainsPoint(period1, point_inside).value());
-  EXPECT_TRUE(
-      PeriodContainsPoint(period1, start1).value());  // start is inclusive
-  EXPECT_FALSE(PeriodContainsPoint(period1, end1).value());  // end is exclusive
-  EXPECT_FALSE(PeriodContainsPoint(period1, point_outside_before).value());
-  EXPECT_FALSE(PeriodContainsPoint(period1, point_outside_after).value());
+  EXPECT_THAT(PeriodContainsPoint(period1, point_inside), IsOkAndHolds(true));
+  // The start is inclusive and the end is exclusive.
+  EXPECT_THAT(PeriodContainsPoint(period1, start1), IsOkAndHolds(true));
+  EXPECT_THAT(PeriodContainsPoint(period1, end1), IsOkAndHolds(false));
+  EXPECT_THAT(PeriodContainsPoint(period1, point_outside_before),
+              IsOkAndHolds(false));
+  EXPECT_THAT(PeriodContainsPoint(period1, point_outside_after),
+              IsOkAndHolds(false));
 }
 
 }  // namespace

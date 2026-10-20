@@ -154,7 +154,6 @@ cc_library(
         "//googlesql/resolved_ast:rewrite_utils",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base:nullability",
-        "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:btree",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -491,6 +490,29 @@ cc_library(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "lookup_table_tvf_rewriter",
+    srcs = ["lookup_table_tvf_rewriter.cc"],
+    hdrs = ["lookup_table_tvf_rewriter.h"],
+    deps = [
+        "//googlesql/base:ret_check",
+        "//googlesql/base:status",
+        "//googlesql/public:analyzer_options",
+        "//googlesql/public:analyzer_output_properties",
+        "//googlesql/public:builtin_function_cc_proto",
+        "//googlesql/public:catalog",
+        "//googlesql/public:function",
+        "//googlesql/public:id_string",
+        "//googlesql/public:rewriter_interface",
+        "//googlesql/public/types",
+        "//googlesql/resolved_ast",
+        "//googlesql/resolved_ast:resolved_ast_builder",
+        "//googlesql/resolved_ast:resolved_ast_rewrite_visitor",
+        "//googlesql/resolved_ast:rewrite_utils",
+        "@com_google_absl//absl/status:statusor",
     ],
 )
 

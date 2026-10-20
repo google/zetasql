@@ -53,7 +53,7 @@ INSERT INTO KeyValue (key, value) VALUES (1, "one") THEN RETURN WITH ACTION A...
                                                     ^
 ==
 
-[default language_features=NONE,+DML_RETURNING,+SELECT_STAR_EXCEPT_REPLACE,+DML_UPDATE_WITH_JOIN,+PIVOT]
+[default language_features=NONE,+DML_RETURNING,+SELECT_STAR_EXCEPT_REPLACE,+DML_UPDATE_WITH_JOIN,+PIVOT,+DML_UPDATE_RETURNING_FROM_COLUMNS]
 DELETE TestTable WHERE KitchenSink.int32_val = 1 THEN RETURN *
 --
 DeleteStmt
@@ -1159,6 +1159,8 @@ UpdateStmt
 |   | +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
 |   | +-SimpleTypes.json#18 AS json [JSON]
 |   | +-SimpleTypes.uuid#19 AS uuid [UUID]
+|   | +-KeyValue.Key#20 AS Key [INT64]
+|   | +-KeyValue.Value#21 AS Value [STRING]
 |   | +-$with_action.ACTION#22 AS ACTION [STRING]
 |   +-action_column=
 |     +-ColumnHolder(column=$with_action.ACTION#22)
@@ -1175,10 +1177,266 @@ UpdateStmt
 |       +-value=
 |         +-Literal(type=INT64, value=1)
 +-from_scan=
-  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
+  +-TableScan(column_list=KeyValue.[Key#20, Value#21], table=KeyValue, column_index_list=[0, 1])
 
 ==
 
+# Reference an unqualified column from the FROM clause in THEN RETURN.
+UPDATE SimpleTypes SET
+  int64 = 1
+FROM KeyValue
+WHERE int64 = Key
+THEN RETURN Key
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
++-column_access_list=READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-KeyValue.Key#20 AS Key [INT64]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
+==
+
+# Expression in THEN RETURN combining columns from target table and FROM clause.
+UPDATE SimpleTypes SET
+  int64 = 1
+FROM KeyValue
+WHERE int64 = Key
+THEN RETURN int64 + Key AS sum_key, Value
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1])
++-column_access_list=READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|   | +-SimpleTypes.sum_key#22 AS sum_key [INT64]
+|   | +-KeyValue.Value#21 AS Value [STRING]
+|   +-expr_list=
+|     +-sum_key#22 :=
+|       +-FunctionCall(GoogleSQL:$add(INT64, INT64) -> INT64)
+|         +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|         +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=KeyValue.[Key#20, Value#21], table=KeyValue, column_index_list=[0, 1])
+==
+
+# Reference alias-qualified columns from target table and FROM clause.
+UPDATE SimpleTypes AS t SET
+  t.int64 = 1
+FROM KeyValue AS kv
+WHERE t.int64 = kv.Key
+THEN RETURN t.int64, kv.Value
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="t")
++-column_access_list=READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-SimpleTypes.int64#2 AS int64 [INT64]
+|     +-KeyValue.Value#21 AS Value [STRING]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=KeyValue.[Key#20, Value#21], table=KeyValue, column_index_list=[0, 1], alias="kv")
+==
+
+# Expand both target table and FROM table columns via alias.* in THEN RETURN.
+UPDATE SimpleTypes AS t SET
+  t.int64 = 1
+FROM KeyValue AS kv
+WHERE t.int64 = kv.Key
+THEN RETURN t.*, kv.*
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], alias="t")
++-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-SimpleTypes.int32#1 AS int32 [INT32]
+|     +-SimpleTypes.int64#2 AS int64 [INT64]
+|     +-SimpleTypes.uint32#3 AS uint32 [UINT32]
+|     +-SimpleTypes.uint64#4 AS uint64 [UINT64]
+|     +-SimpleTypes.string#5 AS string [STRING]
+|     +-SimpleTypes.bytes#6 AS bytes [BYTES]
+|     +-SimpleTypes.bool#7 AS bool [BOOL]
+|     +-SimpleTypes.float#8 AS float [FLOAT]
+|     +-SimpleTypes.double#9 AS double [DOUBLE]
+|     +-SimpleTypes.date#10 AS date [DATE]
+|     +-SimpleTypes.timestamp_seconds#11 AS timestamp_seconds [TIMESTAMP]
+|     +-SimpleTypes.timestamp_millis#12 AS timestamp_millis [TIMESTAMP]
+|     +-SimpleTypes.timestamp_micros#13 AS timestamp_micros [TIMESTAMP]
+|     +-SimpleTypes.timestamp_nanos#14 AS timestamp_nanos [TIMESTAMP]
+|     +-SimpleTypes.timestamp#15 AS timestamp [TIMESTAMP]
+|     +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
+|     +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
+|     +-SimpleTypes.json#18 AS json [JSON]
+|     +-SimpleTypes.uuid#19 AS uuid [UUID]
+|     +-KeyValue.Key#20 AS Key [INT64]
+|     +-KeyValue.Value#21 AS Value [STRING]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=KeyValue.[Key#20, Value#21], table=KeyValue, column_index_list=[0, 1], alias="kv")
+==
+
+# Expand only target table columns via t.*; unreferenced FROM columns are pruned.
+UPDATE SimpleTypes AS t SET
+  t.int64 = 1
+FROM KeyValue AS kv
+WHERE t.int64 = kv.Key
+THEN RETURN t.*
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18], alias="t")
++-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-SimpleTypes.int32#1 AS int32 [INT32]
+|     +-SimpleTypes.int64#2 AS int64 [INT64]
+|     +-SimpleTypes.uint32#3 AS uint32 [UINT32]
+|     +-SimpleTypes.uint64#4 AS uint64 [UINT64]
+|     +-SimpleTypes.string#5 AS string [STRING]
+|     +-SimpleTypes.bytes#6 AS bytes [BYTES]
+|     +-SimpleTypes.bool#7 AS bool [BOOL]
+|     +-SimpleTypes.float#8 AS float [FLOAT]
+|     +-SimpleTypes.double#9 AS double [DOUBLE]
+|     +-SimpleTypes.date#10 AS date [DATE]
+|     +-SimpleTypes.timestamp_seconds#11 AS timestamp_seconds [TIMESTAMP]
+|     +-SimpleTypes.timestamp_millis#12 AS timestamp_millis [TIMESTAMP]
+|     +-SimpleTypes.timestamp_micros#13 AS timestamp_micros [TIMESTAMP]
+|     +-SimpleTypes.timestamp_nanos#14 AS timestamp_nanos [TIMESTAMP]
+|     +-SimpleTypes.timestamp#15 AS timestamp [TIMESTAMP]
+|     +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
+|     +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
+|     +-SimpleTypes.json#18 AS json [JSON]
+|     +-SimpleTypes.uuid#19 AS uuid [UUID]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0], alias="kv")
+==
+
+# Reference columns from a JOIN in the FROM clause.
+UPDATE SimpleTypes AS t SET
+  t.int64 = 1
+FROM KeyValue AS kv1 JOIN KeyValue AS kv2 ON kv1.Key = kv2.Key
+WHERE t.int64 = kv1.Key
+THEN RETURN t.int64, kv1.Key, kv2.Value
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=[SimpleTypes.int64#2], table=SimpleTypes, column_index_list=[1], alias="t")
++-column_access_list=READ_WRITE
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-SimpleTypes.int64#2 AS int64 [INT64]
+|     +-KeyValue.Key#20 AS Key [INT64]
+|     +-KeyValue.Value#23 AS Value [STRING]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-JoinScan
+    +-column_list=KeyValue.[Key#20, Key#22, Value#23]
+    +-left_scan=
+    | +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0], alias="kv1")
+    +-right_scan=
+    | +-TableScan(column_list=KeyValue.[Key#22, Value#23], table=KeyValue, column_index_list=[0, 1], alias="kv2")
+    +-join_expr=
+      +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+        +-ColumnRef(type=INT64, column=KeyValue.Key#20)
+        +-ColumnRef(type=INT64, column=KeyValue.Key#22)
+==
+
+# Unqualified column present in both target and FROM tables is ambiguous.
+UPDATE KeyValue AS kv1 SET
+  Value = 'new'
+FROM KeyValue AS kv2
+WHERE kv1.Key = kv2.Key
+THEN RETURN Key
+--
+ERROR: Column name Key is ambiguous [at 5:13]
+THEN RETURN Key
+            ^
+==
+
+# Referencing FROM columns in THEN RETURN fails when the feature is disabled.
+[language_features=NONE,+DML_RETURNING,+SELECT_STAR_EXCEPT_REPLACE,+DML_UPDATE_WITH_JOIN,+PIVOT]
 UPDATE SimpleTypes SET
   int64 = 1
 FROM KeyValue
@@ -1188,6 +1446,56 @@ THEN RETURN Key
 ERROR: Unrecognized name: Key [at 5:13]
 THEN RETURN Key
             ^
+==
+
+# THEN RETURN * only expands target table columns when the feature is disabled.
+[language_features=NONE,+DML_RETURNING,+SELECT_STAR_EXCEPT_REPLACE,+DML_UPDATE_WITH_JOIN,+PIVOT]
+UPDATE SimpleTypes SET
+  int64 = 1
+FROM KeyValue
+WHERE int64 = Key
+THEN RETURN *
+--
+UpdateStmt
++-table_scan=
+| +-TableScan(column_list=SimpleTypes.[int32#1, int64#2, uint32#3, uint64#4, string#5, bytes#6, bool#7, float#8, double#9, date#10, timestamp_seconds#11, timestamp_millis#12, timestamp_micros#13, timestamp_nanos#14, timestamp#15, numeric#16, bignumeric#17, json#18, uuid#19], table=SimpleTypes, column_index_list=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18])
++-column_access_list=READ,READ_WRITE,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ,READ
++-returning=
+| +-ReturningClause
+|   +-output_column_list=
+|     +-SimpleTypes.int32#1 AS int32 [INT32]
+|     +-SimpleTypes.int64#2 AS int64 [INT64]
+|     +-SimpleTypes.uint32#3 AS uint32 [UINT32]
+|     +-SimpleTypes.uint64#4 AS uint64 [UINT64]
+|     +-SimpleTypes.string#5 AS string [STRING]
+|     +-SimpleTypes.bytes#6 AS bytes [BYTES]
+|     +-SimpleTypes.bool#7 AS bool [BOOL]
+|     +-SimpleTypes.float#8 AS float [FLOAT]
+|     +-SimpleTypes.double#9 AS double [DOUBLE]
+|     +-SimpleTypes.date#10 AS date [DATE]
+|     +-SimpleTypes.timestamp_seconds#11 AS timestamp_seconds [TIMESTAMP]
+|     +-SimpleTypes.timestamp_millis#12 AS timestamp_millis [TIMESTAMP]
+|     +-SimpleTypes.timestamp_micros#13 AS timestamp_micros [TIMESTAMP]
+|     +-SimpleTypes.timestamp_nanos#14 AS timestamp_nanos [TIMESTAMP]
+|     +-SimpleTypes.timestamp#15 AS timestamp [TIMESTAMP]
+|     +-SimpleTypes.numeric#16 AS numeric [NUMERIC]
+|     +-SimpleTypes.bignumeric#17 AS bignumeric [BIGNUMERIC]
+|     +-SimpleTypes.json#18 AS json [JSON]
+|     +-SimpleTypes.uuid#19 AS uuid [UUID]
++-where_expr=
+| +-FunctionCall(GoogleSQL:$equal(INT64, INT64) -> BOOL)
+|   +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-ColumnRef(type=INT64, column=KeyValue.Key#20)
++-update_item_list=
+| +-UpdateItem
+|   +-target=
+|   | +-ColumnRef(type=INT64, column=SimpleTypes.int64#2)
+|   +-set_value=
+|     +-DMLValue
+|       +-value=
+|         +-Literal(type=INT64, value=1)
++-from_scan=
+  +-TableScan(column_list=[KeyValue.Key#20], table=KeyValue, column_index_list=[0])
 ==
 
 [language_features=NONE,+DML_RETURNING]

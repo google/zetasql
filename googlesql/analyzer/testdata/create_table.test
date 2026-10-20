@@ -5919,6 +5919,42 @@ CreateTableStmt
           +-Connection(connection=connection2)
 ==
 
+[language_features=MAXIMUM,+MULTI_CONNECTIONS]
+create table t (a int64) with connection (
+  key1="nested-catalog.nested-nested-catalog.connection-with-hyphen",
+  key2=`nested-catalog`.`nested-nested-catalog`.`connection-with-hyphen`,
+  key3='nested-catalog.nested-nested-catalog.' "connection-with-hyphen");
+--
+CreateTableStmt
++-name_path=t
++-column_definition_list=
+| +-ColumnDefinition(name="a", type=INT64, column=t.a#1)
++-connection_list=
+  +-ConnectionList
+    +-connection_kv_list=
+      +-ConnectionKeyValuePair
+      | +-key="key1"
+      | +-connection=
+      |   +-Connection(connection=connection-with-hyphen)
+      +-ConnectionKeyValuePair
+      | +-key="key2"
+      | +-connection=
+      |   +-Connection(connection=connection-with-hyphen)
+      +-ConnectionKeyValuePair
+        +-key="key3"
+        +-connection=
+          +-Connection(connection=connection-with-hyphen)
+==
+
+[language_features=MAXIMUM,+MULTI_CONNECTIONS]
+create table t (a int64) with connection (
+  key1="nested-catalog.`nested-nested-catalog`.connection-with-hyphen");
+--
+ERROR: Path contains an invalid character '`' [at 2:8]
+  key1="nested-catalog.`nested-nested-catalog`.connection-with-hyphen");
+       ^
+==
+
 [language_features=NONE,+CREATE_TABLE_WITH_CONNECTION,+MULTI_CONNECTIONS]
 create table t (a int64) with connection (key1="connection2", KEY1=connection2);
 --
@@ -5935,6 +5971,15 @@ create table t (a int64) with connection (key1="not_found_conn");
                                                ^
 ==
 
+[language_features=MAXIMUM,+MULTI_CONNECTIONS]
+create table t (a int64)
+with connection (key1="my-project.us-central1.not-found-conn");
+--
+ERROR: Connection not found: my-project.us-central1.not-found-conn [at 2:23]
+with connection (key1="my-project.us-central1.not-found-conn");
+                      ^
+==
+
 [language_features=NONE,+CREATE_TABLE_WITH_CONNECTION,+MULTI_CONNECTIONS]
 create table t (a int64) with connection (key1="");
 --
@@ -5948,6 +5993,22 @@ create table t (a int64) with connection (key1="a..b");
 --
 ERROR: Path string contains an empty path component [at 1:48]
 create table t (a int64) with connection (key1="a..b");
+                                               ^
+==
+
+[language_features=MAXIMUM,+MULTI_CONNECTIONS]
+create table t (a int64) with connection (key1=".a");
+--
+ERROR: Path string contains an empty path component [at 1:48]
+create table t (a int64) with connection (key1=".a");
+                                               ^
+==
+
+[language_features=MAXIMUM,+MULTI_CONNECTIONS]
+create table t (a int64) with connection (key1="a.");
+--
+ERROR: Path string contains an empty path component [at 1:48]
+create table t (a int64) with connection (key1="a.");
                                                ^
 ==
 

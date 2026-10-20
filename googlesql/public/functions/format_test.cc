@@ -703,6 +703,31 @@ str_value: "bar"
 })",
       TestFormat("%P", {json_value}));
 
+  const Value unparsed_json_value = Value::UnvalidatedJsonString(
+      R"({"foo":[1,null,"bar"],"foo2":"hello","foo3":true})");
+  EXPECT_EQ("{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}",
+            TestFormat("%t", {unparsed_json_value}));
+  EXPECT_EQ(
+      "JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}'",
+      TestFormat("%T", {unparsed_json_value}));
+  EXPECT_EQ(
+      "JSON '{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}' "
+      "after",
+      TestFormat("%T %s", {unparsed_json_value, String("after")}));
+  EXPECT_EQ("{\"foo\":[1,null,\"bar\"],\"foo2\":\"hello\",\"foo3\":true}",
+            TestFormat("%p", {unparsed_json_value}));
+  EXPECT_EQ(
+      R"({
+  "foo": [
+    1,
+    null,
+    "bar"
+  ],
+  "foo2": "hello",
+  "foo3": true
+})",
+      TestFormat("%P", {unparsed_json_value}));
+
   const Value bad_json_value = Value::UnvalidatedJsonString(R"({"a": 12)");
 
   EXPECT_THAT(TestFormat("%t", {bad_json_value}),

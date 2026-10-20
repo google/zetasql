@@ -43,6 +43,7 @@
 #include "googlesql/reference_impl/operator.h"
 #include "googlesql/reference_impl/parameters.h"
 #include "googlesql/reference_impl/tuple.h"
+#include "googlesql/reference_impl/variable_generator.h"
 #include "googlesql/reference_impl/variable_id.h"
 #include "googlesql/resolved_ast/resolved_ast.h"
 #include "googlesql/resolved_ast/resolved_column.h"
@@ -53,7 +54,7 @@
 #include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/node_hash_map.h"
-#include "absl/memory/memory.h"
+#include "googlesql/base/check.h"
 #include "absl/status/status.h"
 #include "googlesql/base/status_macros.h"
 #include "absl/status/statusor.h"
@@ -275,71 +276,47 @@ class Evaluator {
 
   absl::Status ExecuteAfterPrepare(
       ExpressionOptions options, Value* expression_output_value,
-      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
-    return ExecuteAfterPrepareLocked(
-        std::move(options), expression_output_value, query_output_iterator);
-  }
+      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const;
 
   absl::StatusOr<StmtResults> ExecuteMultiAfterPrepare(
-      ExpressionOptions options) ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
-    return ExecuteMultiAfterPrepareLocked(std::move(options));
-  }
+      ExpressionOptions options) const;
 
   absl::Status ExecuteAfterPrepareWithOrderedParams(
       const ExpressionOptions& options, Value* expression_output_value,
-      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
-    return ExecuteAfterPrepareWithOrderedParamsLocked(
-        options, expression_output_value, query_output_iterator);
-  }
+      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const;
 
   absl::StatusOr<StmtResults> ExecuteMultiAfterPrepareWithOrderedParams(
-      const ExpressionOptions& options) ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
-    return ExecuteMultiAfterPrepareWithOrderedParamsLocked(options);
-  }
+      const ExpressionOptions& options) const;
 
-  absl::StatusOr<std::string> ExplainAfterPrepare() const
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  absl::StatusOr<std::string> ExplainAfterPrepare() const;
 
   // Returns NULL if this object is for a query instead of an expression.
-  const Type* expression_output_type() const ABSL_LOCKS_EXCLUDED(mutex_);
+  const Type* expression_output_type() const;
 
   // Returns the column names referenced in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  absl::StatusOr<std::vector<std::string>> GetReferencedColumns() const
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  absl::StatusOr<std::vector<std::string>> GetReferencedColumns() const;
 
   // Returns the parameters referenced in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  absl::StatusOr<std::vector<std::string>> GetReferencedParameters() const;
 
   // Returns the number of positional parameters in the expression.
   // REQUIRES: Prepare() or Execute() has been called successfully.
-  absl::StatusOr<int> GetPositionalParameterCount() const
-      ABSL_LOCKS_EXCLUDED(mutex_);
+  absl::StatusOr<int> GetPositionalParameterCount() const;
 
   // Makes an EvaluatorTableModifyIterator from the result of evaluating a
   // DMLValueExpr and its input ResolvedStatement.
   absl::StatusOr<EvaluatorModifyResult> MakeUpdateIterator(
-      const Value& value, const ResolvedStatement* statement);
+      const Value& value, const ResolvedStatement* statement) const;
 
   // REQUIRES: !is_expr_ and Prepare() has been called successfully.
-  const ResolvedStatement* resolved_statement() const
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
+  const ResolvedStatement* resolved_statement() const {
     ABSL_CHECK(statement_ != nullptr);
     return statement_;
   }
 
-  const std::vector<const ResolvedStatement*>& sub_statements() const
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
+  const std::vector<const ResolvedStatement*>& sub_statements() const {
     ABSL_DCHECK(statement_ != nullptr);
     return sub_statements_;
   }
@@ -347,9 +324,7 @@ class Evaluator {
   // REQUIRES: the statement is ResolvedQueryStmt and Prepare() has been called
   // successfully.
   using NameAndType = PreparedQueryBase::NameAndType;
-  const std::vector<NameAndType>& query_output_columns() const
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::ReaderMutexLock l(&mutex_);
+  const std::vector<NameAndType>& query_output_columns() const {
     ABSL_CHECK(statement_ != nullptr);
     return output_columns_;
   }
@@ -357,16 +332,13 @@ class Evaluator {
   // For unit tests, it is possible to set a callback that is invoked every time
   // an EvaluationContext is created.
   void SetCreateEvaluationCallbackTestOnly(
-      std::function<void(EvaluationContext*)> cb) ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
+      std::function<void(EvaluationContext*)> cb) {
     create_evaluation_context_cb_test_only_ =
         std::make_unique<std::function<void(EvaluationContext*)>>(cb);
   }
 
   void SetCheckStatementKindCallback(
-      std::function<absl::Status(ResolvedNodeKind)> callback)
-      ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
+      std::function<absl::Status(ResolvedNodeKind)> callback) {
     check_statement_kind_callback_ = std::move(callback);
   }
 
@@ -391,12 +363,11 @@ class Evaluator {
   absl::Status PrepareIfUnpreparedLocked(const ExpressionOptions& options)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  absl::StatusOr<ExpressionOptions> PrepareOptionsForExecutionLocked(
-      ExpressionOptions options) const ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+  absl::StatusOr<ExpressionOptions> PrepareOptionsForExecution(
+      ExpressionOptions options) const;
 
   // If the EvaluatorOptions don't specify a type factory, use our own.
-  void MaybeInitTypeFactory() ABSL_LOCKS_EXCLUDED(mutex_) {
-    absl::MutexLock l(&mutex_);
+  void MaybeInitTypeFactory() {
     if (evaluator_options_.type_factory == nullptr) {
       owned_type_factory_ = std::make_unique<TypeFactory>();
       evaluator_options_.type_factory = owned_type_factory_.get();
@@ -407,56 +378,29 @@ class Evaluator {
   absl::Status PrepareLocked(const AnalyzerOptions& options, Catalog* catalog)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(mutex_);
 
-  // Same as ExecuteAfterPrepare(), but the mutex is already locked (possibly
-  // with a write lock).
-  absl::Status ExecuteAfterPrepareLocked(
-      ExpressionOptions options, Value* expression_output_value,
-      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-
-  absl::StatusOr<StmtResults> ExecuteMultiAfterPrepareLocked(
-      ExpressionOptions options) ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-
-  // Same as ExecuteAfterPrepareWithOrderedParams(), but with the mutex already
-  // locked.
-  absl::Status ExecuteAfterPrepareWithOrderedParamsLocked(
-      const ExpressionOptions& options, Value* expression_output_value,
-      std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-
-  absl::StatusOr<StmtResults> ExecuteMultiAfterPrepareWithOrderedParamsLocked(
-      const ExpressionOptions& options) ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-
   // Checks if 'parameters_map' specifies valid values for all variables from
   // resolved variable map 'variable_map', and populates 'values' with the
   // corresponding Values in the order they appear when iterating over
   // 'variable_map'. 'kind' is the kind of the parameters.
   absl::Status TranslateParameterValueMapToList(
       const ParameterValueMap& parameters_map, const ParameterMap& variable_map,
-      ParameterKind kind, ParameterValueList* variable_values) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+      ParameterKind kind, ParameterValueList* variable_values) const;
 
   // Validates the arguments to ExecuteAfterPrepareWithOrderedParams().
-  absl::Status ValidateColumns(const ParameterValueList& columns) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
-  absl::Status ValidateParameters(const ParameterValueList& parameters) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+  absl::Status ValidateColumns(const ParameterValueList& columns) const;
+  absl::Status ValidateParameters(const ParameterValueList& parameters) const;
   absl::Status ValidateSystemVariables(
-      const SystemVariableValuesMap& system_variables) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+      const SystemVariableValuesMap& system_variables) const;
 
-  bool is_prepared() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
-    return is_prepared_;
-  }
+  bool is_prepared() const { return is_prepared_; }
 
-  bool has_prepare_succeeded() const ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
+  bool has_prepare_succeeded() const {
     if (!is_prepared()) return false;
     return compiled_value_expr_ != nullptr ||
            compiled_relational_op_ != nullptr;
   }
 
-  std::unique_ptr<EvaluationContext> CreateEvaluationContext() const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_) {
+  std::unique_ptr<EvaluationContext> CreateEvaluationContext() const {
     // Construct the EvaluationOptions for the internal evaluation API from the
     // user-provided EvaluatorOptions. These are two different struct types with
     // unfortunately similar names.
@@ -504,8 +448,7 @@ class Evaluator {
   }
 
   absl::StatusOr<std::pair<std::unique_ptr<EvaluationContext>, TupleData>>
-  SetupExecutionLocked(const ExpressionOptions& options) const
-      ABSL_SHARED_LOCKS_REQUIRED(mutex_);
+  SetupExecution(const ExpressionOptions& options) const;
 
   // The original SQL. Not present if expr_ or statement_ was passed in
   // directly.
@@ -525,41 +468,39 @@ class Evaluator {
   // containing `statement_` if this is not a multi-statement.
   std::vector<const ResolvedStatement*> sub_statements_;
 
-  mutable absl::Mutex mutex_;
-  EvaluatorOptions evaluator_options_ ABSL_GUARDED_BY(mutex_);
-  AnalyzerOptions analyzer_options_ ABSL_GUARDED_BY(mutex_);
+  // Mutex that synchronizes Prepare() and lazy preparation in Execute() /
+  // ExecuteMulti(). After preparation completes, all prepared state is
+  // immutable and can be safely accessed concurrently without locking.
+  absl::Mutex mutex_;
+  EvaluatorOptions evaluator_options_;
+  AnalyzerOptions analyzer_options_;
   // map or list of parameters
-  Parameters algebrizer_parameters_ ABSL_GUARDED_BY(mutex_);
+  Parameters algebrizer_parameters_;
   // maps to variables
-  ParameterMap algebrizer_column_map_ ABSL_GUARDED_BY(mutex_);
-  SystemVariablesAlgebrizerMap algebrizer_system_variables_
-      ABSL_GUARDED_BY(mutex_);
-  bool is_prepared_ ABSL_GUARDED_BY(mutex_) = false;
-  std::unique_ptr<TypeFactory> owned_type_factory_ ABSL_GUARDED_BY(mutex_)
-      ABSL_PT_GUARDED_BY(mutex_);
+  ParameterMap algebrizer_column_map_;
+  SystemVariablesAlgebrizerMap algebrizer_system_variables_;
+  bool is_prepared_ = false;
+  std::unique_ptr<TypeFactory> owned_type_factory_;
   // std::unique_ptr<EvaluationContext> evaluation_context_;
-  std::unique_ptr<const AnalyzerOutput> analyzer_output_ ABSL_GUARDED_BY(mutex_)
-      ABSL_PT_GUARDED_BY(mutex_);
+  std::unique_ptr<const AnalyzerOutput> analyzer_output_;
 
   // For expressions, DDLs, DMLs, and multi-statements, Prepare() populates
   // `compiled_value_expr_`. For queries, it populates
   // `compiled_relational_op_`.
-  std::unique_ptr<ValueExpr> compiled_value_expr_ ABSL_GUARDED_BY(mutex_)
-      ABSL_PT_GUARDED_BY(mutex_);
-  std::unique_ptr<RelationalOp> compiled_relational_op_ ABSL_GUARDED_BY(mutex_)
-      ABSL_PT_GUARDED_BY(mutex_);
+  std::unique_ptr<ValueExpr> compiled_value_expr_;
+  std::unique_ptr<RelationalOp> compiled_relational_op_;
 
   // Output columns corresponding to `compiled_relational_op_` Only valid if
   // the statement is ResolvedQueryStmt.
-  std::vector<NameAndType> output_columns_ ABSL_GUARDED_BY(mutex_);
+  std::vector<NameAndType> output_columns_;
   // The i-th element corresponds to `output_columns_[i]` in the TupleIterator
   // returned by `compiled_relational_op_`. Only valid if the statement is
   // ResolvedQueryStmt.
-  std::vector<VariableId> output_column_variables_ ABSL_GUARDED_BY(mutex_);
+  std::vector<VariableId> output_column_variables_;
 
   // If catalog is not provided via prepare, we will construct the default
   // 'builtin' catalog automatically and store it here.
-  std::unique_ptr<SimpleCatalog> owned_catalog_ ABSL_GUARDED_BY(mutex_);
+  std::unique_ptr<SimpleCatalog> owned_catalog_;
 
   mutable absl::Mutex num_live_iterators_mutex_;
   // The number of live iterators corresponding to `compiled_relational_op_` or
@@ -572,11 +513,9 @@ class Evaluator {
   // The last EvaluationContext that we created, only for use by unit tests. May
   // be NULL.
   std::unique_ptr<std::function<void(EvaluationContext*)>>
-      create_evaluation_context_cb_test_only_ ABSL_GUARDED_BY(mutex_)
-          ABSL_PT_GUARDED_BY(mutex_);
+      create_evaluation_context_cb_test_only_;
 
-  std::function<absl::Status(ResolvedNodeKind)> check_statement_kind_callback_
-      ABSL_GUARDED_BY(mutex_);
+  std::function<absl::Status(ResolvedNodeKind)> check_statement_kind_callback_;
 };
 
 namespace {
@@ -806,7 +745,6 @@ absl::Status Evaluator::PrepareLocked(const AnalyzerOptions& options,
 
 absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
     const {
-  absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::googlesql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
@@ -824,7 +762,6 @@ absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedColumns()
 
 absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters()
     const {
-  absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::googlesql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
@@ -843,7 +780,6 @@ absl::StatusOr<std::vector<std::string>> Evaluator::GetReferencedParameters()
 }
 
 absl::StatusOr<int> Evaluator::GetPositionalParameterCount() const {
-  absl::ReaderMutexLock l(&mutex_);
   if (!is_prepared()) {
     return ::googlesql_base::FailedPreconditionErrorBuilder()
            << "Expression/Query has not been prepared";
@@ -890,9 +826,8 @@ absl::Status Evaluator::Execute(
     GOOGLESQL_RETURN_IF_ERROR(PrepareIfUnpreparedLocked(options));
   }
 
-  absl::ReaderMutexLock l(&mutex_);
-  return ExecuteAfterPrepareLocked(std::move(options), expression_output_value,
-                                   query_output_iterator);
+  return ExecuteAfterPrepare(std::move(options), expression_output_value,
+                             query_output_iterator);
 }
 
 absl::StatusOr<StmtResults> Evaluator::ExecuteMulti(ExpressionOptions options) {
@@ -904,7 +839,7 @@ absl::StatusOr<StmtResults> Evaluator::ExecuteMulti(ExpressionOptions options) {
   return ExecuteMultiAfterPrepare(std::move(options));
 }
 
-absl::StatusOr<ExpressionOptions> Evaluator::PrepareOptionsForExecutionLocked(
+absl::StatusOr<ExpressionOptions> Evaluator::PrepareOptionsForExecution(
     ExpressionOptions options) const {
   if (!has_prepare_succeeded()) {
     // Previous Prepare() failed with an analysis error or Prepare was never
@@ -952,26 +887,26 @@ absl::StatusOr<ExpressionOptions> Evaluator::PrepareOptionsForExecutionLocked(
   return new_options;
 }
 
-absl::Status Evaluator::ExecuteAfterPrepareLocked(
+absl::Status Evaluator::ExecuteAfterPrepare(
     ExpressionOptions options, Value* expression_output_value,
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const {
   GOOGLESQL_ASSIGN_OR_RETURN(ExpressionOptions new_options,
-                   PrepareOptionsForExecutionLocked(std::move(options)));
+                   PrepareOptionsForExecution(std::move(options)));
 
-  return ExecuteAfterPrepareWithOrderedParamsLocked(
+  return ExecuteAfterPrepareWithOrderedParams(
       new_options, expression_output_value, query_output_iterator);
 }
 
-absl::StatusOr<StmtResults> Evaluator::ExecuteMultiAfterPrepareLocked(
-    ExpressionOptions options) {
+absl::StatusOr<StmtResults> Evaluator::ExecuteMultiAfterPrepare(
+    ExpressionOptions options) const {
   GOOGLESQL_ASSIGN_OR_RETURN(ExpressionOptions new_options,
-                   PrepareOptionsForExecutionLocked(std::move(options)));
+                   PrepareOptionsForExecution(std::move(options)));
 
-  return ExecuteMultiAfterPrepareWithOrderedParamsLocked(new_options);
+  return ExecuteMultiAfterPrepareWithOrderedParams(new_options);
 }
 
 absl::StatusOr<EvaluatorModifyResult> Evaluator::MakeUpdateIterator(
-    const Value& value, const ResolvedStatement* statement) {
+    const Value& value, const ResolvedStatement* statement) const {
   const Table* table;
   EvaluatorTableModifyIterator::Operation operation;
 
@@ -1029,7 +964,7 @@ absl::StatusOr<EvaluatorModifyResult> Evaluator::MakeUpdateIterator(
 }
 
 absl::StatusOr<std::pair<std::unique_ptr<EvaluationContext>, TupleData>>
-Evaluator::SetupExecutionLocked(const ExpressionOptions& options) const {
+Evaluator::SetupExecution(const ExpressionOptions& options) const {
   if (!has_prepare_succeeded()) {
     // Previous Prepare() failed with an analysis error or Prepare was never
     // called. Returns an error for consistency.
@@ -1135,10 +1070,10 @@ class TupleIteratorAdaptor : public EvaluatorTableIterator {
 };
 }  // namespace
 
-absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
+absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParams(
     const ExpressionOptions& options, Value* expression_output_value,
     std::unique_ptr<EvaluatorTableIterator>* query_output_iterator) const {
-  GOOGLESQL_ASSIGN_OR_RETURN(auto setup_result, SetupExecutionLocked(options));
+  GOOGLESQL_ASSIGN_OR_RETURN(auto setup_result, SetupExecution(options));
   auto [context, params_data] = std::move(setup_result);
 
   if (compiled_relational_op_ != nullptr) {
@@ -1179,8 +1114,8 @@ absl::Status Evaluator::ExecuteAfterPrepareWithOrderedParamsLocked(
 }
 
 absl::StatusOr<StmtResults>
-Evaluator::ExecuteMultiAfterPrepareWithOrderedParamsLocked(
-    const ExpressionOptions& options) {
+Evaluator::ExecuteMultiAfterPrepareWithOrderedParams(
+    const ExpressionOptions& options) const {
   GOOGLESQL_RET_CHECK(statement_ != nullptr);
   if (statement_->Is<ResolvedQueryStmt>()) {
     // A standalone ResolvedQueryStmt is algebrized as a relational op, so we
@@ -1188,7 +1123,7 @@ Evaluator::ExecuteMultiAfterPrepareWithOrderedParamsLocked(
     // below by the `compiled_value_expr_`.
     GOOGLESQL_RET_CHECK(compiled_relational_op_ != nullptr);
     std::unique_ptr<EvaluatorTableIterator> query_output_iterator;
-    GOOGLESQL_RETURN_IF_ERROR(ExecuteAfterPrepareWithOrderedParamsLocked(
+    GOOGLESQL_RETURN_IF_ERROR(ExecuteAfterPrepareWithOrderedParams(
         options, /*expression_output_value=*/nullptr, &query_output_iterator));
     StmtResults results;
     results.push_back(PreparedStatementBase::StmtResult{
@@ -1201,7 +1136,7 @@ Evaluator::ExecuteMultiAfterPrepareWithOrderedParamsLocked(
 
   GOOGLESQL_RET_CHECK(compiled_value_expr_ != nullptr);
 
-  GOOGLESQL_ASSIGN_OR_RETURN(auto setup_result, SetupExecutionLocked(options));
+  GOOGLESQL_ASSIGN_OR_RETURN(auto setup_result, SetupExecution(options));
   auto [context, params_data] = std::move(setup_result);
 
   GOOGLESQL_ASSIGN_OR_RETURN(
@@ -1287,7 +1222,6 @@ Evaluator::ExecuteMultiAfterPrepareWithOrderedParamsLocked(
 }
 
 absl::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
-  absl::ReaderMutexLock l(&mutex_);
   GOOGLESQL_RET_CHECK(is_prepared()) << "Prepare must be called first";
   if (compiled_relational_op_ != nullptr) {
     return compiled_relational_op_->DebugString();
@@ -1298,7 +1232,6 @@ absl::StatusOr<std::string> Evaluator::ExplainAfterPrepare() const {
 }
 
 const Type* Evaluator::expression_output_type() const {
-  absl::ReaderMutexLock l(&mutex_);
   ABSL_CHECK(is_expr_) << "Only expressions have output types";
   ABSL_CHECK(is_prepared()) << "Prepare or Execute must be called first";
   ABSL_CHECK(compiled_value_expr_ != nullptr) << "Invalid prepared expression";

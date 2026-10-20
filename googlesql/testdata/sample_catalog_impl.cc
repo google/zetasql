@@ -2602,7 +2602,7 @@ absl::Status SampleCatalogImpl::LoadMeasureTables(
       measuretable_twokeys_data, sales_facts_data));
 
   GOOGLESQL_RETURN_IF_ERROR(LoadMeasureTablesWithAdvancedExprs(
-      analyzer_options, measuretable_singlekey_data,
+      language_options, analyzer_options, measuretable_singlekey_data,
       measuretable_complexexprs_data));
 
   GOOGLESQL_RETURN_IF_ERROR(LoadMeasureValueTables(language_options, analyzer_options,
@@ -3019,7 +3019,7 @@ absl::Status SampleCatalogImpl::LoadDerivedMeasureTables(
 }
 
 absl::Status SampleCatalogImpl::LoadMeasureTablesWithAdvancedExprs(
-    AnalyzerOptions& analyzer_options,
+    const LanguageOptions& language_options, AnalyzerOptions& analyzer_options,
     const std::vector<std::vector<Value>>& singlekey_data,
     const std::vector<std::vector<Value>>& complexexprs_data) {
   GOOGLESQL_RETURN_IF_ERROR(AddTableWithMeasures(
@@ -3122,10 +3122,17 @@ absl::Status SampleCatalogImpl::LoadMeasureTablesWithAdvancedExprs(
                         types_->get_int64())},
       /*row_identity_column_indices=*/absl::btree_set<int>{0},
       /*measures=*/
-      {{"measure_with_with_expr", "WITH(a AS SUM(price), a + 1)",
-        /*is_pseudo_column=*/true},
-       {"measure_with_array_remove_last_n",
-        "ARRAY_REMOVE_LAST_N([1,2], SUM(price))", /*is_pseudo_column=*/true}},
+      [&]() {
+        std::vector<MeasureColumnDef> measures = {
+            {"measure_with_with_expr", "WITH(a AS SUM(price), a + 1)",
+             /*is_pseudo_column=*/true}};
+        if (language_options.LanguageFeatureEnabled(FEATURE_FIRST_AND_LAST_N)) {
+          measures.push_back({"measure_with_array_remove_last_n",
+                              "ARRAY_REMOVE_LAST_N([1,2], SUM(price))",
+                              /*is_pseudo_column=*/true});
+        }
+        return measures;
+      }(),
       /*is_value_table=*/false, singlekey_data));
 
   // Table containing complex measure expressions that had triggered RQG
@@ -3897,6 +3904,13 @@ absl::Status SampleCatalogImpl::LoadNestedCatalogs() {
   //   nested_catalog.nested_nested_catalog.nested_function(<int64>) -> <int64>
   SimpleCatalog* nested_nested_catalog =
       nested_catalog->MakeOwnedSimpleCatalog("nested_nested_catalog");
+  SimpleCatalog* nested_catalog_with_hyphen =
+      catalog_->MakeOwnedSimpleCatalog("nested-catalog");
+  SimpleCatalog* nested_nested_catalog_with_hyphen =
+      nested_catalog_with_hyphen->MakeOwnedSimpleCatalog(
+          "nested-nested-catalog");
+  nested_nested_catalog_with_hyphen->AddConnection(
+      owned_connections_.find("connection-with-hyphen")->second.get());
   function_name_path = {"nested_catalog", "nested_nested_catalog",
                         "nested_function"};
   function = new Function(function_name_path, "sample_functions",
@@ -5526,6 +5540,21 @@ absl::Status SampleCatalogImpl::LoadFunctions2() {
        /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
+  // Adds a function accepting a named INT64 argument and a named Sequence
+  // argument to test argument reordering.
+  function = new Function("fn_with_named_sequence_and_scalar",
+                          "sample_functions", mode, function_options);
+  function->AddSignature(
+      {{types_->get_int64()},
+       {FunctionArgumentType(types_->get_int64(),
+                             FunctionArgumentTypeOptions().set_argument_name(
+                                 "x", kPositionalOrNamed)),
+        FunctionArgumentType(ARG_KIND_SEQUENCE,
+                             FunctionArgumentTypeOptions().set_argument_name(
+                                 "sequence", kPositionalOrNamed))},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
   // Adds a function accepting a Model argument.
   function = new Function("fn_with_model_arg", "sample_functions", mode,
                           function_options);
@@ -5545,6 +5574,21 @@ absl::Status SampleCatalogImpl::LoadFunctions2() {
                                  "model", kPositionalOrNamed)),
         FunctionArgumentType::Lambda({ARG_KIND_EXPR_ANY_1},
                                      ARG_KIND_EXPR_ANY_2)},
+       /*context_id=*/-1});
+  catalog_->AddOwnedFunction(function);
+
+  // Adds a function accepting a named INT64 argument and a named Model
+  // argument to test argument reordering.
+  function = new Function("fn_with_named_model_and_scalar", "sample_functions",
+                          mode, function_options);
+  function->AddSignature(
+      {{types_->get_int64()},
+       {FunctionArgumentType(types_->get_int64(),
+                             FunctionArgumentTypeOptions().set_argument_name(
+                                 "x", kPositionalOrNamed)),
+        FunctionArgumentType(ARG_KIND_MODEL,
+                             FunctionArgumentTypeOptions().set_argument_name(
+                                 "model", kPositionalOrNamed))},
        /*context_id=*/-1});
   catalog_->AddOwnedFunction(function);
 
@@ -11118,6 +11162,33 @@ absl::Status SampleCatalogImpl::LoadTableValuedFunctions2() {
           context_id++)},
       TableValuedFunctionOptions().set_compute_result_type_callback(
           result_type_callback_with_empty_relation)));
+
+  catalog_->AddOwnedTableValuedFunction(new ForwardInputSchemaToOutputSchemaTVF(
+      {"tvf_one_relation_arg_order_by"},
+      {FunctionSignature(
+          ARG_KIND_RELATION,
+          {FunctionArgumentType(
+              ARG_KIND_RELATION,
+              FunctionArgumentTypeOptions()
+                  .set_argument_name("foobar", kPositionalOrNamed)
+                  .set_supports_order_by(true))},
+          context_id++)}));
+
+  catalog_->AddOwnedTableValuedFunction(new FixedOutputSchemaTVF(
+      {"tvf_one_relation_arg_int64_string_input_columns_order_by"},
+      {FunctionSignature(
+          FunctionArgumentType::RelationWithSchema(
+              output_schema_two_types,
+              /*extra_relation_input_columns_allowed=*/false),
+          {FunctionArgumentType::RelationWithSchema(
+              TVFRelation({{kTypeInt64, types::Int64Type()},
+                           {kTypeString, types::StringType()}}),
+              /*extra_relation_input_columns_allowed=*/true,
+              FunctionArgumentTypeOptions()
+                  .set_argument_name("foobar", kPositionalOrNamed)
+                  .set_supports_order_by(true))},
+          context_id++)},
+      output_schema_two_types));
   return absl::OkStatus();
 }  // NOLINT(readability/fn_size)
 
@@ -13973,6 +14044,12 @@ absl::Status SampleCatalogImpl::LoadConstants() {
                              Value::Int32(4), &int_variable_foo));
   catalog_->AddOwnedConstant(std::move(int_variable_foo));
 
+  //  SimpleConst with catalog table name as values
+  std::unique_ptr<SimpleConstant> key_value_const;
+  GOOGLESQL_RETURN_IF_ERROR(SimpleConstant::Create(
+      {"KeyValueConst"}, Value::String("KeyValue"), &key_value_const));
+  catalog_->AddOwnedConstant(std::move(key_value_const));
+
   // Load constants with report format enum types
   std::unique_ptr<SimpleConstant> PROTO_ENUM;
   GOOGLESQL_RETURN_IF_ERROR(SimpleConstant::Create(
@@ -13997,6 +14074,8 @@ void SampleCatalogImpl::LoadConnections() {
   auto connection3 = std::make_unique<SimpleConnection>("connection3");
   auto nested_connection =
       std::make_unique<SimpleConnection>("NestedConnection");
+  auto connection_with_hyphen =
+      std::make_unique<SimpleConnection>("connection-with-hyphen");
   auto default_connection =
       std::make_unique<SimpleConnection>("$connection_default");
   owned_connections_[connection1->Name()] = std::move(connection1);
@@ -14009,6 +14088,8 @@ void SampleCatalogImpl::LoadConnections() {
   // catalogs in simple_catalog currently, it will fail if it's not in the top-
   // level catalog as well.
   owned_connections_[nested_connection->Name()] = std::move(nested_connection);
+  owned_connections_[connection_with_hyphen->Name()] =
+      std::move(connection_with_hyphen);
   for (auto it = owned_connections_.begin(); it != owned_connections_.end();
        ++it) {
     catalog_->AddConnection(it->second.get());

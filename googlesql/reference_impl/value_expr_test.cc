@@ -2798,6 +2798,246 @@ TEST_F(DMLValueExprEvalTest, DMLDeleteValueExpr) {
           Property(&Value::fields, ElementsAre(Int64(4), NullString()))));
 }
 
+TEST_F(DMLValueExprEvalTest, DMLDeleteValueExprWithUsingScan) {
+  // Target table: test_table(int_val INT64, str_val STRING)
+  // Join table: join_table(join_key INT64, join_val STRING)
+  SimpleTable join_table{
+      "join_table", {{"join_key", Int64Type()}, {"join_val", StringType()}}};
+
+  std::unique_ptr<ResolvedTableScan> table_scan = MakeResolvedTableScan(
+      {ResolvedColumn{1, googlesql::IdString::MakeGlobal("test_table"),
+                      googlesql::IdString::MakeGlobal("int_val"), Int64Type()},
+       ResolvedColumn{2, googlesql::IdString::MakeGlobal("test_table"),
+                      googlesql::IdString::MakeGlobal("str_val"),
+                      StringType()}},
+      table(), /*for_system_time_expr=*/nullptr);
+
+  std::unique_ptr<ResolvedTableScan> using_scan = MakeResolvedTableScan(
+      {ResolvedColumn{3, googlesql::IdString::MakeGlobal("join_table"),
+                      googlesql::IdString::MakeGlobal("join_key"), Int64Type()},
+       ResolvedColumn{4, googlesql::IdString::MakeGlobal("join_table"),
+                      googlesql::IdString::MakeGlobal("join_val"),
+                      StringType()}},
+      &join_table, /*for_system_time_expr=*/nullptr);
+
+  // WHERE test_table.int_val = join_table.join_key
+  std::vector<std::unique_ptr<ResolvedColumnRef>> resolved_column_refs;
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      table_scan->column_list(0).type(), table_scan->column_list(0),
+      /*is_correlated=*/false));
+  resolved_column_refs.push_back(MakeResolvedColumnRef(
+      using_scan->column_list(0).type(), using_scan->column_list(0),
+      /*is_correlated=*/false));
+  std::unique_ptr<ResolvedDeleteStmt> stmt = MakeResolvedDeleteStmt(
+      std::move(table_scan), /*assert_rows_modified=*/nullptr,
+      /*returning=*/nullptr, /*array_offset_column=*/nullptr,
+      /*where_expr=*/
+      MakeResolvedFunctionCall(BoolType(), function("$equal"),
+                               *function("$equal")->GetSignature(0),
+                               std::move(resolved_column_refs),
+                               ResolvedFunctionCall::DEFAULT_ERROR_MODE),
+      /*timestamp_version_column=*/nullptr,
+      /*using_scan=*/std::move(using_scan));
+
+  // Create output types.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      const ArrayType* table_array_type,
+      CreateTableArrayType(stmt->table_scan()->column_list(),
+                           stmt->table_scan()->table()->IsValueTable(),
+                           type_factory()));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      const StructType* primary_key_type,
+      CreatePrimaryKeyType(stmt->table_scan()->table(), type_factory()));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const StructType* dml_output_type,
+                       CreateDMLOutputType(table_array_type, type_factory()));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(const ArrayType* join_table_array_type,
+                       CreateTableArrayType(stmt->using_scan()->column_list(),
+                                            stmt->using_scan()
+                                                ->GetAs<ResolvedTableScan>()
+                                                ->table()
+                                                ->IsValueTable(),
+                                            type_factory()));
+
+  // Create a ColumnToVariableMapping.
+  auto column_to_variable_mapping = std::make_unique<ColumnToVariableMapping>(
+      std::make_unique<VariableGenerator>());
+
+  // Build a ResolvedScanMap and a ResolvedExprMap from the resolved AST.
+  auto resolved_scan_map = std::make_unique<ResolvedScanMap>();
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> table_as_array_expr,
+      TableAsArrayExpr::Create(stmt->table_scan()->table()->Name(),
+                               table_array_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> relation_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              stmt->table_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              stmt->table_scan()->column_list()[1]),
+                          1)},
+          std::move(table_as_array_expr)));
+  (*resolved_scan_map)[stmt->table_scan()] = std::move(relation_op);
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> join_table_as_array_expr,
+      TableAsArrayExpr::Create(
+          stmt->using_scan()->GetAs<ResolvedTableScan>()->table()->Name(),
+          join_table_array_type));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<RelationalOp> using_relational_op,
+      ArrayScanOp::Create(
+          /*element=*/VariableId(),
+          /*position=*/VariableId(),
+          {std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              stmt->using_scan()->column_list()[0]),
+                          0),
+           std::make_pair(column_to_variable_mapping->GetVariableNameFromColumn(
+                              stmt->using_scan()->column_list()[1]),
+                          1)},
+          std::move(join_table_as_array_expr)));
+  (*resolved_scan_map)[stmt->using_scan()] = std::move(using_relational_op);
+
+  auto resolved_expr_map = std::make_unique<ResolvedExprMap>();
+  std::vector<std::unique_ptr<ValueExpr>> arguments{};
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg0_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            stmt->where_expr()
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(0)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(0)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->type()));
+  arguments.push_back(std::move(arg0_expr));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DerefExpr> arg1_expr,
+      DerefExpr::Create(column_to_variable_mapping->GetVariableNameFromColumn(
+                            stmt->where_expr()
+                                ->GetAs<ResolvedFunctionCall>()
+                                ->argument_list(1)
+                                ->GetAs<ResolvedColumnRef>()
+                                ->column()),
+                        stmt->where_expr()
+                            ->GetAs<ResolvedFunctionCall>()
+                            ->argument_list(1)
+                            ->GetAs<ResolvedColumnRef>()
+                            ->type()));
+  arguments.push_back(std::move(arg1_expr));
+
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      FunctionKind function_kind,
+      BuiltinFunctionCatalog::GetKindByName(stmt->where_expr()
+                                                ->GetAs<ResolvedFunctionCall>()
+                                                ->function()
+                                                ->Name()));
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<ValueExpr> function_call_expr,
+      BuiltinScalarFunction::CreateCall(
+          function_kind, LanguageOptions{},
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->type(),
+          ConvertValueExprsToAlgebraArgs(std::move(arguments)),
+          stmt->where_expr()->GetAs<ResolvedFunctionCall>()->error_mode()));
+  (*resolved_expr_map)[stmt->where_expr()] = std::move(function_call_expr);
+
+  // Create the DMLDeleteValueExpr to be tested.
+  GOOGLESQL_ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<DMLDeleteValueExpr> expr,
+      DMLDeleteValueExpr::Create(
+          stmt->table_scan()->table(), table_array_type,
+          /*returning_array_type=*/nullptr, primary_key_type, dml_output_type,
+          stmt.get(), &stmt->table_scan()->column_list(),
+          /*returning_column_values=*/nullptr,
+          std::move(column_to_variable_mapping), std::move(resolved_scan_map),
+          std::move(resolved_expr_map)));
+
+  // Test Case 1: Matching rows with single match and multiple matches
+  // (duplicate join matches). Target rows: {1, "one"}, {2, "two"}, {3, "three"}
+  // Join rows: {1, "match1"}, {2, "match2a"}, {2, "match2b"} (duplicate match
+  // for 2), {4, "match4"} Expected: Rows 1 and 2 deleted. Row 2 deleted only
+  // once! Row 3 kept.
+  {
+    TupleSlot result;
+    absl::Status status;
+    EvaluationOptions options{};
+    options.return_all_rows_for_dml = false;
+    EvaluationContext context{options};
+    GOOGLESQL_CHECK_OK(context.AddTableAsArray(
+        "test_table", /*is_value_table=*/false,
+        Value::Array(
+            table_array_type,
+            {Value::Struct(table_array_type->element_type()->AsStruct(),
+                           {Int64(1), String("one")}),
+             Value::Struct(table_array_type->element_type()->AsStruct(),
+                           {Int64(2), String("two")}),
+             Value::Struct(table_array_type->element_type()->AsStruct(),
+                           {Int64(3), String("three")})}),
+        LanguageOptions{}));
+    GOOGLESQL_CHECK_OK(context.AddTableAsArray(
+        "join_table", /*is_value_table=*/false,
+        Value::Array(
+            join_table_array_type,
+            {Value::Struct(join_table_array_type->element_type()->AsStruct(),
+                           {Int64(1), String("match1")}),
+             Value::Struct(join_table_array_type->element_type()->AsStruct(),
+                           {Int64(2), String("match2a")}),
+             Value::Struct(join_table_array_type->element_type()->AsStruct(),
+                           {Int64(2), String("match2b")}),
+             Value::Struct(join_table_array_type->element_type()->AsStruct(),
+                           {Int64(4), String("match4")})}),
+        LanguageOptions{}));
+
+    GOOGLESQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+    EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+    GOOGLESQL_ASSERT_OK(status);
+    EXPECT_EQ(result.value().field(0).int64_value(), 2);
+    EXPECT_THAT(
+        result.value().field(1).elements(),
+        UnorderedElementsAre(
+            Property(&Value::fields, ElementsAre(Int64(1), String("one"))),
+            Property(&Value::fields, ElementsAre(Int64(2), String("two")))));
+  }
+
+  // Test Case 2: No matches -> 0 rows deleted.
+  {
+    TupleSlot result;
+    absl::Status status;
+    EvaluationOptions options{};
+    options.return_all_rows_for_dml = false;
+    EvaluationContext context{options};
+    GOOGLESQL_CHECK_OK(context.AddTableAsArray(
+        "test_table", /*is_value_table=*/false,
+        Value::Array(
+            table_array_type,
+            {Value::Struct(table_array_type->element_type()->AsStruct(),
+                           {Int64(1), String("one")}),
+             Value::Struct(table_array_type->element_type()->AsStruct(),
+                           {Int64(2), String("two")})}),
+        LanguageOptions{}));
+    GOOGLESQL_CHECK_OK(context.AddTableAsArray(
+        "join_table", /*is_value_table=*/false,
+        Value::Array(
+            join_table_array_type,
+            {Value::Struct(join_table_array_type->element_type()->AsStruct(),
+                           {Int64(99), String("nomatch")})}),
+        LanguageOptions{}));
+
+    GOOGLESQL_ASSERT_OK(expr->SetSchemasForEvaluation({}));
+    EXPECT_TRUE(expr->EvalSimple({}, &context, &result, &status));
+    GOOGLESQL_ASSERT_OK(status);
+    EXPECT_EQ(result.value().field(0).int64_value(), 0);
+    EXPECT_TRUE(result.value().field(1).elements().empty());
+  }
+}
+
 TEST_F(DMLValueExprEvalTest, DMLUpdateValueExpr) {
   // Build a resolved AST for updating str_val from null to 'unknown' in the
   // table.

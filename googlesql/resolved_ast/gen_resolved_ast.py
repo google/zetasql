@@ -724,7 +724,7 @@ def Field(
 
 # You can use `tag_id=GetTempTagId()` until doing the final submit.
 # That will avoid merge conflicts when syncing in other changes.
-NEXT_NODE_TAG_ID = 339
+NEXT_NODE_TAG_ID = 349
 
 
 def GetTempTagId():
@@ -759,7 +759,7 @@ class TreeGenerator():
       name,
       tag_id,
       parent,
-      fields,
+      fields,  # pyrefly: ignore[not-a-type]
       is_abstract = False,
       column_list_is_created_columns = False,
       extra_defs = '',
@@ -1287,18 +1287,18 @@ class TreeGenerator():
     def DefiningNode(field):
       return self.node_map[field['defining_node_name']]
 
-    jinja_env.globals['defining_node'] = DefiningNode
+    jinja_env.globals['defining_node'] = DefiningNode  # pyrefly: ignore[unsupported-operation]
 
     # For when we need to force a blank line and jinja wants to
     # eat blank lines from the template. Defined in globals instead of context
     # to be accessible from macros as well.
-    jinja_env.globals['blank_line'] = '\n'
+    jinja_env.globals['blank_line'] = '\n'  # pyrefly: ignore[unsupported-operation]
 
     def RaiseException(error_message):
       raise RuntimeError(error_message)
 
-    jinja_env.globals['RaiseException'] = RaiseException
-    jinja_env.globals['len'] = len
+    jinja_env.globals['RaiseException'] = RaiseException  # pyrefly: ignore[unsupported-operation]
+    jinja_env.globals['len'] = len  # pyrefly: ignore[unsupported-operation]
 
     self._ComputeTreeData()
 
@@ -1311,10 +1311,10 @@ class TreeGenerator():
         'shard_count': shard_count,
     }
     assert len(input_file_paths) == len(output_file_paths)
-    assert len(input_file_paths) == len(shard_nums)
+    assert len(input_file_paths) == len(shard_nums)  # pyrefly: ignore[bad-argument-type]
 
     for in_path, out_path, shard_num in zip(
-        input_file_paths, output_file_paths, shard_nums
+        input_file_paths, output_file_paths, shard_nums  # pyrefly: ignore[bad-argument-type]
     ):
       if not in_path.endswith('.template'):
         logging.fatal(
@@ -1376,18 +1376,18 @@ def main(unused_argv):
   data_files = _DATA_FILES.value
   input_templates = _INPUT_TEMPLATES.value
   output_files = _OUTPUT_FILES.value
-  if len(input_templates) != len(output_files):
+  if len(input_templates) != len(output_files):  # pyrefly: ignore[bad-argument-type]
     raise RuntimeError('Must provide an equal number of input and output files')
   if not input_templates:
     raise RuntimeError('Must specify at least one input-output pair')
   if _SHARD_NUMS.value:
     shard_nums = _SHARD_NUMS.value
-    if len(_SHARD_NUMS.value) != len(output_files):
+    if len(_SHARD_NUMS.value) != len(output_files):  # pyrefly: ignore[bad-argument-type]
       raise RuntimeError('Must provide a --shard_num for each output file')
   else:
     # If not provided, we assume all shards are 1.
-    shard_nums = [1] * len(output_files)
-  if _SHARD_COUNT.value < 1:
+    shard_nums = [1] * len(output_files)  # pyrefly: ignore[bad-argument-type]
+  if _SHARD_COUNT.value < 1:  # pyrefly: ignore[unsupported-operation]
     raise RuntimeError('Must specify a positive --shard_count')
 
   gen = TreeGenerator()
@@ -7742,55 +7742,63 @@ value.
       tag_id=64,
       parent='ResolvedStatement',
       comment="""
-      This represents a DELETE statement or a nested DELETE inside an
-      UPDATE statement.
+      This represents one of the following cases:
+      1) DELETE statement: a top-level DELETE statement.
+      2) Nested DELETE: a nested DELETE inside an UPDATE statement.
+      3) DELETE Scan: a DELETE inside a ResolvedDeleteScan.
 
-      For top-level DELETE statements, <table_scan> gives the table to
-      scan and creates ResolvedColumns for its columns.  Those columns can
-      be referenced inside the <where_expr>.
+      `table_scan` must be present for DELETE statement and DELETE scan, but
+      must not be present for nested DELETE. `table_scan` gives the target
+      table to scan for rows to delete.
 
-      For nested DELETEs, there is no <table_scan>.  The <where_expr> can
-      only reference:
-        (1) the element_column from the ResolvedUpdateItem containing this
-            statement,
-        (2) columns from the outer statements, and
-        (3) (optionally) <array_offset_column>, which represents the 0-based
-            offset of the array element being modified.
+      `where_expr` is required for all cases.
+        - For DELETE statement and DELETE scan, `where_expr` acts as the join
+          and filtering condition. It can reference columns from both
+          `table_scan` and `using_scan`. `table_scan` rows selected by
+          `where_expr` are deleted.
+        - For nested DELETE, `where_expr` can only reference `element_column`
+          from the `ResolvedUpdateItem` containing this statement, columns
+          from the outer statements, and optionally `array_offset_column`.
 
-      <where_expr> is required.
+      `using_scan` is optional for DELETE statement and required for DELETE
+      scan.
+        - For both cases, `using_scan` joins with `table_scan` using
+          `where_expr` as the join and filtering condition. Target table rows
+          selected after joining and filtering get deleted. When a `table_scan`
+          row gets matched more than once, it only gets deleted once.
+        - For DELETE Scan, `using_scan` must be present and it represents the
+          flowing-through input table. If a input table row matches more than
+          one `table_scan` row, it is an execution error.
+        - For DELETE statement, `using_scan` represents the input table resolved
+          from the `USING` clause (enabled by FEATURE_DML_DELETE_WITH_JOIN; see
+          (broken link)).
 
-      If `using_scan` is present, `table_scan` is joined with `using_scan`
-      using join conditions in `where_expr`. Rows selected after joining
-      and filtering are targeted for deletion. When the same target table row
-      gets matched more than once, it only gets deleted once.
-      `using_scan` is only allowed for a top-level DELETE statement, meaning
-      `table_scan` must be present and `array_offset_column` must not be
-      present.
+      `array_offset_column` is only present for nested DELETE. It represents
+      the 0-based offset of the array element being modified.
 
-      `using_scan` is enabled by FEATURE_DML_DELETE_WITH_JOIN.
-      See (broken link) for more details.
+      `returning` is only present for DELETE statement and DELETE scan:
+        - For both cases, `returning->output_column_list` can only access
+          columns from `table_scan`.
+        - DELETE scan returns the same input rows from `using_scan`,
+          plus additional columns from the deleted row
+          (listed in `returning->output_column_list`). When an
+          input row does not match any `table_scan` row, these additional
+          columns return NULL. When an input row matches more than one
+          `table_scan` row, it is an execution error.
+        - DELETE statement only outputs deleted rows from `table_scan`.
 
-      If <returning> is present, the DELETE statement will return deleted rows
-      back. It can only occur on top-level statements.
-
-      This returning clause has a <output_column_list> to represent the data
-      sent back to clients. It can only access columns from the <table_scan>.
-
-      <column_access_list> indicates for each column in <table_scan.column_list>
+      `column_access_list` indicates for each column in `table_scan.column_list`
       whether it was read and/or written. The query engine may also require
       read or write permissions across all columns, including unreferenced
       columns, depending on the operation.
 
-      If <timestamp_version_column> is present, it represents the read-only
-      timestamp pseudo-column introduced by the `WITH TIMESTAMP [AS alias]` clause.
-      It is a ResolvedColumnHolder and is system-generated unless an explicit alias
-      is provided.
-
-      Note: DELETE statements do not support the AT clause, so <temporal_at>
-      is not present.
-
-      This field is enabled by FEATURE_VERSION_AWARE_DML.
-      See (broken link) for more details.
+      If `timestamp_version_column` is present, it represents the read-only
+      timestamp pseudo-column introduced by the `WITH TIMESTAMP [AS alias]`
+      clause. It is a ResolvedColumnHolder and is system-generated unless an
+      explicit alias is provided. Note: DELETE statements do not support the AT
+      clause, so `temporal_at` is not present. This field is enabled by
+      FEATURE_VERSION_AWARE_DML. See (broken link) for more
+      details.
               """,
       fields=[
           Field(
@@ -7844,7 +7852,8 @@ value.
               is_optional_constructor_arg=True,
               comment="""
               The scan representing the data source from the USING clause in
-              a DELETE statement.
+              a top-level DELETE statement, or the flowing-through input table
+              when inside a ResolvedDeleteScan.
               """,
           ),
       ],
@@ -8147,13 +8156,12 @@ value.
 
       See (broken link) for more detail on nested DML.
 
-      If <returning> is present, the UPDATE statement will return updated rows.
-      <returning> can only occur on top-level statements.
+      If `returning` is present, the UPDATE statement will return updated rows.
+      `returning` can only occur on top-level statements.
 
-      This returning clause has a <output_column_list> to represent the data
-      sent back to clients. It can only access columns from the <table_scan>.
-      The columns in <from_scan> are not allowed.
-      TODO: allow columns in <from_scan> to be referenced.
+      This returning clause has an `output_column_list` to represent the data
+      sent back to clients. It can access columns from the `table_scan`, as
+      well as columns from `from_scan` when present.
 
       <topologically_sorted_generated_column_id_list> is set for queries to
       tables having generated columns. This field is similar to the INSERT case,
@@ -8888,6 +8896,40 @@ value.
           Field('name', SCALAR_STRING, tag_id=2),
           Field('options_list', 'ResolvedOption', tag_id=3, vector=True),
           Field('is_if_not_exists', SCALAR_BOOL, tag_id=4),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedAddStoredColumnAction',
+      tag_id=347,
+      parent='ResolvedAlterAction',
+      comment="""
+      ADD STORED COLUMN action for ALTER VECTOR|SEARCH INDEX statement
+      (broken link)
+
+      <is_if_not_exists> if true, skip if the stored column already exists.
+      <name> is the column name to add as a stored column.
+      """,
+      fields=[
+          Field('is_if_not_exists', SCALAR_BOOL, tag_id=2),
+          Field('name', SCALAR_STRING, tag_id=3),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedDropStoredColumnAction',
+      tag_id=348,
+      parent='ResolvedAlterAction',
+      comment="""
+      DROP STORED COLUMN action for ALTER VECTOR|SEARCH INDEX statement
+      (broken link)
+
+      <is_if_exists> if true, skip if the stored column does not exist.
+      <name> is the stored column name to drop.
+      """,
+      fields=[
+          Field('is_if_exists', SCALAR_BOOL, tag_id=2),
+          Field('name', SCALAR_STRING, tag_id=3),
       ],
   )
 
@@ -10920,8 +10962,9 @@ ResolvedArgumentRef(y)
               comment="""
               Specifies the columns in the returned output row with column
               names. It can reference columns from the target table scan
-              <table_scan> from INSERT/DELETE/UPDATE statements. Also this list
-              can have columns computed in the <expr_list> or an <action_column>
+              `table_scan` from INSERT/DELETE/UPDATE statements (and from
+              `from_scan` in UPDATE statements when present). Also this list
+              can have columns computed in the `expr_list` or an `action_column`
               as the last column.
                       """,
           ),
@@ -10932,7 +10975,7 @@ ResolvedArgumentRef(y)
               tag_id=3,
               ignorable=NOT_IGNORABLE,
               comment="""
-              Represents the WITH ACTION column in <output_column_list> as a
+              Represents the WITH ACTION column in `output_column_list` as a
               string type column. There are four valid values for this action
               column: "INSERT", "REPLACE", "UPDATE", and "DELETE".
                       """,
@@ -10945,8 +10988,9 @@ ResolvedArgumentRef(y)
               ignorable=NOT_IGNORABLE,
               comment="""
               Represents the computed expressions so they can be referenced in
-              <output_column_list>. Worth noting, it can't see <action_column>
-              and can only access columns from the DML statement target table.
+              `output_column_list`. Worth noting, it can't see `action_column`
+              and can only access columns from the DML statement target table
+              (and from `from_scan` in UPDATE statements when present).
                       """,
           ),
       ],
@@ -13882,8 +13926,42 @@ ResolvedArgumentRef(y)
       tag_id=295,
       parent='ResolvedArgument',
       comment="""
-      Represents the state for a single update operation for an UPDATE
-      constructor.
+      Represents one update item of an UPDATE constructor. The item replaces
+      the value(s) found at <proto_field_path> in the original object, which
+      is the value of the enclosing ResolvedUpdateConstructor's `expr` before
+      any item is applied.
+
+      The item is applied by visiting each position found at
+      <proto_field_path> in the original object. For each position:
+        1. <update_item_column>, if present, is bound to the original value
+           at that position,
+        2. <expr> is evaluated, and
+        3. its result replaces the value at that same position.
+
+      For UPDATE_SINGLE and UPDATE_SINGLE_NO_CREATION there is a single
+      position.
+
+      For UPDATE_MANY, every repeated field on <proto_field_path> is iterated,
+      as nested loops, so there is one position per value found. If the path
+      ends with a repeated field, each position is one element of it.
+      Otherwise, each position is the final field in one of the messages
+      reached.
+
+      <expr> can reference <update_item_column>, including from a nested
+      ResolvedUpdateConstructor, whose `expr` is then a ResolvedColumnRef to
+      <update_item_column>. Other items of the same UPDATE constructor cannot
+      reference it.
+
+      For example, with
+        nested_repeated_value = [{nested_repeated_int64: [7, 8]},
+                                 {nested_repeated_int64: [9]}],
+      the item
+        nested_repeated_value.nested_repeated_int64 *: nested_repeated_int64 + 1
+      visits three positions, with <update_item_column> bound to 7, 8 and 9 in
+      turn, giving [8, 9] and [10].
+
+      Requires FEATURE_UPDATE_CONSTRUCTOR. See
+      (broken link).
       """,
       fields=[
           Field(
@@ -13891,8 +13969,8 @@ ResolvedArgumentRef(y)
               'ResolvedExpr',
               tag_id=2,
               comment="""
-              The value that the final field in <proto_field_path> will be set
-              to.
+              The new value for the position currently being updated (see the
+              node comment).
 
               If <expr> is NULL, the field will be unset. If <proto_field_path>
               is a required field, the engine must return an error if it is set
@@ -13921,6 +13999,27 @@ ResolvedArgumentRef(y)
               comment="""
               The operation that should be used to apply <expr> to
               <proto_field_path>.
+              """,
+          ),
+          Field(
+              'update_item_column',
+              'ResolvedColumnHolder',
+              tag_id=5,
+              column_is_created=True,
+              ignorable=IGNORABLE_DEFAULT,
+              comment="""
+              If present, a column holding the original value at the position
+              currently being updated (see the node comment). Its type is the
+              type of the final field of <proto_field_path>, or its element type
+              when an UPDATE_MANY path ends with a repeated field.
+
+              Set only when <expr> references it.
+
+              IMPORTANT: The value bound to this column must be read from the
+              proto as it was before the enclosing ResolvedUpdateConstructor
+              was applied, not from the partially updated proto. All items of
+              an UPDATE constructor apply as-if simultaneously, so a preceding
+              item that writes an overlapping path must not be visible here.
               """,
           ),
       ],
@@ -14443,11 +14542,125 @@ ResolvedArgumentRef(y)
       ],
   )
 
+  gen.AddNode(
+      name='ResolvedGraphDeleteScan',
+      tag_id=339,
+      parent='ResolvedScan',
+      comment="""
+      Represents a GQL DELETE operator, specifying graph elements to be
+      deleted from a property graph:
+          [DETACH | NODETACH] DELETE graph_element_reference;
+
+      For each row of the `input_scan`, compute columns in `delete_item_list`
+      and apply deletions to the target graph elements. The output `column_list`
+      must be a subset of the union of `input_scan`'s `column_list` (excluding
+      columns referenced in `delete_item_list`) and `delete_item_list`'s
+      computed columns.
+
+      This node is enabled by FEATURE_SQL_GRAPH_TERMINAL_NON_RETURNING_DELETE.
+      See (broken link):dml-delete for more details.
+      """,
+      fields=[
+          Field(
+              'input_scan',
+              'ResolvedScan',
+              tag_id=2,
+          ),
+          Field(
+              'delete_item_list',
+              'ResolvedComputedColumn',
+              vector=True,
+              tag_id=3,
+              comment="""
+              A list of computed columns, where each `ResolvedComputedColumn`
+              pairs a target graph element to be deleted (`expr`) with a newly
+              created `ResolvedColumn` (`column`) representing that graph
+              element in its post-delete state.
+
+              For rows where the target graph element is deleted, `column` gets
+              an invalid value, so accessing its properties or labels gives a
+              runtime error. For rows where the target graph element is not
+              deleted, `column` gets the original column's value.
+
+              If `expr` evaluates to NULL at runtime, the deletion is treated as
+              a no-op and `column`'s value remains NULL.
+
+              Multiple `ResolvedComputedColumn`s referencing different
+              `input_scan` columns may be referring to the same underlying graph
+              element. A GQL DELETE operation is idempotent, so the underlying
+              graph element will only be deleted once.
+
+              Rules:
+              1. `delete_item_list` must not be empty.
+              2. Each column in this list must be of GraphElementType.
+              3. The `expr` for each `ResolvedComputedColumn` in this list must
+              be a `ResolvedColumnRef` that references a column from
+              `input_scan`'s `column_list`.
+              """,
+          ),
+          Field(
+              'is_detach_mode',
+              SCALAR_BOOL,
+              tag_id=4,
+              comment="""
+              If true (DETACH mode), all edges connected to nodes in
+              `delete_item_list` also get deleted.
+
+              Otherwise, if any dangling edge exists after applying deletions
+              made, raise a runtime error.
+              """,
+          ),
+      ],
+  )
+
+  gen.AddNode(
+      name='ResolvedDeleteScan',
+      tag_id=346,
+      parent='ResolvedScan',
+      comment="""
+      This represents a pipe DELETE operator.
+      The overall procedure for this operator is as follows:
+
+      1) Scan the input table `delete_stmt->using_scan` and join it with target
+         table `delete_stmt->table_scan` using `delete_stmt->where_expr` as a
+         join condition and also a filter.
+
+      2) For each input row, there can be 0, 1 or multiple matched rows in the
+         target table:
+         - If 0 matches, then there is no target table row to delete. However,
+           the input row still gets returned. Values of columns in
+           `delete_stmt->returning` are NULL.
+         - If 1 match, the matched target table row is deleted and
+           the input row is returned.
+         - If multiple matches, a runtime error is returned. (Flow-through
+           delete must return the same input rows.)
+
+      3) If a target table row gets matched more than once to different input
+         rows, it gets deleted only once.
+
+      4) `column_list` can include both input table columns
+         (`delete_stmt->using_scan`) and returning columns
+         (`delete_stmt->returning`).
+
+      This operator only occurs inside a ResolvedGeneralizedQueryStmt, which
+      must be enabled in SupportedStatementKinds. A pipe delete operator is
+      typically used for rewriting a GQL DML Delete statement or inside a pipe
+      query.
+      See (broken link):delete-scan for more details.
+      """,
+      fields=[
+          Field(
+              'delete_stmt',
+              'ResolvedDeleteStmt',
+              tag_id=2,
+          ),
+      ],
+  )
   gen.Generate(
       input_file_paths=input_templates,
-      output_file_paths=output_files,
-      shard_nums=shard_nums,
-      shard_count=_SHARD_COUNT.value,
+      output_file_paths=output_files,  # pyrefly: ignore[bad-argument-type]
+      shard_nums=shard_nums,  # pyrefly: ignore[bad-argument-type]
+      shard_count=_SHARD_COUNT.value,  # pyrefly: ignore[bad-argument-type]
       data_files=data_files,
   )
 

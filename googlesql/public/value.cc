@@ -58,6 +58,7 @@
 #include "googlesql/public/variant_value.h"
 #include "googlesql/base/case.h"
 #include "absl/algorithm/container.h"
+#include "absl/base/no_destructor.h"
 #include "absl/base/nullability.h"
 #include "absl/base/optimization.h"
 #include "absl/container/flat_hash_map.h"
@@ -2492,8 +2493,8 @@ class VariantRefImpl final
     : public internal::VariantRef,
       public googlesql_base::refcount::CompactReferenceCounted<VariantRefImpl, int64_t> {
  public:
-  explicit VariantRefImpl(const Value& inner_value)
-      : inner_value_(inner_value) {}
+  explicit VariantRefImpl(Value inner_value)
+      : inner_value_(std::move(inner_value)) {}
 
   void Ref() const override {
     googlesql_base::refcount::CompactReferenceCounted<VariantRefImpl, int64_t>::Ref();
@@ -2504,6 +2505,10 @@ class VariantRefImpl final
   }
 
   const Value& inner_value() const override { return inner_value_; }
+
+  std::string Format() const override {
+    return VariantValueView(inner_value_).DebugString();
+  }
 
   uint64_t physical_byte_size() const override {
     return sizeof(VariantRefImpl) + inner_value_.physical_byte_size();
@@ -2528,7 +2533,7 @@ class VariantRefImpl final
 
 }  // namespace internal
 
-absl::StatusOr<Value> Value::Variant(const Value& inner_value) {
+absl::StatusOr<Value> Value::Variant(Value inner_value) {
   GOOGLESQL_RET_CHECK(inner_value.is_valid()) << "inner_value in Variant must be valid";
 
   if (inner_value.type()->IsVariant()) {
@@ -2537,7 +2542,15 @@ absl::StatusOr<Value> Value::Variant(const Value& inner_value) {
 
   GOOGLESQL_RETURN_IF_ERROR(ValidateTypeForVariant(inner_value.type()));
 
-  return Value(new internal::VariantRefImpl(inner_value));
+  return Value(new internal::VariantRefImpl(std::move(inner_value)));
+}
+
+Value Value::VariantNull() {
+  // A Variant null is represented by a JSON 'null' scalar value which is what
+  // the default constructor of JSONValue produces.
+  static const absl::NoDestructor<Value> kVariantNull(
+      *Value::Variant(Value::Json(JSONValue())));
+  return *kVariantNull;
 }
 
 }  // namespace googlesql

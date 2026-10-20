@@ -604,3 +604,48 @@ THEN RETURN
   keyvaluenested_1.Key AS key,
   keyvaluenested_1.Key AS ref_key,
   100 AS value;
+==
+
+# UPDATE ... FROM ... THEN RETURN referencing target table columns, FROM clause
+# columns, and expressions combining both.
+[language_features=MAXIMUM,+DML_UPDATE_RETURNING_FROM_COLUMNS]
+UPDATE SimpleTypes AS t
+SET t.int64 = 1
+FROM KeyValue AS kv
+WHERE t.int64 = kv.Key
+THEN RETURN t.int64, kv.Value, t.int64 + kv.Key AS sum_key
+--
+[SQLBUILDER_TARGET_SYNTAX_MODE standard]
+[SQLBUILDER_OUTPUT]
+UPDATE SimpleTypes AS simpletypes_1
+SET
+  simpletypes_1.int64 = 1
+FROM
+  KeyValue
+WHERE
+  (simpletypes_1.int64) = (KeyValue.Key)
+THEN RETURN
+  simpletypes_1.int64 AS int64,
+  KeyValue.Value AS Value,
+  (simpletypes_1.int64) + (KeyValue.Key) AS sum_key;
+
+[SQLBUILDER_TARGET_SYNTAX_MODE pipe]
+[SQLBUILDER_OUTPUT]
+UPDATE SimpleTypes AS simpletypes_1
+SET
+  simpletypes_1.int64 = 1
+FROM
+  (
+    FROM
+      KeyValue
+    |> SELECT
+         KeyValue.Key AS a_2,
+         KeyValue.Value AS a_3
+    |> AS keyvalue_4
+  )
+WHERE
+  (simpletypes_1.int64) = (keyvalue_4.a_2)
+THEN RETURN
+  simpletypes_1.int64 AS int64,
+  keyvalue_4.a_3 AS Value,
+  (simpletypes_1.int64) + (keyvalue_4.a_2) AS sum_key;

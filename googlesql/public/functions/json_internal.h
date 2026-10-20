@@ -43,6 +43,9 @@
 #include "absl/strings/string_view.h"
 
 namespace googlesql {
+
+class JSONValueConstRef;
+
 namespace functions {
 namespace json_internal {
 
@@ -118,17 +121,207 @@ class JSONPathIterator {
   bool is_valid_ = true;
 };
 
+// Represents the kind of step in a JSONPath expression.
+enum class JsonPathStepKind {
+  kRoot,               // $
+  kMember,             // .member_name
+  kIndex,              // [index]
+  kObjectWildcard,     // .* or ..*
+  kSubscriptWildcard,  // [*] or ..[*]
+};
+
+// Represents a single step in a parsed JSONPath expression.
+class JsonPathStep {
+ public:
+  static JsonPathStep Root() {
+    return JsonPathStep(JsonPathStepKind::kRoot, /*is_descendant=*/false);
+  }
+
+  static JsonPathStep Member(std::string member_name, bool is_descendant) {
+    JsonPathStep step(JsonPathStepKind::kMember, is_descendant);
+    step.member_name_ = std::move(member_name);
+    return step;
+  }
+
+  static JsonPathStep Index(int64_t index, std::string raw_token,
+                            bool is_descendant) {
+    JsonPathStep step(JsonPathStepKind::kIndex, is_descendant);
+    step.index_ = index;
+    step.raw_token_ = std::move(raw_token);
+    return step;
+  }
+
+  static JsonPathStep ObjectWildcard(bool is_descendant) {
+    return JsonPathStep(JsonPathStepKind::kObjectWildcard, is_descendant);
+  }
+
+  static JsonPathStep SubscriptWildcard(bool is_descendant) {
+    return JsonPathStep(JsonPathStepKind::kSubscriptWildcard, is_descendant);
+  }
+
+  JsonPathStepKind kind() const { return kind_; }
+  bool is_descendant() const { return is_descendant_; }
+  // The unescaped member key name used for dictionary matching against JSON
+  // object keys during evaluation (e.g. "foo.bar" -> foo.bar).
+  absl::string_view member_name() const {
+    ABSL_DCHECK(is_member());
+    return member_name_;
+  }
+  // The parsed integer array index for `kIndex` steps. Only meaningful in
+  // wildcard or descendant paths (where array indices are strictly validated);
+  // linear paths use `raw_token()` via `ToLegacyTokens()`.
+  int64_t index() const {
+    ABSL_DCHECK(is_index());
+    return index_;
+  }
+  // The raw unparsed bracket token (e.g. "007", "-0", "1_2") used by
+  // `ToLegacyTokens()` to preserve exact legacy token behavior.
+  absl::string_view raw_token() const {
+    ABSL_DCHECK(is_index());
+    return raw_token_;
+  }
+
+  bool is_root() const { return kind_ == JsonPathStepKind::kRoot; }
+  bool is_member() const { return kind_ == JsonPathStepKind::kMember; }
+  bool is_index() const { return kind_ == JsonPathStepKind::kIndex; }
+  bool is_wildcard() const {
+    return kind_ == JsonPathStepKind::kObjectWildcard ||
+           kind_ == JsonPathStepKind::kSubscriptWildcard;
+  }
+
+ private:
+  JsonPathStep(JsonPathStepKind kind, bool is_descendant)
+      : kind_(kind), is_descendant_(is_descendant) {}
+
+  JsonPathStepKind kind_;
+  bool is_descendant_;
+  int64_t index_ = 0;
+
+  // Raw bracket token for kIndex (used by ToLegacyTokens()).
+  std::string raw_token_;
+
+  // Unescaped member name for JSON object lookup.
+  std::string member_name_;
+};
+
+// A structured, parsed representation of a JSONPath expression.
+class ParsedJsonPath {
+ public:
+  ParsedJsonPath() = default;
+
+  const std::vector<JsonPathStep>& steps() const { return steps_; }
+  void AddStep(JsonPathStep step) {
+    if (step.is_wildcard() || step.is_descendant()) {
+      has_wildcard_or_descendant_ = true;
+    }
+    steps_.push_back(std::move(step));
+  }
+
+  bool has_wildcard_or_descendant() const {
+    return has_wildcard_or_descendant_;
+  }
+
+  // Converts the parsed steps into the legacy flat string-token vector format
+  // used by `ValidJSONPathIterator` (for non-wildcard/non-descendant fast-path
+  // iteration and existing callers):
+  //   - kRoot   -> "" (empty string representing '$')
+  //   - kMember -> unescaped member name (e.g. "a")
+  //   - kIndex  -> raw bracket token string (e.g. "0", "007", "-0")
+  // Returns an error if `has_wildcard_or_descendant()` is true.
+  absl::StatusOr<std::vector<std::string>> ToLegacyTokens() const;
+
+ private:
+  std::vector<JsonPathStep> steps_;
+  bool has_wildcard_or_descendant_ = false;
+};
+
+// Parses a non-lax default JSONPath string into a structured ParsedJsonPath.
+//
+// The parser tokenizes the path into an ordered sequence of JsonPathStep
+// objects and flags whether the path contains wildcards or descendant
+// operators.
+//
+// Supported path syntax:
+//   - Root selector: "$"
+//   - Child selectors:
+//       - Dot member access: ".key", '."quoted.key"' (sql_standard_mode=true)
+//       - Subscript array indexing: "[0]", "[1]"
+//       - Subscript member access (legacy mode only, sql_standard_mode=false):
+//         "['key']", "[key]"
+//       - Object wildcard (sql_standard_mode=true): ".*"
+//       - Subscript array wildcard (sql_standard_mode=true): "[*]"
+//   - Recursive descendant selectors ("..", sql_standard_mode=true):
+//       - Descendant member: "..key", '.."quoted.key"'
+//       - Descendant subscript index: "..[0]"
+//       - Descendant wildcard: "..*", "..[*]"
+//
+// When wildcard (`.*`, `[*]`) or descendant (`..`) operators are present in
+// the path (`has_wildcard_or_descendant() == true`), stricter syntax rules are
+// enforced across the entire path:
+//   - Unquoted member names (`.key`, `..key`) must be strict identifiers
+//     (`[\p{L}\p{N}\d_]+`); unquoted whitespace, colons (`:`), and hyphens
+//     (`-`) are rejected (must be double-quoted, e.g. `."a b:c-d"`).
+//   - Double-quoted member names (`."key"`, `.."key"`) cannot contain
+//     backslashes (`\`).
+//   - Bracket array indices (`[index]`, `..[index]`) must be non-negative
+//     64-bit integers without `-` or `_`.
+//
+// Parameters:
+//   path: The raw JSONPath string to parse.
+//   sql_standard_mode: If true, follows SQL standard quoting rules (e.g.,
+//     double-quoted dot member access `."key"` / `.."key"`, whereas bracket
+//     subscripts `[...]` only accept array indices or `*`).
+//     If false, adheres to legacy GoogleSQL JSONPath escaping (allowing
+//     `['key']` and `[key]` member access) and disallows wildcard and
+//     descendant operators.
+//   enable_wildcard_and_descendant: If true (and `sql_standard_mode` is true),
+//     enables wildcard (`.*`, `[*]`) and recursive descendant (`..`)
+//     operators.
+//
+// Returns:
+//   A ParsedJsonPath representing the parsed steps, or an
+//   absl::OutOfRangeError status if the JSONPath syntax is invalid or contains
+//   unsupported tokens.
+absl::StatusOr<ParsedJsonPath> ParseJsonPath(
+    absl::string_view path, bool sql_standard_mode,
+    bool enable_wildcard_and_descendant = false);
+
+// Evaluates a parsed strict-mode JSONPath against a JSON document DOM,
+// returning matched nodes in depth-first pre-order, with object members
+// visited in sorted key order and array elements in index order.
+//
+// If `max_matches` is set, stops traversing as soon as `*max_matches` matches
+// have been collected (returning an empty vector if `*max_matches == 0`). If
+// `max_matches` is `std::nullopt`, collects all matches.
+//
+// Precondition: `path.steps()` is non-empty, starts with a `kRoot` step at
+// index 0, and contains no `kRoot` steps at index > 0 (as guaranteed by
+// `ParseJsonPath()`).
+std::vector<JSONValueConstRef> EvaluateJsonPath(
+    const ParsedJsonPath& path, JSONValueConstRef input,
+    std::optional<size_t> max_matches = std::nullopt);
+
 // Checks if the given JSON path is supported and valid.
-absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode);
+absl::Status IsValidJSONPath(absl::string_view text, bool sql_standard_mode,
+                             bool enable_wildcard_and_descendant = false);
 
 // Bi-directed iterator over tokens in a valid JSON path, used by the extraction
 // algorithm.
+//
+// Note: `ValidJSONPathIterator` only supports linear (non-wildcard,
+// non-descendant) JSONPaths. Paths containing wildcards (`.*`, `[*]`) or
+// descendant (`..`) operators are rejected by `Create()`.
 class ValidJSONPathIterator final : public JSONPathIterator<std::string> {
  public:
   typedef std::string Token;
 
   static absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
       absl::string_view js_path, bool sql_standard_mode);
+
+  // Constructs a ValidJSONPathIterator from an already-parsed JSONPath.
+  // Precondition: `!parsed_path.has_wildcard_or_descendant()`.
+  static absl::StatusOr<std::unique_ptr<ValidJSONPathIterator>> Create(
+      const ParsedJsonPath& parsed_path);
 
  private:
   explicit ValidJSONPathIterator(std::vector<Token> tokens)
@@ -150,7 +343,8 @@ absl::Status IsValidJSONPathStrict(absl::string_view text,
 // 1) True - The path is valid and in lax mode.
 // 2) False - The path is valid but not in lax mode.
 // 3) Error - Invalid path.
-absl::StatusOr<bool> IsValidAndLaxJSONPath(absl::string_view text);
+absl::StatusOr<bool> IsValidAndLaxJSONPath(
+    absl::string_view text, bool enable_wildcard_and_descendant = false);
 
 // Represents a strict parsed token.
 class StrictJSONPathToken {

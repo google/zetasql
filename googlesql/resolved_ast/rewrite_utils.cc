@@ -2141,6 +2141,63 @@ FunctionCallBuilder::ArraySlice(
 }
 
 absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
+FunctionCallBuilder::In(
+    std::unique_ptr<const ResolvedExpr> search_expr,
+    std::vector<std::unique_ptr<const ResolvedExpr>> in_exprs) {
+  // The IN list syntax requires a valid left-hand expression supporting
+  // equality and at least one right-hand candidate expression.
+  GOOGLESQL_RET_CHECK_NE(search_expr.get(), nullptr);
+  GOOGLESQL_RET_CHECK(!in_exprs.empty());
+  GOOGLESQL_RET_CHECK(search_expr->type()->SupportsEquality());
+
+  for (const auto& expr : in_exprs) {
+    GOOGLESQL_RET_CHECK_NE(expr.get(), nullptr);
+    GOOGLESQL_RET_CHECK(search_expr->type()->Equals(expr->type()))
+        << "Expected search_expr->type()->Equals(expr->type()) to be true, "
+        << "but it was false. search_expr->type(): "
+        << search_expr->type()->DebugString()
+        << ", expr->type(): " << expr->type()->DebugString();
+    GOOGLESQL_RET_CHECK(AnnotationMap::Equals(expr->type_annotation_map(),
+                                    search_expr->type_annotation_map()));
+  }
+
+  const Function* in_fn = nullptr;
+  GOOGLESQL_RETURN_IF_ERROR(GetBuiltinFunctionFromCatalog("$in", &in_fn));
+
+  // The FN_IN signature takes one scalar search expression and a repeated
+  // argument descriptor matching the number of elements in `in_exprs`.
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      FunctionSignature concrete_signature,
+      MakeConcreteSignature(
+          in_fn, FN_IN, types::BoolType(),
+          {{search_expr->type(), 1}, {search_expr->type(), in_exprs.size()}}));
+
+  std::vector<std::unique_ptr<const ResolvedExpr>> args;
+  args.reserve(in_exprs.size() + 1);
+  args.push_back(std::move(search_expr));
+  for (auto& expr : in_exprs) {
+    args.push_back(std::move(expr));
+  }
+
+  GOOGLESQL_ASSIGN_OR_RETURN(
+      std::unique_ptr<ResolvedFunctionCall> resolved_function,
+      ResolvedFunctionCallBuilder()
+          .set_type(types::BoolType())
+          .set_function(in_fn)
+          .set_signature(std::move(concrete_signature))
+          .set_argument_list(std::move(args))
+          .set_error_mode(ResolvedFunctionCall::DEFAULT_ERROR_MODE)
+          .set_function_call_info(std::make_shared<ResolvedFunctionCallInfo>())
+          .BuildMutable());
+
+  // Populate operation collation on the function call from argument
+  // annotations.
+  GOOGLESQL_RETURN_IF_ERROR(
+      PropagateAnnotationsAndProcessCollationList(resolved_function.get()));
+  return resolved_function;
+}
+
+absl::StatusOr<std::unique_ptr<const ResolvedFunctionCall>>
 FunctionCallBuilder::InArray(std::unique_ptr<const ResolvedExpr> search_expr,
                              std::unique_ptr<const ResolvedExpr> array_expr) {
   GOOGLESQL_RET_CHECK(search_expr != nullptr);

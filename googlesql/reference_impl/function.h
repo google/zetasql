@@ -584,7 +584,7 @@ enum class FunctionKind {
   // Vector functions
   kEncodeVector,
   kDecodeVector,
-  kVectorFloat32Length,
+  kVectorFloat32DimensionCount,
   kVectorEncoding,
 
   // Map functions
@@ -2498,7 +2498,7 @@ class DecodeVectorFunction : public SimpleBuiltinScalarFunction {
                              EvaluationContext* context) const override;
 };
 
-class VectorFloat32LengthFunction : public SimpleBuiltinScalarFunction {
+class VectorFloat32DimensionCountFunction : public SimpleBuiltinScalarFunction {
  public:
   using SimpleBuiltinScalarFunction::SimpleBuiltinScalarFunction;
   absl::StatusOr<Value> Eval(absl::Span<const TupleData* const> params,

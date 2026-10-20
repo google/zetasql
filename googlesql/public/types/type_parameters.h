@@ -88,7 +88,7 @@ class TypeParameters {
       const ExtendedTypeParameters& extended_type_parameters,
       std::vector<TypeParameters> child_list = std::vector<TypeParameters>());
 
-  // Constructs type parameters for VECTOR(L) type.
+  // Constructs type parameters for VECTOR(D) type.
   static absl::StatusOr<TypeParameters> MakeVectorTypeParameters(
       const VectorTypeParametersProto& vector_type_parameters);
 
@@ -119,7 +119,7 @@ class TypeParameters {
   bool MatchType(const Type* type) const;
 
   // Returns SQL-compatible representation of type parameters.
-  // E.g., for VectorTypeParameters with length 3, returns "(3)".
+  // E.g., for VectorTypeParameters with dims 3, returns "(3)".
   // E.g., for ExtendedTypeParameters (a, b), returns "(a, b)".
   std::string ToParenthesizedString() const;
 

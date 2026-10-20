@@ -26,6 +26,7 @@
 #include "googlesql/analyzer/rewriters/insert_dml_values_rewriter.h"
 #include "googlesql/analyzer/rewriters/is_first_is_last_function_rewriter.h"
 #include "googlesql/analyzer/rewriters/like_any_all_rewriter.h"
+#include "googlesql/analyzer/rewriters/lookup_table_tvf_rewriter.h"
 #include "googlesql/analyzer/rewriters/map_function_rewriter.h"
 #include "googlesql/analyzer/rewriters/match_recognize_function_rewriter.h"
 #include "googlesql/analyzer/rewriters/measure_type_rewriter.h"
@@ -106,6 +107,8 @@ void RegisterBuiltinRewriters() {
                GetBuiltinFunctionInliner());
     r.Register(ResolvedASTRewrite::REWRITE_LIKE_ANY_ALL,
                GetLikeAnyAllRewriter());
+    r.Register(ResolvedASTRewrite::REWRITE_LOOKUP_TABLE_TVF,
+               GetLookupTableTvfRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_TUMBLE_FUNCTION,
                GetTumbleFunctionRewriter());
     r.Register(ResolvedASTRewrite::REWRITE_QUANTIFIED_COMPARISONS,

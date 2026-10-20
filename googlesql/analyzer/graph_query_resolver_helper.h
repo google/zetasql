@@ -65,8 +65,8 @@ struct GraphTableNamedVariables {
 struct GqlQueryContext {
   // True if this is the first statement in a top-level graph query.
   bool is_first_statement_in_graph_query = false;
-  // True if this query is nested inside a GRAPH_TABLE subquery or intermediate
-  // pipe stage.
+  // True if this query is nested inside a GRAPH_TABLE subquery or a GQL
+  // subquery (for example, CALL {...} or EXISTS {...}).
   bool is_nested = false;
   // True if this query appears inside a GQL set operation.
   bool is_set_op = false;

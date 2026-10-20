@@ -9,15 +9,17 @@ The [HyperLogLog++ algorithm (HLL++)][hll-sketches] estimates
 [cardinality][cardinality] from sketches.
 
 HLL++ functions are approximate aggregate functions.
-Approximate aggregation typically requires less
-memory than exact aggregation functions,
+Approximate aggregation typically uses fewer
+resources than exact aggregation functions,
 like [`COUNT(DISTINCT)`][count-distinct], but also introduces statistical error.
 This makes HLL++ functions appropriate for large data streams for
 which linear memory usage is impractical, as well as for data that is
 already approximate.
 
-A data sketch is a compact summary of a data aggregation. If you don't need
-materialized sketches, you can alternatively use an
+A data sketch is a compact summary of a data
+aggregation. For more information, see
+[Sketches][sketches]. If you don't need to
+store sketches, you can alternatively use an
 [approximate aggregate function with system-defined precision][approx-functions-reference],
 such as [`APPROX_COUNT_DISTINCT`][approx-count-distinct]. However,
 `APPROX_COUNT_DISTINCT` doesn't allow partial aggregations, re-aggregations,
@@ -348,4 +350,6 @@ FROM
 [approx-count-distinct]: https://github.com/google/googlesql/blob/master/docs/approximate_aggregate_functions.md#approx_count_distinct
 
 [approx-functions-reference]: https://github.com/google/googlesql/blob/master/docs/approximate_aggregate_functions.md
+
+[sketches]: https://github.com/google/googlesql/blob/master/docs/sketches.md
 

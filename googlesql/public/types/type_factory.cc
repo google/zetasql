@@ -85,6 +85,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/types/span.h"
+#include "googlesql/base/case.h"
 #include "google/protobuf/descriptor.h"
 #include "googlesql/base/map_util.h"
 #include "googlesql/base/ret_check.h"
@@ -711,17 +712,20 @@ absl::Status TypeFactory::MakeGraphElementType(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
     absl::Span<const GraphElementType::PropertyType> property_types,
+    absl::Span<const std::string> element_tables,
     const GraphElementType** result) {
   return MakeGraphElementTypeFromVector(
       graph_reference, element_kind,
       {property_types.begin(), property_types.end()},
+      {element_tables.begin(), element_tables.end()},
       /*is_dynamic=*/false, result);
 }
 
 absl::Status TypeFactory::MakeGraphElementTypeFromVector(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
-    std::vector<GraphElementType::PropertyType> property_types, bool is_dynamic,
+    std::vector<GraphElementType::PropertyType> property_types,
+    std::vector<std::string> element_tables, bool is_dynamic,
     const GraphElementType** result) {
   *result = nullptr;
   if (graph_reference.empty()) {
@@ -752,12 +756,28 @@ absl::Status TypeFactory::MakeGraphElementTypeFromVector(
     AddDependency(itr->value_type);
   }
 
+  std::vector<std::string> deduplicated_element_tables;
+  deduplicated_element_tables.reserve(element_tables.size());
+  absl::flat_hash_set<absl::string_view, googlesql_base::StringViewCaseHash,
+                      googlesql_base::StringViewCaseEqual>
+      element_table_names;
+  for (std::string& table_name : element_tables) {
+    if (table_name.empty()) {
+      return absl::InvalidArgumentError("Element table name cannot be empty");
+    }
+    if (!element_table_names.contains(table_name)) {
+      deduplicated_element_tables.push_back(std::move(table_name));
+      element_table_names.insert(deduplicated_element_tables.back());
+    }
+  }
+
   absl::MutexLock lock(store_->mutex_);
   const internal::GraphReference* cached_graph_reference =
       FindOrCreateCatalogName(graph_reference);
   *result = TakeOwnershipLocked(new GraphElementType(
       cached_graph_reference, element_kind, *this, std::move(property_type_set),
-      max_nesting_depth + 1, is_dynamic));
+      std::move(deduplicated_element_tables), max_nesting_depth + 1,
+      is_dynamic));
   return absl::OkStatus();
 }
 
@@ -765,10 +785,12 @@ absl::Status TypeFactory::MakeDynamicGraphElementType(
     absl::Span<const std::string> graph_reference,
     GraphElementType::ElementKind element_kind,
     absl::Span<const GraphElementType::PropertyType> static_property_types,
+    absl::Span<const std::string> element_tables,
     const GraphElementType** result) {
   return MakeGraphElementTypeFromVector(
       graph_reference, element_kind,
       {static_property_types.begin(), static_property_types.end()},
+      {element_tables.begin(), element_tables.end()},
       /*is_dynamic=*/true, result);
 }
 

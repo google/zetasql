@@ -20,8 +20,10 @@
 #include <optional>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
+#include "googlesql/public/json_value.h"
 #include "googlesql/public/type.h"
 #include "googlesql/public/value.h"
 #include "absl/status/status.h"
@@ -32,43 +34,66 @@ namespace googlesql {
 
 namespace internal {
 
-// VariantValueAdapter adapts a GoogleSQL value to provide views aligned with
-// the Variant data model. In addition to storing a `googlesql::Value`, for
-// certain types, it provides the following views:
-// 1. Primitive: A primitive value is a value that is not an object or
-//    array. Examples include int64, string, bool, null, etc. JSON primitive
-//    values are also exposed as Primitives.
-// 2. Object: An object is an unordered collection of key-value pairs, where the
-//    key is a string and the value is a Variant. JSON Objects, Maps with string
-//    keys, Protos and Structs are exposed as Object. Each of these types have
-//    different semantics when exposed as an Object, but they are all accessed
-//    via the same interface.
-// 3. Array: An array is an ordered list of Variant values. Any array-like type
-//    in GoogleSQL (e.g., JSON Array, Array of any type) is exposed
-//    as an Array.
+// VariantValueAdapter adapts a googlesql::Value to the Variant data model
+// (Simple View), classifying supported non-null values into one of three
+// mutually exclusive categories (Primitive, Object, or Array) and providing
+// uniform inspection and traversal across heterogeneous SQL types.
+//
+// Categories and Type Mapping:
+// 1. Primitive: Scalar types that are not objects or arrays. Includes numeric
+//    types, string, boolean and JSON 'null'. JSON primitive values are also
+//    exposed as Primitives.
+// 2. Object: Unordered collections of key-value pairs with string keys and
+//    Variant values. The following backing types are exposed as Objects:
+//    * STRUCT: Field names act as keys. Unnamed fields use the empty string as
+//      their key. When duplicate field names exist, only the first field is
+//      exposed.
+//    * PROTO: Field names from the proto descriptor act as keys.
+//    * MAP<STRING, V>: Non-null keys and their mapped values are exposed.
+//      Entries with SQL NULL keys are omitted.
+//    * JSON object: Exposed as key-value pairs of its JSON members.
+// 3. Array: Ordered list of Variant values. SQL arrays of any type and JSON
+//    arrays are exposed as Arrays.
+//
 // Note that the above views are not applicable to all types that can be stored
-// in a Variant. For example, a MAP with non-string keys is not exposed as an
-// any of the above views, in which case, only the underlying `googlesql::Value`
-// can be used.
-// Invariant: For any variant value, at most one of IsPrimitive(), IsObject(),
-//            and IsArray() is true.
+// in a Variant. For example, RANGE or MAP with non-string keys is not exposed
+// as any of the above views.
 //
-// This class provides ergonomic accessors aligned with the Variant View
-// Framework (Primitive, Object, Array) described above.
+// INVARIANT: At most one of IsPrimitive(), IsObject(), and IsArray() is true
+// for any VariantValueAdapter.
 //
-// Variant Null vs SQL NULL:
-// There are two kinds of nulls within the Variant model:
+// SQL NULL vs. Variant null:
+// There are two kinds of nulls within the Variant model.
 // 1. SQL NULL: The absence of a value (e.g., untyped NULL or typed SQL NULL
-//    like `Value::NullInt64()`). Checked via `is_null()`.
-// 2. Variant null: It is a primitive value Similar to JSON `null` is a valid
-//    value. Checked via `IsVariantNull()`. It is considered a primitive;
-//    therefore `IsPrimitive()` returns true for it, while `IsObject()` and
-//    `IsArray()` return false.
+//    like Value::NullInt64()). Checked via is_null(). IsPrimitive(),
+//    IsObject(), IsArray(), and IsVariantNull() all return false.
+// 2. Variant null: It is a primitive value (similar to JSON 'null') and it's a
+//    valid value. Checked via IsVariantNull(). IsPrimitive() returns true,
+//    while IsObject() and   IsArray() return false. A Variant null is produced
+//    either from a JSON 'null' value or when extracting a SQL NULL child from a
+//    STRUCT field, ARRAY element, MAP value, or PROTO field.
 //
-// In this view, when accessing child fields or
-// elements in Arrays, Structs, Maps, or Protos, any encountered SQL NULL is
-// exposed as a Variant null.
+// VariantValueAdapter is defined in googlesql::internal and exposed publicly
+// via the googlesql::VariantValueView type alias.
 //
+// Internal Representation:
+//   The underlying state is stored in rep_ as std::variant<Value, JSONNode>
+//     * JSONNode is used for all valid, non-null JSON values. It bundles the
+//       reference-counted root TYPE_JSON Value (root_value, kept to manage
+//       document lifetime) with a JSONValueConstRef (ref) pointing to the
+//       specific JSON node represented by this adapter.
+//     * Value is used for all non-JSON types, SQL NULLs, invalid Values, and
+//       unparsed JSON strings that failed to parse.
+//   Unparsed TYPE_JSON strings are parsed once during VariantValueAdapter
+//   construction. On success, the parsed document is wrapped in a validated
+//   TYPE_JSON Value and stored as a JSONNode. On failure, the unparsed Value is
+//   stored in the Value arm of rep_. IsPrimitive(), IsObject() and IsArray()
+//   all return false. Traversing into JSON objects or arrays (GetKeyValue,
+//   GetMembers, GetElement, GetElements) constructs child adapters with a
+//   JSONNode that copies root_value (incrementing its reference count) and sets
+//   ref to the child JSONValueConstRef. This avoids deep-copying JSON subtrees
+//   while keeping child adapters valid independently of the parent adapter's
+//   lifetime.
 class VariantValueAdapter {
  public:
   explicit VariantValueAdapter(Value value);
@@ -175,8 +200,31 @@ class VariantValueAdapter {
   // represented as "null".
   std::string DebugString() const;
 
+  // Returns the underlying GoogleSQL Value. If this adapter represents a
+  // JSON node, a JSON Value is materialized and returned.
+  Value ToValue() const;
+
+  // Struct stored in rep_ when this adapter represents a valid non-null JSON
+  // value. The underlying root JSON document is stored in root_value, and ref
+  // points to the JSON sub-node that this adapter represents.
+  struct JSONNode {
+    Value root_value;
+    JSONValueConstRef ref;
+  };
+
  private:
-  Value value_;
+  // If this adapter represents a valid non-null JSON value, JSONNode is
+  // populated. Otherwise (non-JSON types, SQL NULLs (including JSON-typed SQL
+  // NULLs), invalid Values, and unparsed JSON strings that failed parsing),
+  // Value is populated. See "Internal Representation" above for more details.
+  std::variant<Value, JSONNode> rep_;
+
+  // The Tag structs use this constructor to initialize rep_ directly with a
+  // JSONNode.
+  friend VariantValueAdapter MakeVariantValueAdapterForJSON(
+      Value root_value, JSONValueConstRef json_ref);
+  explicit VariantValueAdapter(Value root_value, JSONValueConstRef json_ref)
+      : rep_(JSONNode{std::move(root_value), json_ref}) {}
 };
 
 }  // namespace internal

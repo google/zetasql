@@ -52,7 +52,7 @@ class ArrayType : public ListBackedType {
   const ArrayType* AsArray() const override { return this; }
 
   TypeListView ComponentTypes() const override {
-    return absl::MakeConstSpan(&element_type_, 1);
+    return absl::MakeConstSpan(&element_type_, /*size=*/1);
   }
 
   // Helper function to determine deep equality or equivalence for array types.

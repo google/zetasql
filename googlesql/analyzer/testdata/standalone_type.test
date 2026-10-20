@@ -1518,7 +1518,7 @@ VECTOR(128)
 VECTOR(128)
 ==
 
-# VECTOR with length and encoding parameters is supported.
+# VECTOR with dims and encoding parameters is supported.
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE]
 VECTOR(128, 'FLOAT32')
 --
@@ -1533,10 +1533,10 @@ VECTOR(128, 'FLOAT32')
 ==
 
 # TODO: Support analysis time constants as VECTOR type parameters (TestConstantInt64).
-# TODO: Support VECTOR(NULL) and VECTOR(length => 3) once named parameters and NULL as a type parameter are supported.
+# TODO: Support VECTOR(NULL) and VECTOR(dims => 3) once named parameters and NULL as a type parameter are supported.
 # Parameterized VECTOR error cases.
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE]
-VECTOR({{?|(1)|0|1.5|'abc'|MAX|[]|@p|rand()|CAST(2 AS UINT32)|length => 3|TestConstantInt64|true|b'abc'|NULL|1+2|"a"|[1,2]|}})
+VECTOR({{?|(1)|0|1.5|'abc'|MAX|[]|@p|rand()|CAST(2 AS UINT32)|dims => 3|TestConstantInt64|true|b'abc'|NULL|1+2|"a"|[1,2]|}})
 --
 ALTERNATION GROUP: ?
 --
@@ -1552,25 +1552,25 @@ VECTOR((1))
 --
 ALTERNATION GROUP: 0
 --
-ERROR: VECTOR length must be greater than 0 [at 1:7]
+ERROR: VECTOR dims must be greater than 0 [at 1:7]
 VECTOR(0)
       ^
 --
 ALTERNATION GROUP: 1.5
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR(1.5)
       ^
 --
 ALTERNATION GROUP: 'abc'
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR('abc')
       ^
 --
 ALTERNATION GROUP: MAX
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR(MAX)
       ^
 --
@@ -1598,10 +1598,10 @@ ERROR: Syntax error: Unexpected keyword CAST [at 1:8]
 VECTOR(CAST(2 AS UINT32))
        ^
 --
-ALTERNATION GROUP: length => 3
+ALTERNATION GROUP: dims => 3
 --
-ERROR: Syntax error: Unexpected identifier "length" [at 1:8]
-VECTOR(length => 3)
+ERROR: Syntax error: Unexpected identifier "dims" [at 1:8]
+VECTOR(dims => 3)
        ^
 --
 ALTERNATION GROUP: TestConstantInt64
@@ -1612,13 +1612,13 @@ VECTOR(TestConstantInt64)
 --
 ALTERNATION GROUP: true
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR(true)
       ^
 --
 ALTERNATION GROUP: b'abc'
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR(b'abc')
       ^
 --
@@ -1636,7 +1636,7 @@ VECTOR(1+2)
 --
 ALTERNATION GROUP: "a"
 --
-ERROR: VECTOR length parameter must be an integer literal [at 1:7]
+ERROR: VECTOR dims parameter must be an integer literal [at 1:7]
 VECTOR("a")
       ^
 --
@@ -1762,26 +1762,26 @@ STRUCT<v VECTOR(3)>
 STRUCT<v VECTOR(3)>
 ==
 
-# ARRAY of parameterized VECTOR with invalid length fails.
+# ARRAY of parameterized VECTOR with invalid dims fails.
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE]
 ARRAY<VECTOR(0)>
 --
-ERROR: VECTOR length must be greater than 0 [at 1:13]
+ERROR: VECTOR dims must be greater than 0 [at 1:13]
 ARRAY<VECTOR(0)>
             ^
 ==
 
-# STRUCT of parameterized VECTOR with invalid length fails.
+# STRUCT of parameterized VECTOR with invalid dims fails.
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE]
 STRUCT<v VECTOR(0)>
 --
-ERROR: VECTOR length must be greater than 0 [at 1:16]
+ERROR: VECTOR dims must be greater than 0 [at 1:16]
 STRUCT<v VECTOR(0)>
                ^
 ==
 
 
-# ARRAY of parameterized VECTOR with valid length is valid.
+# ARRAY of parameterized VECTOR with valid dims is valid.
 [language_features=MAXIMUM,+DECLARATIVE_TYPE_FRAMEWORK,+VECTOR_TYPE]
 ARRAY<VECTOR(128)>
 --

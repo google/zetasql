@@ -941,9 +941,6 @@ bool StringFormatEvaluator::ProcessPattern() {
       "(\\*|[0-9]*)"          // width
       "(\\.(?:\\*|[0-9]*))?"  // precision
       "(.)"};                 // specifier
-  // To be used for regexp captures.
-  absl::string_view flags, width, precision, specifier;
-
   int64_t next_arg = 0;
   absl::string_view::size_type marker_psn;
 
@@ -961,6 +958,9 @@ bool StringFormatEvaluator::ProcessPattern() {
       raw_parts_.emplace_back("");
     }
 
+    std::string stripped_flags;
+    // To be used for regexp captures.
+    absl::string_view flags, width, precision, specifier;
     if (!RE2::Consume(&suffix, *pattern_regex, &flags, &width, &precision,
                       &specifier)) {
       status_.Update(googlesql_base::OutOfRangeErrorBuilder()
@@ -969,7 +969,6 @@ bool StringFormatEvaluator::ProcessPattern() {
     }
 
     bool grouping = absl::StrContains(flags, '\'');
-    std::string stripped_flags;
     if (grouping) {
       for (char c : flags) {
         if (c != '\'') {
